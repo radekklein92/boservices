@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Logo } from "@/components/brand/Logo";
 import { Link } from "@/i18n/navigation";
+import { LocaleSwitcher } from "./LocaleSwitcher";
 
 export function Navbar() {
   const t = useTranslations("nav");
@@ -51,18 +52,21 @@ export function Navbar() {
           </a>
         </nav>
 
-        <a
-          href="#contact"
-          className="group inline-flex h-10 items-center gap-2 rounded-full bg-ink-base px-5 text-[13px] font-semibold text-paper transition-transform duration-200 active:translate-y-px md:h-11"
-        >
-          {t("cta")}
-          <span
-            aria-hidden="true"
-            className="inline-block translate-x-0 transition-transform duration-300 group-hover:translate-x-0.5"
+        <div className="flex items-center gap-4 md:gap-6">
+          <LocaleSwitcher />
+          <a
+            href="#contact"
+            className="group inline-flex h-10 items-center gap-2 rounded-full bg-ink-base px-5 text-[13px] font-semibold text-paper transition-transform duration-200 active:translate-y-px md:h-11"
           >
-            →
-          </span>
-        </a>
+            {t("cta")}
+            <span
+              aria-hidden="true"
+              className="inline-block translate-x-0 transition-transform duration-300 group-hover:translate-x-0.5"
+            >
+              →
+            </span>
+          </a>
+        </div>
       </div>
     </header>
   );

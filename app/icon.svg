@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="BOServices">
+  <defs>
+    <style>
+      .s{fill:#0E0E0E}.m{fill:#FFFFFF}
+      @media (prefers-color-scheme: dark){.s{fill:#FFFFFF}.m{fill:#0E0E0E}}
+    </style>
+  </defs>
+  <rect class="s" width="120" height="120" rx="22"/>
+  <g transform="translate(60 60)" class="m">
+    <path d="M 0 -38 C 16 -38 30 -28 32 -8 C 32 -8 26 -14 18 -18 C 6 -22 0 -28 0 -38 Z"/>
+    <path d="M 0 -38 C 16 -38 30 -28 32 -8 C 32 -8 26 -14 18 -18 C 6 -22 0 -28 0 -38 Z" transform="rotate(90)"/>
+    <path d="M 0 -38 C 16 -38 30 -28 32 -8 C 32 -8 26 -14 18 -18 C 6 -22 0 -28 0 -38 Z" transform="rotate(180)"/>
+    <path d="M 0 -38 C 16 -38 30 -28 32 -8 C 32 -8 26 -14 18 -18 C 6 -22 0 -28 0 -38 Z" transform="rotate(270)"/>
+  </g>
+</svg>

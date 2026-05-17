@@ -5,8 +5,8 @@ export function Hero() {
   const t = useTranslations("hero");
 
   return (
-    <section className="relative isolate overflow-hidden pt-28 md:pt-32">
-      <div className="mx-auto grid min-h-[100dvh] max-w-[1280px] grid-cols-1 items-end gap-12 px-5 pb-16 md:grid-cols-[7fr_5fr] md:gap-16 md:px-8 md:pb-24">
+    <section className="relative isolate overflow-hidden pt-20 md:pt-24">
+      <div className="mx-auto grid max-w-[1280px] grid-cols-1 items-center gap-12 px-5 pb-20 pt-6 md:grid-cols-[7fr_5fr] md:gap-16 md:px-8 md:pb-28 md:pt-10">
         <div className="flex flex-col gap-8">
           <div className="text-[11px] font-medium uppercase tracking-[0.22em] text-ink-mid">
             <span className="mr-3 inline-block h-px w-8 translate-y-[-3px] bg-ink-base/60 align-middle" />
