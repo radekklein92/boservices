@@ -79,6 +79,78 @@ body {
   }
 }
 
+/* Tiptap editor — BOServices typografie */
+.ProseMirror {
+  font-family: var(--font-sans);
+}
+.ProseMirror > * + * {
+  margin-top: 0.6em;
+}
+.ProseMirror p {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--color-ink-base);
+}
+.ProseMirror h1 {
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+  margin-top: 1.5rem;
+  color: var(--color-ink-base);
+}
+.ProseMirror h2 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  margin-top: 1.5rem;
+  color: var(--color-ink-base);
+}
+.ProseMirror h3 {
+  font-size: 1.02rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  margin-top: 1.25rem;
+}
+.ProseMirror ul,
+.ProseMirror ol {
+  padding-left: 1.5rem;
+}
+.ProseMirror ul {
+  list-style: disc;
+}
+.ProseMirror ol {
+  list-style: decimal;
+}
+.ProseMirror blockquote {
+  border-left: 2px solid var(--color-edge);
+  padding-left: 1rem;
+  color: var(--color-ink-deep);
+  font-style: italic;
+}
+.ProseMirror a {
+  color: var(--color-ink-base);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.ProseMirror strong {
+  font-weight: 700;
+}
+.ProseMirror em {
+  font-style: italic;
+}
+.ProseMirror s {
+  text-decoration: line-through;
+}
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--color-ink-soft);
+  pointer-events: none;
+  height: 0;
+  float: left;
+}
+
 .grain {
   position: fixed;
   inset: 0;
