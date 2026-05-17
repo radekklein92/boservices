@@ -17,28 +17,6 @@
     "primaryCta": "Domluvit schůzku",
     "secondaryCta": "Co vám přebíráme"
   },
-  "pillars": {
-    "duvera": {
-      "tag": "01",
-      "title": "Důvěra",
-      "body": "Pracujeme jen tam, kde dáváme značce stejnou váhu, jako kdyby byla naše vlastní."
-    },
-    "struktura": {
-      "tag": "02",
-      "title": "Struktura",
-      "body": "Procesy, role, reporty. Předvídatelný provoz, který nestojí na jednom člověku."
-    },
-    "tok": {
-      "tag": "03",
-      "title": "Tok",
-      "body": "Plynulé směny, plynulé sklady, plynulý cashflow. Z chaosu rytmus."
-    },
-    "vykon": {
-      "tag": "04",
-      "title": "Výkon",
-      "body": "Měříme, co dává smysl. Tržba, marže, NPS, fluktuace - bez taktiky pro reporty."
-    }
-  },
   "what": {
     "eyebrow": "Co děláme",
     "title": "S čím vám pomůžeme.",

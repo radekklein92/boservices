@@ -17,28 +17,6 @@
     "primaryCta": "Let's talk",
     "secondaryCta": "How we work"
   },
-  "pillars": {
-    "duvera": {
-      "tag": "01",
-      "title": "Trust",
-      "body": "We only work where we can treat the brand as if it were our own."
-    },
-    "struktura": {
-      "tag": "02",
-      "title": "Structure",
-      "body": "Processes, roles, reporting. Predictable operations that don't rest on one person."
-    },
-    "tok": {
-      "tag": "03",
-      "title": "Flow",
-      "body": "Shifts flow, stock flows, cash flows. From chaos to rhythm."
-    },
-    "vykon": {
-      "tag": "04",
-      "title": "Performance",
-      "body": "We measure what matters. Revenue, margin, NPS, churn - no vanity metrics."
-    }
-  },
   "what": {
     "eyebrow": "What we do",
     "title": "We run retail stores for brands.",
