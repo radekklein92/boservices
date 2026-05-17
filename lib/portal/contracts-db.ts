@@ -15,6 +15,9 @@ export interface Contract {
   clientName: string;
   status: ContractStatus;
   html: string;
+  // Snapshot HTML šablony v okamžiku vytvoření smlouvy - slouží pro diff
+  // proti aktuálnímu znění (vidíme co user upravil)
+  templateSnapshot?: string;
   variables: Record<string, string>;
   // PDF vygenerováno
   generatedPdfUrl?: string;

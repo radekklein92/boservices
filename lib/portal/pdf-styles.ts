@@ -222,12 +222,31 @@ function stripDuplicateTitle(html: string, title: string): string {
   return html.replace(re, "");
 }
 
+export const PDF_DIFF_STYLES = `
+  ins {
+    background: rgba(220, 38, 38, 0.10);
+    color: #B91C1C;
+    text-decoration: underline;
+    text-decoration-color: #B91C1C;
+    text-decoration-thickness: 0.5pt;
+    text-underline-offset: 2pt;
+  }
+  del {
+    background: rgba(220, 38, 38, 0.06);
+    color: #B91C1C;
+    text-decoration: line-through;
+    text-decoration-color: #B91C1C;
+    text-decoration-thickness: 0.5pt;
+  }
+`;
+
 export function buildServerPdfDocument(
   html: string,
-  opts: { cover: CoverHeader },
+  opts: { cover: CoverHeader; diff?: boolean },
 ): string {
   const stripped = stripDuplicateTitle(html, opts.cover.title);
   const contentWithHeader = renderFirstPageHeader(opts.cover) + stripped;
+  const diffStyles = opts.diff ? PDF_DIFF_STYLES : "";
   return `<!doctype html>
 <html lang="cs">
 <head>
@@ -236,6 +255,7 @@ export function buildServerPdfDocument(
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>${PDF_PAGE_STYLES}
+${diffStyles}
 .__fontwarmup {
   position: absolute;
   top: -9999px;

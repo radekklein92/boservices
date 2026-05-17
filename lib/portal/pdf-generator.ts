@@ -36,10 +36,10 @@ async function getExecutablePath(): Promise<string | undefined> {
 
 export async function htmlToPdfBuffer(
   bodyHtml: string,
-  opts: { type: ContractType; cover?: CoverHeader },
+  opts: { type: ContractType; cover?: CoverHeader; diff?: boolean },
 ): Promise<Buffer> {
   const cover = opts.cover ?? getCoverForType(opts.type);
-  const fullHtml = buildServerPdfDocument(bodyHtml, { cover });
+  const fullHtml = buildServerPdfDocument(bodyHtml, { cover, diff: opts.diff });
 
   const puppeteer = (await import("puppeteer-core")).default;
   const executablePath = await getExecutablePath();
