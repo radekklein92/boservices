@@ -15,7 +15,7 @@ function genericSkeleton(type: ContractType): string {
 <h2>Smluvní strany</h2>
 <p><strong>{{clientName}}</strong>, IČO: {{clientIco}}, se sídlem {{clientStreet}}, {{clientZip}} {{clientCity}}, zastoupená {{clientStatutoryName}}, {{clientStatutoryRole}} (dále jen „Klient“);</p>
 <p>a</p>
-<p><strong>{{providerName}}</strong>, IČO: {{providerIco}}, se sídlem {{providerStreet}}, {{providerZip}} {{providerCity}}, zastoupená {{providerStatutoryName}}, {{providerStatutoryRole}} (dále jen „Poskytovatel“).</p>
+<p><strong>{{providerName}}</strong>, IČO: {{providerIco}}, se sídlem {{providerStreet}}, {{providerZip}} {{providerCity}}, zapsaná v obchodním rejstříku vedeném {{providerRegistry}}, zastoupená {{providerStatutory1Name}}, {{providerStatutory1Role}}, a {{providerStatutory2Name}}, {{providerStatutory2Role}} (dále jen „Poskytovatel“).</p>
 <h2>1. Předmět smlouvy</h2>
 <p>Doplňte předmět smlouvy.</p>
 <h2>2. Práva a povinnosti smluvních stran</h2>
@@ -28,7 +28,8 @@ function genericSkeleton(type: ContractType): string {
 <p>Tato smlouva je vyhotovena ve dvou stejnopisech, z nichž každá smluvní strana obdrží po jednom. Smlouva nabývá platnosti a účinnosti dnem podpisu oběma smluvními stranami.</p>
 <p>V {{place}} dne {{contractDate}}.</p>
 <p>__________________<br/>{{clientStatutoryName}}<br/>za Klienta</p>
-<p>__________________<br/>{{providerStatutoryName}}<br/>za Poskytovatele</p>`;
+<p>__________________<br/>{{providerStatutory1Name}}<br/>za Poskytovatele</p>
+<p>__________________<br/>{{providerStatutory2Name}}<br/>za Poskytovatele</p>`;
 }
 
 /* -------------------------------------------------------------------------
@@ -39,7 +40,7 @@ function claimAssignmentHtml(): string {
   return `<h2>Smluvní strany</h2>
 <p><strong>{{clientName}}</strong>, IČO: {{clientIco}}, se sídlem {{clientStreet}}, {{clientZip}} {{clientCity}}, zapsaná v obchodním rejstříku vedeném {{clientRegistry}}, zastoupená {{clientStatutoryName}}, {{clientStatutoryRole}} (dále jen „<strong>Postupitel</strong>“)</p>
 <p>a</p>
-<p><strong>{{providerName}}</strong>, IČO: {{providerIco}}, DIČ: {{providerDic}}, se sídlem {{providerStreet}}, {{providerZip}} {{providerCity}}, zapsaná v obchodním rejstříku vedeném {{providerRegistry}}, zastoupená {{providerStatutoryName}}, {{providerStatutoryRole}} (dále jen „<strong>Postupník</strong>“)</p>
+<p><strong>{{providerName}}</strong>, IČO: {{providerIco}}, DIČ: {{providerDic}}, se sídlem {{providerStreet}}, {{providerZip}} {{providerCity}}, zapsaná v obchodním rejstříku vedeném {{providerRegistry}}, zastoupená {{providerStatutory1Name}}, {{providerStatutory1Role}}, a {{providerStatutory2Name}}, {{providerStatutory2Role}} (dále jen „<strong>Postupník</strong>“)</p>
 <p>Postupitel a Postupník dále společně jako „<strong>Strany</strong>“ a každý jednotlivě jako „Strana“.</p>
 
 <h2>1. Vymezení postupovaných pohledávek a postoupení pohledávek</h2>
@@ -74,7 +75,9 @@ function claimAssignmentHtml(): string {
 <p>&nbsp;</p>
 <p>__________________________<br/><strong>{{clientStatutoryName}}</strong><br/>{{clientStatutoryRole}}<br/>za Postupitele: {{clientName}}</p>
 <p>&nbsp;</p>
-<p>__________________________<br/><strong>{{providerStatutoryName}}</strong><br/>{{providerStatutoryRole}}<br/>za Postupníka: {{providerName}}</p>
+<p>__________________________<br/><strong>{{providerStatutory1Name}}</strong><br/>{{providerStatutory1Role}}<br/>za Postupníka: {{providerName}}</p>
+<p>&nbsp;</p>
+<p>__________________________<br/><strong>{{providerStatutory2Name}}</strong><br/>{{providerStatutory2Role}}<br/>za Postupníka: {{providerName}}</p>
 
 <h2>Příloha č. 1 — Seznam postupovaných existujících pohledávek</h2>
 <p><em>Doplňte tabulkou s těmito sloupci: Výše pohledávky · Vznikla ze smlouvy · Titul · Splatnost.</em></p>`;
@@ -88,7 +91,7 @@ function sideFeeHtml(): string {
   return `<h2>Smluvní strany</h2>
 <p><strong>{{clientName}}</strong>, IČO: {{clientIco}}, se sídlem {{clientStreet}}, {{clientZip}} {{clientCity}}, zapsaná v obchodním rejstříku vedeném {{clientRegistry}}, zastoupená {{clientStatutoryName}}, {{clientStatutoryRole}} (dále jen „<strong>Postupitel</strong>“)</p>
 <p>a</p>
-<p><strong>{{providerName}}</strong>, IČO: {{providerIco}}, DIČ: {{providerDic}}, se sídlem {{providerStreet}}, {{providerZip}} {{providerCity}}, zapsaná v obchodním rejstříku vedeném {{providerRegistry}}, zastoupená {{providerStatutoryName}}, {{providerStatutoryRole}} (dále jen „<strong>Postupník</strong>“)</p>
+<p><strong>{{providerName}}</strong>, IČO: {{providerIco}}, DIČ: {{providerDic}}, se sídlem {{providerStreet}}, {{providerZip}} {{providerCity}}, zapsaná v obchodním rejstříku vedeném {{providerRegistry}}, zastoupená {{providerStatutory1Name}}, {{providerStatutory1Role}}, a {{providerStatutory2Name}}, {{providerStatutory2Role}} (dále jen „<strong>Postupník</strong>“)</p>
 <p>Postupitel a Postupník dále společně jako „<strong>Strany</strong>“ a každý jednotlivě jako „Strana“.</p>
 
 <h2>1. Úvodní prohlášení a stanovení výše a splatnosti úplaty</h2>
@@ -114,7 +117,9 @@ function sideFeeHtml(): string {
 <p>&nbsp;</p>
 <p>__________________________<br/><strong>{{clientStatutoryName}}</strong><br/>{{clientStatutoryRole}}<br/>za Postupitele: {{clientName}}</p>
 <p>&nbsp;</p>
-<p>__________________________<br/><strong>{{providerStatutoryName}}</strong><br/>{{providerStatutoryRole}}<br/>za Postupníka: {{providerName}}</p>`;
+<p>__________________________<br/><strong>{{providerStatutory1Name}}</strong><br/>{{providerStatutory1Role}}<br/>za Postupníka: {{providerName}}</p>
+<p>&nbsp;</p>
+<p>__________________________<br/><strong>{{providerStatutory2Name}}</strong><br/>{{providerStatutory2Role}}<br/>za Postupníka: {{providerName}}</p>`;
 }
 
 /* -------------------------------------------------------------------------

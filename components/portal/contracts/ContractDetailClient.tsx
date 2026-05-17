@@ -499,17 +499,34 @@ export function ContractDetailClient({ initial }: Props) {
               placeholder="18. května 2026"
               onChange={(v) => updateVar("contractDate", v)}
             />
+          </div>
+        </FieldGroup>
+
+        <FieldGroup label="Zástupci poskytovatele (BOServices podepisují vždy 2 jednatelé)">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <SmallField
-              label="Zástupce poskytovatele - jméno"
-              value={variables.providerStatutoryName ?? ""}
-              placeholder="Mgr. Ondřej Benáček"
-              onChange={(v) => updateVar("providerStatutoryName", v)}
+              label="1. zástupce - jméno"
+              value={variables.providerStatutory1Name ?? ""}
+              placeholder="Ing. Jiří Slavkovský"
+              onChange={(v) => updateVar("providerStatutory1Name", v)}
             />
             <SmallField
-              label="Zástupce poskytovatele - funkce"
-              value={variables.providerStatutoryRole ?? ""}
+              label="1. zástupce - funkce"
+              value={variables.providerStatutory1Role ?? ""}
               placeholder="jednatel"
-              onChange={(v) => updateVar("providerStatutoryRole", v)}
+              onChange={(v) => updateVar("providerStatutory1Role", v)}
+            />
+            <SmallField
+              label="2. zástupce - jméno"
+              value={variables.providerStatutory2Name ?? ""}
+              placeholder="Mgr. Jakub Pešek"
+              onChange={(v) => updateVar("providerStatutory2Name", v)}
+            />
+            <SmallField
+              label="2. zástupce - funkce"
+              value={variables.providerStatutory2Role ?? ""}
+              placeholder="jednatel"
+              onChange={(v) => updateVar("providerStatutory2Role", v)}
             />
           </div>
         </FieldGroup>

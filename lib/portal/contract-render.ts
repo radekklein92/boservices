@@ -10,8 +10,10 @@ export const PROVIDER_DEFAULTS: ContractVariables = {
   providerCity: "Praha 1",
   providerZip: "11000",
   providerRegistry: "Městský soud v Praze, oddíl C, vložka 442640",
-  providerStatutoryName: "",
-  providerStatutoryRole: "jednatel",
+  providerStatutory1Name: "Ing. Jiří Slavkovský",
+  providerStatutory1Role: "jednatel",
+  providerStatutory2Name: "Mgr. Jakub Pešek",
+  providerStatutory2Role: "jednatel",
 };
 
 export function buildClientVariables(client: Client): ContractVariables {

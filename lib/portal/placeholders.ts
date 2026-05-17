@@ -40,8 +40,10 @@ export const PLACEHOLDER_GROUPS: PlaceholderGroup[] = [
       { token: "{{providerCity}}", label: "Obec", example: "Praha 1" },
       { token: "{{providerZip}}", label: "PSČ", example: "11000" },
       { token: "{{providerRegistry}}", label: "Zápis v rejstříku", example: "Městský soud v Praze, oddíl C, vložka 442640" },
-      { token: "{{providerStatutoryName}}", label: "Statutární zástupce", example: "Mgr. Ondřej Benáček" },
-      { token: "{{providerStatutoryRole}}", label: "Funkce zástupce", example: "jednatel" },
+      { token: "{{providerStatutory1Name}}", label: "1. zástupce - jméno", example: "Ing. Jiří Slavkovský" },
+      { token: "{{providerStatutory1Role}}", label: "1. zástupce - funkce", example: "jednatel" },
+      { token: "{{providerStatutory2Name}}", label: "2. zástupce - jméno", example: "Mgr. Jakub Pešek" },
+      { token: "{{providerStatutory2Role}}", label: "2. zástupce - funkce", example: "jednatel" },
     ],
   },
   {
