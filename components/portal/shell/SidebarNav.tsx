@@ -25,10 +25,10 @@ const main: Item[] = [
 const provoz: Item[] = [
   { href: "/portal/clients", label: "Klienti", Icon: Building2 },
   { href: "/portal/contracts", label: "Smlouvy", Icon: FileText },
-  { href: "/portal/templates", label: "Šablony", Icon: FilePenLine },
 ];
 
 const admin: Item[] = [
+  { href: "/portal/templates", label: "Šablony smluv", Icon: FilePenLine },
   { href: "/portal/users", label: "Uživatelé", Icon: Users },
 ];
 

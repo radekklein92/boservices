@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { isAdminRole } from "@/lib/portal/auth-guard";
 import { isContractType, CONTRACT_TYPE_META } from "@/lib/portal/contract-types";
@@ -26,7 +26,9 @@ export default async function TemplatePage({
   if (!isContractType(type)) notFound();
 
   const session = await auth();
-  const isAdmin = isAdminRole(session?.user?.role);
+  if (!session?.user?.email) redirect("/portal/login");
+  if (!isAdminRole(session.user?.role)) redirect("/portal");
+
   const template = await getOrSeedContractTemplate(type);
 
   return (
@@ -35,7 +37,7 @@ export default async function TemplatePage({
       initialHtml={template.html}
       updatedAt={template.updatedAt}
       updatedBy={template.updatedBy === "system" ? "výchozí" : template.updatedBy}
-      isAdmin={isAdmin}
+      isAdmin
     />
   );
 }

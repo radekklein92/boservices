@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ArrowUpRight, FileEdit } from "lucide-react";
 import { auth } from "@/auth";
 import { PageHeader } from "@/components/portal/shell/PageHeader";
@@ -10,19 +11,17 @@ export const metadata = { title: "Šablony smluv" };
 
 export default async function TemplatesPage() {
   const session = await auth();
-  const isAdmin = isAdminRole(session?.user?.role);
+  if (!session?.user?.email) redirect("/portal/login");
+  if (!isAdminRole(session.user?.role)) redirect("/portal");
+
   const items = await listContractTemplates();
 
   return (
     <div className="flex flex-col gap-10">
       <PageHeader
-        eyebrow="Šablony smluv"
-        title="Šablony"
-        lede={
-          isAdmin
-            ? "Šest typů smluv. Šablona drží výchozí znění; při generování pro konkrétního klienta se placeholdery nahradí jeho daty."
-            : "Šest typů smluv. Šablony mohou upravovat administrátoři, vy si je můžete prohlédnout."
-        }
+        eyebrow="Administrace"
+        title="Šablony smluv"
+        lede="Šest typů smluv. Šablona drží výchozí znění; při generování pro konkrétního klienta se placeholdery nahradí jeho daty."
       />
 
       <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
