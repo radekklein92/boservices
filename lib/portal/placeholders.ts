@@ -26,6 +26,8 @@ export const PLACEHOLDER_GROUPS: PlaceholderGroup[] = [
       { token: "{{clientBankAccount}}", label: "Bankovní účet", example: "1234567890/0100" },
       { token: "{{clientStatutoryName}}", label: "Statutární zástupce", example: "Jana Novotná" },
       { token: "{{clientStatutoryRole}}", label: "Funkce zástupce", example: "jednatelka" },
+      { token: "{{clientEmail}}", label: "E-mail", example: "jana@brand.cz" },
+      { token: "{{clientPhone}}", label: "Telefon", example: "+420 ..." },
     ],
   },
   {
@@ -66,6 +68,8 @@ export const PLACEHOLDER_GROUPS: PlaceholderGroup[] = [
       { token: "{{originContractDate}}", label: "Datum původní smlouvy", example: "1. ledna 2026" },
       { token: "{{originContractTitle}}", label: "Předmět původní smlouvy", example: "dodávkách zboží" },
       { token: "{{totalClaimsAmount}}", label: "Celková výše pohledávek", example: "1 250 000 Kč" },
+      { token: "{{provozovnaAddress}}", label: "Adresa provozovny", example: "Václavské nám. 1, Praha 1" },
+      { token: "{{conceptName}}", label: "Název franšízingového konceptu", example: "Coffee&Bagels" },
     ],
   },
 ];

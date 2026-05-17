@@ -27,10 +27,11 @@ export function buildClientVariables(client: Client): ContractVariables {
     clientCity: client.address.city,
     clientZip: client.address.zip,
     clientCountry: client.address.country ?? "Česká republika",
-    clientRegistry: "",
     clientBankAccount: "",
     clientStatutoryName: client.statutory?.name ?? "",
     clientStatutoryRole: client.statutory?.role ?? "",
+    clientEmail: client.contact?.email ?? "",
+    clientPhone: client.contact?.phone ?? "",
   };
 }
 
@@ -55,7 +56,8 @@ export function buildDefaultContractMeta(date = new Date()): ContractVariables {
     debtorStreet: "",
     debtorCity: "",
     debtorZip: "",
-    debtorRegistry: "",
+    provozovnaAddress: "",
+    conceptName: "",
   };
 }
 

@@ -588,6 +588,29 @@ export function ContractDetailClient({ initial }: Props) {
           </FieldGroup>
         )}
 
+        {hasAny(["provozovnaAddress", "conceptName"]) && (
+          <FieldGroup label="Provozovna">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              {has("provozovnaAddress") && (
+                <SmallField
+                  label="Adresa provozovny"
+                  value={variables.provozovnaAddress ?? ""}
+                  placeholder="Václavské nám. 1, 110 00 Praha 1"
+                  onChange={(v) => updateVar("provozovnaAddress", v)}
+                />
+              )}
+              {has("conceptName") && (
+                <SmallField
+                  label="Název franšízingového konceptu"
+                  value={variables.conceptName ?? ""}
+                  placeholder="např. Coffee&Bagels"
+                  onChange={(v) => updateVar("conceptName", v)}
+                />
+              )}
+            </div>
+          </FieldGroup>
+        )}
+
         {hasAny([
           "debtorName",
           "debtorIco",
