@@ -12,10 +12,10 @@
   },
   "hero": {
     "eyebrow": "Business Operations Services",
-    "title": "Provoz máme my.",
-    "lede": "Máte síť prodejen a denní provoz vás zdržuje od produktu. Převezmeme ho. Včetně lidí, čísel i otevírání nových míst.",
+    "title": "Vedeme prodejny za vaši značku.",
+    "lede": "Od přijímacích pohovorů po měsíční závěrku. Vy se staráte o značku a produkt, my za vás vedeme tým, finance i otevírání nových míst.",
     "primaryCta": "Domluvit schůzku",
-    "secondaryCta": "Jak to děláme"
+    "secondaryCta": "Co vám přebíráme"
   },
   "pillars": {
     "duvera": {
@@ -41,37 +41,37 @@
   },
   "what": {
     "eyebrow": "Co děláme",
-    "title": "Vedeme prodejny pod vaší značkou.",
-    "lede": "Vlastníte produkt, značku a strategii. Otevíráme dveře v devět. V pondělí ráno máte v inboxu výkaz.",
+    "title": "Co vám přebíráme.",
+    "lede": "Provoz prodejen je naše práce. Vedeme čtyři oblasti, které vás denně berou nejvíc času.",
     "items": {
       "ops": {
-        "title": "Denní provoz",
-        "body": "Směny pokryté, regály doplněné, audity každý měsíc. Když něco selže, víte o tom dřív než zákazník."
+        "title": "Provoz a standardy",
+        "body": "Otevírací doba, směny, audity. Každá prodejna obsluhuje zákazníky stejně, ať je v Brně nebo v Plzni."
       },
       "people": {
         "title": "Lidé a mzdy",
-        "body": "Nabíráme, školíme, vyplácíme. Vedoucí znají své lidi jménem a směny pokrývají bez SMS na poslední chvíli."
+        "body": "Nábor, onboarding, hodnocení, mzdy. Vedeme celý zaměstnanecký cyklus včetně náboru v novém městě, kde právě otevíráte."
       },
       "finance": {
         "title": "Finance a reporting",
-        "body": "Pokladna, marže, závěrky. Jeden výkaz měsíčně, přečtete za pět minut, rozhodnete podle něj."
+        "body": "Pokladna, marže, závěrky. Měsíční výkaz pro každou prodejnu i pro celou síť."
       },
       "growth": {
         "title": "Nové prodejny",
-        "body": "Vytipujeme lokalitu, podepíšeme nájem, otevřeme do 90 dnů. Výlohy a layout přerovnáme přes víkend."
+        "body": "Vytipujeme lokalitu, dojednáme nájem, vyřídíme povolení, otevřeme. Harmonogram dohodneme předem a držíme ho."
       }
     }
   },
   "people": {
-    "eyebrow": "Vedení",
-    "title": "Tři jednatelé. Jedna odpovědnost.",
-    "lede": "Sídlíme na Uhelném trhu v Praze 1. Za zády máme kapitál a zkušenosti skupiny CEIP.",
+    "eyebrow": "Lidé",
+    "title": "Jednatelé",
+    "lede": "Sídlíme na Uhelném trhu v Praze 1. Patříme do skupiny CEIP.",
     "groupNote": "Společník: CEIP Business Finance Solutions s.r.o."
   },
   "contact": {
     "eyebrow": "Kontakt",
-    "title": "Promluvme si o provozu.",
-    "lede": "Napište kolik máte prodejen, kde sedíte a co vás na provozu nejvíc štve. Odpovíme do dvou pracovních dnů - a ne automatem.",
+    "title": "Ozvěte se.",
+    "lede": "Napište nám kolik máte prodejen, kde sedíte a co vás na provozu nejvíc trápí. Odpovíme do dvou pracovních dnů - a ne automatem.",
     "form": {
       "name": "Jméno",
       "namePlaceholder": "Jana Novotná",
@@ -83,8 +83,8 @@
       "messagePlaceholder": "Provozujeme 12 prodejen, hledáme partnera na...",
       "submit": "Odeslat",
       "submitting": "Odesílám...",
-      "successTitle": "Máme to.",
-      "successBody": "Ozveme se do dvou pracovních dnů na váš e-mail.",
+      "successTitle": "Děkujeme.",
+      "successBody": "Odpovíme do dvou pracovních dnů na uvedený e-mail.",
       "errorTitle": "Něco se nepovedlo.",
       "errorBody": "Zkuste to prosím znovu nebo nám napište přímo na hello@boservices.cz.",
       "errors": {
