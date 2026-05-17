@@ -256,12 +256,19 @@ ${contentWithHeader}
 // SVG logo inline pro puppeteer headerTemplate (žádný external import)
 export const HEADER_LOGO_SVG = `<svg width="14" height="14" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg"><rect width="120" height="120" rx="22" fill="#0E0E0E"/><g transform="translate(60 60)" fill="#FFFFFF"><path d="M 0 -38 C 16 -38 30 -28 32 -8 C 32 -8 26 -14 18 -18 C 6 -22 0 -28 0 -38 Z"/><path d="M 0 -38 C 16 -38 30 -28 32 -8 C 32 -8 26 -14 18 -18 C 6 -22 0 -28 0 -38 Z" transform="rotate(90)"/><path d="M 0 -38 C 16 -38 30 -28 32 -8 C 32 -8 26 -14 18 -18 C 6 -22 0 -28 0 -38 Z" transform="rotate(180)"/><path d="M 0 -38 C 16 -38 30 -28 32 -8 C 32 -8 26 -14 18 -18 C 6 -22 0 -28 0 -38 Z" transform="rotate(270)"/></g></svg>`;
 
-export const HEADER_TEMPLATE = `<div style="font-family: 'Manrope', sans-serif; font-size: 7.5pt; width: 100%; padding: 6mm 12mm 0 12mm; display: flex; align-items: center; gap: 6pt; color: #0E0E0E;">
+function escapeAttrish(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+export function buildHeaderTemplate(title: string): string {
+  const safeTitle = escapeAttrish(title);
+  return `<div style="font-family: 'Manrope', sans-serif; font-size: 7.5pt; width: 100%; padding: 6mm 12mm 0 12mm; display: flex; align-items: center; gap: 6pt; color: #0E0E0E;">
   ${HEADER_LOGO_SVG}
   <span style="font-weight: 800; letter-spacing: -0.01em; font-size: 8pt;">BOServices</span>
   <span style="margin: 0 6pt; color: #BFC3C7;">·</span>
-  <span style="font-size: 7pt; letter-spacing: 0.18em; text-transform: uppercase; color: #6F7672;">Smlouva</span>
+  <span style="font-size: 7pt; letter-spacing: 0.18em; text-transform: uppercase; color: #6F7672;">${safeTitle}</span>
 </div>`;
+}
 
 export const FOOTER_TEMPLATE = `<div style="font-family: 'Manrope', sans-serif; font-size: 8pt; width: 100%; padding: 0 12mm 4mm 12mm; display: flex; justify-content: space-between; align-items: center; color: #6F7672;">
   <span style="letter-spacing: 0.18em; text-transform: uppercase; font-size: 7pt;">Provoz · Lidé · Standard · Růst</span>

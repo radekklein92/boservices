@@ -1,12 +1,12 @@
 import chromium from "@sparticuz/chromium-min";
 import {
   buildServerPdfDocument,
+  buildHeaderTemplate,
   getCoverForType,
-  HEADER_TEMPLATE,
   FOOTER_TEMPLATE,
   type CoverHeader,
 } from "./pdf-styles";
-import type { ContractType } from "./contract-types";
+import { CONTRACT_TYPE_META, type ContractType } from "./contract-types";
 
 const isDev = process.env.NODE_ENV !== "production";
 
@@ -69,12 +69,14 @@ export async function htmlToPdfBuffer(
       await document.fonts.ready;
     });
 
+    const headerTitle = CONTRACT_TYPE_META[opts.type].shortName;
+
     const pdf = await page.pdf({
       format: "A4",
       printBackground: true,
       preferCSSPageSize: false,
       displayHeaderFooter: true,
-      headerTemplate: HEADER_TEMPLATE,
+      headerTemplate: buildHeaderTemplate(headerTitle),
       footerTemplate: FOOTER_TEMPLATE,
       margin: {
         top: "22mm",
