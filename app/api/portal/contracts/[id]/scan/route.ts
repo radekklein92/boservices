@@ -63,7 +63,7 @@ export async function POST(
   let uploaded;
   try {
     uploaded = await put(path, file, {
-      access: "public",
+      access: "private",
       contentType: "application/pdf",
       addRandomSuffix: false,
       allowOverwrite: true,

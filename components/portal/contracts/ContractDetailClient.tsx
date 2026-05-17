@@ -277,7 +277,7 @@ export function ContractDetailClient({ initial }: Props) {
         >
           {contract.generatedPdfUrl ? (
             <a
-              href={contract.generatedPdfUrl}
+              href={`/api/portal/contracts/${contract.id}/download/generated`}
               target="_blank"
               rel="noreferrer noopener"
               className="inline-flex h-9 items-center gap-2 rounded-full bg-ink-base px-4 text-[12px] font-semibold text-paper transition-transform active:translate-y-px"
@@ -326,7 +326,7 @@ export function ContractDetailClient({ initial }: Props) {
             {contract.scanPdfUrl && (
               <>
                 <a
-                  href={contract.scanPdfUrl}
+                  href={`/api/portal/contracts/${contract.id}/download/scan`}
                   target="_blank"
                   rel="noreferrer noopener"
                   className="inline-flex h-9 items-center gap-2 rounded-full bg-ink-base px-4 text-[12px] font-semibold text-paper"
