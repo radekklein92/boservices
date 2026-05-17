@@ -1,20 +1,20 @@
 {
   "meta": {
-    "title": "BOServices - Provoz retailových prodejen",
-    "description": "Business Operations Services. Provozujeme retailové prodejny za značky, které chtějí růst bez kompromisů. Důvěra, struktura, tok, výkon.",
+    "title": "BOServices - provoz retailových prodejen pro značky",
+    "description": "Přebíráme provoz vašich prodejen. Nábor, směny, mzdy, pokladnu, reporting i otevírání nových míst. Vy řešíte produkt a značku.",
     "ogAlt": "BOServices - Business Operations Services"
   },
   "nav": {
     "services": "Co děláme",
     "people": "Lidé",
     "contact": "Kontakt",
-    "cta": "Pojďme se potkat"
+    "cta": "Napsat nám"
   },
   "hero": {
     "eyebrow": "Business Operations Services",
-    "title": "Rosteme společně.",
-    "lede": "Provozujeme retailové prodejny za značky, které mají ambici, a chtějí se soustředit na produkt. Pod jednou střechou: nábor, směny, finance, KPI.",
-    "primaryCta": "Pojďme se potkat",
+    "title": "Provoz máme my.",
+    "lede": "Máte síť prodejen a denní provoz vás zdržuje od produktu. Převezmeme ho. Včetně lidí, čísel i otevírání nových míst.",
+    "primaryCta": "Domluvit schůzku",
     "secondaryCta": "Jak to děláme"
   },
   "pillars": {
@@ -41,37 +41,37 @@
   },
   "what": {
     "eyebrow": "Co děláme",
-    "title": "Vedeme retailové prodejny za značku.",
-    "lede": "Když má značka skvělý produkt, ale dennodenní provoz prodejen krade pozornost, přebíráme ho. Od náboru a směn po finance a reporting.",
+    "title": "Vedeme prodejny pod vaší značkou.",
+    "lede": "Vlastníte produkt, značku a strategii. Otevíráme dveře v devět. V pondělí ráno máte v inboxu výkaz.",
     "items": {
       "ops": {
-        "title": "Provoz prodejen",
-        "body": "Otevírací doba, směny, standardy, audit. Konzistentní zákaznický zážitek napříč lokalitami."
+        "title": "Denní provoz",
+        "body": "Směny pokryté, regály doplněné, audity každý měsíc. Když něco selže, víte o tom dřív než zákazník."
       },
       "people": {
-        "title": "Lidé & HR",
-        "body": "Nábor, onboarding, hodnocení, mzdy. Tým, který zůstává a roste."
+        "title": "Lidé a mzdy",
+        "body": "Nabíráme, školíme, vyplácíme. Vedoucí znají své lidi jménem a směny pokrývají bez SMS na poslední chvíli."
       },
       "finance": {
-        "title": "Finance & reporting",
-        "body": "Pokladna, tržby, marže, závěrky. Měsíční výkaz, který pochopíte za 5 minut."
+        "title": "Finance a reporting",
+        "body": "Pokladna, marže, závěrky. Jeden výkaz měsíčně, přečtete za pět minut, rozhodnete podle něj."
       },
       "growth": {
-        "title": "Růst & expanze",
-        "body": "Otevíráme nové prodejny, vyhodnocujeme lokality, řídíme remodely."
+        "title": "Nové prodejny",
+        "body": "Vytipujeme lokalitu, podepíšeme nájem, otevřeme do 90 dnů. Výlohy a layout přerovnáme přes víkend."
       }
     }
   },
   "people": {
     "eyebrow": "Vedení",
     "title": "Tři jednatelé. Jedna odpovědnost.",
-    "lede": "Sídlíme v Praze, na Uhelném trhu. Patříme do skupiny CEIP.",
+    "lede": "Sídlíme na Uhelném trhu v Praze 1. Za zády máme kapitál a zkušenosti skupiny CEIP.",
     "groupNote": "Společník: CEIP Business Finance Solutions s.r.o."
   },
   "contact": {
     "eyebrow": "Kontakt",
-    "title": "Máte značku, která zaslouží lepší provoz?",
-    "lede": "Napište nám pár vět - co provozujete, kde, a co vás nejvíc trápí. Ozveme se do dvou pracovních dnů.",
+    "title": "Promluvme si o provozu.",
+    "lede": "Napište kolik máte prodejen, kde sedíte a co vás na provozu nejvíc štve. Odpovíme do dvou pracovních dnů - a ne automatem.",
     "form": {
       "name": "Jméno",
       "namePlaceholder": "Jana Novotná",
@@ -81,10 +81,10 @@
       "companyPlaceholder": "Vaše značka s.r.o.",
       "message": "Krátká zpráva",
       "messagePlaceholder": "Provozujeme 12 prodejen, hledáme partnera na...",
-      "submit": "Odeslat poptávku",
+      "submit": "Odeslat",
       "submitting": "Odesílám...",
-      "successTitle": "Děkujeme, máme to.",
-      "successBody": "Ozveme se vám do dvou pracovních dnů na uvedený e-mail.",
+      "successTitle": "Máme to.",
+      "successBody": "Ozveme se do dvou pracovních dnů na váš e-mail.",
       "errorTitle": "Něco se nepovedlo.",
       "errorBody": "Zkuste to prosím znovu nebo nám napište přímo na hello@boservices.cz.",
       "errors": {
