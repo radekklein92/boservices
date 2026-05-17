@@ -1,4 +1,8 @@
 import { CONTRACT_TYPE_META, type ContractType } from "./contract-types";
+import {
+  WORDMARK_PNG_BASE64,
+  WORDMARK_ASPECT,
+} from "./assets/wordmark";
 
 export interface CoverHeader {
   title: string;
@@ -260,12 +264,19 @@ function escapeAttrish(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+// Wordmark "BOServices" je pre-rendered PNG v Manrope ExtraBold.
+// Puppeteer headerTemplate nemá přístup k web fontům, takže fontem
+// vyrenderovaný text by fallbackoval na Helvetica/Arial. PNG to vyřeší.
+// Velikost: height 11px (vysoká kvalita 2x DPR) -> width = 11 * 5.25 ≈ 58px.
+const WORDMARK_HEIGHT_PX = 11;
+const WORDMARK_WIDTH_PX = Math.round(WORDMARK_HEIGHT_PX * WORDMARK_ASPECT);
+
 export function buildHeaderTemplate(title: string): string {
   const safeTitle = escapeAttrish(title);
-  return `<div style="font-family: 'Manrope', sans-serif; font-size: 7.5pt; width: 100%; padding: 6mm 12mm 0 12mm; display: flex; align-items: center; gap: 6pt; color: #0E0E0E;">
+  return `<div style="font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 7.5pt; width: 100%; padding: 6mm 12mm 0 12mm; display: flex; align-items: center; gap: 8pt; color: #0E0E0E;">
   ${HEADER_LOGO_SVG}
-  <span style="font-weight: 800; letter-spacing: -0.01em; font-size: 8pt;">BOServices</span>
-  <span style="margin: 0 6pt; color: #BFC3C7;">·</span>
+  <img src="data:image/png;base64,${WORDMARK_PNG_BASE64}" width="${WORDMARK_WIDTH_PX}" height="${WORDMARK_HEIGHT_PX}" alt="BOServices" style="display: block;" />
+  <span style="margin: 0 4pt; color: #BFC3C7;">·</span>
   <span style="font-size: 7pt; letter-spacing: 0.18em; text-transform: uppercase; color: #6F7672;">${safeTitle}</span>
 </div>`;
 }
