@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import NextLink from "next/link";
 import { useTranslations } from "next-intl";
+import { LockKeyhole } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { Link } from "@/i18n/navigation";
 import { LocaleSwitcher } from "./LocaleSwitcher";
@@ -54,6 +56,13 @@ export function Navbar() {
 
         <div className="flex items-center gap-4 md:gap-6">
           <LocaleSwitcher />
+          <NextLink
+            href="/portal"
+            aria-label="Portál"
+            className="hidden h-10 w-10 items-center justify-center rounded-full border border-edge text-ink-deep transition-colors hover:border-ink-base hover:bg-ink-base hover:text-paper md:inline-flex md:h-11 md:w-11"
+          >
+            <LockKeyhole className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+          </NextLink>
           <a
             href="#contact"
             className="group inline-flex h-10 items-center gap-2 rounded-full bg-ink-base px-5 text-[13px] font-semibold text-paper transition-transform duration-200 active:translate-y-px md:h-11"

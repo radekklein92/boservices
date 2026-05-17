@@ -1,17 +1,8 @@
 import type { Metadata } from "next";
-import { Manrope } from "next/font/google";
 import { notFound } from "next/navigation";
 import { hasLocale, NextIntlClientProvider } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { routing } from "@/i18n/routing";
-import "../globals.css";
-
-const manrope = Manrope({
-  subsets: ["latin", "latin-ext"],
-  weight: ["400", "500", "600", "700", "800"],
-  variable: "--font-manrope",
-  display: "swap",
-});
 
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
@@ -64,13 +55,9 @@ export default async function LocaleLayout({
   setRequestLocale(locale);
 
   return (
-    <html lang={locale} className={manrope.variable}>
-      <body className="bg-paper text-ink-base antialiased">
-        <NextIntlClientProvider>
-          <div className="grain" aria-hidden="true" />
-          {children}
-        </NextIntlClientProvider>
-      </body>
-    </html>
+    <NextIntlClientProvider>
+      <div className="grain" aria-hidden="true" />
+      {children}
+    </NextIntlClientProvider>
   );
 }

@@ -1,0 +1,72 @@
+import NextAuth, { type DefaultSession } from "next-auth";
+import Credentials from "next-auth/providers/credentials";
+import { getUser, recordLogin, type UserRole } from "@/lib/portal/users-db";
+import { verifyPassword } from "@/lib/portal/passwords";
+
+declare module "next-auth" {
+  interface Session {
+    user: {
+      role?: UserRole;
+    } & DefaultSession["user"];
+  }
+  interface User {
+    role?: UserRole;
+  }
+}
+
+export const { handlers, auth, signIn, signOut } = NextAuth({
+  pages: {
+    signIn: "/portal/login",
+    error: "/portal/login",
+  },
+  session: {
+    strategy: "jwt",
+    maxAge: 60 * 60 * 24 * 7,
+  },
+  trustHost: true,
+  providers: [
+    Credentials({
+      name: "credentials",
+      credentials: {
+        email: { label: "E-mail", type: "email" },
+        password: { label: "Heslo", type: "password" },
+      },
+      async authorize(credentials) {
+        const email = String(credentials?.email ?? "").trim().toLowerCase();
+        const password = String(credentials?.password ?? "");
+        if (!email || !password) return null;
+
+        const user = await getUser(email);
+        if (!user || !user.passwordHash) return null;
+
+        const ok = await verifyPassword(password, user.passwordHash);
+        if (!ok) return null;
+
+        recordLogin(email).catch((err) =>
+          console.error("[auth] recordLogin failed", err),
+        );
+
+        return {
+          id: user.email,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+        };
+      },
+    }),
+  ],
+  callbacks: {
+    async jwt({ token, user }) {
+      if (user && "role" in user && user.role) {
+        (token as Record<string, unknown>).role = user.role;
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      if (session.user) {
+        session.user.role = (token as { role?: UserRole }).role;
+      }
+      return session;
+    },
+  },
+});
