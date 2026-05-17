@@ -23,8 +23,8 @@ export function PlaceholderPalette({
   }, [query]);
 
   return (
-    <aside className="flex h-full flex-col">
-      <div className="mb-3">
+    <div className="flex flex-col gap-3">
+      <div>
         <div className="text-[10.5px] font-semibold uppercase tracking-[0.18em] text-ink-mid">
           Placeholdery
         </div>
@@ -34,7 +34,7 @@ export function PlaceholderPalette({
         </p>
       </div>
 
-      <div className="relative mb-3">
+      <div className="relative">
         <Search
           className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-mid"
           strokeWidth={1.5}
@@ -48,12 +48,12 @@ export function PlaceholderPalette({
         />
       </div>
 
-      <div className="flex-1 overflow-y-auto pr-1">
+      <div className="flex flex-col gap-5">
         {groups.length === 0 ? (
           <div className="text-[12px] text-ink-mid">Nic se neshoduje.</div>
         ) : (
           groups.map((group) => (
-            <div key={group.key} className="mb-5 last:mb-0">
+            <div key={group.key}>
               <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-soft">
                 {group.label}
               </div>
@@ -79,6 +79,6 @@ export function PlaceholderPalette({
           ))
         )}
       </div>
-    </aside>
+    </div>
   );
 }
