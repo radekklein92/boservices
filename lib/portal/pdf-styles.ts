@@ -273,10 +273,10 @@ const WORDMARK_WIDTH_PX = Math.round(WORDMARK_HEIGHT_PX * WORDMARK_ASPECT);
 
 export function buildHeaderTemplate(title: string): string {
   const safeTitle = escapeAttrish(title);
-  return `<div style="font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 7.5pt; width: 100%; padding: 6mm 12mm 0 12mm; display: flex; align-items: center; gap: 8pt; color: #0E0E0E;">
+  return `<div style="font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 7.5pt; width: 100%; padding: 6mm 12mm 0 12mm; display: flex; align-items: center; color: #0E0E0E;">
   ${HEADER_LOGO_SVG}
-  <img src="data:image/png;base64,${WORDMARK_PNG_BASE64}" width="${WORDMARK_WIDTH_PX}" height="${WORDMARK_HEIGHT_PX}" alt="BOServices" style="display: block;" />
-  <span style="margin: 0 4pt; color: #BFC3C7;">·</span>
+  <img src="data:image/png;base64,${WORDMARK_PNG_BASE64}" width="${WORDMARK_WIDTH_PX}" height="${WORDMARK_HEIGHT_PX}" alt="BOServices" style="display: block; margin-left: 3pt;" />
+  <span style="margin: 0 7pt; color: #BFC3C7;">·</span>
   <span style="font-size: 7pt; letter-spacing: 0.18em; text-transform: uppercase; color: #6F7672;">${safeTitle}</span>
 </div>`;
 }
