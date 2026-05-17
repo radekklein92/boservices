@@ -9,6 +9,7 @@ export const PROVIDER_DEFAULTS: ContractVariables = {
   providerStreet: "Uhelný trh 414/9",
   providerCity: "Praha 1",
   providerZip: "11000",
+  providerRegistry: "Městský soud v Praze, oddíl C, vložka 442640",
   providerStatutoryName: "",
   providerStatutoryRole: "jednatel",
 };
@@ -24,6 +25,8 @@ export function buildClientVariables(client: Client): ContractVariables {
     clientCity: client.address.city,
     clientZip: client.address.zip,
     clientCountry: client.address.country ?? "Česká republika",
+    clientRegistry: "",
+    clientBankAccount: "",
     clientStatutoryName: client.statutory?.name ?? "",
     clientStatutoryRole: client.statutory?.role ?? "",
   };
@@ -39,6 +42,17 @@ export function buildDefaultContractMeta(): ContractVariables {
     effectiveDate: "",
     contractNumber: "",
     place: "Praha",
+    originContractDate: "",
+    originContractTitle: "",
+    feePercent: "95",
+    paymentTermDays: "15",
+    totalClaimsAmount: "",
+    debtorName: "",
+    debtorIco: "",
+    debtorStreet: "",
+    debtorCity: "",
+    debtorZip: "",
+    debtorRegistry: "",
   };
 }
 
