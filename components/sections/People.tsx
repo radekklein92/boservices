@@ -37,7 +37,7 @@ export function People() {
         </div>
 
         <p className="mt-20 max-w-[40ch] border-t border-edge pt-6 text-[12px] uppercase tracking-[0.18em] text-ink-mid">
-          {t.rich("groupNote", { ceip: ceipLink })}
+          {t("groupNote")}
         </p>
       </div>
     </section>
