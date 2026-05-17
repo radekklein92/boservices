@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { ArrowUpRight, Plus, Search, Trash2 } from "lucide-react";
 import type { Client } from "@/lib/portal/clients-db";
 
@@ -24,14 +23,14 @@ function formatDate(iso: string): string {
 }
 
 export function ClientsTable({
-  initial,
+  clients,
   onAddClick,
+  onDeleted,
 }: {
-  initial: Client[];
+  clients: Client[];
   onAddClick?: () => void;
+  onDeleted?: (id: string) => void;
 }) {
-  const router = useRouter();
-  const [clients, setClients] = useState<Client[]>(initial);
   const [query, setQuery] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -61,8 +60,7 @@ export function ClientsTable({
       const res = await fetch(`/api/portal/clients/${id}`, { method: "DELETE" });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || "Chyba");
-      setClients((prev) => prev.filter((c) => c.id !== id));
-      router.refresh();
+      onDeleted?.(id);
     } catch (err) {
       window.alert(err instanceof Error ? err.message : "Chyba");
     } finally {

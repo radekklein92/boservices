@@ -84,6 +84,7 @@ export async function POST(req: Request) {
   }
 
   const now = new Date().toISOString();
+  const id = nanoid(12);
   const statutory =
     d.statutory && d.statutory.name?.trim()
       ? strip({ name: d.statutory.name.trim(), role: d.statutory.role?.trim() })
@@ -98,7 +99,7 @@ export async function POST(req: Request) {
       : undefined;
 
   await upsertClient({
-    id: nanoid(12),
+    id,
     legalForm: d.legalForm,
     companyName: d.companyName.trim(),
     ico: d.ico || undefined,
@@ -118,5 +119,5 @@ export async function POST(req: Request) {
     updatedAt: now,
   });
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, id });
 }

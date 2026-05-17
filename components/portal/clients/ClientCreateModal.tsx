@@ -9,7 +9,7 @@ export function ClientCreateModal({
   onCreated,
 }: {
   onClose: () => void;
-  onCreated: (id?: string) => void;
+  onCreated: () => void;
 }) {
   useEffect(() => {
     const original = document.body.style.overflow;
@@ -55,7 +55,7 @@ export function ClientCreateModal({
           variant="modal"
           mode={{
             kind: "create",
-            onSuccess: (id) => onCreated(id),
+            onSuccess: () => onCreated(),
             onCancel: onClose,
           }}
         />

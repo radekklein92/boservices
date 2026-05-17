@@ -10,15 +10,31 @@ import { ClientCreateModal } from "./ClientCreateModal";
 
 export function ClientsPageClient({ initial }: { initial: Client[] }) {
   const router = useRouter();
+  const [clients, setClients] = useState(initial);
   const [open, setOpen] = useState(false);
 
-  function handleCreated(id?: string) {
-    setOpen(false);
-    if (id) {
-      router.push(`/portal/clients/${id}`);
-    } else {
-      router.refresh();
+  async function refetch() {
+    try {
+      const res = await fetch("/api/portal/clients", { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.ok && Array.isArray(data.clients)) {
+        setClients(data.clients as Client[]);
+      }
+    } catch {
+      // ignore
     }
+  }
+
+  function handleCreated() {
+    setOpen(false);
+    void refetch();
+    router.refresh();
+  }
+
+  function handleDeleted(id: string) {
+    setClients((prev) => prev.filter((c) => c.id !== id));
+    router.refresh();
   }
 
   return (
@@ -39,7 +55,11 @@ export function ClientsPageClient({ initial }: { initial: Client[] }) {
         }
       />
 
-      <ClientsTable initial={initial} onAddClick={() => setOpen(true)} />
+      <ClientsTable
+        clients={clients}
+        onAddClick={() => setOpen(true)}
+        onDeleted={handleDeleted}
+      />
 
       {open && (
         <ClientCreateModal
