@@ -134,7 +134,7 @@ export function TemplateEditorClient({
         </div>
       )}
 
-      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[1fr_300px]">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_300px]">
         <div className={isAdmin ? "" : "pointer-events-none opacity-90"}>
           <TiptapEditor
             value={html}
@@ -142,11 +142,9 @@ export function TemplateEditorClient({
             editorRef={(e) => (editorRef.current = e)}
           />
         </div>
-        <aside className="lg:sticky lg:top-6">
-          <div className="overflow-hidden rounded-2xl border border-edge bg-paper-warm">
-            <div className="max-h-[calc(100dvh-7rem)] overflow-y-auto p-4">
-              <PlaceholderPalette onInsert={handleInsert} />
-            </div>
+        <aside className="flex h-full min-h-[480px] flex-col overflow-hidden rounded-2xl border border-edge bg-paper-warm">
+          <div className="flex-1 overflow-y-auto p-4">
+            <PlaceholderPalette onInsert={handleInsert} />
           </div>
         </aside>
       </div>
