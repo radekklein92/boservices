@@ -74,13 +74,13 @@ function PillarRail() {
   return (
     <div className="pointer-events-none absolute inset-x-0 bottom-0 hidden h-12 items-center justify-center md:flex">
       <div className="flex w-full max-w-[1280px] items-center justify-between px-8 text-[10.5px] font-medium uppercase tracking-[0.4em] text-ink-mid">
-        <span>Důvěra</span>
+        <span>Provoz</span>
         <Dot />
-        <span>Struktura</span>
+        <span>Lidé</span>
         <Dot />
-        <span>Tok</span>
+        <span>Standard</span>
         <Dot />
-        <span>Výkon</span>
+        <span>Růst</span>
       </div>
     </div>
   );
