@@ -111,13 +111,13 @@ export function InviteModal({
                 active={role === "admin"}
                 onClick={() => setRole("admin")}
                 label="Admin"
-                hint="Spravuje uživatele, klienty, smlouvy."
+                hint="Klienti, smlouvy + pozvánky a správa uživatelů."
               />
               <RoleChip
                 active={role === "user"}
                 onClick={() => setRole("user")}
                 label="Uživatel"
-                hint="Čtení + práce se smlouvami."
+                hint="Klienti a smlouvy. Bez správy uživatelů."
               />
             </div>
           </Field>
