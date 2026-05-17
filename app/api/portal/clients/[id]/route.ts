@@ -38,15 +38,6 @@ const updateSchema = z.object({
       phone: z.string().trim().max(40).optional().or(z.literal("")),
     })
     .optional(),
-  website: z.string().trim().url().optional().or(z.literal("")),
-  storesCount: z
-    .union([z.number(), z.string()])
-    .transform((v) =>
-      typeof v === "string" && v !== "" ? Number.parseInt(v, 10) : v === "" ? undefined : v,
-    )
-    .pipe(z.number().int().min(0).max(10000).optional())
-    .optional(),
-  notes: z.string().trim().max(2000).optional().or(z.literal("")),
 });
 
 export async function GET(
@@ -128,9 +119,6 @@ export async function PUT(
             phone: d.contact.phone?.trim() || undefined,
           }
         : undefined,
-    website: d.website || undefined,
-    storesCount: d.storesCount,
-    notes: d.notes?.trim() || undefined,
     updatedAt: new Date().toISOString(),
   };
   await upsertClient(updated);

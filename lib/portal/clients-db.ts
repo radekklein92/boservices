@@ -29,9 +29,6 @@ export interface Client {
   address: ClientAddress;
   statutory?: ClientStatutory;
   contact?: ClientContact;
-  website?: string;
-  storesCount?: number;
-  notes?: string;
   createdBy: string;
   createdAt: string;
   updatedAt: string;

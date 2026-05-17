@@ -29,9 +29,6 @@ type FormState = {
   contactName: string;
   contactEmail: string;
   contactPhone: string;
-  website: string;
-  storesCount: string;
-  notes: string;
 };
 
 function blankState(): FormState {
@@ -49,9 +46,6 @@ function blankState(): FormState {
     contactName: "",
     contactEmail: "",
     contactPhone: "",
-    website: "",
-    storesCount: "",
-    notes: "",
   };
 }
 
@@ -70,9 +64,6 @@ function fromClient(c: Client): FormState {
     contactName: c.contact?.name ?? "",
     contactEmail: c.contact?.email ?? "",
     contactPhone: c.contact?.phone ?? "",
-    website: c.website ?? "",
-    storesCount: c.storesCount?.toString() ?? "",
-    notes: c.notes ?? "",
   };
 }
 
@@ -166,11 +157,6 @@ export function ClientForm({
                 phone: state.contactPhone.trim() || undefined,
               }
             : undefined,
-        website: state.website.trim() || undefined,
-        storesCount: state.storesCount.trim()
-          ? Number.parseInt(state.storesCount, 10)
-          : undefined,
-        notes: state.notes.trim() || undefined,
       };
 
       const url =
@@ -398,41 +384,6 @@ export function ClientForm({
               onChange={(e) => set("contactPhone", e.target.value)}
               placeholder="+420 ..."
               className={inputCls}
-            />
-          </Field>
-        </div>
-      </Section>
-
-      {/* Doplňující */}
-      <Section label="Doplňující">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-[2fr_140px]">
-          <Field label="Web">
-            <input
-              type="url"
-              value={state.website}
-              onChange={(e) => set("website", e.target.value)}
-              placeholder="https://"
-              className={inputCls}
-            />
-          </Field>
-          <Field label="Počet prodejen">
-            <input
-              type="number"
-              min={0}
-              value={state.storesCount}
-              onChange={(e) => set("storesCount", e.target.value)}
-              className={inputCls}
-            />
-          </Field>
-        </div>
-        <div className="mt-3">
-          <Field label="Poznámka">
-            <textarea
-              rows={3}
-              value={state.notes}
-              onChange={(e) => set("notes", e.target.value)}
-              placeholder="Cokoli, co se nehodí do polí výše."
-              className={`${inputCls} h-auto resize-y py-2.5 leading-relaxed`}
             />
           </Field>
         </div>

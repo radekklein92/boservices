@@ -37,13 +37,6 @@ const clientPayload = z.object({
       phone: z.string().trim().max(40).optional().or(z.literal("")),
     })
     .optional(),
-  website: z.string().trim().url().optional().or(z.literal("")),
-  storesCount: z
-    .union([z.number(), z.string()])
-    .transform((v) => (typeof v === "string" ? Number.parseInt(v, 10) : v))
-    .pipe(z.number().int().min(0).max(10000))
-    .optional(),
-  notes: z.string().trim().max(2000).optional().or(z.literal("")),
 });
 
 export type ClientPayload = z.infer<typeof clientPayload>;
@@ -120,9 +113,6 @@ export async function POST(req: Request) {
     contact: contact as
       | { name?: string; email?: string; phone?: string }
       | undefined,
-    website: d.website || undefined,
-    storesCount: d.storesCount,
-    notes: d.notes?.trim() || undefined,
     createdBy: g.session.user!.email!,
     createdAt: now,
     updatedAt: now,

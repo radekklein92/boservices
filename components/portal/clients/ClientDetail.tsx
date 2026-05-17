@@ -62,38 +62,10 @@ export function ClientDetail({ client }: { client: Client }) {
         </Card>
       )}
 
-      <Card title="Další">
-        {client.storesCount !== undefined && (
-          <Row label="Počet prodejen" value={String(client.storesCount)} mono />
-        )}
-        {client.website && (
-          <Row
-            label="Web"
-            value={
-              <a
-                href={client.website}
-                target="_blank"
-                rel="noreferrer noopener"
-                className="underline underline-offset-2 transition-opacity hover:opacity-70"
-              >
-                {client.website.replace(/^https?:\/\//, "")}
-              </a>
-            }
-          />
-        )}
+      <Card title="Záznam">
         <Row label="Přidáno" value={formatDate(client.createdAt)} />
         <Row label="Naposledy upraveno" value={formatDate(client.updatedAt)} />
       </Card>
-
-      {client.notes && (
-        <div className="md:col-span-2">
-          <Card title="Poznámka">
-            <p className="whitespace-pre-wrap text-[14px] leading-relaxed text-ink-deep">
-              {client.notes}
-            </p>
-          </Card>
-        </div>
-      )}
 
       <div className="md:col-span-2">
         <div className="rounded-[24px] border border-dashed border-edge bg-paper p-7 text-center">
