@@ -57,10 +57,7 @@ export async function POST(
     );
   }
 
-  const safeName = file.name.replace(
-    /[^\w\sěščřžýáíéúůďťňĚŠČŘŽÝÁÍÉÚŮĎŤŇ.-]/g,
-    "",
-  );
+  const safeName = slugify(file.name);
   const path = `portal/contracts/${contract.id}/scans/${Date.now()}-${safeName}`;
 
   let uploaded;
@@ -72,9 +69,14 @@ export async function POST(
       allowOverwrite: true,
     });
   } catch (err) {
-    console.error("[contracts] scan upload failed", err);
+    console.error("[contracts] scan upload failed", {
+      path,
+      message: err instanceof Error ? err.message : String(err),
+      err,
+    });
+    const detail = err instanceof Error ? err.message : String(err);
     return NextResponse.json(
-      { ok: false, error: "Nahrání selhalo." },
+      { ok: false, error: `Nahrání skenu selhalo: ${detail}` },
       { status: 500 },
     );
   }
@@ -135,4 +137,21 @@ export async function DELETE(
   });
 
   return NextResponse.json({ ok: true });
+}
+
+const DIACRITICS: Record<string, string> = {
+  á: "a", č: "c", ď: "d", é: "e", ě: "e", í: "i", ň: "n",
+  ó: "o", ř: "r", š: "s", ť: "t", ú: "u", ů: "u", ý: "y", ž: "z",
+  Á: "A", Č: "C", Ď: "D", É: "E", Ě: "E", Í: "I", Ň: "N",
+  Ó: "O", Ř: "R", Š: "S", Ť: "T", Ú: "U", Ů: "U", Ý: "Y", Ž: "Z",
+};
+
+function slugify(input: string): string {
+  const stripped = Array.from(input)
+    .map((ch) => DIACRITICS[ch] ?? ch)
+    .join("")
+    .replace(/[^a-zA-Z0-9.\-_\s]/g, "")
+    .trim()
+    .replace(/\s+/g, "-");
+  return stripped.slice(0, 100) || "scan.pdf";
 }
