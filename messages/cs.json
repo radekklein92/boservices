@@ -1,0 +1,112 @@
+{
+  "meta": {
+    "title": "BOServices - Provoz retailových prodejen",
+    "description": "Business Operations Services. Provozujeme retailové prodejny za značky, které chtějí růst bez kompromisů. Důvěra, struktura, tok, výkon.",
+    "ogAlt": "BOServices - Business Operations Services"
+  },
+  "nav": {
+    "services": "Co děláme",
+    "people": "Lidé",
+    "contact": "Kontakt",
+    "cta": "Pojďme se potkat"
+  },
+  "hero": {
+    "eyebrow": "Business Operations Services",
+    "title": "Rosteme společně.",
+    "lede": "Provozujeme retailové prodejny za značky, které mají ambici, a chtějí se soustředit na produkt. Pod jednou střechou: nábor, směny, finance, KPI.",
+    "primaryCta": "Pojďme se potkat",
+    "secondaryCta": "Jak to děláme"
+  },
+  "pillars": {
+    "duvera": {
+      "tag": "01",
+      "title": "Důvěra",
+      "body": "Pracujeme jen tam, kde dáváme značce stejnou váhu, jako kdyby byla naše vlastní."
+    },
+    "struktura": {
+      "tag": "02",
+      "title": "Struktura",
+      "body": "Procesy, role, reporty. Předvídatelný provoz, který nestojí na jednom člověku."
+    },
+    "tok": {
+      "tag": "03",
+      "title": "Tok",
+      "body": "Plynulé směny, plynulé sklady, plynulý cashflow. Z chaosu rytmus."
+    },
+    "vykon": {
+      "tag": "04",
+      "title": "Výkon",
+      "body": "Měříme, co dává smysl. Tržba, marže, NPS, fluktuace - bez taktiky pro reporty."
+    }
+  },
+  "what": {
+    "eyebrow": "Co děláme",
+    "title": "Vedeme retailové prodejny za značku.",
+    "lede": "Když má značka skvělý produkt, ale dennodenní provoz prodejen krade pozornost, přebíráme ho. Od náboru a směn po finance a reporting.",
+    "items": {
+      "ops": {
+        "title": "Provoz prodejen",
+        "body": "Otevírací doba, směny, standardy, audit. Konzistentní zákaznický zážitek napříč lokalitami."
+      },
+      "people": {
+        "title": "Lidé & HR",
+        "body": "Nábor, onboarding, hodnocení, mzdy. Tým, který zůstává a roste."
+      },
+      "finance": {
+        "title": "Finance & reporting",
+        "body": "Pokladna, tržby, marže, závěrky. Měsíční výkaz, který pochopíte za 5 minut."
+      },
+      "growth": {
+        "title": "Růst & expanze",
+        "body": "Otevíráme nové prodejny, vyhodnocujeme lokality, řídíme remodely."
+      }
+    }
+  },
+  "people": {
+    "eyebrow": "Vedení",
+    "title": "Tři jednatelé. Jedna odpovědnost.",
+    "lede": "Sídlíme v Praze, na Uhelném trhu. Patříme do skupiny CEIP.",
+    "groupNote": "Společník: CEIP Business Finance Solutions s.r.o."
+  },
+  "contact": {
+    "eyebrow": "Kontakt",
+    "title": "Máte značku, která zaslouží lepší provoz?",
+    "lede": "Napište nám pár vět - co provozujete, kde, a co vás nejvíc trápí. Ozveme se do dvou pracovních dnů.",
+    "form": {
+      "name": "Jméno",
+      "namePlaceholder": "Jana Novotná",
+      "email": "E-mail",
+      "emailPlaceholder": "jana@znacka.cz",
+      "company": "Společnost",
+      "companyPlaceholder": "Vaše značka s.r.o.",
+      "message": "Krátká zpráva",
+      "messagePlaceholder": "Provozujeme 12 prodejen, hledáme partnera na...",
+      "submit": "Odeslat poptávku",
+      "submitting": "Odesílám...",
+      "successTitle": "Děkujeme, máme to.",
+      "successBody": "Ozveme se vám do dvou pracovních dnů na uvedený e-mail.",
+      "errorTitle": "Něco se nepovedlo.",
+      "errorBody": "Zkuste to prosím znovu nebo nám napište přímo na hello@boservices.cz.",
+      "errors": {
+        "name": "Doplňte prosím své jméno.",
+        "email": "Zadejte platný e-mail.",
+        "message": "Napište aspoň jednu větu."
+      }
+    },
+    "details": {
+      "addressLabel": "Sídlo",
+      "address": "Uhelný trh 414/9, Staré Město, 110 00 Praha 1",
+      "icoLabel": "IČO",
+      "ico": "245 200 39",
+      "dicLabel": "DIČ",
+      "dic": "CZ24520039",
+      "groupLabel": "Skupina",
+      "group": "CEIP"
+    }
+  },
+  "footer": {
+    "pillars": "Důvěra · Struktura · Tok · Výkon",
+    "copyright": "© {year} Business Operations Services s.r.o.",
+    "group": "Součást skupiny CEIP"
+  }
+}

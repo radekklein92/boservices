@@ -1,0 +1,33 @@
+{
+  "name": "boservices",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@upstash/redis": "^1.34.3",
+    "framer-motion": "^11.15.0",
+    "lucide-react": "^0.469.0",
+    "next": "16.2.6",
+    "next-intl": "^4.4.0",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "resend": "^4.0.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.0",
+    "@types/node": "^22.10.5",
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
+    "eslint": "^9.18.0",
+    "eslint-config-next": "16.2.6",
+    "tailwindcss": "^4.1.0",
+    "typescript": "^5.7.3"
+  }
+}

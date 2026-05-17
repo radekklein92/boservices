@@ -1,0 +1,112 @@
+{
+  "meta": {
+    "title": "BOServices - Retail store operations",
+    "description": "Business Operations Services. We run retail stores on behalf of brands who want to grow without compromise. Trust, structure, flow, performance.",
+    "ogAlt": "BOServices - Business Operations Services"
+  },
+  "nav": {
+    "services": "What we do",
+    "people": "People",
+    "contact": "Contact",
+    "cta": "Let's talk"
+  },
+  "hero": {
+    "eyebrow": "Business Operations Services",
+    "title": "We grow together.",
+    "lede": "We run retail stores for brands that have ambition and want to focus on the product. Hiring, shifts, finance, KPIs - all under one roof.",
+    "primaryCta": "Let's talk",
+    "secondaryCta": "How we work"
+  },
+  "pillars": {
+    "duvera": {
+      "tag": "01",
+      "title": "Trust",
+      "body": "We only work where we can treat the brand as if it were our own."
+    },
+    "struktura": {
+      "tag": "02",
+      "title": "Structure",
+      "body": "Processes, roles, reporting. Predictable operations that don't rest on one person."
+    },
+    "tok": {
+      "tag": "03",
+      "title": "Flow",
+      "body": "Shifts flow, stock flows, cash flows. From chaos to rhythm."
+    },
+    "vykon": {
+      "tag": "04",
+      "title": "Performance",
+      "body": "We measure what matters. Revenue, margin, NPS, churn - no vanity metrics."
+    }
+  },
+  "what": {
+    "eyebrow": "What we do",
+    "title": "We run retail stores for brands.",
+    "lede": "When a brand has a great product but daily store operations consume the team, we take it over. From hiring and shifts to finance and reporting.",
+    "items": {
+      "ops": {
+        "title": "Store operations",
+        "body": "Hours, shifts, standards, audits. A consistent customer experience across locations."
+      },
+      "people": {
+        "title": "People & HR",
+        "body": "Hiring, onboarding, reviews, payroll. A team that stays and grows."
+      },
+      "finance": {
+        "title": "Finance & reporting",
+        "body": "Cash, revenue, margin, monthly close. A report you understand in five minutes."
+      },
+      "growth": {
+        "title": "Growth & expansion",
+        "body": "We open new stores, evaluate locations, run remodels."
+      }
+    }
+  },
+  "people": {
+    "eyebrow": "Leadership",
+    "title": "Three directors. One responsibility.",
+    "lede": "Based in Prague, on Uhelný trh. Part of the CEIP group.",
+    "groupNote": "Shareholder: CEIP Business Finance Solutions s.r.o."
+  },
+  "contact": {
+    "eyebrow": "Contact",
+    "title": "Got a brand that deserves better operations?",
+    "lede": "Write a few sentences - what you run, where, and what's bugging you most. We reply within two business days.",
+    "form": {
+      "name": "Name",
+      "namePlaceholder": "Jane Novak",
+      "email": "Email",
+      "emailPlaceholder": "jane@brand.com",
+      "company": "Company",
+      "companyPlaceholder": "Your brand Ltd.",
+      "message": "Short message",
+      "messagePlaceholder": "We run 12 stores, looking for a partner to...",
+      "submit": "Send enquiry",
+      "submitting": "Sending...",
+      "successTitle": "Thanks, we got it.",
+      "successBody": "We'll get back to you at your email within two business days.",
+      "errorTitle": "Something went wrong.",
+      "errorBody": "Please try again or email us directly at hello@boservices.cz.",
+      "errors": {
+        "name": "Please enter your name.",
+        "email": "Please enter a valid email.",
+        "message": "Please write at least one sentence."
+      }
+    },
+    "details": {
+      "addressLabel": "Office",
+      "address": "Uhelný trh 414/9, Staré Město, 110 00 Prague 1",
+      "icoLabel": "Company ID",
+      "ico": "245 200 39",
+      "dicLabel": "VAT ID",
+      "dic": "CZ24520039",
+      "groupLabel": "Group",
+      "group": "CEIP"
+    }
+  },
+  "footer": {
+    "pillars": "Trust · Structure · Flow · Performance",
+    "copyright": "© {year} Business Operations Services s.r.o.",
+    "group": "Part of the CEIP group"
+  }
+}
