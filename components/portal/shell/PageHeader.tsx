@@ -6,7 +6,7 @@ export function PageHeader({
   lede,
   actions,
 }: {
-  eyebrow?: string;
+  eyebrow?: ReactNode;
   title: string;
   lede?: ReactNode;
   actions?: ReactNode;

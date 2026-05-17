@@ -23,7 +23,7 @@ const main: Item[] = [
 ];
 
 const provoz: Item[] = [
-  { href: "/portal/clients", label: "Klienti", Icon: Building2, disabled: true },
+  { href: "/portal/clients", label: "Klienti", Icon: Building2 },
   { href: "/portal/contracts", label: "Smlouvy", Icon: FileText, disabled: true },
   { href: "/portal/templates", label: "Šablony", Icon: FilePenLine, disabled: true },
 ];

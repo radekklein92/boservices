@@ -1,0 +1,132 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { nanoid } from "nanoid";
+import { requireSession } from "@/lib/portal/auth-guard";
+import {
+  getClientByIco,
+  listClients,
+  upsertClient,
+} from "@/lib/portal/clients-db";
+
+const clientPayload = z.object({
+  legalForm: z.enum(["PO", "FO"]),
+  companyName: z.string().trim().min(2).max(200),
+  ico: z
+    .string()
+    .trim()
+    .regex(/^\d{1,8}$/u)
+    .optional()
+    .or(z.literal("")),
+  dic: z.string().trim().max(15).optional().or(z.literal("")),
+  address: z.object({
+    street: z.string().trim().min(1).max(160),
+    city: z.string().trim().min(1).max(80),
+    zip: z.string().trim().min(3).max(10),
+    country: z.string().trim().max(60).optional(),
+  }),
+  statutory: z
+    .object({
+      name: z.string().trim().max(120).optional().or(z.literal("")),
+      role: z.string().trim().max(80).optional().or(z.literal("")),
+    })
+    .optional(),
+  contact: z
+    .object({
+      name: z.string().trim().max(120).optional().or(z.literal("")),
+      email: z.string().trim().email().optional().or(z.literal("")),
+      phone: z.string().trim().max(40).optional().or(z.literal("")),
+    })
+    .optional(),
+  website: z.string().trim().url().optional().or(z.literal("")),
+  storesCount: z
+    .union([z.number(), z.string()])
+    .transform((v) => (typeof v === "string" ? Number.parseInt(v, 10) : v))
+    .pipe(z.number().int().min(0).max(10000))
+    .optional(),
+  notes: z.string().trim().max(2000).optional().or(z.literal("")),
+});
+
+export type ClientPayload = z.infer<typeof clientPayload>;
+
+function strip<T extends Record<string, unknown>>(obj: T): Partial<T> {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([, v]) => v !== "" && v !== undefined),
+  ) as Partial<T>;
+}
+
+export async function GET() {
+  const g = await requireSession();
+  if (!g.ok) return g.response;
+  const clients = await listClients();
+  return NextResponse.json({ ok: true, clients });
+}
+
+export async function POST(req: Request) {
+  const g = await requireSession();
+  if (!g.ok) return g.response;
+
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ ok: false, error: "Invalid JSON" }, { status: 400 });
+  }
+  const parsed = clientPayload.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { ok: false, error: "Validation failed", details: parsed.error.flatten() },
+      { status: 400 },
+    );
+  }
+  const d = parsed.data;
+
+  if (d.ico) {
+    const existing = await getClientByIco(d.ico);
+    if (existing) {
+      return NextResponse.json(
+        { ok: false, error: `IČO ${d.ico} už používá: ${existing.companyName}.` },
+        { status: 409 },
+      );
+    }
+  }
+
+  const now = new Date().toISOString();
+  const statutory =
+    d.statutory && d.statutory.name?.trim()
+      ? strip({ name: d.statutory.name.trim(), role: d.statutory.role?.trim() })
+      : undefined;
+  const contact =
+    d.contact && (d.contact.name || d.contact.email || d.contact.phone)
+      ? strip({
+          name: d.contact.name?.trim(),
+          email: d.contact.email?.trim(),
+          phone: d.contact.phone?.trim(),
+        })
+      : undefined;
+
+  await upsertClient({
+    id: nanoid(12),
+    legalForm: d.legalForm,
+    companyName: d.companyName.trim(),
+    ico: d.ico || undefined,
+    dic: d.dic?.trim() || undefined,
+    address: {
+      street: d.address.street.trim(),
+      city: d.address.city.trim(),
+      zip: d.address.zip.trim(),
+      country: d.address.country?.trim() || "Česká republika",
+    },
+    statutory: statutory as { name: string; role?: string } | undefined,
+    contact: contact as
+      | { name?: string; email?: string; phone?: string }
+      | undefined,
+    website: d.website || undefined,
+    storesCount: d.storesCount,
+    notes: d.notes?.trim() || undefined,
+    createdBy: g.session.user!.email!,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  return NextResponse.json({ ok: true });
+}
