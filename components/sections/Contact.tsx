@@ -1,5 +1,7 @@
+import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { ContactForm } from "@/components/ui/ContactForm";
+import { ceipLink } from "@/components/brand/CeipLink";
 
 export function Contact() {
   const t = useTranslations("contact");
@@ -41,7 +43,7 @@ export function Contact() {
             />
             <DetailRow
               label={t("details.groupLabel")}
-              value={t("details.group")}
+              value={t.rich("details.group", { ceip: ceipLink })}
             />
           </dl>
         </div>
@@ -58,7 +60,7 @@ function DetailRow({
   mono,
 }: {
   label: string;
-  value: string;
+  value: ReactNode;
   mono?: boolean;
 }) {
   return (

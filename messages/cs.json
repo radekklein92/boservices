@@ -43,8 +43,8 @@
   "people": {
     "eyebrow": "Lidé",
     "title": "Jednatelé",
-    "lede": "Sídlíme na Uhelném trhu v Praze 1. Patříme do skupiny CEIP.",
-    "groupNote": "Společník: CEIP Business Finance Solutions s.r.o."
+    "lede": "Sídlíme na Uhelném trhu v Praze 1. Patříme do skupiny <ceip>CEIP</ceip>.",
+    "groupNote": "Společník: <ceip>CEIP Business Finance Solutions s.r.o.</ceip>"
   },
   "contact": {
     "eyebrow": "Kontakt",
@@ -79,12 +79,12 @@
       "dicLabel": "DIČ",
       "dic": "CZ24520039",
       "groupLabel": "Skupina",
-      "group": "CEIP"
+      "group": "<ceip>CEIP</ceip>"
     }
   },
   "footer": {
     "pillars": "Provoz · Lidé · Standard · Růst",
     "copyright": "© {year} Business Operations Services s.r.o.",
-    "group": "Součást skupiny CEIP"
+    "group": "Součást skupiny <ceip>CEIP</ceip>"
   }
 }

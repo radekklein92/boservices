@@ -1,5 +1,6 @@
 import { useTranslations, useLocale } from "next-intl";
 import { directors, type Director } from "@/lib/people";
+import { ceipLink } from "@/components/brand/CeipLink";
 
 export function People() {
   const t = useTranslations("people");
@@ -18,7 +19,7 @@ export function People() {
               {t("title")}
             </h2>
             <p className="max-w-[52ch] text-[1.025rem] leading-relaxed text-ink-deep">
-              {t("lede")}
+              {t.rich("lede", { ceip: ceipLink })}
             </p>
           </div>
         </header>
@@ -36,7 +37,7 @@ export function People() {
         </div>
 
         <p className="mt-20 max-w-[40ch] border-t border-edge pt-6 text-[12px] uppercase tracking-[0.18em] text-ink-mid">
-          {t("groupNote")}
+          {t.rich("groupNote", { ceip: ceipLink })}
         </p>
       </div>
     </section>
