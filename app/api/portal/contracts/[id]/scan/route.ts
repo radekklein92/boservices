@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { put, del } from "@vercel/blob";
 import { requireSession } from "@/lib/portal/auth-guard";
-import { getContract, upsertContract } from "@/lib/portal/contracts-db";
+import {
+  computeContractStatus,
+  getContract,
+  upsertContract,
+} from "@/lib/portal/contracts-db";
 
 export const maxDuration = 60;
 
@@ -91,15 +95,16 @@ export async function POST(
   }
 
   const now = new Date().toISOString();
-  await upsertContract({
+  const updated = {
     ...contract,
-    status: "archived",
     scanPdfUrl: uploaded.url,
     scanPdfPath: uploaded.pathname,
     scanUploadedAt: now,
     scanUploadedBy: g.session.user!.email!,
     updatedAt: now,
-  });
+  };
+  updated.status = computeContractStatus(updated);
+  await upsertContract(updated);
 
   return NextResponse.json({ ok: true, url: uploaded.url });
 }
@@ -125,16 +130,16 @@ export async function DELETE(
     }
   }
 
-  const status = contract.generatedPdfUrl ? "generated" : "draft";
-  await upsertContract({
+  const updated = {
     ...contract,
-    status,
     scanPdfUrl: undefined,
     scanPdfPath: undefined,
     scanUploadedAt: undefined,
     scanUploadedBy: undefined,
     updatedAt: new Date().toISOString(),
-  });
+  };
+  updated.status = computeContractStatus(updated);
+  await upsertContract(updated);
 
   return NextResponse.json({ ok: true });
 }

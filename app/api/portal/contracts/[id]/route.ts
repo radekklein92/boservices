@@ -3,10 +3,10 @@ import { z } from "zod";
 import { del } from "@vercel/blob";
 import { requireSession } from "@/lib/portal/auth-guard";
 import {
+  computeContractStatus,
   deleteContract,
   getContract,
   upsertContract,
-  type ContractStatus,
 } from "@/lib/portal/contracts-db";
 
 const updateSchema = z.object({
@@ -65,11 +65,9 @@ export async function PUT(
     generatedPdfUrl: undefined,
     generatedPdfPath: undefined,
     generatedAt: undefined,
-    status: (existing.status === "archived"
-      ? "archived"
-      : "draft") as ContractStatus,
     updatedAt: new Date().toISOString(),
   };
+  updated.status = computeContractStatus(updated);
   await upsertContract(updated);
   return NextResponse.json({ ok: true });
 }

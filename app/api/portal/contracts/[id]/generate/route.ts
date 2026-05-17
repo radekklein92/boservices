@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { put } from "@vercel/blob";
 import { requireSession } from "@/lib/portal/auth-guard";
-import { getContract, upsertContract } from "@/lib/portal/contracts-db";
+import {
+  computeContractStatus,
+  getContract,
+  upsertContract,
+} from "@/lib/portal/contracts-db";
 import { CONTRACT_TYPE_META } from "@/lib/portal/contract-types";
 import { renderTemplate } from "@/lib/portal/contract-render";
 import { htmlToPdfBuffer } from "@/lib/portal/pdf-generator";
@@ -70,14 +74,15 @@ export async function POST(
   }
 
   const now = new Date().toISOString();
-  await upsertContract({
+  const updated = {
     ...contract,
-    status: contract.status === "archived" ? "archived" : "generated",
     generatedPdfUrl: uploaded.url,
     generatedPdfPath: uploaded.pathname,
     generatedAt: now,
     updatedAt: now,
-  });
+  };
+  updated.status = computeContractStatus(updated);
+  await upsertContract(updated);
 
   return NextResponse.json({
     ok: true,

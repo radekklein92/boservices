@@ -12,6 +12,9 @@ import {
   CheckCircle2,
   ScanLine,
   Circle,
+  PenLine,
+  Package,
+  type LucideIcon,
 } from "lucide-react";
 import type { Contract } from "@/lib/portal/contracts-db";
 import type { Client } from "@/lib/portal/clients-db";
@@ -32,10 +35,12 @@ function formatDate(iso: string): string {
 
 const STATUS_META: Record<
   Contract["status"],
-  { label: string; Icon: typeof Circle; tone: "muted" | "ink" | "ok" }
+  { label: string; Icon: LucideIcon; tone: "muted" | "ink" | "ok" }
 > = {
   draft: { label: "Koncept", Icon: Circle, tone: "muted" },
   generated: { label: "Vygenerováno", Icon: CheckCircle2, tone: "ink" },
+  signed: { label: "Podepsáno", Icon: PenLine, tone: "ink" },
+  "picked-up": { label: "Vyzvednuto", Icon: Package, tone: "ink" },
   archived: { label: "Archivováno", Icon: ScanLine, tone: "ok" },
 };
 

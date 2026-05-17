@@ -7,12 +7,18 @@ import {
   ArrowLeft,
   CheckCircle2,
   Download,
+  FileText,
   FileWarning,
+  PenLine,
+  Package,
   RefreshCw,
+  RotateCcw,
   Save,
   ScanLine,
   Trash2,
+  Undo2,
   Upload,
+  type LucideIcon,
 } from "lucide-react";
 import type { Editor } from "@tiptap/react";
 import type { Contract } from "@/lib/portal/contracts-db";
@@ -154,6 +160,47 @@ export function ContractDetailClient({ initial }: Props) {
     }
   }
 
+  async function setMilestone(kind: "signed" | "picked-up") {
+    try {
+      const res = await fetch(
+        `/api/portal/contracts/${contract.id}/${kind}`,
+        { method: "POST" },
+      );
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error);
+      const reload = await fetch(`/api/portal/contracts/${contract.id}`);
+      const j = await reload.json();
+      if (j.ok) setContract(j.contract);
+      notify(
+        "ok",
+        kind === "signed"
+          ? "Označeno jako podepsáno jednateli."
+          : "Označeno jako vyzvednuto obchodníkem.",
+      );
+    } catch (err) {
+      notify("error", err instanceof Error ? err.message : "Chyba");
+    }
+  }
+
+  async function unsetMilestone(kind: "signed" | "picked-up") {
+    const label = kind === "signed" ? "podepsání" : "vyzvednutí";
+    if (!window.confirm(`Zrušit označení ${label}?`)) return;
+    try {
+      const res = await fetch(
+        `/api/portal/contracts/${contract.id}/${kind}`,
+        { method: "DELETE" },
+      );
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error);
+      const reload = await fetch(`/api/portal/contracts/${contract.id}`);
+      const j = await reload.json();
+      if (j.ok) setContract(j.contract);
+      notify("ok", "Označení zrušeno.");
+    } catch (err) {
+      notify("error", err instanceof Error ? err.message : "Chyba");
+    }
+  }
+
   async function removeScan() {
     if (!window.confirm("Odebrat nahraný sken?")) return;
     try {
@@ -263,17 +310,18 @@ export function ContractDetailClient({ initial }: Props) {
         </div>
       </header>
 
-      {/* PDF actions */}
+      {/* Milestones - 4 kroky */}
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <ActionCard
+          step="1"
           title="Vygenerované PDF"
           subtitle={
             contract.generatedAt
               ? `vytvořeno ${formatDateTime(contract.generatedAt)}`
               : "ještě nevygenerováno"
           }
-          Icon={CheckCircle2}
-          active={!!contract.generatedPdfUrl}
+          Icon={FileText}
+          done={!!contract.generatedPdfUrl}
         >
           {contract.generatedPdfUrl ? (
             <a
@@ -293,16 +341,87 @@ export function ContractDetailClient({ initial }: Props) {
         </ActionCard>
 
         <ActionCard
+          step="2"
+          title="Podepsáno jednateli"
+          subtitle={
+            contract.signedAt
+              ? `${formatDateTime(contract.signedAt)}${
+                  contract.signedBy ? ` · ${contract.signedBy}` : ""
+                }`
+              : "po vytisknutí a podpisu jednateli"
+          }
+          Icon={PenLine}
+          done={!!contract.signedAt}
+        >
+          {contract.signedAt ? (
+            <button
+              type="button"
+              onClick={() => unsetMilestone("signed")}
+              className="inline-flex h-9 items-center gap-2 rounded-full border border-edge px-3 text-[12px] font-medium text-ink-mid transition-colors hover:border-ink-base hover:text-ink-base"
+            >
+              <Undo2 className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+              Zrušit označení
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setMilestone("signed")}
+              className="inline-flex h-9 items-center gap-2 rounded-full bg-ink-base px-4 text-[12px] font-semibold text-paper transition-transform active:translate-y-px"
+            >
+              <PenLine className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+              Označit jako podepsáno
+            </button>
+          )}
+        </ActionCard>
+
+        <ActionCard
+          step="3"
+          title="Vyzvednuto obchodníkem"
+          subtitle={
+            contract.pickedUpAt
+              ? `${formatDateTime(contract.pickedUpAt)}${
+                  contract.pickedUpBy ? ` · ${contract.pickedUpBy}` : ""
+                }`
+              : "obchodník odnesl tištěnou smlouvu ke klientovi"
+          }
+          Icon={Package}
+          done={!!contract.pickedUpAt}
+        >
+          {contract.pickedUpAt ? (
+            <button
+              type="button"
+              onClick={() => unsetMilestone("picked-up")}
+              className="inline-flex h-9 items-center gap-2 rounded-full border border-edge px-3 text-[12px] font-medium text-ink-mid transition-colors hover:border-ink-base hover:text-ink-base"
+            >
+              <Undo2 className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+              Zrušit označení
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setMilestone("picked-up")}
+              className="inline-flex h-9 items-center gap-2 rounded-full bg-ink-base px-4 text-[12px] font-semibold text-paper transition-transform active:translate-y-px"
+            >
+              <Package className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+              Označit jako vyzvednuto
+            </button>
+          )}
+        </ActionCard>
+
+        <ActionCard
+          step="4"
           title="Naskenovaná kopie"
           subtitle={
             contract.scanUploadedAt
-              ? `nahráno ${formatDateTime(contract.scanUploadedAt)}`
-              : "podepsaná verze ještě nenahrána"
+              ? `nahráno ${formatDateTime(contract.scanUploadedAt)}${
+                  contract.scanUploadedBy ? ` · ${contract.scanUploadedBy}` : ""
+                }`
+              : "podepsaná verze klientem"
           }
           Icon={ScanLine}
-          active={!!contract.scanPdfUrl}
+          done={!!contract.scanPdfUrl}
         >
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <input
               ref={fileRef}
               type="file"
@@ -314,7 +433,12 @@ export function ContractDetailClient({ initial }: Props) {
               type="button"
               onClick={() => fileRef.current?.click()}
               disabled={uploadPending}
-              className="inline-flex h-9 items-center gap-2 rounded-full border border-edge bg-paper px-4 text-[12px] font-medium text-ink-deep transition-colors hover:border-ink-base hover:text-ink-base disabled:opacity-50"
+              className={[
+                "inline-flex h-9 items-center gap-2 rounded-full px-4 text-[12px] font-semibold transition-transform active:translate-y-px disabled:opacity-50",
+                contract.scanPdfUrl
+                  ? "border border-edge bg-paper text-ink-deep hover:border-ink-base hover:text-ink-base"
+                  : "bg-ink-base text-paper",
+              ].join(" ")}
             >
               <Upload className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
               {uploadPending
@@ -449,39 +573,49 @@ export function ContractDetailClient({ initial }: Props) {
 }
 
 function ActionCard({
+  step,
   title,
   subtitle,
   Icon,
-  active,
+  done,
   children,
 }: {
+  step: string;
   title: string;
   subtitle: string;
-  Icon: typeof CheckCircle2;
-  active: boolean;
+  Icon: LucideIcon;
+  done: boolean;
   children: React.ReactNode;
 }) {
   return (
     <div
       className={[
-        "flex flex-col gap-4 rounded-2xl border bg-paper p-5",
-        active ? "border-ink-base" : "border-edge",
+        "relative flex flex-col gap-4 rounded-2xl border bg-paper p-5",
+        done ? "border-ink-base" : "border-edge",
       ].join(" ")}
     >
+      {done && (
+        <div className="absolute right-4 top-4 grid h-6 w-6 place-items-center rounded-full bg-ink-base text-paper">
+          <CheckCircle2 className="h-3 w-3" strokeWidth={2} aria-hidden="true" />
+        </div>
+      )}
       <div className="flex items-start gap-3">
         <div
           className={[
             "grid h-10 w-10 shrink-0 place-items-center rounded-lg",
-            active ? "bg-ink-base text-paper" : "bg-edge-warm text-ink-deep",
+            done ? "bg-ink-base text-paper" : "bg-edge-warm text-ink-deep",
           ].join(" ")}
         >
           <Icon className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
         </div>
-        <div className="flex-1">
-          <div className="text-[14px] font-bold tracking-[-0.01em] text-ink-base">
-            {title}
+        <div className="flex-1 pr-7">
+          <div className="flex items-baseline gap-2">
+            <span className="font-mono text-[10.5px] text-ink-soft">{step}</span>
+            <span className="text-[14px] font-bold tracking-[-0.01em] text-ink-base">
+              {title}
+            </span>
           </div>
-          <div className="text-[11.5px] text-ink-mid">{subtitle}</div>
+          <div className="mt-0.5 text-[11.5px] text-ink-mid">{subtitle}</div>
         </div>
       </div>
       <div>{children}</div>

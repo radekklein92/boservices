@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Pencil } from "lucide-react";
 import { getClient } from "@/lib/portal/clients-db";
+import { listContractsByClient } from "@/lib/portal/contracts-db";
 import { PageHeader } from "@/components/portal/shell/PageHeader";
 import { ClientDetail } from "@/components/portal/clients/ClientDetail";
 
@@ -25,6 +26,8 @@ export default async function ClientDetailPage({
   const { id } = await params;
   const client = await getClient(id);
   if (!client) notFound();
+
+  const contracts = await listContractsByClient(client.id);
 
   return (
     <div className="flex flex-col gap-10">
@@ -50,7 +53,7 @@ export default async function ClientDetailPage({
         }
       />
 
-      <ClientDetail client={client} />
+      <ClientDetail client={client} contracts={contracts} />
     </div>
   );
 }

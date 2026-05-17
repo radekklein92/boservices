@@ -1,7 +1,12 @@
 import { getRedis } from "@/lib/redis";
 import type { ContractType } from "./contract-types";
 
-export type ContractStatus = "draft" | "generated" | "archived";
+export type ContractStatus =
+  | "draft"
+  | "generated"
+  | "signed"
+  | "picked-up"
+  | "archived";
 
 export interface Contract {
   id: string;
@@ -11,9 +16,17 @@ export interface Contract {
   status: ContractStatus;
   html: string;
   variables: Record<string, string>;
+  // PDF vygenerováno
   generatedPdfUrl?: string;
   generatedPdfPath?: string;
   generatedAt?: string;
+  // Podepsáno jednateli (manuální milestone)
+  signedAt?: string;
+  signedBy?: string;
+  // Vyzvednuto obchodníkem (manuální milestone)
+  pickedUpAt?: string;
+  pickedUpBy?: string;
+  // Naskenovaná podepsaná kopie
   scanPdfUrl?: string;
   scanPdfPath?: string;
   scanUploadedAt?: string;
@@ -22,6 +35,19 @@ export interface Contract {
   createdBy: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export function computeContractStatus(
+  c: Pick<
+    Contract,
+    "generatedAt" | "signedAt" | "pickedUpAt" | "scanUploadedAt"
+  >,
+): ContractStatus {
+  if (c.scanUploadedAt) return "archived";
+  if (c.pickedUpAt) return "picked-up";
+  if (c.signedAt) return "signed";
+  if (c.generatedAt) return "generated";
+  return "draft";
 }
 
 const INDEX = "portal:contracts:index";

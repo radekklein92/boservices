@@ -1,9 +1,32 @@
 import Link from "next/link";
+import {
+  ArrowUpRight,
+  Circle,
+  CheckCircle2,
+  PenLine,
+  Package,
+  ScanLine,
+  FileText,
+  type LucideIcon,
+} from "lucide-react";
 import type { Client } from "@/lib/portal/clients-db";
+import type { Contract } from "@/lib/portal/contracts-db";
+import { CONTRACT_TYPE_META } from "@/lib/portal/contract-types";
 
 const LEGAL_LABEL: Record<string, string> = {
   PO: "Právnická osoba",
   FO: "Fyzická osoba",
+};
+
+const STATUS_META: Record<
+  Contract["status"],
+  { label: string; Icon: LucideIcon }
+> = {
+  draft: { label: "Koncept", Icon: Circle },
+  generated: { label: "Vygenerováno", Icon: CheckCircle2 },
+  signed: { label: "Podepsáno", Icon: PenLine },
+  "picked-up": { label: "Vyzvednuto", Icon: Package },
+  archived: { label: "Archivováno", Icon: ScanLine },
 };
 
 function formatDate(iso: string): string {
@@ -18,69 +41,171 @@ function formatDate(iso: string): string {
   }
 }
 
-export function ClientDetail({ client }: { client: Client }) {
+export function ClientDetail({
+  client,
+  contracts,
+}: {
+  client: Client;
+  contracts: Contract[];
+}) {
   return (
-    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-      <Card title="Základní údaje">
-        <Row label="Forma" value={LEGAL_LABEL[client.legalForm] ?? client.legalForm} />
-        <Row label="Obchodní jméno" value={client.companyName} />
-        {client.ico && <Row label="IČO" value={client.ico} mono />}
-        {client.dic && <Row label="DIČ" value={client.dic} mono />}
-      </Card>
-
-      <Card title="Sídlo">
-        <Row label="Ulice" value={client.address.street} />
-        <Row label="Obec" value={client.address.city} />
-        <Row label="PSČ" value={client.address.zip} mono />
-        <Row label="Stát" value={client.address.country ?? "—"} />
-      </Card>
-
-      {client.statutory && (
-        <Card title="Statutární zástupce">
-          <Row label="Jméno" value={client.statutory.name} />
-          <Row label="Funkce" value={client.statutory.role ?? "—"} />
+    <div className="flex flex-col gap-6">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <Card title="Základní údaje">
+          <Row label="Forma" value={LEGAL_LABEL[client.legalForm] ?? client.legalForm} />
+          <Row label="Obchodní jméno" value={client.companyName} />
+          {client.ico && <Row label="IČO" value={client.ico} mono />}
+          {client.dic && <Row label="DIČ" value={client.dic} mono />}
         </Card>
-      )}
 
-      {client.contact && (
-        <Card title="Kontaktní osoba">
-          {client.contact.name && <Row label="Jméno" value={client.contact.name} />}
-          {client.contact.email && (
-            <Row
-              label="E-mail"
-              value={
-                <a
-                  href={`mailto:${client.contact.email}`}
-                  className="underline underline-offset-2 transition-opacity hover:opacity-70"
-                >
-                  {client.contact.email}
-                </a>
-              }
-            />
-          )}
-          {client.contact.phone && <Row label="Telefon" value={client.contact.phone} mono />}
+        <Card title="Sídlo">
+          <Row label="Ulice" value={client.address.street} />
+          <Row label="Obec" value={client.address.city} />
+          <Row label="PSČ" value={client.address.zip} mono />
+          <Row label="Stát" value={client.address.country ?? "—"} />
         </Card>
-      )}
 
-      <Card title="Záznam">
-        <Row label="Přidáno" value={formatDate(client.createdAt)} />
-        <Row label="Naposledy upraveno" value={formatDate(client.updatedAt)} />
-      </Card>
+        {client.statutory && (
+          <Card title="Statutární zástupce">
+            <Row label="Jméno" value={client.statutory.name} />
+            <Row label="Funkce" value={client.statutory.role ?? "—"} />
+          </Card>
+        )}
 
-      <div className="md:col-span-2">
-        <div className="rounded-[24px] border border-dashed border-edge bg-paper p-7 text-center">
-          <div className="text-[10.5px] font-medium uppercase tracking-[0.22em] text-ink-mid">
-            Smlouvy
-          </div>
-          <h3 className="mt-2 text-[1.05rem] font-bold tracking-[-0.02em] text-ink-base">
-            Generování smluv je v přípravě.
-          </h3>
-          <p className="mt-2 text-[13px] text-ink-mid">
-            V další fázi sem doplníme 6 šablon a generování PDF pro tohoto klienta.
-          </p>
-        </div>
+        {client.contact && (
+          <Card title="Kontaktní osoba">
+            {client.contact.name && <Row label="Jméno" value={client.contact.name} />}
+            {client.contact.email && (
+              <Row
+                label="E-mail"
+                value={
+                  <a
+                    href={`mailto:${client.contact.email}`}
+                    className="underline underline-offset-2 transition-opacity hover:opacity-70"
+                  >
+                    {client.contact.email}
+                  </a>
+                }
+              />
+            )}
+            {client.contact.phone && <Row label="Telefon" value={client.contact.phone} mono />}
+          </Card>
+        )}
+
+        <Card title="Záznam">
+          <Row label="Přidáno" value={formatDate(client.createdAt)} />
+          <Row label="Naposledy upraveno" value={formatDate(client.updatedAt)} />
+        </Card>
       </div>
+
+      <ContractsSection clientId={client.id} contracts={contracts} />
     </div>
+  );
+}
+
+function ContractsSection({
+  clientId,
+  contracts,
+}: {
+  clientId: string;
+  contracts: Contract[];
+}) {
+  if (contracts.length === 0) {
+    return (
+      <section className="rounded-[24px] border border-dashed border-edge bg-paper p-7 text-center">
+        <div className="text-[10.5px] font-medium uppercase tracking-[0.22em] text-ink-mid">
+          Smlouvy
+        </div>
+        <h3 className="mt-2 text-[1.05rem] font-bold tracking-[-0.02em] text-ink-base">
+          Žádné smlouvy pro tohoto klienta.
+        </h3>
+        <p className="mt-2 text-[13px] text-ink-mid">
+          Smlouvu vytvoříte v sekci Smlouvy → Nová smlouva → vyberete tohoto
+          klienta.
+        </p>
+        <Link
+          href="/portal/contracts"
+          className="mt-5 inline-flex h-10 items-center gap-2 rounded-full border border-edge bg-paper px-4 text-[12.5px] font-medium text-ink-deep transition-colors hover:border-ink-base hover:text-ink-base"
+        >
+          Otevřít Smlouvy
+          <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.5} />
+        </Link>
+      </section>
+    );
+  }
+
+  return (
+    <section className="rounded-[24px] border border-edge bg-paper">
+      <div className="flex items-center justify-between gap-3 border-b border-edge px-5 py-4 md:px-7">
+        <div className="flex items-baseline gap-3">
+          <h2 className="text-[11px] font-medium uppercase tracking-[0.22em] text-ink-mid">
+            Smlouvy
+          </h2>
+          <span className="font-mono text-[11.5px] text-ink-soft">
+            {contracts.length.toString().padStart(2, "0")}
+          </span>
+        </div>
+        <Link
+          href="/portal/contracts"
+          className="text-[11.5px] font-medium uppercase tracking-[0.12em] text-ink-mid transition-colors hover:text-ink-base"
+        >
+          Všechny smlouvy →
+        </Link>
+      </div>
+      <ul className="divide-y divide-edge">
+        {contracts.map((c) => {
+          const meta = CONTRACT_TYPE_META[c.type];
+          const statusMeta = STATUS_META[c.status];
+          const Icon = statusMeta.Icon;
+          return (
+            <li key={c.id}>
+              <Link
+                href={`/portal/contracts/${c.id}`}
+                className="group flex items-center gap-4 px-5 py-4 transition-colors hover:bg-paper-warm md:px-7"
+              >
+                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-edge bg-paper-warm text-ink-deep">
+                  <FileText className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[14px] font-bold tracking-[-0.01em] text-ink-base">
+                    {meta.fullName}
+                  </div>
+                  <div className="mt-0.5 flex flex-wrap gap-x-3 text-[11.5px] text-ink-mid">
+                    {c.number && (
+                      <span className="font-mono">{c.number}</span>
+                    )}
+                    <span>{formatDate(c.createdAt)}</span>
+                  </div>
+                </div>
+                <div className="hidden items-center gap-2 text-ink-base sm:flex">
+                  <Icon className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+                  <span className="text-[11px] font-medium uppercase tracking-[0.12em]">
+                    {statusMeta.label}
+                  </span>
+                </div>
+                <ArrowUpRight
+                  className="h-3.5 w-3.5 shrink-0 text-ink-soft transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+                  strokeWidth={1.5}
+                  aria-hidden="true"
+                />
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+      <div className="border-t border-edge px-5 py-3.5 md:px-7">
+        <span className="text-[11px] text-ink-mid">
+          Novou smlouvu pro {" "}
+          <Link
+            href="/portal/contracts"
+            className="font-medium text-ink-base underline underline-offset-2 transition-opacity hover:opacity-70"
+          >
+            vytvořte v sekci Smlouvy
+          </Link>
+          {" "} a v modalu vyberte tohoto klienta (ID: <code className="font-mono">{clientId}</code>).
+        </span>
+      </div>
+    </section>
   );
 }
 
