@@ -32,14 +32,15 @@ export function buildClientVariables(client: Client): ContractVariables {
   };
 }
 
-export function buildDefaultContractMeta(): ContractVariables {
+export function buildDefaultContractMeta(date = new Date()): ContractVariables {
+  const formattedDate = date.toLocaleDateString("cs-CZ", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
   return {
-    contractDate: new Date().toLocaleDateString("cs-CZ", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    }),
-    effectiveDate: "",
+    contractDate: formattedDate,
+    effectiveDate: formattedDate,
     contractNumber: "",
     place: "Praha",
     originContractDate: "",
@@ -85,6 +86,16 @@ export function listUnresolvedPlaceholders(
     }
   }
   return Array.from(out);
+}
+
+export function extractPlaceholderTokens(html: string): Set<string> {
+  const out = new Set<string>();
+  let m: RegExpExecArray | null;
+  TOKEN_RE.lastIndex = 0;
+  while ((m = TOKEN_RE.exec(html)) !== null) {
+    out.add(m[1]!);
+  }
+  return out;
 }
 
 function escapeHtml(s: string): string {

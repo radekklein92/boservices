@@ -100,6 +100,14 @@ export async function listContractsByClient(
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
+export async function getNextContractNumber(date = new Date()): Promise<string> {
+  const r = getRedis();
+  const year = date.getFullYear();
+  if (!r) return `${year}/001`;
+  const next = await r.incr(`portal:contract-seq:${year}`);
+  return `${year}/${String(next).padStart(3, "0")}`;
+}
+
 export async function deleteContract(id: string): Promise<Contract | null> {
   const r = getRedis();
   if (!r) throw new Error("Redis not configured");

@@ -5,7 +5,11 @@ import { requireSession } from "@/lib/portal/auth-guard";
 import { getClient } from "@/lib/portal/clients-db";
 import { isContractType, CONTRACT_TYPE_META } from "@/lib/portal/contract-types";
 import { getOrSeedContractTemplate } from "@/lib/portal/contract-templates-db";
-import { listContracts, upsertContract } from "@/lib/portal/contracts-db";
+import {
+  getNextContractNumber,
+  listContracts,
+  upsertContract,
+} from "@/lib/portal/contracts-db";
 import {
   buildClientVariables,
   buildDefaultContractMeta,
@@ -52,13 +56,18 @@ export async function POST(req: Request) {
   }
 
   const template = await getOrSeedContractTemplate(type);
-  const variables = {
-    ...buildDefaultContractMeta(),
+  const now = new Date();
+  const meta = buildDefaultContractMeta(now);
+  const number = await getNextContractNumber(now);
+  const variables: Record<string, string> = {
+    ...meta,
     ...PROVIDER_DEFAULTS,
     ...buildClientVariables(client),
+    contractNumber: number,
+    effectiveDate: meta.contractDate ?? "",
   };
 
-  const now = new Date().toISOString();
+  const nowIso = now.toISOString();
   const id = nanoid(12);
 
   await upsertContract({
@@ -69,9 +78,10 @@ export async function POST(req: Request) {
     status: "draft",
     html: template.html,
     variables,
+    number,
     createdBy: g.session.user!.email!,
-    createdAt: now,
-    updatedAt: now,
+    createdAt: nowIso,
+    updatedAt: nowIso,
   });
 
   return NextResponse.json({

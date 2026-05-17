@@ -54,13 +54,21 @@ export async function PUT(
     return NextResponse.json({ ok: false, error: "Validation failed" }, { status: 400 });
   }
 
+  // Sloučit variables a auto-sync effectiveDate = contractDate
+  const mergedVars = parsed.data.variables
+    ? { ...existing.variables, ...parsed.data.variables }
+    : existing.variables;
+  if (mergedVars.contractDate) {
+    mergedVars.effectiveDate = mergedVars.contractDate;
+  }
+  // Číslo smlouvy se nemění - zachovat z existing
+  mergedVars.contractNumber = existing.number ?? existing.variables.contractNumber ?? "";
+
   const updated = {
     ...existing,
     html: parsed.data.html ?? existing.html,
-    variables: parsed.data.variables
-      ? { ...existing.variables, ...parsed.data.variables }
-      : existing.variables,
-    number: parsed.data.number ?? existing.number,
+    variables: mergedVars,
+    number: existing.number,
     // Editing invalidates the previously generated PDF
     generatedPdfUrl: undefined,
     generatedPdfPath: undefined,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type ChangeEvent } from "react";
+import { useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -12,7 +12,6 @@ import {
   PenLine,
   Package,
   RefreshCw,
-  RotateCcw,
   Save,
   ScanLine,
   Trash2,
@@ -26,6 +25,7 @@ import {
   CONTRACT_TYPE_META,
   type ContractType,
 } from "@/lib/portal/contract-types";
+import { extractPlaceholderTokens } from "@/lib/portal/contract-render";
 import { TiptapEditor } from "./TiptapEditor";
 import { PlaceholderPalette } from "./PlaceholderPalette";
 
@@ -52,7 +52,6 @@ export function ContractDetailClient({ initial }: Props) {
   const [contract, setContract] = useState(initial);
   const [html, setHtml] = useState(initial.html);
   const [variables, setVariables] = useState(initial.variables);
-  const [contractNumber, setContractNumber] = useState(initial.number ?? "");
   const [dirty, setDirty] = useState(false);
   const [savePending, setSavePending] = useState(false);
   const [genPending, setGenPending] = useState(false);
@@ -62,6 +61,12 @@ export function ContractDetailClient({ initial }: Props) {
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   const meta = CONTRACT_TYPE_META[contract.type as ContractType];
+  const usedTokens = useMemo(
+    () => extractPlaceholderTokens(html),
+    [html],
+  );
+  const has = (token: string) => usedTokens.has(token);
+  const hasAny = (tokens: string[]) => tokens.some((t) => usedTokens.has(t));
 
   function notify(kind: "ok" | "error", msg: string) {
     setToast({ kind, msg });
@@ -74,10 +79,6 @@ export function ContractDetailClient({ initial }: Props) {
   }
   function updateVar(key: string, value: string) {
     setVariables((prev) => ({ ...prev, [key]: value }));
-    setDirty(true);
-  }
-  function updateNumber(value: string) {
-    setContractNumber(value);
     setDirty(true);
   }
 
@@ -96,7 +97,6 @@ export function ContractDetailClient({ initial }: Props) {
         body: JSON.stringify({
           html,
           variables,
-          number: contractNumber.trim() || undefined,
         }),
       });
       const data = await res.json();
@@ -473,61 +473,213 @@ export function ContractDetailClient({ initial }: Props) {
       </section>
 
       {/* Variables */}
-      <section className="rounded-2xl border border-edge bg-paper p-5 md:p-6">
-        <div className="mb-4 flex items-baseline gap-2.5">
+      <section className="flex flex-col gap-7 rounded-2xl border border-edge bg-paper p-5 md:p-6">
+        <div className="flex items-baseline gap-2.5">
           <h2 className="text-[10.5px] font-semibold uppercase tracking-[0.18em] text-ink-base">
             Hodnoty placeholderů
           </h2>
           <span className="text-[11.5px] text-ink-mid">
             · Pole, která se dosadí při generování. Vlastnosti klienta jsou
-            předvyplněné.
+            předvyplněné, ostatní doplňte ručně.
           </span>
         </div>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          <SmallField
-            label="Číslo smlouvy"
-            value={contractNumber}
-            placeholder="2026/001"
-            onChange={updateNumber}
-          />
-          <SmallField
-            label="Místo uzavření"
-            value={variables.place ?? ""}
-            placeholder="Praha"
-            onChange={(v) => updateVar("place", v)}
-          />
-          <SmallField
-            label="Datum uzavření"
-            value={variables.contractDate ?? ""}
-            placeholder="17. května 2026"
-            onChange={(v) => updateVar("contractDate", v)}
-          />
-          <SmallField
-            label="Datum účinnosti"
-            value={variables.effectiveDate ?? ""}
-            placeholder="1. června 2026"
-            onChange={(v) => updateVar("effectiveDate", v)}
-          />
-          <SmallField
-            label="Zástupce poskytovatele - jméno"
-            value={variables.providerStatutoryName ?? ""}
-            placeholder="Mgr. Ondřej Benáček"
-            onChange={(v) => updateVar("providerStatutoryName", v)}
-          />
-          <SmallField
-            label="Zástupce poskytovatele - funkce"
-            value={variables.providerStatutoryRole ?? ""}
-            placeholder="jednatel"
-            onChange={(v) => updateVar("providerStatutoryRole", v)}
-          />
-        </div>
 
-        {dirty && (
-          <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-edge bg-paper-warm px-3 py-1.5 text-[11.5px] text-ink-deep">
-            <FileWarning className="h-3 w-3 text-ink-mid" strokeWidth={1.5} />
-            Máte neuložené změny.
+        <FieldGroup label="Smlouva">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <SmallField
+              label="Místo uzavření"
+              value={variables.place ?? ""}
+              placeholder="Praha"
+              onChange={(v) => updateVar("place", v)}
+            />
+            <SmallField
+              label="Datum uzavření"
+              hint="datum účinnosti je stejné"
+              value={variables.contractDate ?? ""}
+              placeholder="18. května 2026"
+              onChange={(v) => updateVar("contractDate", v)}
+            />
+            <SmallField
+              label="Zástupce poskytovatele - jméno"
+              value={variables.providerStatutoryName ?? ""}
+              placeholder="Mgr. Ondřej Benáček"
+              onChange={(v) => updateVar("providerStatutoryName", v)}
+            />
+            <SmallField
+              label="Zástupce poskytovatele - funkce"
+              value={variables.providerStatutoryRole ?? ""}
+              placeholder="jednatel"
+              onChange={(v) => updateVar("providerStatutoryRole", v)}
+            />
           </div>
+        </FieldGroup>
+
+        {hasAny(["clientRegistry", "clientBankAccount"]) && (
+          <FieldGroup label="Doplňky klienta">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              {has("clientRegistry") && (
+                <SmallField
+                  label="Klient - zápis v rejstříku"
+                  value={variables.clientRegistry ?? ""}
+                  placeholder="Městský soud v Praze, oddíl C, vložka 12345"
+                  onChange={(v) => updateVar("clientRegistry", v)}
+                />
+              )}
+              {has("clientBankAccount") && (
+                <SmallField
+                  label="Klient - bankovní účet"
+                  value={variables.clientBankAccount ?? ""}
+                  placeholder="1234567890/0100"
+                  onChange={(v) => updateVar("clientBankAccount", v)}
+                />
+              )}
+            </div>
+          </FieldGroup>
         )}
+
+        {has("providerRegistry") && (
+          <FieldGroup label="Doplňky poskytovatele">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <SmallField
+                label="Poskytovatel - zápis v rejstříku"
+                value={variables.providerRegistry ?? ""}
+                placeholder="Městský soud v Praze, oddíl C, vložka 442640"
+                onChange={(v) => updateVar("providerRegistry", v)}
+              />
+            </div>
+          </FieldGroup>
+        )}
+
+        {hasAny([
+          "debtorName",
+          "debtorIco",
+          "debtorStreet",
+          "debtorCity",
+          "debtorZip",
+          "debtorRegistry",
+        ]) && (
+          <FieldGroup label="Dlužník">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              {has("debtorName") && (
+                <SmallField
+                  label="Dlužník - obchodní jméno"
+                  value={variables.debtorName ?? ""}
+                  placeholder="Dlužník s.r.o."
+                  onChange={(v) => updateVar("debtorName", v)}
+                />
+              )}
+              {has("debtorIco") && (
+                <SmallField
+                  label="Dlužník - IČO"
+                  value={variables.debtorIco ?? ""}
+                  placeholder="12345678"
+                  onChange={(v) => updateVar("debtorIco", v)}
+                />
+              )}
+              {has("debtorStreet") && (
+                <SmallField
+                  label="Dlužník - ulice a č.p."
+                  value={variables.debtorStreet ?? ""}
+                  placeholder="Hlavní 1"
+                  onChange={(v) => updateVar("debtorStreet", v)}
+                />
+              )}
+              {has("debtorCity") && (
+                <SmallField
+                  label="Dlužník - obec"
+                  value={variables.debtorCity ?? ""}
+                  placeholder="Brno"
+                  onChange={(v) => updateVar("debtorCity", v)}
+                />
+              )}
+              {has("debtorZip") && (
+                <SmallField
+                  label="Dlužník - PSČ"
+                  value={variables.debtorZip ?? ""}
+                  placeholder="60200"
+                  onChange={(v) => updateVar("debtorZip", v)}
+                />
+              )}
+              {has("debtorRegistry") && (
+                <SmallField
+                  label="Dlužník - zápis v rejstříku"
+                  value={variables.debtorRegistry ?? ""}
+                  placeholder="KS v Brně, oddíl C, vložka 98765"
+                  onChange={(v) => updateVar("debtorRegistry", v)}
+                />
+              )}
+            </div>
+          </FieldGroup>
+        )}
+
+        {hasAny([
+          "originContractDate",
+          "originContractTitle",
+          "feePercent",
+          "paymentTermDays",
+          "totalClaimsAmount",
+        ]) && (
+          <FieldGroup label="Specifika smlouvy">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              {has("originContractDate") && (
+                <SmallField
+                  label="Datum původní smlouvy"
+                  value={variables.originContractDate ?? ""}
+                  placeholder="1. ledna 2026"
+                  onChange={(v) => updateVar("originContractDate", v)}
+                />
+              )}
+              {has("originContractTitle") && (
+                <SmallField
+                  label="Předmět původní smlouvy"
+                  value={variables.originContractTitle ?? ""}
+                  placeholder="dodávkách zboží"
+                  onChange={(v) => updateVar("originContractTitle", v)}
+                />
+              )}
+              {has("feePercent") && (
+                <SmallField
+                  label="Výše úplaty (% z vymoženého)"
+                  value={variables.feePercent ?? ""}
+                  placeholder="95"
+                  onChange={(v) => updateVar("feePercent", v)}
+                />
+              )}
+              {has("paymentTermDays") && (
+                <SmallField
+                  label="Splatnost (dnů)"
+                  value={variables.paymentTermDays ?? ""}
+                  placeholder="15"
+                  onChange={(v) => updateVar("paymentTermDays", v)}
+                />
+              )}
+              {has("totalClaimsAmount") && (
+                <SmallField
+                  label="Celková výše pohledávek"
+                  value={variables.totalClaimsAmount ?? ""}
+                  placeholder="1 250 000 Kč"
+                  onChange={(v) => updateVar("totalClaimsAmount", v)}
+                />
+              )}
+            </div>
+          </FieldGroup>
+        )}
+
+        <div className="flex items-center justify-between gap-3 border-t border-edge pt-4 text-[11px] text-ink-mid">
+          <span>
+            Číslo smlouvy{" "}
+            <span className="font-mono text-ink-base">
+              {contract.number ?? "—"}
+            </span>{" "}
+            je přiřazeno automaticky a nelze upravit.
+          </span>
+          {dirty && (
+            <span className="inline-flex items-center gap-1.5 text-ink-deep">
+              <FileWarning className="h-3 w-3 text-ink-mid" strokeWidth={1.5} />
+              Neuložené změny.
+            </span>
+          )}
+        </div>
       </section>
 
       {/* Editor */}
@@ -625,19 +777,26 @@ function ActionCard({
 
 function SmallField({
   label,
+  hint,
   value,
   placeholder,
   onChange,
 }: {
   label: string;
+  hint?: string;
   value: string;
   placeholder?: string;
   onChange: (v: string) => void;
 }) {
   return (
     <label className="flex flex-col gap-1.5">
-      <span className="text-[10px] font-medium uppercase tracking-[0.16em] text-ink-mid">
-        {label}
+      <span className="flex items-baseline gap-2 text-[10px] font-medium uppercase tracking-[0.16em] text-ink-mid">
+        <span>{label}</span>
+        {hint && (
+          <span className="normal-case tracking-normal text-[10px] text-ink-soft">
+            · {hint}
+          </span>
+        )}
       </span>
       <input
         type="text"
@@ -647,5 +806,22 @@ function SmallField({
         className="h-10 w-full rounded-lg border border-edge bg-paper px-3 text-[13.5px] text-ink-base outline-none transition-colors placeholder:text-ink-soft focus:border-ink-base"
       />
     </label>
+  );
+}
+
+function FieldGroup({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-soft">
+        {label}
+      </div>
+      {children}
+    </div>
   );
 }
