@@ -8,6 +8,7 @@ import {
   CONTRACT_TYPE_META,
   type ContractType,
 } from "@/lib/portal/contract-types";
+import { ClientCombobox } from "@/components/portal/ui/ClientCombobox";
 
 export function ContractCreateModal({
   clients,
@@ -18,7 +19,7 @@ export function ContractCreateModal({
   onClose: () => void;
   onCreated: (id?: string) => void;
 }) {
-  const [clientId, setClientId] = useState(clients[0]?.id ?? "");
+  const [clientId, setClientId] = useState("");
   const [type, setType] = useState<ContractType>("franchise");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -83,24 +84,20 @@ export function ContractCreateModal({
         </div>
 
         <form onSubmit={onSubmit} className="flex flex-col gap-5">
-          <label className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1.5">
             <span className="text-[10px] font-medium uppercase tracking-[0.16em] text-ink-mid">
               Klient
             </span>
-            <select
+            <ClientCombobox
+              clients={clients}
               value={clientId}
-              onChange={(e) => setClientId(e.target.value)}
-              required
-              className="h-10 w-full rounded-lg border border-edge bg-paper px-3 text-[13.5px] text-ink-base outline-none transition-colors focus:border-ink-base"
-            >
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.companyName}
-                  {c.ico ? ` · ${c.ico}` : ""}
-                </option>
-              ))}
-            </select>
-          </label>
+              onChange={setClientId}
+              autoFocus
+            />
+            <span className="mt-0.5 text-[11px] text-ink-mid">
+              Hledejte podle obchodního jména, IČO, města nebo zástupce.
+            </span>
+          </div>
 
           <div className="flex flex-col gap-1.5">
             <span className="text-[10px] font-medium uppercase tracking-[0.16em] text-ink-mid">
