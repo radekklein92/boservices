@@ -12,8 +12,8 @@
   },
   "hero": {
     "eyebrow": "Business Operations Services",
-    "title": "Vedeme prodejny za vaši značku.",
-    "lede": "Od přijímacích pohovorů po měsíční závěrku. Vy se staráte o značku a produkt, my za vás vedeme tým, finance i otevírání nových míst.",
+    "title": "Rosteme společně.",
+    "lede": "Vedeme prodejny za vaši značku. Od přijímacích pohovorů po měsíční závěrku. Vy se staráte o značku a produkt, my za vás vedeme tým, finance i otevírání nových míst.",
     "primaryCta": "Domluvit schůzku",
     "secondaryCta": "Co vám přebíráme"
   },
@@ -41,8 +41,8 @@
   },
   "what": {
     "eyebrow": "Co děláme",
-    "title": "Co vám přebíráme.",
-    "lede": "Provoz prodejen je naše práce. Vedeme čtyři oblasti, které vás denně berou nejvíc času.",
+    "title": "S čím vám pomůžeme.",
+    "lede": "Provoz prodejen je naše práce. Řídíme čtyři oblasti, které vás denně stojí nejvíc času.",
     "items": {
       "ops": {
         "title": "Provoz a standardy",
@@ -71,7 +71,7 @@
   "contact": {
     "eyebrow": "Kontakt",
     "title": "Ozvěte se.",
-    "lede": "Napište nám kolik máte prodejen, kde sedíte a co vás na provozu nejvíc trápí. Odpovíme do dvou pracovních dnů - a ne automatem.",
+    "lede": "Napište nám kolik máte prodejen, kde sídlíte a co vás na provozu nejvíc trápí. Odpovíme do dvou pracovních dnů.",
     "form": {
       "name": "Jméno",
       "namePlaceholder": "Jana Novotná",

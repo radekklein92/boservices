@@ -88,9 +88,6 @@ function DirectorCard({
         <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-ink-mid">
           {person.role[locale]}
         </div>
-        <p className="mt-2 max-w-[40ch] text-[0.95rem] leading-relaxed text-ink-deep">
-          {person.bio[locale]}
-        </p>
       </div>
     </article>
   );
