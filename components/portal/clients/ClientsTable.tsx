@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowUpRight, Search, Trash2 } from "lucide-react";
+import { ArrowUpRight, Plus, Search, Trash2 } from "lucide-react";
 import type { Client } from "@/lib/portal/clients-db";
 
 const LEGAL_LABEL: Record<string, string> = {
@@ -23,7 +23,13 @@ function formatDate(iso: string): string {
   }
 }
 
-export function ClientsTable({ initial }: { initial: Client[] }) {
+export function ClientsTable({
+  initial,
+  onAddClick,
+}: {
+  initial: Client[];
+  onAddClick?: () => void;
+}) {
   const router = useRouter();
   const [clients, setClients] = useState<Client[]>(initial);
   const [query, setQuery] = useState("");
@@ -73,13 +79,16 @@ export function ClientsTable({ initial }: { initial: Client[] }) {
         <p className="mt-2 text-[13.5px] text-ink-mid">
           Přidejte prvního klienta — IČO stačí, ARES vyplní zbytek.
         </p>
-        <Link
-          href="/portal/clients/new"
-          className="mt-6 inline-flex h-11 items-center gap-2 rounded-full bg-ink-base px-5 text-[13.5px] font-semibold text-paper transition-transform active:translate-y-px"
-        >
-          Přidat klienta
-          <span aria-hidden="true">→</span>
-        </Link>
+        {onAddClick && (
+          <button
+            type="button"
+            onClick={onAddClick}
+            className="mt-6 inline-flex h-11 items-center gap-2 rounded-full bg-ink-base px-5 text-[13.5px] font-semibold text-paper transition-transform active:translate-y-px"
+          >
+            <Plus className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+            Přidat klienta
+          </button>
+        )}
       </div>
     );
   }

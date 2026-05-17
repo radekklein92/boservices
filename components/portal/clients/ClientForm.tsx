@@ -6,8 +6,14 @@ import { Search, Loader2, ShieldCheck } from "lucide-react";
 import type { Client, LegalForm } from "@/lib/portal/clients-db";
 
 type Mode =
-  | { kind: "create" }
+  | {
+      kind: "create";
+      onSuccess?: (id?: string) => void;
+      onCancel?: () => void;
+    }
   | { kind: "edit"; clientId: string; initial: Client };
+
+type Variant = "page" | "modal";
 
 type FormState = {
   legalForm: LegalForm;
@@ -70,7 +76,13 @@ function fromClient(c: Client): FormState {
   };
 }
 
-export function ClientForm({ mode }: { mode: Mode }) {
+export function ClientForm({
+  mode,
+  variant = "page",
+}: {
+  mode: Mode;
+  variant?: Variant;
+}) {
   const router = useRouter();
   const [state, setState] = useState<FormState>(
     mode.kind === "edit" ? fromClient(mode.initial) : blankState(),
@@ -175,11 +187,23 @@ export function ClientForm({ mode }: { mode: Mode }) {
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || "Chyba");
 
-      router.push("/portal/clients");
-      router.refresh();
+      if (mode.kind === "create" && mode.onSuccess) {
+        mode.onSuccess(data.id);
+      } else {
+        router.push("/portal/clients");
+        router.refresh();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Chyba");
       setPending(false);
+    }
+  }
+
+  function handleCancel() {
+    if (mode.kind === "create" && mode.onCancel) {
+      mode.onCancel();
+    } else {
+      router.back();
     }
   }
 
@@ -426,10 +450,16 @@ export function ClientForm({ mode }: { mode: Mode }) {
         </div>
       )}
 
-      <div className="sticky bottom-6 z-10 flex items-center justify-end gap-3 rounded-2xl border border-edge bg-paper/95 px-5 py-3 backdrop-blur">
+      <div
+        className={
+          variant === "modal"
+            ? "flex items-center justify-end gap-3 border-t border-edge pt-6"
+            : "sticky bottom-6 z-10 flex items-center justify-end gap-3 rounded-2xl border border-edge bg-paper/95 px-5 py-3 backdrop-blur"
+        }
+      >
         <button
           type="button"
-          onClick={() => router.back()}
+          onClick={handleCancel}
           className="h-11 rounded-full px-5 text-[13.5px] font-medium text-ink-mid transition-colors hover:text-ink-base"
         >
           Zrušit
