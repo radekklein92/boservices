@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -47,18 +47,24 @@ function formatDateTime(iso: string): string {
   }
 }
 
+type SaveState = "idle" | "pending" | "saving" | "saved" | "error";
+
 export function ContractDetailClient({ initial }: Props) {
   const router = useRouter();
   const [contract, setContract] = useState(initial);
   const [html, setHtml] = useState(initial.html);
   const [variables, setVariables] = useState(initial.variables);
-  const [dirty, setDirty] = useState(false);
-  const [savePending, setSavePending] = useState(false);
+  const [saveState, setSaveState] = useState<SaveState>("idle");
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [genPending, setGenPending] = useState(false);
   const [uploadPending, setUploadPending] = useState(false);
   const [toast, setToast] = useState<{ kind: "ok" | "error"; msg: string } | null>(null);
   const editorRef = useRef<Editor | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const saveTimerRef = useRef<number | null>(null);
+  const isMountedRef = useRef(false);
+
+  const dirty = saveState === "pending" || saveState === "saving";
 
   const meta = CONTRACT_TYPE_META[contract.type as ContractType];
   const usedTokens = useMemo(
@@ -73,13 +79,18 @@ export function ContractDetailClient({ initial }: Props) {
     window.setTimeout(() => setToast(null), 3500);
   }
 
+  function markDirty() {
+    setSaveState("pending");
+    setSaveError(null);
+  }
+
   function updateHtml(next: string) {
     setHtml(next);
-    setDirty(true);
+    markDirty();
   }
   function updateVar(key: string, value: string) {
     setVariables((prev) => ({ ...prev, [key]: value }));
-    setDirty(true);
+    markDirty();
   }
 
   function handleInsert(token: string) {
@@ -88,33 +99,74 @@ export function ContractDetailClient({ initial }: Props) {
     editor.chain().focus().insertContent(token).run();
   }
 
-  async function save() {
-    setSavePending(true);
+  async function performSave(
+    htmlSnapshot: string,
+    variablesSnapshot: Record<string, string>,
+  ) {
+    setSaveState("saving");
     try {
       const res = await fetch(`/api/portal/contracts/${contract.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          html,
-          variables,
+          html: htmlSnapshot,
+          variables: variablesSnapshot,
         }),
       });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || "Uložení selhalo.");
       const reload = await fetch(`/api/portal/contracts/${contract.id}`);
       const j = await reload.json();
-      if (j.ok) setContract(j.contract);
-      setDirty(false);
-      notify("ok", "Uloženo.");
+      if (j.ok && isMountedRef.current) setContract(j.contract);
+      if (isMountedRef.current) {
+        setSaveState("saved");
+        setSaveError(null);
+      }
     } catch (err) {
-      notify("error", err instanceof Error ? err.message : "Chyba");
-    } finally {
-      setSavePending(false);
+      if (isMountedRef.current) {
+        setSaveState("error");
+        setSaveError(err instanceof Error ? err.message : "Chyba");
+      }
+    }
+  }
+
+  // Auto-save: debounced 800 ms after last edit
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (saveTimerRef.current) {
+        window.clearTimeout(saveTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (saveState !== "pending") return;
+    if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
+    const htmlSnap = html;
+    const varsSnap = variables;
+    saveTimerRef.current = window.setTimeout(() => {
+      performSave(htmlSnap, varsSnap);
+    }, 800);
+    return () => {
+      if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [html, variables, saveState]);
+
+  async function ensureSaved() {
+    if (saveState === "pending" || saveState === "saving") {
+      if (saveTimerRef.current) {
+        window.clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+      await performSave(html, variables);
     }
   }
 
   async function generatePdf() {
-    if (dirty) await save();
+    await ensureSaved();
     setGenPending(true);
     try {
       const res = await fetch(
@@ -269,16 +321,8 @@ export function ContractDetailClient({ initial }: Props) {
               )}
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={save}
-              disabled={savePending || !dirty}
-              className="inline-flex h-10 items-center gap-2 rounded-full border border-edge bg-paper px-4 text-[13px] font-medium text-ink-deep transition-colors hover:border-ink-base hover:text-ink-base disabled:opacity-50"
-            >
-              <Save className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
-              {savePending ? "Ukládám…" : "Uložit"}
-            </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <SaveIndicator state={saveState} error={saveError} />
             <button
               type="button"
               onClick={generatePdf}
@@ -531,37 +575,14 @@ export function ContractDetailClient({ initial }: Props) {
           </div>
         </FieldGroup>
 
-        {hasAny(["clientRegistry", "clientBankAccount"]) && (
-          <FieldGroup label="Doplňky klienta">
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              {has("clientRegistry") && (
-                <SmallField
-                  label="Klient - zápis v rejstříku"
-                  value={variables.clientRegistry ?? ""}
-                  placeholder="Městský soud v Praze, oddíl C, vložka 12345"
-                  onChange={(v) => updateVar("clientRegistry", v)}
-                />
-              )}
-              {has("clientBankAccount") && (
-                <SmallField
-                  label="Klient - bankovní účet"
-                  value={variables.clientBankAccount ?? ""}
-                  placeholder="1234567890/0100"
-                  onChange={(v) => updateVar("clientBankAccount", v)}
-                />
-              )}
-            </div>
-          </FieldGroup>
-        )}
-
-        {has("providerRegistry") && (
-          <FieldGroup label="Doplňky poskytovatele">
+        {has("clientBankAccount") && (
+          <FieldGroup label="Bankovní účet klienta">
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <SmallField
-                label="Poskytovatel - zápis v rejstříku"
-                value={variables.providerRegistry ?? ""}
-                placeholder="Městský soud v Praze, oddíl C, vložka 442640"
-                onChange={(v) => updateVar("providerRegistry", v)}
+                label="Klient - bankovní účet"
+                value={variables.clientBankAccount ?? ""}
+                placeholder="1234567890/0100"
+                onChange={(v) => updateVar("clientBankAccount", v)}
               />
             </div>
           </FieldGroup>
@@ -573,7 +594,6 @@ export function ContractDetailClient({ initial }: Props) {
           "debtorStreet",
           "debtorCity",
           "debtorZip",
-          "debtorRegistry",
         ]) && (
           <FieldGroup label="Dlužník">
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -617,14 +637,6 @@ export function ContractDetailClient({ initial }: Props) {
                   onChange={(v) => updateVar("debtorZip", v)}
                 />
               )}
-              {has("debtorRegistry") && (
-                <SmallField
-                  label="Dlužník - zápis v rejstříku"
-                  value={variables.debtorRegistry ?? ""}
-                  placeholder="KS v Brně, oddíl C, vložka 98765"
-                  onChange={(v) => updateVar("debtorRegistry", v)}
-                />
-              )}
             </div>
           </FieldGroup>
         )}
@@ -632,8 +644,6 @@ export function ContractDetailClient({ initial }: Props) {
         {hasAny([
           "originContractDate",
           "originContractTitle",
-          "feePercent",
-          "paymentTermDays",
           "totalClaimsAmount",
         ]) && (
           <FieldGroup label="Specifika smlouvy">
@@ -654,22 +664,6 @@ export function ContractDetailClient({ initial }: Props) {
                   onChange={(v) => updateVar("originContractTitle", v)}
                 />
               )}
-              {has("feePercent") && (
-                <SmallField
-                  label="Výše úplaty (% z vymoženého)"
-                  value={variables.feePercent ?? ""}
-                  placeholder="95"
-                  onChange={(v) => updateVar("feePercent", v)}
-                />
-              )}
-              {has("paymentTermDays") && (
-                <SmallField
-                  label="Splatnost (dnů)"
-                  value={variables.paymentTermDays ?? ""}
-                  placeholder="15"
-                  onChange={(v) => updateVar("paymentTermDays", v)}
-                />
-              )}
               {has("totalClaimsAmount") && (
                 <SmallField
                   label="Celková výše pohledávek"
@@ -682,20 +676,12 @@ export function ContractDetailClient({ initial }: Props) {
           </FieldGroup>
         )}
 
-        <div className="flex items-center justify-between gap-3 border-t border-edge pt-4 text-[11px] text-ink-mid">
-          <span>
-            Číslo smlouvy{" "}
-            <span className="font-mono text-ink-base">
-              {contract.number ?? "—"}
-            </span>{" "}
-            je přiřazeno automaticky a nelze upravit.
-          </span>
-          {dirty && (
-            <span className="inline-flex items-center gap-1.5 text-ink-deep">
-              <FileWarning className="h-3 w-3 text-ink-mid" strokeWidth={1.5} />
-              Neuložené změny.
-            </span>
-          )}
+        <div className="border-t border-edge pt-4 text-[11px] text-ink-mid">
+          Číslo smlouvy{" "}
+          <span className="font-mono text-ink-base">
+            {contract.number ?? "—"}
+          </span>{" "}
+          je přiřazeno automaticky a nelze upravit.
         </div>
       </section>
 
@@ -840,5 +826,42 @@ function FieldGroup({
       </div>
       {children}
     </div>
+  );
+}
+
+function SaveIndicator({
+  state,
+  error,
+}: {
+  state: SaveState;
+  error: string | null;
+}) {
+  if (state === "idle") return null;
+  const cls =
+    "inline-flex h-10 items-center gap-2 rounded-full border px-4 text-[12.5px] font-medium";
+  if (state === "pending" || state === "saving") {
+    return (
+      <span className={`${cls} border-edge bg-paper text-ink-mid`}>
+        <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-ink-soft" />
+        Ukládám…
+      </span>
+    );
+  }
+  if (state === "error") {
+    return (
+      <span
+        className={`${cls} border-ink-base bg-ink-base text-paper`}
+        title={error ?? undefined}
+      >
+        <span className="inline-block h-1.5 w-1.5 rounded-full bg-paper" />
+        Neuloženo
+      </span>
+    );
+  }
+  return (
+    <span className={`${cls} border-edge bg-paper text-ink-deep`}>
+      <span className="inline-block h-1.5 w-1.5 rounded-full bg-ink-base" />
+      Uloženo
+    </span>
   );
 }

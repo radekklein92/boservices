@@ -15,7 +15,7 @@ function genericSkeleton(type: ContractType): string {
 <h2>Smluvní strany</h2>
 <p><strong>{{clientName}}</strong>, IČO: {{clientIco}}, se sídlem {{clientStreet}}, {{clientZip}} {{clientCity}}, zastoupená {{clientStatutoryName}}, {{clientStatutoryRole}} (dále jen „Klient“);</p>
 <p>a</p>
-<p><strong>{{providerName}}</strong>, IČO: {{providerIco}}, se sídlem {{providerStreet}}, {{providerZip}} {{providerCity}}, zapsaná v obchodním rejstříku vedeném {{providerRegistry}}, zastoupená {{providerStatutory1Name}}, {{providerStatutory1Role}}, a {{providerStatutory2Name}}, {{providerStatutory2Role}} (dále jen „Poskytovatel“).</p>
+<p><strong>{{providerName}}</strong>, IČO: {{providerIco}}, se sídlem {{providerStreet}}, {{providerZip}} {{providerCity}}, zastoupená {{providerStatutory1Name}}, {{providerStatutory1Role}}, a {{providerStatutory2Name}}, {{providerStatutory2Role}} (dále jen „Poskytovatel“).</p>
 <h2>1. Předmět smlouvy</h2>
 <p>Doplňte předmět smlouvy.</p>
 <h2>2. Práva a povinnosti smluvních stran</h2>
@@ -38,14 +38,14 @@ function genericSkeleton(type: ContractType): string {
  * ------------------------------------------------------------------------- */
 function claimAssignmentHtml(): string {
   return `<h2>Smluvní strany</h2>
-<p><strong>{{clientName}}</strong>, IČO: {{clientIco}}, se sídlem {{clientStreet}}, {{clientZip}} {{clientCity}}, zapsaná v obchodním rejstříku vedeném {{clientRegistry}}, zastoupená {{clientStatutoryName}}, {{clientStatutoryRole}} (dále jen „<strong>Postupitel</strong>“)</p>
+<p><strong>{{clientName}}</strong>, IČO: {{clientIco}}, se sídlem {{clientStreet}}, {{clientZip}} {{clientCity}}, zastoupená {{clientStatutoryName}}, {{clientStatutoryRole}} (dále jen „<strong>Postupitel</strong>“)</p>
 <p>a</p>
-<p><strong>{{providerName}}</strong>, IČO: {{providerIco}}, DIČ: {{providerDic}}, se sídlem {{providerStreet}}, {{providerZip}} {{providerCity}}, zapsaná v obchodním rejstříku vedeném {{providerRegistry}}, zastoupená {{providerStatutory1Name}}, {{providerStatutory1Role}}, a {{providerStatutory2Name}}, {{providerStatutory2Role}} (dále jen „<strong>Postupník</strong>“)</p>
+<p><strong>{{providerName}}</strong>, IČO: {{providerIco}}, DIČ: {{providerDic}}, se sídlem {{providerStreet}}, {{providerZip}} {{providerCity}}, zastoupená {{providerStatutory1Name}}, {{providerStatutory1Role}}, a {{providerStatutory2Name}}, {{providerStatutory2Role}} (dále jen „<strong>Postupník</strong>“)</p>
 <p>Postupitel a Postupník dále společně jako „<strong>Strany</strong>“ a každý jednotlivě jako „Strana“.</p>
 
 <h2>1. Vymezení postupovaných pohledávek a postoupení pohledávek</h2>
 <ol>
-  <li>Postupitel eviduje vůči společnosti <strong>{{debtorName}}</strong>, IČO: {{debtorIco}}, se sídlem {{debtorStreet}}, {{debtorZip}} {{debtorCity}}, zapsané v obchodním rejstříku vedeném {{debtorRegistry}} (dále jen „<strong>Dlužník</strong>“) pohledávky, přičemž Postupitel má zájem postoupit na základě této smlouvy veškeré své pohledávky za Dlužníkem.</li>
+  <li>Postupitel eviduje vůči společnosti <strong>{{debtorName}}</strong>, IČO: {{debtorIco}}, se sídlem {{debtorStreet}}, {{debtorZip}} {{debtorCity}} (dále jen „<strong>Dlužník</strong>“) pohledávky, přičemž Postupitel má zájem postoupit na základě této smlouvy veškeré své pohledávky za Dlužníkem.</li>
   <li>Pro účely této smlouvy se Pohledávkami rozumí ve smyslu § 1887 zákona č. 89/2012 Sb., občanský zákoník, ve znění pozdějších předpisů (dále jen „<strong>OZ</strong>“) soubor všech současně existujících i budoucích peněžitých pohledávek Postupitele za Dlužníkem z obchodního styku, a to pohledávek vzniklých zejména ze smlouvy o {{originContractTitle}} ze dne {{originContractDate}} (dále jen „<strong>Pohledávky</strong>“).</li>
   <li>Seznam aktuálně existujících pohledávek v celkové výši {{totalClaimsAmount}} je uveden v příloze č. 1 této Smlouvy.</li>
   <li>Postupitel účinností této Smlouvy postupuje Postupníkovi Pohledávky včetně příslušenství, a to s veškerými právy a povinnostmi s nimi spojenými. Postupník Pohledávky přijímá v jejich aktuálním stavu.</li>
@@ -86,20 +86,21 @@ function claimAssignmentHtml(): string {
 /* -------------------------------------------------------------------------
  * Vedlejší ujednání o úplatě (side-fee)
  * Doplňuje Smlouvu o postoupení pohledávek. Postupitel = klient.
+ * Úplata 95 % a splatnost 15 pracovních dnů jsou pevně dané, neměnné.
  * ------------------------------------------------------------------------- */
 function sideFeeHtml(): string {
   return `<h2>Smluvní strany</h2>
-<p><strong>{{clientName}}</strong>, IČO: {{clientIco}}, se sídlem {{clientStreet}}, {{clientZip}} {{clientCity}}, zapsaná v obchodním rejstříku vedeném {{clientRegistry}}, zastoupená {{clientStatutoryName}}, {{clientStatutoryRole}} (dále jen „<strong>Postupitel</strong>“)</p>
+<p><strong>{{clientName}}</strong>, IČO: {{clientIco}}, se sídlem {{clientStreet}}, {{clientZip}} {{clientCity}}, zastoupená {{clientStatutoryName}}, {{clientStatutoryRole}} (dále jen „<strong>Postupitel</strong>“)</p>
 <p>a</p>
-<p><strong>{{providerName}}</strong>, IČO: {{providerIco}}, DIČ: {{providerDic}}, se sídlem {{providerStreet}}, {{providerZip}} {{providerCity}}, zapsaná v obchodním rejstříku vedeném {{providerRegistry}}, zastoupená {{providerStatutory1Name}}, {{providerStatutory1Role}}, a {{providerStatutory2Name}}, {{providerStatutory2Role}} (dále jen „<strong>Postupník</strong>“)</p>
+<p><strong>{{providerName}}</strong>, IČO: {{providerIco}}, DIČ: {{providerDic}}, se sídlem {{providerStreet}}, {{providerZip}} {{providerCity}}, zastoupená {{providerStatutory1Name}}, {{providerStatutory1Role}}, a {{providerStatutory2Name}}, {{providerStatutory2Role}} (dále jen „<strong>Postupník</strong>“)</p>
 <p>Postupitel a Postupník dále společně jako „<strong>Strany</strong>“ a každý jednotlivě jako „Strana“.</p>
 
 <h2>1. Úvodní prohlášení a stanovení výše a splatnosti úplaty</h2>
 <ol>
-  <li>Dne {{originContractDate}} uzavřely Strany smlouvu o postoupení souboru pohledávek, na základě které postoupil Postupitel na Postupníka své současné a budoucí pohledávky za společností <strong>{{debtorName}}</strong>, IČO: {{debtorIco}}, se sídlem {{debtorStreet}}, {{debtorZip}} {{debtorCity}}, zapsanou v obchodním rejstříku vedeném {{debtorRegistry}} (dále jen „<strong>Smlouva</strong>“).</li>
+  <li>Dne {{originContractDate}} uzavřely Strany smlouvu o postoupení souboru pohledávek, na základě které postoupil Postupitel na Postupníka své současné a budoucí pohledávky za společností <strong>{{debtorName}}</strong>, IČO: {{debtorIco}}, se sídlem {{debtorStreet}}, {{debtorZip}} {{debtorCity}} (dále jen „<strong>Smlouva</strong>“).</li>
   <li>Ve Smlouvě si Strany sjednaly, že úplata za postoupení Pohledávek ve smyslu Smlouvy bude stanovena vedlejší dohodou Stran, což Strany uzavřením této Vedlejší dohody činí.</li>
-  <li>Úplata za postoupení Pohledávek činí <strong>{{feePercent}} %</strong> z částky, která bude na Pohledávkách reálně vymožena (dále jen „<strong>Úplata</strong>“).</li>
-  <li>Úplata bude hrazena postupně, a to ve vztahu ke každému plnění obdrženému na Pohledávky, na účet Postupitele č. {{clientBankAccount}}, do <strong>{{paymentTermDays}}</strong> pracovních dnů od obdržení příslušného plnění Postupníkem.</li>
+  <li>Úplata za postoupení Pohledávek činí <strong>95 %</strong> z částky, která bude na Pohledávkách reálně vymožena (dále jen „<strong>Úplata</strong>“).</li>
+  <li>Úplata bude hrazena postupně, a to ve vztahu ke každému plnění obdrženému na Pohledávky, na účet Postupitele č. {{clientBankAccount}}, do <strong>15 pracovních dnů</strong> od obdržení příslušného plnění Postupníkem.</li>
 </ol>
 
 <h2>2. Závěrečná ustanovení</h2>
@@ -137,7 +138,7 @@ function assignmentNoticeHtml(): string {
 
 <p>Vážení,</p>
 
-<p>dovolujeme si Vás tímto informovat, že naše společnost <strong>{{clientName}}</strong>, IČO: {{clientIco}}, se sídlem {{clientStreet}}, {{clientZip}} {{clientCity}}, zapsaná v obchodním rejstříku vedeném {{clientRegistry}}, jako <strong>postupitel</strong> uzavřela se společností <strong>{{providerName}}</strong>, IČO: {{providerIco}}, se sídlem {{providerStreet}}, {{providerZip}} {{providerCity}}, zapsanou v obchodním rejstříku vedeném {{providerRegistry}}, jako <strong>postupníkem</strong>, smlouvu o postoupení souboru <strong>veškerých peněžitých pohledávek, současných i budoucích, naší společnosti za Vámi</strong> (dále jen „<strong>Pohledávky</strong>“).</p>
+<p>dovolujeme si Vás tímto informovat, že naše společnost <strong>{{clientName}}</strong>, IČO: {{clientIco}}, se sídlem {{clientStreet}}, {{clientZip}} {{clientCity}}, jako <strong>postupitel</strong> uzavřela se společností <strong>{{providerName}}</strong>, IČO: {{providerIco}}, se sídlem {{providerStreet}}, {{providerZip}} {{providerCity}}, jako <strong>postupníkem</strong>, smlouvu o postoupení souboru <strong>veškerých peněžitých pohledávek, současných i budoucích, naší společnosti za Vámi</strong> (dále jen „<strong>Pohledávky</strong>“).</p>
 
 <p>V návaznosti na uvedené Vás vyzýváme, abyste se ve věci Pohledávek již obraceli přímo na výše uvedeného postupníka jakožto jejich nového věřitele.</p>
 

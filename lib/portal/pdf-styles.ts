@@ -206,7 +206,6 @@ function escapeHtml(s: string): string {
 
 function renderFirstPageHeader(cover: CoverHeader): string {
   return `<div class="first-page-header">
-  <div class="eyebrow">BOServices · Smlouva</div>
   <h1 class="first-page-title">${escapeHtml(cover.title)}</h1>
   ${cover.subtitle ? `<p class="first-page-subtitle">${escapeHtml(cover.subtitle)}</p>` : ""}
 </div>`;
