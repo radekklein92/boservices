@@ -5,6 +5,7 @@ import { getContract, upsertContract } from "@/lib/portal/contracts-db";
 import { CONTRACT_TYPE_META } from "@/lib/portal/contract-types";
 import { renderTemplate } from "@/lib/portal/contract-render";
 import { htmlToPdfBuffer } from "@/lib/portal/pdf-generator";
+import { getCoverForType } from "@/lib/portal/pdf-styles";
 
 export const maxDuration = 60;
 
@@ -31,10 +32,11 @@ export async function POST(
   const rendered = renderTemplate(contract.html, contract.variables);
   const meta = CONTRACT_TYPE_META[contract.type];
   const title = `${meta.shortName} - ${contract.clientName}`;
+  const cover = getCoverForType(contract.type);
 
   let pdf: Buffer;
   try {
-    pdf = await htmlToPdfBuffer(rendered, title);
+    pdf = await htmlToPdfBuffer(rendered, { type: contract.type, cover });
   } catch (err) {
     console.error("[contracts] PDF render failed", err);
     return NextResponse.json(
