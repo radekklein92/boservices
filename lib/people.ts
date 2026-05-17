@@ -46,6 +46,7 @@ export const directors: Director[] = [
     id: "pesek",
     initials: "JP",
     fullName: "Jakub Pešek",
+    titlePrefix: "Mgr.",
     role: {
       cs: "Jednatel",
       en: "Managing Director",
