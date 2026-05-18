@@ -8,6 +8,7 @@ import {
   FileText,
   FilePenLine,
   MapPin,
+  Palette,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -31,6 +32,7 @@ const provoz: Item[] = [
 
 const admin: Item[] = [
   { href: "/portal/templates", label: "Šablony smluv", Icon: FilePenLine },
+  { href: "/portal/design-system", label: "Design system", Icon: Palette },
   { href: "/portal/users", label: "Uživatelé", Icon: Users },
 ];
 
