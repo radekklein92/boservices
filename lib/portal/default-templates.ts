@@ -19,7 +19,7 @@ function operationHtml(): string {
   return `<h2>Smluvní strany</h2>
 <p><strong>{{providerName}}</strong>, IČO: {{providerIco}}, DIČ: {{providerDic}}, se sídlem {{providerStreet}}, {{providerZip}} {{providerCity}}, zastoupená {{providerStatutory1Name}}, {{providerStatutory1Role}}, a {{providerStatutory2Name}}, {{providerStatutory2Role}} (dále jen „<strong>Manažer</strong>“)</p>
 <p>a</p>
-<p><strong>{{clientName}}</strong>, IČO: {{clientIco}}, DIČ: {{clientDic}}, se sídlem {{clientStreet}}, {{clientZip}} {{clientCity}}, zastoupená {{clientStatutoryName}}, {{clientStatutoryRole}}, e-mail: {{clientEmail}}, telefon: {{clientPhone}} (dále jen „<strong>Franšízant</strong>“)</p>
+<p><strong>{{clientName}}</strong>, IČO: {{clientIco}}, DIČ: {{clientDic}}, se sídlem {{clientStreet}}, {{clientZip}} {{clientCity}}{{clientRepresentationClause}}, e-mail: {{clientEmail}}, telefon: {{clientPhone}} (dále jen „<strong>Franšízant</strong>“)</p>
 <p>Manažer a Franšízant společně dále jen „<strong>Smluvní strany</strong>“.</p>
 
 <h2>1. Úvodní ustanovení</h2>
@@ -115,7 +115,7 @@ function operationHtml(): string {
 <p>&nbsp;</p>
 <p>__________________________<br/><strong>{{providerStatutory2Name}}</strong><br/>{{providerStatutory2Role}}<br/>za Manažera: {{providerName}}</p>
 <p>&nbsp;</p>
-<p>__________________________<br/><strong>{{clientStatutoryName}}</strong><br/>{{clientStatutoryRole}}<br/>za Franšízanta: {{clientName}}</p>
+<p>__________________________<br/><strong>{{clientSignerName}}</strong><br/>{{clientSignerRole}}<br/>za Franšízanta: {{clientName}}</p>
 
 <h2>Příloha č. 1 — Vybavení Provozovny</h2>
 <p><em>Doplňte seznam vybavení (kuchyňské spotřebiče, nábytek, POS, kamerový systém, ...).</em></p>`;
@@ -131,7 +131,7 @@ function cooperationHtml(): string {
   return `<h2>Smluvní strany</h2>
 <p><strong>{{providerName}}</strong>, IČO: {{providerIco}}, DIČ: {{providerDic}}, se sídlem {{providerStreet}}, {{providerZip}} {{providerCity}}, zastoupená {{providerStatutory1Name}}, {{providerStatutory1Role}}, a {{providerStatutory2Name}}, {{providerStatutory2Role}} (dále jen „<strong>Manažer</strong>“)</p>
 <p>a</p>
-<p><strong>{{clientName}}</strong>, IČO: {{clientIco}}, DIČ: {{clientDic}}, se sídlem {{clientStreet}}, {{clientZip}} {{clientCity}}, zastoupená {{clientStatutoryName}}, {{clientStatutoryRole}}, e-mail: {{clientEmail}}, telefon: {{clientPhone}} (dále jen „<strong>Franšízant</strong>“)</p>
+<p><strong>{{clientName}}</strong>, IČO: {{clientIco}}, DIČ: {{clientDic}}, se sídlem {{clientStreet}}, {{clientZip}} {{clientCity}}{{clientRepresentationClause}}, e-mail: {{clientEmail}}, telefon: {{clientPhone}} (dále jen „<strong>Franšízant</strong>“)</p>
 <p>Manažer a Franšízant společně dále jen „<strong>Smluvní strany</strong>“.</p>
 
 <h2>1. Úvodní ustanovení, účel Smlouvy</h2>
@@ -217,7 +217,7 @@ function cooperationHtml(): string {
 <p>&nbsp;</p>
 <p>__________________________<br/><strong>{{providerStatutory2Name}}</strong><br/>{{providerStatutory2Role}}<br/>za Manažera: {{providerName}}</p>
 <p>&nbsp;</p>
-<p>__________________________<br/><strong>{{clientStatutoryName}}</strong><br/>{{clientStatutoryRole}}<br/>za Franšízanta: {{clientName}}</p>`;
+<p>__________________________<br/><strong>{{clientSignerName}}</strong><br/>{{clientSignerRole}}<br/>za Franšízanta: {{clientName}}</p>`;
 }
 
 /* -------------------------------------------------------------------------
@@ -229,7 +229,7 @@ function genericSkeleton(type: ContractType): string {
   return `<h1>${escape(meta.fullName)}</h1>
 <p>uzavřená dnešního dne, měsíce a roku mezi smluvními stranami:</p>
 <h2>Smluvní strany</h2>
-<p><strong>{{clientName}}</strong>, IČO: {{clientIco}}, se sídlem {{clientStreet}}, {{clientZip}} {{clientCity}}, zastoupená {{clientStatutoryName}}, {{clientStatutoryRole}} (dále jen „Klient“);</p>
+<p><strong>{{clientName}}</strong>, IČO: {{clientIco}}, se sídlem {{clientStreet}}, {{clientZip}} {{clientCity}}{{clientRepresentationClause}} (dále jen „Klient“);</p>
 <p>a</p>
 <p><strong>{{providerName}}</strong>, IČO: {{providerIco}}, se sídlem {{providerStreet}}, {{providerZip}} {{providerCity}}, zastoupená {{providerStatutory1Name}}, {{providerStatutory1Role}}, a {{providerStatutory2Name}}, {{providerStatutory2Role}} (dále jen „Poskytovatel“).</p>
 <h2>1. Předmět smlouvy</h2>
@@ -243,7 +243,7 @@ function genericSkeleton(type: ContractType): string {
 <h2>5. Závěrečná ustanovení</h2>
 <p>Tato smlouva je vyhotovena ve dvou stejnopisech, z nichž každá smluvní strana obdrží po jednom. Smlouva nabývá platnosti a účinnosti dnem podpisu oběma smluvními stranami.</p>
 <p>V {{place}} dne {{contractDate}}.</p>
-<p>__________________<br/>{{clientStatutoryName}}<br/>za Klienta</p>
+<p>__________________<br/>{{clientSignerName}}<br/>za Klienta</p>
 <p>__________________<br/>{{providerStatutory1Name}}<br/>za Poskytovatele</p>
 <p>__________________<br/>{{providerStatutory2Name}}<br/>za Poskytovatele</p>`;
 }
@@ -254,7 +254,7 @@ function genericSkeleton(type: ContractType): string {
  * ------------------------------------------------------------------------- */
 function claimAssignmentHtml(): string {
   return `<h2>Smluvní strany</h2>
-<p><strong>{{clientName}}</strong>, IČO: {{clientIco}}, se sídlem {{clientStreet}}, {{clientZip}} {{clientCity}}, zastoupená {{clientStatutoryName}}, {{clientStatutoryRole}} (dále jen „<strong>Postupitel</strong>“)</p>
+<p><strong>{{clientName}}</strong>, IČO: {{clientIco}}, se sídlem {{clientStreet}}, {{clientZip}} {{clientCity}}{{clientRepresentationClause}} (dále jen „<strong>Postupitel</strong>“)</p>
 <p>a</p>
 <p><strong>{{providerName}}</strong>, IČO: {{providerIco}}, DIČ: {{providerDic}}, se sídlem {{providerStreet}}, {{providerZip}} {{providerCity}}, zastoupená {{providerStatutory1Name}}, {{providerStatutory1Role}}, a {{providerStatutory2Name}}, {{providerStatutory2Role}} (dále jen „<strong>Postupník</strong>“)</p>
 <p>Postupitel a Postupník dále společně jako „<strong>Strany</strong>“ a každý jednotlivě jako „Strana“.</p>
@@ -289,7 +289,7 @@ function claimAssignmentHtml(): string {
 <h2>Podpisy</h2>
 <p>V {{place}} dne {{contractDate}}.</p>
 <p>&nbsp;</p>
-<p>__________________________<br/><strong>{{clientStatutoryName}}</strong><br/>{{clientStatutoryRole}}<br/>za Postupitele: {{clientName}}</p>
+<p>__________________________<br/><strong>{{clientSignerName}}</strong><br/>{{clientSignerRole}}<br/>za Postupitele: {{clientName}}</p>
 <p>&nbsp;</p>
 <p>__________________________<br/><strong>{{providerStatutory1Name}}</strong><br/>{{providerStatutory1Role}}<br/>za Postupníka: {{providerName}}</p>
 <p>&nbsp;</p>
@@ -306,7 +306,7 @@ function claimAssignmentHtml(): string {
  * ------------------------------------------------------------------------- */
 function sideFeeHtml(): string {
   return `<h2>Smluvní strany</h2>
-<p><strong>{{clientName}}</strong>, IČO: {{clientIco}}, se sídlem {{clientStreet}}, {{clientZip}} {{clientCity}}, zastoupená {{clientStatutoryName}}, {{clientStatutoryRole}} (dále jen „<strong>Postupitel</strong>“)</p>
+<p><strong>{{clientName}}</strong>, IČO: {{clientIco}}, se sídlem {{clientStreet}}, {{clientZip}} {{clientCity}}{{clientRepresentationClause}} (dále jen „<strong>Postupitel</strong>“)</p>
 <p>a</p>
 <p><strong>{{providerName}}</strong>, IČO: {{providerIco}}, DIČ: {{providerDic}}, se sídlem {{providerStreet}}, {{providerZip}} {{providerCity}}, zastoupená {{providerStatutory1Name}}, {{providerStatutory1Role}}, a {{providerStatutory2Name}}, {{providerStatutory2Role}} (dále jen „<strong>Postupník</strong>“)</p>
 <p>Postupitel a Postupník dále společně jako „<strong>Strany</strong>“ a každý jednotlivě jako „Strana“.</p>
@@ -332,7 +332,7 @@ function sideFeeHtml(): string {
 <h2>Podpisy</h2>
 <p>V {{place}} dne {{contractDate}}.</p>
 <p>&nbsp;</p>
-<p>__________________________<br/><strong>{{clientStatutoryName}}</strong><br/>{{clientStatutoryRole}}<br/>za Postupitele: {{clientName}}</p>
+<p>__________________________<br/><strong>{{clientSignerName}}</strong><br/>{{clientSignerRole}}<br/>za Postupitele: {{clientName}}</p>
 <p>&nbsp;</p>
 <p>__________________________<br/><strong>{{providerStatutory1Name}}</strong><br/>{{providerStatutory1Role}}<br/>za Postupníka: {{providerName}}</p>
 <p>&nbsp;</p>
@@ -362,7 +362,7 @@ function assignmentNoticeHtml(): string {
 
 <p>&nbsp;</p>
 
-<p>__________________________<br/><strong>{{clientStatutoryName}}</strong><br/>{{clientStatutoryRole}}<br/>za {{clientName}}</p>`;
+<p>__________________________<br/><strong>{{clientSignerName}}</strong><br/>{{clientSignerRole}}<br/>za {{clientName}}</p>`;
 }
 
 /* -------------------------------------------------------------------------
@@ -374,7 +374,7 @@ function franchiseBHtml(): string {
   return `<h2>Smluvní strany</h2>
 <p><strong>{{providerName}}</strong>, IČO: {{providerIco}}, DIČ: {{providerDic}}, se sídlem {{providerStreet}}, {{providerZip}} {{providerCity}}, zastoupená {{providerStatutory1Name}}, {{providerStatutory1Role}}, a {{providerStatutory2Name}}, {{providerStatutory2Role}} (dále jen „<strong>Poskytovatel</strong>“)</p>
 <p>a</p>
-<p><strong>{{clientName}}</strong>, IČO: {{clientIco}}, DIČ: {{clientDic}}, se sídlem {{clientStreet}}, {{clientZip}} {{clientCity}}, zastoupená {{clientStatutoryName}}, {{clientStatutoryRole}}, e-mail: {{clientEmail}}, telefon: {{clientPhone}} (dále jen „<strong>Příjemce</strong>“ nebo „<strong>Franšízant</strong>“)</p>
+<p><strong>{{clientName}}</strong>, IČO: {{clientIco}}, DIČ: {{clientDic}}, se sídlem {{clientStreet}}, {{clientZip}} {{clientCity}}{{clientRepresentationClause}}, e-mail: {{clientEmail}}, telefon: {{clientPhone}} (dále jen „<strong>Příjemce</strong>“ nebo „<strong>Franšízant</strong>“)</p>
 <p>Poskytovatel a Příjemce společně dále jen „<strong>Smluvní strany</strong>“.</p>
 
 <h2>I. Úvodní ustanovení, účel Smlouvy</h2>
@@ -487,7 +487,7 @@ function franchiseBHtml(): string {
 <p>&nbsp;</p>
 <p>__________________________<br/><strong>{{providerStatutory2Name}}</strong><br/>{{providerStatutory2Role}}<br/>za Poskytovatele: {{providerName}}</p>
 <p>&nbsp;</p>
-<p>__________________________<br/><strong>{{clientStatutoryName}}</strong><br/>{{clientStatutoryRole}}<br/>za Příjemce: {{clientName}}</p>`;
+<p>__________________________<br/><strong>{{clientSignerName}}</strong><br/>{{clientSignerRole}}<br/>za Příjemce: {{clientName}}</p>`;
 }
 
 /* -------------------------------------------------------------------------
@@ -499,7 +499,7 @@ function franchiseAbHtml(): string {
   return `<h2>Smluvní strany</h2>
 <p><strong>{{providerName}}</strong>, IČO: {{providerIco}}, DIČ: {{providerDic}}, se sídlem {{providerStreet}}, {{providerZip}} {{providerCity}}, zastoupená {{providerStatutory1Name}}, {{providerStatutory1Role}}, a {{providerStatutory2Name}}, {{providerStatutory2Role}} (dále jen „<strong>Poskytovatel</strong>“)</p>
 <p>a</p>
-<p><strong>{{clientName}}</strong>, IČO: {{clientIco}}, DIČ: {{clientDic}}, se sídlem {{clientStreet}}, {{clientZip}} {{clientCity}}, zastoupená {{clientStatutoryName}}, {{clientStatutoryRole}}, e-mail: {{clientEmail}}, telefon: {{clientPhone}} (dále jen „<strong>Příjemce</strong>“ nebo „<strong>Franšízant</strong>“)</p>
+<p><strong>{{clientName}}</strong>, IČO: {{clientIco}}, DIČ: {{clientDic}}, se sídlem {{clientStreet}}, {{clientZip}} {{clientCity}}{{clientRepresentationClause}}, e-mail: {{clientEmail}}, telefon: {{clientPhone}} (dále jen „<strong>Příjemce</strong>“ nebo „<strong>Franšízant</strong>“)</p>
 <p>Poskytovatel a Příjemce společně dále jen „<strong>Smluvní strany</strong>“.</p>
 
 <p><em>Označení varianty čl. III odst. 1 (nájem):</em> <strong>[ ] Varianta A</strong> &nbsp;&nbsp; <strong>[ ] Varianta B</strong></p>
@@ -631,7 +631,7 @@ function franchiseAbHtml(): string {
 <p>&nbsp;</p>
 <p>__________________________<br/><strong>{{providerStatutory2Name}}</strong><br/>{{providerStatutory2Role}}<br/>za Poskytovatele: {{providerName}}</p>
 <p>&nbsp;</p>
-<p>__________________________<br/><strong>{{clientStatutoryName}}</strong><br/>{{clientStatutoryRole}}<br/>za Příjemce: {{clientName}}</p>`;
+<p>__________________________<br/><strong>{{clientSignerName}}</strong><br/>{{clientSignerRole}}<br/>za Příjemce: {{clientName}}</p>`;
 }
 
 export function buildDefaultHtml(

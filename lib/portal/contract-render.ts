@@ -17,10 +17,23 @@ export const PROVIDER_DEFAULTS: ContractVariables = {
 };
 
 export function buildClientVariables(client: Client): ContractVariables {
+  const isPO = client.legalForm === "PO";
+  const statutoryName = client.statutory?.name ?? "";
+  const statutoryRole = client.statutory?.role ?? "";
+
+  // Computed pole - reflektuje právní formu klienta:
+  // - PO = právnická osoba: zastupuje statutární orgán (jednatel, …)
+  // - FO = fyzická osoba podnikající: jedná přímo za sebe, žádné zastoupení
+  const clientRepresentationClause =
+    isPO && statutoryName
+      ? `, zastoupená ${statutoryName}, ${statutoryRole}`
+      : "";
+  const clientSignerName = isPO && statutoryName ? statutoryName : client.companyName;
+  const clientSignerRole = isPO ? statutoryRole : "";
+
   return {
     clientName: client.companyName,
-    clientLegalForm:
-      client.legalForm === "PO" ? "Právnická osoba" : "Fyzická osoba",
+    clientLegalForm: isPO ? "Právnická osoba" : "Fyzická osoba",
     clientIco: client.ico ?? "",
     clientDic: client.dic ?? "",
     clientStreet: client.address.street,
@@ -28,8 +41,11 @@ export function buildClientVariables(client: Client): ContractVariables {
     clientZip: client.address.zip,
     clientCountry: client.address.country ?? "Česká republika",
     clientBankAccount: "",
-    clientStatutoryName: client.statutory?.name ?? "",
-    clientStatutoryRole: client.statutory?.role ?? "",
+    clientStatutoryName: statutoryName,
+    clientStatutoryRole: statutoryRole,
+    clientRepresentationClause,
+    clientSignerName,
+    clientSignerRole,
     clientEmail: client.contact?.email ?? "",
     clientPhone: client.contact?.phone ?? "",
   };
@@ -63,13 +79,28 @@ export function buildDefaultContractMeta(date = new Date()): ContractVariables {
 
 const TOKEN_RE = /\{\{(\w+)\}\}/g;
 
+// Klíče, které mohou být legitimně prázdné (např. clientRepresentationClause
+// pro fyzickou osobu) - prázdná hodnota se renderuje jako nic, ne jako warning.
+const ALLOW_EMPTY = new Set([
+  "clientRepresentationClause",
+  "clientSignerRole",
+  "clientStatutoryName",
+  "clientStatutoryRole",
+  "clientDic",
+  "clientBankAccount",
+]);
+
 export function renderTemplate(
   html: string,
   variables: ContractVariables,
 ): string {
   return html.replace(TOKEN_RE, (_, key: string) => {
     const value = variables[key];
-    if (value === undefined || value === null || value === "") {
+    if (value === undefined || value === null) {
+      return `<span style="background:#f3eecf;color:#7a5b00;padding:0 4px;border-radius:3px;font-style:italic">${key}</span>`;
+    }
+    if (value === "") {
+      if (ALLOW_EMPTY.has(key)) return "";
       return `<span style="background:#f3eecf;color:#7a5b00;padding:0 4px;border-radius:3px;font-style:italic">${key}</span>`;
     }
     return escapeHtml(value);
@@ -85,7 +116,12 @@ export function listUnresolvedPlaceholders(
   TOKEN_RE.lastIndex = 0;
   while ((m = TOKEN_RE.exec(html)) !== null) {
     const key = m[1]!;
-    if (!variables[key] || variables[key].trim() === "") {
+    const value = variables[key];
+    if (value === undefined || value === null) {
+      out.add(key);
+      continue;
+    }
+    if (value === "" && !ALLOW_EMPTY.has(key)) {
       out.add(key);
     }
   }
