@@ -2,39 +2,48 @@ import { getRedis } from "@/lib/redis";
 import {
   CONTRACT_TYPE_META,
   CONTRACT_TYPES,
+  FRANCHISE_VARIANTS,
+  hasVariants,
   type ContractType,
+  type FranchiseVariant,
 } from "./contract-types";
 import { buildDefaultHtml } from "./default-templates";
 
 export interface ContractTemplate {
   type: ContractType;
+  variant?: FranchiseVariant;
   name: string;
   html: string;
   updatedBy: string;
   updatedAt: string;
 }
 
-const templateKey = (type: ContractType) =>
-  `portal:contract-template:${type}`;
+const templateKey = (type: ContractType, variant?: FranchiseVariant) =>
+  hasVariants(type) && variant
+    ? `portal:contract-template:${type}:${variant}`
+    : `portal:contract-template:${type}`;
 
 export async function getContractTemplate(
   type: ContractType,
+  variant?: FranchiseVariant,
 ): Promise<ContractTemplate | null> {
   const r = getRedis();
   if (!r) return null;
-  return r.get<ContractTemplate>(templateKey(type));
+  return r.get<ContractTemplate>(templateKey(type, variant));
 }
 
 export async function getOrSeedContractTemplate(
   type: ContractType,
+  variant?: FranchiseVariant,
 ): Promise<ContractTemplate> {
-  const existing = await getContractTemplate(type);
+  const existing = await getContractTemplate(type, variant);
   if (existing) return existing;
   const meta = CONTRACT_TYPE_META[type];
   return {
     type,
+    variant: hasVariants(type) ? variant : undefined,
     name: meta.fullName,
-    html: buildDefaultHtml(type),
+    html: buildDefaultHtml(type, variant),
     updatedBy: "system",
     updatedAt: new Date().toISOString(),
   };
@@ -45,30 +54,73 @@ export async function upsertContractTemplate(
 ): Promise<void> {
   const r = getRedis();
   if (!r) throw new Error("Redis not configured");
-  await r.set(templateKey(template.type), template);
+  await r.set(templateKey(template.type, template.variant), template);
 }
 
-export async function listContractTemplates(): Promise<
-  Array<{
-    type: ContractType;
-    meta: (typeof CONTRACT_TYPE_META)[ContractType];
+export type TemplateListEntry = {
+  type: ContractType;
+  meta: (typeof CONTRACT_TYPE_META)[ContractType];
+  template: ContractTemplate | null;
+  variants?: Array<{
+    variant: FranchiseVariant;
     template: ContractTemplate | null;
-  }>
-> {
+  }>;
+};
+
+export async function listContractTemplates(): Promise<TemplateListEntry[]> {
   const r = getRedis();
   if (!r) {
     return CONTRACT_TYPES.map((type) => ({
       type,
       meta: CONTRACT_TYPE_META[type],
       template: null,
+      variants: hasVariants(type)
+        ? FRANCHISE_VARIANTS.map((v) => ({ variant: v, template: null }))
+        : undefined,
     }));
   }
+
   const pipe = r.pipeline();
-  CONTRACT_TYPES.forEach((t) => pipe.get<ContractTemplate>(templateKey(t)));
+  const keys: Array<{ type: ContractType; variant?: FranchiseVariant }> = [];
+
+  for (const type of CONTRACT_TYPES) {
+    if (hasVariants(type)) {
+      for (const v of FRANCHISE_VARIANTS) {
+        keys.push({ type, variant: v });
+        pipe.get<ContractTemplate>(templateKey(type, v));
+      }
+    } else {
+      keys.push({ type });
+      pipe.get<ContractTemplate>(templateKey(type));
+    }
+  }
+
   const results = (await pipe.exec()) as (ContractTemplate | null)[];
-  return CONTRACT_TYPES.map((type, idx) => ({
-    type,
-    meta: CONTRACT_TYPE_META[type],
-    template: results[idx] ?? null,
-  }));
+
+  return CONTRACT_TYPES.map((type) => {
+    const meta = CONTRACT_TYPE_META[type];
+    if (hasVariants(type)) {
+      const variants = FRANCHISE_VARIANTS.map((variant) => {
+        const idx = keys.findIndex(
+          (k) => k.type === type && k.variant === variant,
+        );
+        return {
+          variant,
+          template: idx >= 0 ? (results[idx] ?? null) : null,
+        };
+      });
+      return {
+        type,
+        meta,
+        template: variants[0]?.template ?? null,
+        variants,
+      };
+    }
+    const idx = keys.findIndex((k) => k.type === type && !k.variant);
+    return {
+      type,
+      meta,
+      template: idx >= 0 ? (results[idx] ?? null) : null,
+    };
+  });
 }

@@ -3,7 +3,14 @@ import { z } from "zod";
 import { nanoid } from "nanoid";
 import { requireSession } from "@/lib/portal/auth-guard";
 import { getClient } from "@/lib/portal/clients-db";
-import { isContractType, CONTRACT_TYPE_META } from "@/lib/portal/contract-types";
+import {
+  isContractType,
+  isFranchiseVariant,
+  hasVariants,
+  CONTRACT_TYPE_META,
+  DEFAULT_FRANCHISE_VARIANT,
+  type FranchiseVariant,
+} from "@/lib/portal/contract-types";
 import { getOrSeedContractTemplate } from "@/lib/portal/contract-templates-db";
 import {
   getNextContractNumber,
@@ -19,6 +26,7 @@ import {
 const createSchema = z.object({
   clientId: z.string().trim().min(1),
   type: z.string().trim().min(1),
+  variant: z.string().trim().optional(),
 });
 
 export async function GET() {
@@ -45,7 +53,7 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
-  const { clientId, type } = parsed.data;
+  const { clientId, type, variant: rawVariant } = parsed.data;
 
   const client = await getClient(clientId);
   if (!client) {
@@ -55,7 +63,16 @@ export async function POST(req: Request) {
     );
   }
 
-  const template = await getOrSeedContractTemplate(type);
+  let variant: FranchiseVariant | undefined;
+  if (hasVariants(type)) {
+    if (rawVariant && isFranchiseVariant(rawVariant)) {
+      variant = rawVariant;
+    } else {
+      variant = DEFAULT_FRANCHISE_VARIANT;
+    }
+  }
+
+  const template = await getOrSeedContractTemplate(type, variant);
   const now = new Date();
   const meta = buildDefaultContractMeta(now);
   const number = await getNextContractNumber(now);
@@ -77,6 +94,8 @@ export async function POST(req: Request) {
     clientName: client.companyName,
     status: "draft",
     html: template.html,
+    templateSnapshot: template.html,
+    variant,
     variables,
     number,
     createdBy: g.session.user!.email!,

@@ -1,4 +1,9 @@
-import { CONTRACT_TYPE_META, type ContractType } from "./contract-types";
+import {
+  CONTRACT_TYPE_META,
+  DEFAULT_FRANCHISE_VARIANT,
+  type ContractType,
+  type FranchiseVariant,
+} from "./contract-types";
 
 function escape(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -360,7 +365,279 @@ function assignmentNoticeHtml(): string {
 <p>__________________________<br/><strong>{{clientStatutoryName}}</strong><br/>{{clientStatutoryRole}}<br/>za {{clientName}}</p>`;
 }
 
-export function buildDefaultHtml(type: ContractType): string {
+/* -------------------------------------------------------------------------
+ * Franšízingová smlouva — varianta B (podnájem od BOServices)
+ * Provozovna je sjednána na BOServices, franšízant si od ní podnajímá.
+ * Žádné varianty v textu — všechny ujednání jsou pevně dané B-only.
+ * ------------------------------------------------------------------------- */
+function franchiseBHtml(): string {
+  return `<h2>Smluvní strany</h2>
+<p><strong>{{providerName}}</strong>, IČO: {{providerIco}}, DIČ: {{providerDic}}, se sídlem {{providerStreet}}, {{providerZip}} {{providerCity}}, zastoupená {{providerStatutory1Name}}, {{providerStatutory1Role}}, a {{providerStatutory2Name}}, {{providerStatutory2Role}} (dále jen „<strong>Poskytovatel</strong>“)</p>
+<p>a</p>
+<p><strong>{{clientName}}</strong>, IČO: {{clientIco}}, DIČ: {{clientDic}}, se sídlem {{clientStreet}}, {{clientZip}} {{clientCity}}, zastoupená {{clientStatutoryName}}, {{clientStatutoryRole}}, e-mail: {{clientEmail}}, telefon: {{clientPhone}} (dále jen „<strong>Příjemce</strong>“ nebo „<strong>Franšízant</strong>“)</p>
+<p>Poskytovatel a Příjemce společně dále jen „<strong>Smluvní strany</strong>“.</p>
+
+<h2>I. Úvodní ustanovení, účel Smlouvy</h2>
+<ol>
+  <li>Poskytovatel zajistí, že bude nositelem práva k provozování franšízingové sítě provozoven konceptů <strong>Trdlokafe</strong>, <strong>Kytky od Pepy</strong> a <strong>Bubblify</strong> a souvisejících práv (dále jen „<strong>Koncept</strong>“).</li>
+  <li>Příjemce má zájem samostatně podnikat provozováním provozovny v síti Konceptu na adrese <strong>{{provozovnaAddress}}</strong> (dále jen „<strong>Provozovna</strong>“).</li>
+  <li>Účelem této Smlouvy je umožnit Příjemci provozovat Provozovnu na vlastní účet a riziko a sjednat základní pravidla vzájemné spolupráce v rámci sítě Konceptu.</li>
+</ol>
+
+<h2>II. Předmět Smlouvy</h2>
+<ol>
+  <li>Poskytovatel umožní za podmínek dle této Smlouvy Příjemci po dobu trvání této Smlouvy provozovat Provozovnu v rámci sítě Konceptů, a za tímto účelem Příjemci poskytne oprávnění používat:
+    <ol>
+      <li>značku jednoho z Konceptů včetně grafického loga a obchodních názvů produktů a služeb vytvořených v rámci sítě Konceptů,</li>
+      <li>specifické prvky Provozovny (vizuální vzhled, uspořádání, obsah),</li>
+      <li>originální receptury, know-how a pracovní postupy dle manuálu Poskytovatele,</li>
+      <li>informační systémy sítě Konceptů (zásobovací, pokladní, docházkový, příp. další),</li>
+      <li>systém školení pracovníků Příjemce,</li>
+      <li>marketingovou podporu pro rozvoj Konceptu</li>
+    </ol>
+    (dále jen „<strong>Předmět franšízy</strong>“).
+  </li>
+  <li>Příjemce se zavazuje využívat oprávnění dle odst. 1 v souladu s pokyny Poskytovatele a účelem této Smlouvy tak, aby byl zachován a rozvíjen Koncept a jednotný charakter sítě Konceptu, dodržovat sjednané povinnosti a řádně a včas hradit sjednané poplatky.</li>
+</ol>
+
+<h2>III. Místo</h2>
+<ol>
+  <li>Poskytovatel přenechá Příjemci do podnájmu prostory Provozovny v místě sjednaném v čl. I odst. 2 této Smlouvy, a to za podmínek odpovídajících nájemní smlouvě uzavřené mezi Poskytovatelem a pronajímatelem. Příjemce se zavazuje hradit Poskytovateli podnájemné a poplatky související s podnájmem (energie, služby apod.) a složit jistotu (kauci) v rozsahu odpovídajícím povinnostem Poskytovatele vůči pronajímateli.</li>
+  <li>Příjemce není oprávněn bez předchozího svolení Poskytovatele užívat Předmět franšízy na jiném místě, než je sjednáno v čl. I odst. 2 této Smlouvy, nebo umožnit její provozování či užívání třetí osobě (vyjma případu, kdy jde o zajištění provozu Provozovny prostřednictvím manažera <strong>{{providerName}}</strong> na základě samostatné smlouvy o provozování provozovny). Změnu místa, příp. rozšíření na další místa, jakož i jakékoli přenechání Provozovny nebo jejího provozu třetí osobě je nutné sjednat písemně formou dodatku k této Smlouvě.</li>
+  <li>Příjemce se zavazuje po dobu trvání této Smlouvy označit Provozovnu označením jednoho z Konceptů a udržovat vizuální vzhled Provozovny dle pokynů Poskytovatele.</li>
+  <li>Příjemce se zavazuje dodržovat otevírací dobu Provozovny dle podmínek určených pronajímatelem, popřípadě dle pokynů Poskytovatele.</li>
+  <li>Příjemce se zavazuje, že v místě Provozovny nebude provozovat jinou činnost než Provozovnu Konceptu v souladu s Předmětem franšízy a touto Smlouvou. Dále se Příjemce zavazuje, že po dobu trvání této Smlouvy a 1 (jednoho) roku po jejím skončení nebude na území EU provozovat jakoukoli činnost, která by mohla konkurovat Konceptu, zejména prodej totožného nebo zaměnitelného sortimentu produktů a služeb, a nepřevezme zákaznickou základnu vybudovanou v rámci sítě Konceptu. Odměna za tato omezení je zohledněna v poplatcích sjednaných v čl. VI této Smlouvy.</li>
+</ol>
+
+<h2>IV. Vybavení</h2>
+<ol>
+  <li>Příjemce prohlašuje, že má ke dni uzavření této Smlouvy uzavřenou samostatnou smlouvu o prodeji vybavení Provozovny, respektive je již vlastníkem vybavení Prodejny. Smluvní strany výslovně sjednávají, že jakékoliv kupní smlouvy týkající se vybavení Provozovny představují samostatné závazkové vztahy a nejsou závislé na této Smlouvě ve smyslu § 1727 občanského zákoníku, není-li v konkrétní kupní smlouvě výslovně sjednáno jinak.</li>
+  <li>Příjemce se zavazuje v zájmu zachování a rozvoje jednotného vzhledu a charakteristických prvků sítě Konceptu používat v Provozovně výhradně vybavení (tj. zejména nástroje, pracovní pomůcky a suroviny) odsouhlasené Poskytovatelem a vybavení si pronajímat či kupovat od Poskytovatele nebo jím určené osoby.</li>
+</ol>
+
+<h2>V. Dodávky a ceny</h2>
+<ol>
+  <li>Příjemce se zavazuje:
+    <ol>
+      <li>připravovat a nabízet produkty zákazníkům pouze dle postupů a specifikací určených Poskytovatelem pro daný Koncept,</li>
+      <li>odebírat a řádně a včas hradit klíčové suroviny pro přípravu produktů a klíčové zboží a spotřební materiál jednoho z Konceptů od Poskytovatele nebo jím určené osoby. Za klíčové suroviny, zboží a spotřební materiál se považují také obalové materiály s logem, káva a další, které Poskytovatel jako klíčové suroviny, zboží či spotřební materiál označí. Ke dni uzavření této Smlouvy je Poskytovatelem osoba určená v hlavičce této Smlouvy s tím, že Poskytovatel je oprávněn určenou osobu změnit.</li>
+    </ol>
+  </li>
+  <li>Prodejní ceny zboží a produktů v Provozovně jsou Poskytovatelem pouze doporučené. Konečnou cenu stanovuje Příjemce, musí však dbát na konkurenceschopnost Provozovny a dobré jméno sítě Konceptu.</li>
+  <li>Případné výjimky ze závazků dle odst. 1 tohoto článku musí Poskytovatel předem odsouhlasit. Pokud osoba určená k dodání klíčových surovin, zboží či spotřebního materiálu dle bodu b) odst. 1 tohoto článku nebude schopna klíčové suroviny, zboží či spotřební materiál dodávat tak, aby nebyl zásadně omezen chod Provozovny, je Příjemce oprávněn tyto suroviny, zboží či spotřební materiál opatřit i od jiné osoby, je však povinen o tom neprodleně informovat Poskytovatele.</li>
+  <li>Poskytovatel uvítá podněty a nápady Příjemce na rozvoj Konceptu, např. zařazení nových produktů či zboží do nabídky Provozovny nebo celé sítě Konceptu apod. Realizace těchto podnětů a nápadů podléhá předchozímu schválení Poskytovatelem.</li>
+  <li>V případě prodlení Příjemce s úhradou kteréhokoli peněžitého plnění dle této Smlouvy o více než 7 dnů je Poskytovatel (resp. osoba určená dle odst. 1 písm. b) tohoto článku) oprávněn pozastavit dodávky klíčových surovin, zboží a spotřebního materiálu, a to až do úplné úhrady všech splatných pohledávek. Pozastavení dodávek z tohoto důvodu nezakládá nárok Příjemce z titulu neplnění Smlouvy ze strany Poskytovatele.</li>
+</ol>
+
+<h2>VI. Poplatek</h2>
+<ol>
+  <li>Příjemce se tímto zavazuje uhradit Poskytovateli jednorázový poplatek ve výši <strong>0 Kč</strong>, který bude navýšen o DPH, a to nejpozději do jednoho dne od data podpisu této Smlouvy.</li>
+  <li>Příjemce se zavazuje platit Poskytovateli průběžně franšízingový a marketingový poplatek ve výši <strong>[8/5] %</strong> z měsíčního obratu bez DPH za prodej zboží a služeb (ve smyslu zákona č. 235/2004 Sb., o dani z přidané hodnoty, v aktuálním znění) Provozovny (dále jen „<strong>obrat</strong>“), dle této Smlouvy, a to nejpozději do <strong>22. dne</strong> následujícího kalendářního měsíce. Za tímto účelem bude Příjemce průběžně, nejpozději však do následujícího pracovního dne, doplňovat pravdivě a úplně data o výši denního obratu Provozovny do informačního systému provozovaného Poskytovatelem. Na základě dat z informačního systému je Poskytovatel oprávněn k poslednímu dni kalendářního měsíce vystavit daňový doklad (fakturu) na franšízingový a marketingový poplatek, se splatností minimálně 14 dnů. K poplatku bude připočítáno DPH v sazbě dle platných právních předpisů. Faktura bude vystavena v měně CZK, EUR nebo PLN, a to dle vhodnosti podle typu lokace a umístění Provozovny. Měnu fakturace určí Poskytovatel písemným oznámením Příjemci, popřípadě ji Smluvní strany sjednají v dodatku k této Smlouvě. Není-li určeno jinak, je výchozí měnou fakturace CZK.</li>
+</ol>
+
+<h2>VII. Další práva a povinnosti</h2>
+<ol>
+  <li>Poskytovatel je oprávněn rozvíjet koncepci sítě Konceptu a případně ji změnit či upravit, včetně názvu a grafického loga. O změnách Poskytovatel Příjemce předem informuje a poskytne mu podporu při jejich zavedení; Příjemce se zavazuje změny akceptovat v přiměřených termínech. Pokud Poskytovatel nezíská práva dle čl. I. odst. 1, je oprávněn Koncept změnit podle tohoto odstavce, což se nepovažuje za porušení Smlouvy.</li>
+  <li>Poskytovatel má právo kontrolovat dodržování podmínek této Smlouvy, za tím účelem se Příjemce zavazuje umožnit Poskytovateli a jím určeným osobám vstup do Provozovny a její detailní prohlídku, umožnit Poskytovateli přístup do kamerového systému Provozovny, a dále zpřístupnění informací o hospodaření prostřednictvím systému, případně prostřednictvím dalšího účetního softwaru, které Příjemce používá.</li>
+  <li>Příjemce bude provozovat svoji podnikatelskou činnost v Provozovně dle této Smlouvy pod svým vlastním jménem, na vlastní účet a riziko, a odpovídá za splnění všech právních povinností v souvislosti s provozováním Provozovny.</li>
+  <li>Příjemce je oprávněn smluvně umožnit třetí osobě provozování Provozovny pouze na základě předchozího písemného souhlasu Poskytovatele. V opačném případě není Příjemce oprávněn Provozovnu přenechat třetí osobě.</li>
+  <li>Příjemce se zavazuje řádně a včas plnit své závazky vůči zaměstnancům a dodavatelům. Je povinen dbát a zachovávat dobré jméno Poskytovatele a sítě Konceptu.</li>
+  <li>Pro účely zajištění kontroly obratu a tržeb Provozovny a vypořádání vzájemných pohledávek se Příjemce zavazuje k inkasu bezhotovostních tržeb Provozovny používat v Provozovně platební terminál určený Poskytovatelem (dále jen „<strong>Terminál Poskytovatele</strong>“). Bezhotovostní platby přijaté prostřednictvím Terminálu Poskytovatele jsou připisovány na účet Poskytovatele a okamžikem jejich připsání se stávají součástí peněžních prostředků, s nimiž je Poskytovatel oprávněn nakládat vlastním jménem, na vlastní účet a bez povinnosti jejich oddělené správy. Smluvní strany výslovně sjednávají, že Příjemci ve vztahu k takto přijatým platbám nevzniká vlastnické právo, právo k odděleně spravovaným nebo svěřeným prostředkům ani jiné věcné právo, nýbrž pouze pohledávka Příjemce za Poskytovatelem splatná dle odst. 7 tohoto článku (dále jen „<strong>Pohledávka Příjemce na vypořádání</strong>“).</li>
+  <li>Poskytovatel provádí měsíční vyúčtování bezhotovostních tržeb z Terminálu Poskytovatele, a úhradu splatných pohledávek Poskytovatele vůči Příjemci z těchto prostředků, prostřednictvím započtení, k čemuž Poskytovatel a Příjemce tímto udělují souhlas, a to nejpozději do <strong>22. dne</strong> kalendářního měsíce následujícího po měsíci, za který se vyúčtování provádí. Rozdíl (zbývající část Pohledávky Příjemce na vypořádání po započtení) ve prospěch Příjemce Poskytovatel poukáže na bankovní účet Příjemce, a to do 22. dne kalendářního měsíce následujícího po měsíci, za který se vyúčtování provádí.</li>
+  <li>Poskytovatel se zavazuje, že po dobu trvání této Smlouvy nebude v místě sjednaném v čl. I odst. 2 této Smlouvy ani v okruhu <strong>500 m</strong> od něj provozovat vlastní provozovnu Konceptu ani jinou provozovnu, která by mohla být v konkurenčním postavení k Provozovně provozované Příjemcem, ani v tomto území neumožní provoz provozovny Konceptu jinému franšízantovi.</li>
+  <li>Příjemce se zavazuje zachovávat mlčenlivost ohledně důvěrných informací (včetně neveřejných finančních výsledků Poskytovatele), které mu Poskytovatel předal v rámci této Smlouvy, a nesmí se mediálně ani jinak vyjadřovat k aspektům spolupráce s Poskytovatelem. Tato povinnost trvá nejdéle <strong>10 let</strong> od ukončení této Smlouvy. Za každý jednotlivý případ porušení uhradí porušitel Poskytovateli smluvní pokutu <strong>500 000 Kč</strong>, splatnou do 7 dnů od výzvy.</li>
+</ol>
+
+<h2>VIII. Sankce a ukončení Smlouvy</h2>
+<ol>
+  <li>Tato Smlouva je uzavřena na dobu určitou, a to <strong>10 let</strong> od uzavření této Smlouvy. Poskytovatel se zavazuje s Příjemcem před uplynutím této doby jednat o nové franšízingové smlouvě, která nebude obsahovat pro Příjemce méně výhodná ustanovení, než jaká budou v té době nabízena dalším franšízantům.</li>
+  <li>Poskytovatel je oprávněn tuto Smlouvu vypovědět s výpovědní dobou 1 týden, která počíná běžet dnem doručení písemné výpovědi druhé Smluvní straně, pokud Příjemce:
+    <ol>
+      <li>vstoupí do likvidace nebo s ním bude zahájeno insolvenční řízení,</li>
+      <li>bude jako dlužník v exekuci,</li>
+      <li>bude v prodlení s úhradou kteréhokoliv z poplatků dle této Smlouvy o více než 14 dnů,</li>
+      <li>změní vzhled a označení Provozovny oproti podmínkám této Smlouvy a/nebo pokynům Poskytovatele a nezjedná nápravu ani ve lhůtě 7 dnů od výzvy Poskytovatele,</li>
+      <li>bude v prodlení s převzetím Provozovny a Provozovnu nepřevezme ani v dodatečné lhůtě 7 dnů od výzvy Poskytovatele,</li>
+      <li>nebude plnit povinnosti vyplývající z dalších smluv uzavřených mezi Poskytovatelem a Příjemcem zároveň s touto Smlouvou,</li>
+      <li>poruší své závazky nekonkurovat franšízingové síti Konceptu dle čl. III. odst. 5 této Smlouvy,</li>
+      <li>poruší jiný svůj závazek dle této Smlouvy a nezjedná nápravu ani ve lhůtě 7 dnů od výzvy Poskytovatele.</li>
+    </ol>
+  </li>
+  <li>Výpověď se má za doručenou 3. pracovní den ode dne odeslání doporučenou poštou na adresu Smluvní strany v záhlaví, do datové schránky Příjemce nebo na korespondenční adresu, pokud nebude doručena dříve.</li>
+  <li>Pro případ prodlení s úhradou dlužné částky se Příjemce zavazuje platit Poskytovateli od prvního dne prodlení úroky z prodlení ve výši <strong>0,1 %</strong> z dlužné částky za každý započatý den prodlení.</li>
+  <li>Pro případ porušení závazku dle čl. III. odst. 5 této Smlouvy se Příjemce zavazuje zaplatit Poskytovateli smluvní pokutu ve výši <strong>5 000 000 Kč</strong> a dále nahradit vzniklou újmu v celém rozsahu.</li>
+  <li>Pokud by se Příjemce rozhodl vybavení a práva provozovat Provozovnu vyplývající z této Smlouvy prodat, může tak učinit sám a Poskytovatel se k tomu zavazuje poskytnout souhlas, nebo osloví Poskytovatele, který Provozovnu bezprostředně zařadí do své nabídky společně s dalšími franšízingovými provozovnami v nabídce Poskytovatele.</li>
+  <li>Sjednáním či zaplacením kterékoli smluvní pokuty sjednané v této Smlouvě není dotčeno právo Poskytovatele na náhradu škody v plném rozsahu, a to i v rozsahu převyšujícím sjednanou smluvní pokutu. Není-li sjednáno jinak, je jakákoliv smluvní pokuta sjednaná dle této Smlouvy splatná do 7 dnů od výzvy.</li>
+</ol>
+
+<h2>IX. Závěrečná ustanovení</h2>
+<ol>
+  <li>Tato Smlouva nabývá platnosti a účinnosti dnem jejího podpisu oběma účastníky.</li>
+  <li>Pro vyloučení všech pochybností Smluvní strany výslovně potvrzují, že jsou podnikateli, uzavírají tuto Smlouvu při svém podnikání, a na tuto Smlouvu se tudíž neuplatní ustanovení § 1793 zákona č. 89/2012 Sb., občanský zákoník, ve znění pozdějších předpisů.</li>
+  <li>Tuto Smlouvu lze měnit a doplňovat pouze písemnou formou vzestupně číslovaných dodatků podepsaných oběma Smluvními stranami.</li>
+  <li>Je-li některé ustanovení této Smlouvy neplatné nebo neúčinné, ostatní zůstávají platná. Smluvní strany se zavazují nahradit takové ustanovení novým, které nejlépe odpovídá původnímu účelu.</li>
+  <li>Poskytovatel je oprávněn tuto Smlouvu i bez souhlasu Příjemce zčásti či zcela postoupit, přičemž postoupením se osvobozuje od svých povinností v rozsahu postoupení; Smluvní strany výslovně vylučují aplikaci ustanovení § 1899 zákona č. 89/2012 Sb., občanský zákoník, ve znění pozdějších předpisů.</li>
+  <li>Příjemce není oprávněn své pohledávky za Poskytovatelem z této Smlouvy postoupit na třetí osobu bez souhlasu Poskytovatele.</li>
+</ol>
+
+<h2>Podpisy</h2>
+<p>V {{place}} dne {{contractDate}}.</p>
+<p>&nbsp;</p>
+<p>__________________________<br/><strong>{{providerStatutory1Name}}</strong><br/>{{providerStatutory1Role}}<br/>za Poskytovatele: {{providerName}}</p>
+<p>&nbsp;</p>
+<p>__________________________<br/><strong>{{providerStatutory2Name}}</strong><br/>{{providerStatutory2Role}}<br/>za Poskytovatele: {{providerName}}</p>
+<p>&nbsp;</p>
+<p>__________________________<br/><strong>{{clientStatutoryName}}</strong><br/>{{clientStatutoryRole}}<br/>za Příjemce: {{clientName}}</p>`;
+}
+
+/* -------------------------------------------------------------------------
+ * Franšízingová smlouva — varianta AB (nájem na franšízantovi)
+ * Provozovna je sjednána na franšízanta. Smlouva obsahuje volbu A/B
+ * v čl. III odst. 1 a v čl. VII odst. 6 (platební terminál).
+ * ------------------------------------------------------------------------- */
+function franchiseAbHtml(): string {
+  return `<h2>Smluvní strany</h2>
+<p><strong>{{providerName}}</strong>, IČO: {{providerIco}}, DIČ: {{providerDic}}, se sídlem {{providerStreet}}, {{providerZip}} {{providerCity}}, zastoupená {{providerStatutory1Name}}, {{providerStatutory1Role}}, a {{providerStatutory2Name}}, {{providerStatutory2Role}} (dále jen „<strong>Poskytovatel</strong>“)</p>
+<p>a</p>
+<p><strong>{{clientName}}</strong>, IČO: {{clientIco}}, DIČ: {{clientDic}}, se sídlem {{clientStreet}}, {{clientZip}} {{clientCity}}, zastoupená {{clientStatutoryName}}, {{clientStatutoryRole}}, e-mail: {{clientEmail}}, telefon: {{clientPhone}} (dále jen „<strong>Příjemce</strong>“ nebo „<strong>Franšízant</strong>“)</p>
+<p>Poskytovatel a Příjemce společně dále jen „<strong>Smluvní strany</strong>“.</p>
+
+<p><em>Označení varianty čl. III odst. 1 (nájem):</em> <strong>[ ] Varianta A</strong> &nbsp;&nbsp; <strong>[ ] Varianta B</strong></p>
+<p><em>Označení varianty čl. VII odst. 6 (platební terminál):</em> <strong>[ ] Varianta A</strong> &nbsp;&nbsp; <strong>[ ] Varianta B</strong></p>
+
+<h2>I. Úvodní ustanovení, účel Smlouvy</h2>
+<ol>
+  <li>Poskytovatel zajistí, že bude nositelem práva k provozování franšízingové sítě provozoven konceptů <strong>Trdlokafe</strong>, <strong>Kytky od Pepy</strong> a <strong>Bubblify</strong> a souvisejících práv (dále jen „<strong>Koncept</strong>“).</li>
+  <li>Příjemce má zájem samostatně podnikat provozováním provozovny v síti Konceptu na adrese <strong>{{provozovnaAddress}}</strong> (dále jen „<strong>Provozovna</strong>“).</li>
+  <li>Účelem této Smlouvy je umožnit Příjemci provozovat Provozovnu na vlastní účet a riziko a sjednat základní pravidla vzájemné spolupráce v rámci sítě Konceptu.</li>
+</ol>
+
+<h2>II. Předmět Smlouvy</h2>
+<ol>
+  <li>Poskytovatel umožní za podmínek dle této Smlouvy Příjemci po dobu trvání této Smlouvy provozovat Provozovnu v rámci sítě Konceptů, a za tímto účelem Příjemci poskytne oprávnění používat:
+    <ol>
+      <li>značku jednoho z Konceptů včetně grafického loga a obchodních názvů produktů a služeb vytvořených v rámci sítě Konceptů,</li>
+      <li>specifické prvky Provozovny (vizuální vzhled, uspořádání, obsah),</li>
+      <li>originální receptury, know-how a pracovní postupy dle manuálu Poskytovatele,</li>
+      <li>informační systémy sítě Konceptů (zásobovací, pokladní, docházkový, příp. další),</li>
+      <li>systém školení pracovníků Příjemce,</li>
+      <li>marketingovou podporu pro rozvoj Konceptu</li>
+    </ol>
+    (dále jen „<strong>Předmět franšízy</strong>“).
+  </li>
+  <li>Příjemce se zavazuje využívat oprávnění dle odst. 1 v souladu s pokyny Poskytovatele a účelem této Smlouvy tak, aby byl zachován a rozvíjen Koncept a jednotný charakter sítě Konceptu, dodržovat sjednané povinnosti a řádně a včas hradit sjednané poplatky.</li>
+</ol>
+
+<h2>III. Místo</h2>
+<ol>
+  <li>Smluvní strany sjednávají, že nájemní vztah k prostorám Provozovny bude řešen jednou z následujících variant, kterou Smluvní strany při uzavření této Smlouvy v záhlaví označí (<strong>varianta A</strong> nebo <strong>varianta B</strong>):
+    <ol>
+      <li><strong>Varianta A — nájem na Příjemce:</strong> Příjemce si právo užívat prostory pro Provozovnu a nájemní smlouvu k Provozovně v místě sjednaném v čl. I odst. 2 této Smlouvy zajistí nebo zajistil na vlastní odpovědnost a náklady. Poskytovatel se k tomu zavazuje poskytnout požadovanou součinnost. Příjemce se zavazuje samostatně plnit veškeré povinnosti vyplývající z nájemní smlouvy k Provozovně vůči pronajímateli, zejména hradit nájemné, energie, služby a složit veškeré požadované jistoty (kauce).</li>
+      <li><strong>Varianta B — podnájem od Poskytovatele:</strong> Poskytovatel přenechá Příjemci do podnájmu prostory Provozovny v místě sjednaném v čl. I odst. 2 této Smlouvy, a to za podmínek odpovídajících nájemní smlouvě uzavřené mezi Poskytovatelem a pronajímatelem. Příjemce se zavazuje hradit Poskytovateli podnájemné a poplatky související s podnájmem (energie, služby apod.) a složit jistotu (kauci) v rozsahu odpovídajícím povinnostem Poskytovatele vůči pronajímateli.</li>
+    </ol>
+  </li>
+  <li><em>Pro variantu A:</em> Po ukončení této Smlouvy je Příjemce povinen bez zbytečného odkladu zajistit převod nájemní smlouvy k Provozovně na Poskytovatele (nebo jím určenou osobu) a poskytnout k tomu veškerou součinnost. Dojde-li k zániku nájemní smlouvy v důsledku porušení Příjemce, je Poskytovatel oprávněn tuto Smlouvu vypovědět s okamžitou účinností.</li>
+  <li>Příjemce není oprávněn bez předchozího svolení Poskytovatele užívat Předmět franšízy na jiném místě, než je sjednáno v čl. I odst. 2 této Smlouvy, nebo umožnit její provozování či užívání třetí osobě (vyjma případu, kdy jde o zajištění provozu Provozovny prostřednictvím manažera <strong>{{providerName}}</strong> na základě samostatné smlouvy o provozování provozovny). Změnu místa, příp. rozšíření na další místa, jakož i jakékoli přenechání Provozovny nebo jejího provozu třetí osobě je nutné sjednat písemně formou dodatku k této Smlouvě.</li>
+  <li>Příjemce se zavazuje po dobu trvání této Smlouvy označit Provozovnu označením jednoho z Konceptů a udržovat vizuální vzhled Provozovny dle pokynů Poskytovatele.</li>
+  <li>Příjemce se zavazuje dodržovat otevírací dobu Provozovny dle podmínek určených pronajímatelem, popřípadě dle pokynů Poskytovatele.</li>
+  <li>Příjemce se zavazuje, že v místě Provozovny nebude provozovat jinou činnost než Provozovnu Konceptu v souladu s Předmětem franšízy a touto Smlouvou. Dále se Příjemce zavazuje, že po dobu trvání této Smlouvy a 1 (jednoho) roku po jejím skončení nebude na území EU provozovat jakoukoli činnost, která by mohla konkurovat Konceptu, zejména prodej totožného nebo zaměnitelného sortimentu produktů a služeb, a nepřevezme zákaznickou základnu vybudovanou v rámci sítě Konceptu. Odměna za tato omezení je zohledněna v poplatcích sjednaných v čl. VI této Smlouvy.</li>
+</ol>
+
+<h2>IV. Vybavení</h2>
+<ol>
+  <li>Příjemce prohlašuje, že má ke dni uzavření této Smlouvy uzavřenou samostatnou smlouvu o prodeji vybavení Provozovny, respektive je již vlastníkem vybavení Prodejny. Smluvní strany výslovně sjednávají, že jakékoliv kupní smlouvy týkající se vybavení Provozovny představují samostatné závazkové vztahy a nejsou závislé na této Smlouvě ve smyslu § 1727 občanského zákoníku, není-li v konkrétní kupní smlouvě výslovně sjednáno jinak.</li>
+  <li>Příjemce se zavazuje v zájmu zachování a rozvoje jednotného vzhledu a charakteristických prvků sítě Konceptu používat v Provozovně výhradně vybavení (tj. zejména nástroje, pracovní pomůcky a suroviny) odsouhlasené Poskytovatelem a vybavení si pronajímat či kupovat od Poskytovatele nebo jím určené osoby.</li>
+</ol>
+
+<h2>V. Dodávky a ceny</h2>
+<ol>
+  <li>Příjemce se zavazuje:
+    <ol>
+      <li>připravovat a nabízet produkty zákazníkům pouze dle postupů a specifikací určených Poskytovatelem pro daný Koncept,</li>
+      <li>odebírat a řádně a včas hradit klíčové suroviny pro přípravu produktů a klíčové zboží a spotřební materiál jednoho z Konceptů od Poskytovatele nebo jím určené osoby. Za klíčové suroviny, zboží a spotřební materiál se považují také obalové materiály s logem, káva a další, které Poskytovatel jako klíčové suroviny, zboží či spotřební materiál označí. Ke dni uzavření této Smlouvy je Poskytovatelem osoba určená v hlavičce této Smlouvy s tím, že Poskytovatel je oprávněn určenou osobu změnit.</li>
+    </ol>
+  </li>
+  <li>Prodejní ceny zboží a produktů v Provozovně jsou Poskytovatelem pouze doporučené. Konečnou cenu stanovuje Příjemce, musí však dbát na konkurenceschopnost Provozovny a dobré jméno sítě Konceptu.</li>
+  <li>Případné výjimky ze závazků dle odst. 1 tohoto článku musí Poskytovatel předem odsouhlasit. Pokud osoba určená k dodání klíčových surovin, zboží či spotřebního materiálu dle bodu b) odst. 1 tohoto článku nebude schopna klíčové suroviny, zboží či spotřební materiál dodávat tak, aby nebyl zásadně omezen chod Provozovny, je Příjemce oprávněn tyto suroviny, zboží či spotřební materiál opatřit i od jiné osoby, je však povinen o tom neprodleně informovat Poskytovatele.</li>
+  <li>Poskytovatel uvítá podněty a nápady Příjemce na rozvoj Konceptu, např. zařazení nových produktů či zboží do nabídky Provozovny nebo celé sítě Konceptu apod. Realizace těchto podnětů a nápadů podléhá předchozímu schválení Poskytovatelem.</li>
+  <li>V případě prodlení Příjemce s úhradou kteréhokoli peněžitého plnění dle této Smlouvy o více než 7 dnů je Poskytovatel (resp. osoba určená dle odst. 1 písm. b) tohoto článku) oprávněn pozastavit dodávky klíčových surovin, zboží a spotřebního materiálu, a to až do úplné úhrady všech splatných pohledávek. Pozastavení dodávek z tohoto důvodu nezakládá nárok Příjemce z titulu neplnění Smlouvy ze strany Poskytovatele.</li>
+</ol>
+
+<h2>VI. Poplatek</h2>
+<ol>
+  <li>Příjemce se tímto zavazuje uhradit Poskytovateli jednorázový poplatek ve výši <strong>0 Kč</strong>, který bude navýšen o DPH, a to nejpozději do jednoho dne od data podpisu této Smlouvy.</li>
+  <li>Příjemce se zavazuje platit Poskytovateli průběžně franšízingový a marketingový poplatek ve výši <strong>[8/5] %</strong> z měsíčního obratu bez DPH za prodej zboží a služeb (ve smyslu zákona č. 235/2004 Sb., o dani z přidané hodnoty, v aktuálním znění) Provozovny (dále jen „<strong>obrat</strong>“), dle této Smlouvy, a to nejpozději do <strong>22. dne</strong> následujícího kalendářního měsíce. Za tímto účelem bude Příjemce průběžně, nejpozději však do následujícího pracovního dne, doplňovat pravdivě a úplně data o výši denního obratu Provozovny do informačního systému provozovaného Poskytovatelem. Na základě dat z informačního systému je Poskytovatel oprávněn k poslednímu dni kalendářního měsíce vystavit daňový doklad (fakturu) na franšízingový a marketingový poplatek, se splatností minimálně 14 dnů. K poplatku bude připočítáno DPH v sazbě dle platných právních předpisů. Faktura bude vystavena v měně CZK, EUR nebo PLN, a to dle vhodnosti podle typu lokace a umístění Provozovny. Měnu fakturace určí Poskytovatel písemným oznámením Příjemci, popřípadě ji Smluvní strany sjednají v dodatku k této Smlouvě. Není-li určeno jinak, je výchozí měnou fakturace CZK.</li>
+</ol>
+
+<h2>VII. Další práva a povinnosti</h2>
+<ol>
+  <li>Poskytovatel je oprávněn rozvíjet koncepci sítě Konceptu a případně ji změnit či upravit, včetně názvu a grafického loga. O změnách Poskytovatel Příjemce předem informuje a poskytne mu podporu při jejich zavedení; Příjemce se zavazuje změny akceptovat v přiměřených termínech. Pokud Poskytovatel nezíská práva dle čl. I. odst. 1, je oprávněn Koncept změnit podle tohoto odstavce, což se nepovažuje za porušení Smlouvy.</li>
+  <li>Poskytovatel má právo kontrolovat dodržování podmínek této Smlouvy, za tím účelem se Příjemce zavazuje umožnit Poskytovateli a jím určeným osobám vstup do Provozovny a její detailní prohlídku, umožnit Poskytovateli přístup do kamerového systému Provozovny, a dále zpřístupnění informací o hospodaření prostřednictvím systému, případně prostřednictvím dalšího účetního softwaru, které Příjemce používá.</li>
+  <li>Příjemce bude provozovat svoji podnikatelskou činnost v Provozovně dle této Smlouvy pod svým vlastním jménem, na vlastní účet a riziko, a odpovídá za splnění všech právních povinností v souvislosti s provozováním Provozovny.</li>
+  <li>Příjemce je oprávněn smluvně umožnit třetí osobě provozování Provozovny pouze na základě předchozího písemného souhlasu Poskytovatele. V opačném případě není Příjemce oprávněn Provozovnu přenechat třetí osobě.</li>
+  <li>Příjemce se zavazuje řádně a včas plnit své závazky vůči zaměstnancům a dodavatelům. Je povinen dbát a zachovávat dobré jméno Poskytovatele a sítě Konceptu.</li>
+  <li>Pro účely zajištění kontroly obratu a tržeb Provozovny a vypořádání vzájemných pohledávek se Smluvní strany dohodly na uplatnění jedné z níže uvedených variant, kterou při podpisu Smlouvy zvolí označením příslušného pole v záhlaví:
+    <ol>
+      <li><strong>Varianta A — Vlastní platební terminál Příjemce:</strong> Příjemce je oprávněn pro inkaso bezhotovostních tržeb v Provozovně používat vlastní platební terminál. Příjemce se v takovém případě zavazuje reportovat veškeré bezhotovostní transakce Poskytovateli, a to správně, úplně a v termínu dle odst. 7. V případě, že Příjemce poruší svou povinnost reportovat bezhotovostní transakce správně, úplně nebo v termínu, zavazuje se uhradit Poskytovateli smluvní pokutu ve výši <strong>400 000 Kč</strong> za každý jednotlivý případ porušení.</li>
+      <li><strong>Varianta B — Platební terminál Poskytovatele:</strong> Příjemce se zavazuje k inkasu bezhotovostních tržeb Provozovny používat v Provozovně platební terminál určený Poskytovatelem (dále jen „<strong>Terminál Poskytovatele</strong>“). Bezhotovostní platby přijaté prostřednictvím Terminálu Poskytovatele jsou připisovány na účet Poskytovatele a okamžikem jejich připsání se stávají součástí peněžních prostředků, s nimiž je Poskytovatel oprávněn nakládat vlastním jménem, na vlastní účet a bez povinnosti jejich oddělené správy. Smluvní strany výslovně sjednávají, že Příjemci ve vztahu k takto přijatým platbám nevzniká vlastnické právo ani jiný nárok, nýbrž pouze pohledávka Příjemce za Poskytovatelem splatná dle odst. 7 tohoto článku (dále jen „<strong>Pohledávka Příjemce na vypořádání</strong>“).</li>
+    </ol>
+  </li>
+  <li>Finanční vypořádání a reporting probíhá v návaznosti na zvolenou variantu dle odst. 6 následovně:
+    <ol>
+      <li><em>V případě Varianty A:</em> Příjemce je povinen předkládat Poskytovateli měsíční přehledy bezhotovostních tržeb nejpozději do <strong>5. dne</strong> následujícího kalendářního měsíce, nedohodnou-li se strany jinak.</li>
+      <li><em>V případě Varianty B:</em> Poskytovatel provádí měsíční vyúčtování bezhotovostních tržeb z Terminálu Poskytovatele a úhradu splatných pohledávek Poskytovatele vůči Příjemci z těchto prostředků prostřednictvím započtení, k čemuž Smluvní strany tímto udělují souhlas, a to nejpozději do <strong>22. dne</strong> kalendářního měsíce následujícího po měsíci, za který se vyúčtování provádí. Rozdíl (zbývající část Pohledávky Příjemce na vypořádání po započtení) ve prospěch Příjemce Poskytovatel poukáže na bankovní účet Příjemce, a to do 22. dne kalendářního měsíce následujícího po měsíci, za který se vyúčtování provádí.</li>
+    </ol>
+  </li>
+  <li>Poskytovatel se zavazuje, že po dobu trvání této Smlouvy nebude v místě sjednaném v čl. I odst. 2 této Smlouvy ani v okruhu <strong>500 m</strong> od něj provozovat vlastní provozovnu Konceptu ani jinou provozovnu, která by mohla být v konkurenčním postavení k Provozovně provozované Příjemcem, ani v tomto území neumožní provoz provozovny Konceptu jinému franšízantovi.</li>
+  <li>Příjemce se zavazuje zachovávat mlčenlivost ohledně důvěrných informací (včetně neveřejných finančních výsledků Poskytovatele), které mu Poskytovatel předal v rámci této Smlouvy, a nesmí se mediálně ani jinak vyjadřovat k aspektům spolupráce s Poskytovatelem. Tato povinnost trvá nejdéle <strong>10 let</strong> od ukončení této Smlouvy. Za každý jednotlivý případ porušení uhradí porušitel Poskytovateli smluvní pokutu <strong>500 000 Kč</strong>, splatnou do 7 dnů od výzvy.</li>
+</ol>
+
+<h2>VIII. Sankce a ukončení Smlouvy</h2>
+<ol>
+  <li>Tato Smlouva je uzavřena na dobu určitou, a to <strong>10 let</strong> od uzavření této Smlouvy. Poskytovatel se zavazuje s Příjemcem před uplynutím této doby jednat o nové franšízingové smlouvě, která nebude obsahovat pro Příjemce méně výhodná ustanovení, než jaká budou v té době nabízena dalším franšízantům.</li>
+  <li>Poskytovatel je oprávněn tuto Smlouvu vypovědět s výpovědní dobou 1 týden, která počíná běžet dnem doručení písemné výpovědi druhé Smluvní straně, pokud Příjemce:
+    <ol>
+      <li>vstoupí do likvidace nebo s ním bude zahájeno insolvenční řízení,</li>
+      <li>bude jako dlužník v exekuci,</li>
+      <li>bude v prodlení s úhradou kteréhokoliv z poplatků dle této Smlouvy o více než 14 dnů,</li>
+      <li>změní vzhled a označení Provozovny oproti podmínkám této Smlouvy a/nebo pokynům Poskytovatele a nezjedná nápravu ani ve lhůtě 7 dnů od výzvy Poskytovatele,</li>
+      <li>bude v prodlení s převzetím Provozovny a Provozovnu nepřevezme ani v dodatečné lhůtě 7 dnů od výzvy Poskytovatele,</li>
+      <li>nebude plnit povinnosti vyplývající z dalších smluv uzavřených mezi Poskytovatelem a Příjemcem zároveň s touto Smlouvou,</li>
+      <li>poruší své závazky nekonkurovat franšízingové síti Konceptu dle čl. III. odst. 6 této Smlouvy,</li>
+      <li>poruší jiný svůj závazek dle této Smlouvy a nezjedná nápravu ani ve lhůtě 7 dnů od výzvy Poskytovatele.</li>
+    </ol>
+  </li>
+  <li>Výpověď se má za doručenou 3. pracovní den ode dne odeslání doporučenou poštou na adresu Smluvní strany v záhlaví, do datové schránky Příjemce nebo na korespondenční adresu, pokud nebude doručena dříve.</li>
+  <li>Pro případ prodlení s úhradou dlužné částky se Příjemce zavazuje platit Poskytovateli od prvního dne prodlení úroky z prodlení ve výši <strong>0,1 %</strong> z dlužné částky za každý započatý den prodlení.</li>
+  <li>Pro případ porušení závazku dle čl. III. odst. 6 této Smlouvy se Příjemce zavazuje zaplatit Poskytovateli smluvní pokutu ve výši <strong>5 000 000 Kč</strong> a dále nahradit vzniklou újmu v celém rozsahu.</li>
+  <li>Pokud by se Příjemce rozhodl vybavení a práva provozovat Provozovnu vyplývající z této Smlouvy prodat, může tak učinit sám a Poskytovatel se k tomu zavazuje poskytnout souhlas, nebo osloví Poskytovatele, který Provozovnu bezprostředně zařadí do své nabídky společně s dalšími franšízingovými provozovnami v nabídce Poskytovatele.</li>
+  <li>Sjednáním či zaplacením kterékoli smluvní pokuty sjednané v této Smlouvě není dotčeno právo Poskytovatele na náhradu škody v plném rozsahu, a to i v rozsahu převyšujícím sjednanou smluvní pokutu. Není-li sjednáno jinak, je jakákoliv smluvní pokuta sjednaná dle této Smlouvy splatná do 7 dnů od výzvy.</li>
+</ol>
+
+<h2>IX. Závěrečná ustanovení</h2>
+<ol>
+  <li>Tato Smlouva nabývá platnosti a účinnosti dnem jejího podpisu oběma účastníky.</li>
+  <li>Pro vyloučení všech pochybností Smluvní strany výslovně potvrzují, že jsou podnikateli, uzavírají tuto Smlouvu při svém podnikání, a na tuto Smlouvu se tudíž neuplatní ustanovení § 1793 zákona č. 89/2012 Sb., občanský zákoník, ve znění pozdějších předpisů.</li>
+  <li>Tuto Smlouvu lze měnit a doplňovat pouze písemnou formou vzestupně číslovaných dodatků podepsaných oběma Smluvními stranami.</li>
+  <li>Je-li některé ustanovení této Smlouvy neplatné nebo neúčinné, ostatní zůstávají platná. Smluvní strany se zavazují nahradit takové ustanovení novým, které nejlépe odpovídá původnímu účelu.</li>
+  <li>Poskytovatel je oprávněn tuto Smlouvu i bez souhlasu Příjemce zčásti či zcela postoupit, přičemž postoupením se osvobozuje od svých povinností v rozsahu postoupení; Smluvní strany výslovně vylučují aplikaci ustanovení § 1899 zákona č. 89/2012 Sb., občanský zákoník, ve znění pozdějších předpisů.</li>
+  <li>Příjemce není oprávněn své pohledávky za Poskytovatelem z této Smlouvy postoupit na třetí osobu bez souhlasu Poskytovatele.</li>
+</ol>
+
+<h2>Podpisy</h2>
+<p>V {{place}} dne {{contractDate}}.</p>
+<p>&nbsp;</p>
+<p>__________________________<br/><strong>{{providerStatutory1Name}}</strong><br/>{{providerStatutory1Role}}<br/>za Poskytovatele: {{providerName}}</p>
+<p>&nbsp;</p>
+<p>__________________________<br/><strong>{{providerStatutory2Name}}</strong><br/>{{providerStatutory2Role}}<br/>za Poskytovatele: {{providerName}}</p>
+<p>&nbsp;</p>
+<p>__________________________<br/><strong>{{clientStatutoryName}}</strong><br/>{{clientStatutoryRole}}<br/>za Příjemce: {{clientName}}</p>`;
+}
+
+export function buildDefaultHtml(
+  type: ContractType,
+  variant?: FranchiseVariant,
+): string {
   switch (type) {
     case "claim-assignment":
       return claimAssignmentHtml();
@@ -372,6 +649,10 @@ export function buildDefaultHtml(type: ContractType): string {
       return operationHtml();
     case "cooperation":
       return cooperationHtml();
+    case "franchise": {
+      const v = variant ?? DEFAULT_FRANCHISE_VARIANT;
+      return v === "AB" ? franchiseAbHtml() : franchiseBHtml();
+    }
     default:
       return genericSkeleton(type);
   }

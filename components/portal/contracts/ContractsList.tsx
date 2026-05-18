@@ -14,6 +14,7 @@ import {
   Circle,
   PenLine,
   Package,
+  X,
   type LucideIcon,
 } from "lucide-react";
 import type { Contract } from "@/lib/portal/contracts-db";
@@ -33,6 +34,14 @@ function formatDate(iso: string): string {
   }
 }
 
+const STATUS_ORDER: Contract["status"][] = [
+  "draft",
+  "generated",
+  "signed",
+  "picked-up",
+  "archived",
+];
+
 const STATUS_META: Record<
   Contract["status"],
   { label: string; Icon: LucideIcon; tone: "muted" | "ink" | "ok" }
@@ -44,6 +53,8 @@ const STATUS_META: Record<
   archived: { label: "Archivováno", Icon: ScanLine, tone: "ok" },
 };
 
+type StatusFilter = "all" | Contract["status"];
+
 export function ContractsList({
   contracts,
   clients,
@@ -54,20 +65,71 @@ export function ContractsList({
   const router = useRouter();
   const [items, setItems] = useState(contracts);
   const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [modalOpen, setModalOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  const [bulkPending, setBulkPending] = useState<null | "signed" | "picked-up">(
+    null,
+  );
+  const [bulkToast, setBulkToast] = useState<string | null>(null);
+
+  const counts = useMemo(() => {
+    const m: Record<Contract["status"], number> = {
+      draft: 0,
+      generated: 0,
+      signed: 0,
+      "picked-up": 0,
+      archived: 0,
+    };
+    for (const c of items) m[c.status]++;
+    return m;
+  }, [items]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter((c) =>
-      [c.clientName, c.number, CONTRACT_TYPE_META[c.type].fullName]
+    return items.filter((c) => {
+      if (statusFilter !== "all" && c.status !== statusFilter) return false;
+      if (!q) return true;
+      return [c.clientName, c.number, CONTRACT_TYPE_META[c.type].fullName]
         .filter(Boolean)
         .join(" ")
         .toLowerCase()
-        .includes(q),
-    );
-  }, [items, query]);
+        .includes(q);
+    });
+  }, [items, query, statusFilter]);
+
+  const selectableIds = useMemo(() => filtered.map((c) => c.id), [filtered]);
+  const allSelected =
+    selectableIds.length > 0 &&
+    selectableIds.every((id) => selected.has(id));
+  const someSelected = selected.size > 0;
+
+  function toggleOne(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    setSelected((prev) => {
+      if (allSelected) {
+        const next = new Set(prev);
+        selectableIds.forEach((id) => next.delete(id));
+        return next;
+      }
+      const next = new Set(prev);
+      selectableIds.forEach((id) => next.add(id));
+      return next;
+    });
+  }
+
+  function clearSelection() {
+    setSelected(new Set());
+  }
 
   async function remove(id: string, name: string) {
     if (!window.confirm(`Smazat smlouvu „${name}"? Akce je nevratná.`)) return;
@@ -79,11 +141,49 @@ export function ContractsList({
       const data = await res.json();
       if (!data.ok) throw new Error(data.error);
       setItems((prev) => prev.filter((c) => c.id !== id));
+      setSelected((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
       router.refresh();
     } catch (err) {
       window.alert(err instanceof Error ? err.message : "Chyba");
     } finally {
       setBusy(null);
+    }
+  }
+
+  async function bulkAction(action: "signed" | "picked-up") {
+    const ids = Array.from(selected);
+    if (!ids.length) return;
+    setBulkPending(action);
+    try {
+      const res = await fetch("/api/portal/contracts/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids, action }),
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error ?? "Hromadná akce selhala.");
+
+      // Refresh items from server
+      const listRes = await fetch("/api/portal/contracts");
+      const listData = await listRes.json();
+      if (listData.ok) setItems(listData.contracts);
+
+      clearSelection();
+      const label = action === "signed" ? "Podepsáno" : "Vyzvednuto";
+      const skippedMsg = data.skipped
+        ? ` · ${data.skipped} přeskočeno (chybí PDF nebo už mají stav)`
+        : "";
+      setBulkToast(`${label}: ${data.changed} smluv${skippedMsg}`);
+      window.setTimeout(() => setBulkToast(null), 4500);
+      router.refresh();
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : "Chyba");
+    } finally {
+      setBulkPending(null);
     }
   }
 
@@ -137,6 +237,7 @@ export function ContractsList({
   return (
     <>
       <div className="flex flex-col gap-5">
+        {/* Search + create */}
         <div className="flex items-center gap-3">
           <div className="relative max-w-[400px] flex-1">
             <Search
@@ -166,23 +267,110 @@ export function ContractsList({
           </button>
         </div>
 
+        {/* Status filter chips */}
+        <div className="flex flex-wrap items-center gap-2">
+          <StatusChip
+            active={statusFilter === "all"}
+            onClick={() => setStatusFilter("all")}
+            label="Vše"
+            count={items.length}
+          />
+          {STATUS_ORDER.map((s) => {
+            const m = STATUS_META[s];
+            return (
+              <StatusChip
+                key={s}
+                active={statusFilter === s}
+                onClick={() => setStatusFilter(s)}
+                Icon={m.Icon}
+                label={m.label}
+                count={counts[s]}
+              />
+            );
+          })}
+        </div>
+
+        {/* Bulk action bar */}
+        {someSelected && (
+          <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-ink-base bg-ink-base px-5 py-3 text-paper">
+            <span className="text-[12.5px] font-medium">
+              Vybráno {selected.size}{" "}
+              {selected.size === 1 ? "smlouva" : selected.size < 5 ? "smlouvy" : "smluv"}
+            </span>
+            <div className="flex-1" />
+            <button
+              type="button"
+              onClick={() => bulkAction("signed")}
+              disabled={bulkPending !== null}
+              className="inline-flex h-9 items-center gap-2 rounded-full bg-paper px-4 text-[12.5px] font-semibold text-ink-base transition-transform active:translate-y-px disabled:opacity-60"
+            >
+              <PenLine className="h-3.5 w-3.5" strokeWidth={1.5} />
+              {bulkPending === "signed" ? "Označuju…" : "Označit jako podepsáno"}
+            </button>
+            <button
+              type="button"
+              onClick={() => bulkAction("picked-up")}
+              disabled={bulkPending !== null}
+              className="inline-flex h-9 items-center gap-2 rounded-full bg-paper px-4 text-[12.5px] font-semibold text-ink-base transition-transform active:translate-y-px disabled:opacity-60"
+            >
+              <Package className="h-3.5 w-3.5" strokeWidth={1.5} />
+              {bulkPending === "picked-up" ? "Označuju…" : "Označit jako vyzvednuto"}
+            </button>
+            <button
+              type="button"
+              onClick={clearSelection}
+              aria-label="Zrušit výběr"
+              className="grid h-9 w-9 place-items-center rounded-full border border-paper/30 text-paper transition-colors hover:bg-paper/10"
+            >
+              <X className="h-3.5 w-3.5" strokeWidth={1.5} />
+            </button>
+          </div>
+        )}
+
+        {bulkToast && (
+          <div className="rounded-lg border border-edge bg-paper-warm px-4 py-2.5 text-[12.5px] text-ink-deep">
+            {bulkToast}
+          </div>
+        )}
+
+        {/* List */}
         <div className="overflow-hidden rounded-[24px] border border-edge bg-paper">
+          {filtered.length > 0 && (
+            <div className="flex items-center gap-3 border-b border-edge bg-paper-warm px-5 py-2.5 md:px-7">
+              <label className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.16em] text-ink-mid">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={toggleAll}
+                  className="h-3.5 w-3.5 cursor-pointer accent-ink-base"
+                />
+                Vybrat vše
+              </label>
+            </div>
+          )}
           <ul className="divide-y divide-edge">
             {filtered.map((c) => {
               const meta = CONTRACT_TYPE_META[c.type];
               const statusMeta = STATUS_META[c.status];
               const Icon = statusMeta.Icon;
               const toneClass =
-                statusMeta.tone === "muted"
-                  ? "text-ink-soft"
-                  : statusMeta.tone === "ok"
-                    ? "text-ink-base"
-                    : "text-ink-base";
+                statusMeta.tone === "muted" ? "text-ink-soft" : "text-ink-base";
+              const isSelected = selected.has(c.id);
               return (
                 <li
                   key={c.id}
-                  className="group flex flex-col gap-4 px-5 py-5 transition-colors hover:bg-paper-warm md:flex-row md:items-center md:gap-6 md:px-7 md:py-5"
+                  className={[
+                    "group flex flex-col gap-4 px-5 py-5 transition-colors md:flex-row md:items-center md:gap-5 md:px-7 md:py-5",
+                    isSelected ? "bg-paper-warm" : "hover:bg-paper-warm",
+                  ].join(" ")}
                 >
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => toggleOne(c.id)}
+                    aria-label={`Vybrat smlouvu ${c.clientName}`}
+                    className="h-4 w-4 shrink-0 cursor-pointer accent-ink-base"
+                  />
                   <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-edge bg-paper-warm text-ink-deep">
                     <FileText className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
                   </div>
@@ -241,6 +429,11 @@ export function ContractsList({
                 </li>
               );
             })}
+            {filtered.length === 0 && (
+              <li className="px-7 py-12 text-center text-[13px] text-ink-mid">
+                Žádné smlouvy v tomto stavu.
+              </li>
+            )}
           </ul>
         </div>
       </div>
@@ -257,5 +450,40 @@ export function ContractsList({
         />
       )}
     </>
+  );
+}
+
+function StatusChip({
+  active,
+  onClick,
+  Icon,
+  label,
+  count,
+}: {
+  active: boolean;
+  onClick: () => void;
+  Icon?: LucideIcon;
+  label: string;
+  count: number;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={[
+        "inline-flex h-9 items-center gap-2 rounded-full border px-3.5 text-[12.5px] font-medium transition-colors",
+        active
+          ? "border-ink-base bg-ink-base text-paper"
+          : "border-edge bg-paper text-ink-deep hover:border-ink-soft",
+      ].join(" ")}
+    >
+      {Icon && <Icon className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />}
+      <span>{label}</span>
+      <span
+        className={`font-mono text-[11px] ${active ? "text-paper/70" : "text-ink-soft"}`}
+      >
+        {count}
+      </span>
+    </button>
   );
 }

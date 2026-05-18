@@ -5,13 +5,20 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Save, ShieldCheck } from "lucide-react";
 import type { Editor } from "@tiptap/react";
-import type { ContractType } from "@/lib/portal/contract-types";
-import { CONTRACT_TYPE_META } from "@/lib/portal/contract-types";
+import {
+  CONTRACT_TYPE_META,
+  FRANCHISE_VARIANTS,
+  FRANCHISE_VARIANT_META,
+  hasVariants,
+  type ContractType,
+  type FranchiseVariant,
+} from "@/lib/portal/contract-types";
 import { TiptapEditor } from "./TiptapEditor";
 import { PlaceholderPalette } from "./PlaceholderPalette";
 
 type Props = {
   type: ContractType;
+  variant?: FranchiseVariant;
   initialHtml: string;
   updatedAt: string;
   updatedBy: string;
@@ -34,6 +41,7 @@ function formatDateTime(iso: string): string {
 
 export function TemplateEditorClient({
   type,
+  variant,
   initialHtml,
   updatedAt,
   updatedBy,
@@ -41,6 +49,7 @@ export function TemplateEditorClient({
 }: Props) {
   const router = useRouter();
   const meta = CONTRACT_TYPE_META[type];
+  const showVariants = hasVariants(type);
   const [html, setHtml] = useState(initialHtml);
   const [pending, setPending] = useState(false);
   const [saved, setSaved] = useState<string | null>(updatedAt);
@@ -59,7 +68,10 @@ export function TemplateEditorClient({
     setPending(true);
     setError(null);
     try {
-      const res = await fetch(`/api/portal/templates/${type}`, {
+      const url = variant
+        ? `/api/portal/templates/${type}?variant=${variant}`
+        : `/api/portal/templates/${type}`;
+      const res = await fetch(url, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ html }),
@@ -131,6 +143,37 @@ export function TemplateEditorClient({
           <ShieldCheck className="h-3.5 w-3.5 text-ink-mid" strokeWidth={1.5} />
           Šablonu mohou upravovat jen administrátoři. Vy si ji můžete jen
           prohlédnout.
+        </div>
+      )}
+
+      {showVariants && (
+        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-edge bg-paper p-3 md:p-4">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-mid">
+            Varianta
+          </span>
+          <div className="inline-flex items-center gap-1 rounded-full border border-edge bg-paper-warm p-1">
+            {FRANCHISE_VARIANTS.map((v) => {
+              const vm = FRANCHISE_VARIANT_META[v];
+              const active = v === variant;
+              return (
+                <Link
+                  key={v}
+                  href={`/portal/templates/${type}?variant=${v}`}
+                  className={[
+                    "inline-flex h-8 items-center rounded-full px-3 text-[12px] font-semibold transition-colors",
+                    active
+                      ? "bg-ink-base text-paper"
+                      : "text-ink-mid hover:text-ink-base",
+                  ].join(" ")}
+                >
+                  {vm.label}
+                </Link>
+              );
+            })}
+          </div>
+          <span className="text-[11.5px] text-ink-mid">
+            · Každá varianta se ukládá samostatně.
+          </span>
         </div>
       )}
 

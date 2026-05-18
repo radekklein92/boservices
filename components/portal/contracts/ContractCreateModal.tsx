@@ -6,7 +6,12 @@ import type { Client } from "@/lib/portal/clients-db";
 import {
   CONTRACT_TYPES,
   CONTRACT_TYPE_META,
+  FRANCHISE_VARIANTS,
+  FRANCHISE_VARIANT_META,
+  DEFAULT_FRANCHISE_VARIANT,
+  hasVariants,
   type ContractType,
+  type FranchiseVariant,
 } from "@/lib/portal/contract-types";
 import { ClientCombobox } from "@/components/portal/ui/ClientCombobox";
 
@@ -21,6 +26,7 @@ export function ContractCreateModal({
 }) {
   const [clientId, setClientId] = useState("");
   const [type, setType] = useState<ContractType>("franchise");
+  const [variant, setVariant] = useState<FranchiseVariant>(DEFAULT_FRANCHISE_VARIANT);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,7 +51,11 @@ export function ContractCreateModal({
       const res = await fetch("/api/portal/contracts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId, type }),
+        body: JSON.stringify({
+          clientId,
+          type,
+          ...(hasVariants(type) ? { variant } : {}),
+        }),
       });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || "Chyba");
@@ -148,6 +158,44 @@ export function ContractCreateModal({
               })}
             </div>
           </div>
+
+          {hasVariants(type) && (
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[10px] font-medium uppercase tracking-[0.16em] text-ink-mid">
+                Varianta
+              </span>
+              <div className="grid grid-cols-2 gap-1.5">
+                {FRANCHISE_VARIANTS.map((v) => {
+                  const meta = FRANCHISE_VARIANT_META[v];
+                  const active = v === variant;
+                  return (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => setVariant(v)}
+                      className={[
+                        "flex flex-col gap-1 rounded-lg border px-3 py-2.5 text-left transition-all",
+                        active
+                          ? "border-ink-base bg-ink-base text-paper"
+                          : "border-edge bg-paper text-ink-deep hover:border-ink-soft",
+                      ].join(" ")}
+                    >
+                      <span className="text-[12.5px] font-semibold tracking-[-0.01em]">
+                        {meta.label}
+                      </span>
+                      <span
+                        className={`text-[11px] leading-snug ${
+                          active ? "text-paper/65" : "text-ink-mid"
+                        }`}
+                      >
+                        {meta.description}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {error && (
             <div role="alert" className="text-[12.5px] text-ink-deep">

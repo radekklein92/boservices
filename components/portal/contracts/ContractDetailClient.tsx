@@ -24,7 +24,11 @@ import type { Editor } from "@tiptap/react";
 import type { Contract } from "@/lib/portal/contracts-db";
 import {
   CONTRACT_TYPE_META,
+  FRANCHISE_VARIANTS,
+  FRANCHISE_VARIANT_META,
+  hasVariants,
   type ContractType,
+  type FranchiseVariant,
 } from "@/lib/portal/contract-types";
 import { extractPlaceholderTokens } from "@/lib/portal/contract-render";
 import { TiptapEditor } from "./TiptapEditor";
@@ -528,6 +532,24 @@ export function ContractDetailClient({ initial }: Props) {
           </div>
         </ActionCard>
       </section>
+
+      {/* Variant switcher (jen pro typy s variantami, např. franšíza) */}
+      {hasVariants(contract.type) && (
+        <VariantSection
+          contract={contract}
+          dirty={dirty}
+          onSwitched={(updated) => {
+            setContract(updated);
+            setHtml(updated.html);
+            setVariables(updated.variables);
+            setSaveState("idle");
+            setSaveError(null);
+            notify("ok", `Šablona přepnuta na variantu ${updated.variant}.`);
+            router.refresh();
+          }}
+          onError={(msg) => notify("error", msg)}
+        />
+      )}
 
       {/* Variables */}
       <section className="flex flex-col gap-7 rounded-2xl border border-edge bg-paper p-5 md:p-6">
@@ -1102,5 +1124,136 @@ function SaveIndicator({
       <span className="inline-block h-1.5 w-1.5 rounded-full bg-ink-base" />
       Uloženo
     </span>
+  );
+}
+
+function VariantSection({
+  contract,
+  dirty,
+  onSwitched,
+  onError,
+}: {
+  contract: Contract;
+  dirty: boolean;
+  onSwitched: (c: Contract) => void;
+  onError: (msg: string) => void;
+}) {
+  const current = contract.variant;
+  const [pending, setPending] = useState<FranchiseVariant | null>(null);
+  const [confirmFor, setConfirmFor] = useState<FranchiseVariant | null>(null);
+
+  async function doSwitch(target: FranchiseVariant) {
+    setPending(target);
+    setConfirmFor(null);
+    try {
+      const res = await fetch(`/api/portal/contracts/${contract.id}/variant`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ variant: target }),
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error ?? "Přepnutí selhalo.");
+      onSwitched(data.contract);
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "Přepnutí selhalo.");
+    } finally {
+      setPending(null);
+    }
+  }
+
+  return (
+    <section className="flex flex-col gap-3 rounded-2xl border border-edge bg-paper p-5 md:p-6">
+      <div className="flex items-baseline gap-2.5">
+        <h2 className="text-[10.5px] font-semibold uppercase tracking-[0.18em] text-ink-base">
+          Varianta šablony
+        </h2>
+        <span className="text-[11.5px] text-ink-mid">
+          · Která verze franšízingové smlouvy se použije.
+        </span>
+      </div>
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+        {FRANCHISE_VARIANTS.map((v) => {
+          const meta = FRANCHISE_VARIANT_META[v];
+          const active = v === current;
+          const isPending = pending === v;
+          return (
+            <button
+              key={v}
+              type="button"
+              disabled={active || pending !== null}
+              onClick={() => {
+                if (active) return;
+                if (dirty) {
+                  setConfirmFor(v);
+                } else {
+                  void doSwitch(v);
+                }
+              }}
+              className={[
+                "flex flex-col gap-1 rounded-lg border px-3.5 py-3 text-left transition-all disabled:cursor-default",
+                active
+                  ? "border-ink-base bg-ink-base text-paper"
+                  : "border-edge bg-paper text-ink-deep hover:border-ink-soft disabled:opacity-60",
+              ].join(" ")}
+            >
+              <span className="flex items-center gap-2">
+                <span className="text-[13px] font-semibold tracking-[-0.01em]">
+                  {meta.label}
+                </span>
+                {active && (
+                  <span className="rounded-full bg-paper/15 px-2 py-0.5 text-[9.5px] font-medium uppercase tracking-[0.14em] text-paper">
+                    Aktivní
+                  </span>
+                )}
+                {isPending && (
+                  <span className="text-[11px] text-ink-soft">přepínám…</span>
+                )}
+              </span>
+              <span
+                className={`text-[11.5px] leading-snug ${
+                  active ? "text-paper/65" : "text-ink-mid"
+                }`}
+              >
+                {meta.description}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {confirmFor && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-ink-base/40 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-[440px] rounded-2xl border border-edge bg-paper p-6 shadow-[0_18px_42px_-18px_rgba(14,14,14,0.35)]">
+            <div className="text-[10px] font-medium uppercase tracking-[0.22em] text-ink-mid">
+              Pozor
+            </div>
+            <h3 className="mt-1 text-[16px] font-bold leading-[1.25] tracking-[-0.02em] text-ink-base">
+              Přepsat smlouvu novou šablonou?
+            </h3>
+            <p className="mt-3 text-[12.5px] leading-relaxed text-ink-mid">
+              Přepnutím na variantu <strong>{confirmFor}</strong> dojde k
+              přepsání aktuálního znění smlouvy textem nové šablony. Veškeré
+              vlastní úpravy v editoru budou ztraceny.
+            </p>
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmFor(null)}
+                className="h-10 rounded-full px-4 text-[13px] font-medium text-ink-mid transition-colors hover:text-ink-base"
+              >
+                Zrušit
+              </button>
+              <button
+                type="button"
+                onClick={() => doSwitch(confirmFor)}
+                className="inline-flex h-10 items-center gap-2 rounded-full bg-ink-base px-5 text-[13px] font-semibold text-paper transition-transform active:translate-y-px"
+              >
+                Přepnout a přepsat
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
   );
 }

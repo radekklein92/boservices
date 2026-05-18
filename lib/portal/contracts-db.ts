@@ -1,5 +1,5 @@
 import { getRedis } from "@/lib/redis";
-import type { ContractType } from "./contract-types";
+import type { ContractType, FranchiseVariant } from "./contract-types";
 
 export type ContractStatus =
   | "draft"
@@ -18,6 +18,8 @@ export interface Contract {
   // Snapshot HTML šablony v okamžiku vytvoření smlouvy - slouží pro diff
   // proti aktuálnímu znění (vidíme co user upravil)
   templateSnapshot?: string;
+  // Varianta šablony - aktuálně pouze franchise (AB | B). Pro ostatní typy undefined.
+  variant?: FranchiseVariant;
   variables: Record<string, string>;
   // PDF vygenerováno
   generatedPdfUrl?: string;

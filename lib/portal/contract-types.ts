@@ -58,3 +58,35 @@ export const CONTRACT_TYPE_META: Record<ContractType, ContractTypeMeta> = {
 export function isContractType(value: string): value is ContractType {
   return (CONTRACT_TYPES as readonly string[]).includes(value);
 }
+
+// Některé typy smluv mají varianty (např. franšíza: AB s volbou A/B v textu,
+// nebo B-only s pevně daným podnájmem). Variant patří k samostatné šabloně,
+// uložené pod klíčem portal:contract-template:{type}:{variant}.
+export const FRANCHISE_VARIANTS = ["AB", "B"] as const;
+export type FranchiseVariant = (typeof FRANCHISE_VARIANTS)[number];
+
+export const FRANCHISE_VARIANT_META: Record<
+  FranchiseVariant,
+  { label: string; description: string }
+> = {
+  AB: {
+    label: "AB — nájem na franšízantovi",
+    description:
+      "Provozovna je sjednána na franšízanta. Smlouva obsahuje volbu mezi vlastním nájmem a podnájmem.",
+  },
+  B: {
+    label: "B — podnájem od BOServices",
+    description:
+      "Provozovna je sjednána na BOServices, franšízant je v podnájmu.",
+  },
+};
+
+export function hasVariants(type: ContractType): type is "franchise" {
+  return type === "franchise";
+}
+
+export function isFranchiseVariant(value: string): value is FranchiseVariant {
+  return (FRANCHISE_VARIANTS as readonly string[]).includes(value);
+}
+
+export const DEFAULT_FRANCHISE_VARIANT: FranchiseVariant = "B";
