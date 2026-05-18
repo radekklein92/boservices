@@ -7,6 +7,7 @@ import {
   Building2,
   FileText,
   FilePenLine,
+  MapPin,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -24,6 +25,7 @@ const main: Item[] = [
 
 const provoz: Item[] = [
   { href: "/portal/clients", label: "Klienti", Icon: Building2 },
+  { href: "/portal/locations", label: "Lokality", Icon: MapPin },
   { href: "/portal/contracts", label: "Smlouvy", Icon: FileText },
 ];
 
