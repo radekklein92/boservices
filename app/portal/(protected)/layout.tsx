@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { recordActivity } from "@/lib/portal/users-db";
 import { Sidebar } from "@/components/portal/shell/Sidebar";
 
 export default async function ProtectedLayout({
@@ -11,6 +12,10 @@ export default async function ProtectedLayout({
   if (!session?.user?.email) {
     redirect("/portal/login");
   }
+
+  recordActivity(session.user.email).catch((err) =>
+    console.error("[portal] recordActivity failed", err),
+  );
 
   return (
     <div className="min-h-[100dvh] bg-paper-warm">

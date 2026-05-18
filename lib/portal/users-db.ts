@@ -9,7 +9,10 @@ export interface User {
   passwordHash?: string;
   createdAt: string;
   lastLoginAt?: string;
+  lastActiveAt?: string;
 }
+
+const ACTIVITY_THROTTLE_MS = 60_000;
 
 const userKey = (email: string) => `portal:user:${email.toLowerCase()}`;
 
@@ -38,7 +41,20 @@ export async function setPasswordHash(email: string, passwordHash: string): Prom
 export async function recordLogin(email: string): Promise<void> {
   const u = await getUser(email);
   if (!u) return;
-  await upsertUser({ ...u, lastLoginAt: new Date().toISOString() });
+  const now = new Date().toISOString();
+  await upsertUser({ ...u, lastLoginAt: now, lastActiveAt: now });
+}
+
+export async function recordActivity(email: string): Promise<void> {
+  const u = await getUser(email);
+  if (!u) return;
+  if (u.lastActiveAt) {
+    const last = Date.parse(u.lastActiveAt);
+    if (Number.isFinite(last) && Date.now() - last < ACTIVITY_THROTTLE_MS) {
+      return;
+    }
+  }
+  await upsertUser({ ...u, lastActiveAt: new Date().toISOString() });
 }
 
 export async function listUsers(): Promise<User[]> {

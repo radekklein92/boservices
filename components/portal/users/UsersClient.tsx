@@ -229,8 +229,8 @@ export function UsersClient({
                 <div className="hidden md:flex md:items-center md:gap-6">
                   <Meta label="Role" value={ROLE_LABEL[u.role] ?? u.role} />
                   <Meta
-                    label="Poslední přihlášení"
-                    value={relativeTime(u.lastLoginAt)}
+                    label="Naposledy aktivní"
+                    value={relativeTime(u.lastActiveAt ?? u.lastLoginAt)}
                   />
                 </div>
                 <div className="flex items-center gap-1.5 md:ml-2">
