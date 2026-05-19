@@ -26,6 +26,7 @@ import {
   CONTRACT_TYPE_META,
   FRANCHISE_VARIANTS,
   FRANCHISE_VARIANT_META,
+  franchiseVariantShort,
   hasVariants,
   type ContractType,
   type FranchiseVariant,
@@ -544,7 +545,12 @@ export function ContractDetailClient({ initial }: Props) {
             setVariables(updated.variables);
             setSaveState("idle");
             setSaveError(null);
-            notify("ok", `Šablona přepnuta na variantu ${updated.variant}.`);
+            notify(
+              "ok",
+              `Šablona přepnuta na variantu ${
+                updated.variant ? franchiseVariantShort(updated.variant) : ""
+              }.`,
+            );
             router.refresh();
           }}
           onError={(msg) => notify("error", msg)}
@@ -623,7 +629,11 @@ export function ContractDetailClient({ initial }: Props) {
           </FieldGroup>
         )}
 
-        {hasAny(["provozovnaAddress", "conceptName"]) && (
+        {hasAny([
+          "provozovnaAddress",
+          "conceptName",
+          "franchiseFeePercent",
+        ]) && (
           <FieldGroup label="Provozovna">
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               {has("provozovnaAddress") && (
@@ -640,6 +650,14 @@ export function ContractDetailClient({ initial }: Props) {
                   value={variables.conceptName ?? ""}
                   placeholder="např. Coffee&Bagels"
                   onChange={(v) => updateVar("conceptName", v)}
+                />
+              )}
+              {has("franchiseFeePercent") && (
+                <SmallField
+                  label="Franšízový poplatek (%)"
+                  value={variables.franchiseFeePercent ?? ""}
+                  placeholder="8"
+                  onChange={(v) => updateVar("franchiseFeePercent", v)}
                 />
               )}
             </div>
@@ -1231,7 +1249,7 @@ function VariantSection({
               Přepsat smlouvu novou šablonou?
             </h3>
             <p className="mt-3 text-[12.5px] leading-relaxed text-ink-mid">
-              Přepnutím na variantu <strong>{confirmFor}</strong> dojde k
+              Přepnutím na variantu <strong>{franchiseVariantShort(confirmFor)}</strong> dojde k
               přepsání aktuálního znění smlouvy textem nové šablony. Veškeré
               vlastní úpravy v editoru budou ztraceny.
             </p>

@@ -70,7 +70,7 @@ export const FRANCHISE_VARIANT_META: Record<
   { label: string; description: string }
 > = {
   AB: {
-    label: "AB — nájem na franšízantovi",
+    label: "A — nájem na franšízantovi",
     description:
       "Provozovna je sjednána na franšízanta. Smlouva obsahuje volbu mezi vlastním nájmem a podnájmem.",
   },
@@ -87,6 +87,13 @@ export function hasVariants(type: ContractType): type is "franchise" {
 
 export function isFranchiseVariant(value: string): value is FranchiseVariant {
   return (FRANCHISE_VARIANTS as readonly string[]).includes(value);
+}
+
+// Krátký label pro zobrazení v hláškách (např. „Přepnuto na variantu A").
+// Identifikátor varianty „AB" zůstává historicky v datech, navenek se
+// ale prezentuje jen jako „A".
+export function franchiseVariantShort(v: FranchiseVariant): "A" | "B" {
+  return v === "AB" ? "A" : "B";
 }
 
 export const DEFAULT_FRANCHISE_VARIANT: FranchiseVariant = "B";

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Save, ShieldCheck } from "lucide-react";
@@ -56,6 +56,16 @@ export function TemplateEditorClient({
   const [savedBy, setSavedBy] = useState<string>(updatedBy);
   const [error, setError] = useState<string | null>(null);
   const editorRef = useRef<Editor | null>(null);
+
+  // Při přepnutí varianty (jen search-param change) Next reusne komponentu
+  // a useState() drží starý initialHtml. Sync props -> state, jinak by editor
+  // dál ukazoval znění předchozí varianty.
+  useEffect(() => {
+    setHtml(initialHtml);
+    setSaved(updatedAt);
+    setSavedBy(updatedBy);
+    setError(null);
+  }, [type, variant, initialHtml, updatedAt, updatedBy]);
 
   function handleInsert(token: string) {
     const editor = editorRef.current;

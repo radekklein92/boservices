@@ -67,11 +67,21 @@ export async function POST(
   }
 
   const now = new Date().toISOString();
+  // Franšízový poplatek: B = pevně 8 %, AB = ponechat stávající, případně default 8.
+  const nextVariables = { ...contract.variables };
+  if (contract.type === "franchise") {
+    if (variant === "B") {
+      nextVariables.franchiseFeePercent = "8";
+    } else if (!nextVariables.franchiseFeePercent) {
+      nextVariables.franchiseFeePercent = "8";
+    }
+  }
   const updated = {
     ...contract,
     variant,
     html: template.html,
     templateSnapshot: template.html,
+    variables: nextVariables,
     generatedPdfUrl: undefined,
     generatedPdfPath: undefined,
     generatedAt: undefined,

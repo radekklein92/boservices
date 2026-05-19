@@ -27,6 +27,7 @@ const createSchema = z.object({
   clientId: z.string().trim().min(1),
   type: z.string().trim().min(1),
   variant: z.string().trim().optional(),
+  franchiseFeePercent: z.number().int().min(0).max(8).optional(),
 });
 
 export async function GET() {
@@ -53,7 +54,12 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
-  const { clientId, type, variant: rawVariant } = parsed.data;
+  const {
+    clientId,
+    type,
+    variant: rawVariant,
+    franchiseFeePercent: rawFeePercent,
+  } = parsed.data;
 
   const client = await getClient(clientId);
   if (!client) {
@@ -83,6 +89,13 @@ export async function POST(req: Request) {
     contractNumber: number,
     effectiveDate: meta.contractDate ?? "",
   };
+
+  // Franšízový a marketingový poplatek - placeholder {{franchiseFeePercent}}.
+  // Varianta B = pevně 8 %, varianta AB = volba 0-8 (default 8) z modálu.
+  if (type === "franchise") {
+    const feePercent = variant === "B" ? 8 : (rawFeePercent ?? 8);
+    variables.franchiseFeePercent = String(feePercent);
+  }
 
   const nowIso = now.toISOString();
   const id = nanoid(12);

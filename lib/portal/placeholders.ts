@@ -73,6 +73,7 @@ export const PLACEHOLDER_GROUPS: PlaceholderGroup[] = [
       { token: "{{totalClaimsAmount}}", label: "Celková výše pohledávek", example: "1 250 000 Kč" },
       { token: "{{provozovnaAddress}}", label: "Adresa provozovny", example: "Václavské nám. 1, Praha 1" },
       { token: "{{conceptName}}", label: "Název franšízingového konceptu", example: "Coffee&Bagels" },
+      { token: "{{franchiseFeePercent}}", label: "Franšízový poplatek (%)", example: "8" },
     ],
   },
 ];

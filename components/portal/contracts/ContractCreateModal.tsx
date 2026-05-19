@@ -27,8 +27,12 @@ export function ContractCreateModal({
   const [clientId, setClientId] = useState("");
   const [type, setType] = useState<ContractType>("franchise");
   const [variant, setVariant] = useState<FranchiseVariant>(DEFAULT_FRANCHISE_VARIANT);
+  // Franšízový poplatek (%) - AB: volitelné 0-8 (default 8), B: pevně 8
+  const [franchiseFeePercent, setFranchiseFeePercent] = useState<number>(8);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const effectiveFeePercent = variant === "B" ? 8 : franchiseFeePercent;
 
   useEffect(() => {
     const original = document.body.style.overflow;
@@ -55,6 +59,9 @@ export function ContractCreateModal({
           clientId,
           type,
           ...(hasVariants(type) ? { variant } : {}),
+          ...(type === "franchise"
+            ? { franchiseFeePercent: effectiveFeePercent }
+            : {}),
         }),
       });
       const data = await res.json();
@@ -194,6 +201,51 @@ export function ContractCreateModal({
                   );
                 })}
               </div>
+            </div>
+          )}
+
+          {type === "franchise" && (
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[10px] font-medium uppercase tracking-[0.16em] text-ink-mid">
+                Franšízový a marketingový poplatek
+              </span>
+              {variant === "AB" ? (
+                <>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {Array.from({ length: 9 }, (_, i) => i).map((pct) => {
+                      const active = pct === franchiseFeePercent;
+                      return (
+                        <button
+                          key={pct}
+                          type="button"
+                          onClick={() => setFranchiseFeePercent(pct)}
+                          aria-pressed={active}
+                          className={[
+                            "inline-flex h-9 min-w-[44px] items-center justify-center rounded-full border px-3 text-[12.5px] font-semibold tabular-nums transition-all",
+                            active
+                              ? "border-ink-base bg-ink-base text-paper"
+                              : "border-edge bg-paper text-ink-deep hover:border-ink-soft",
+                          ].join(" ")}
+                        >
+                          {pct} %
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <span className="mt-0.5 text-[11px] text-ink-mid">
+                    Zvolte celé procento 0–8. Hodnota se vloží do čl. VI odst. 2.
+                  </span>
+                </>
+              ) : (
+                <div className="flex items-center gap-2 rounded-lg border border-edge bg-paper-warm px-3 py-2.5">
+                  <span className="inline-flex h-7 items-center rounded-full bg-ink-base px-3 text-[12px] font-semibold tabular-nums text-paper">
+                    8 %
+                  </span>
+                  <span className="text-[11.5px] text-ink-mid">
+                    Varianta B má franšízový poplatek pevně daný (8 %).
+                  </span>
+                </div>
+              )}
             </div>
           )}
 
