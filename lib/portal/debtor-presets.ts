@@ -9,7 +9,7 @@ export interface DebtorPreset {
 export const DEBTOR_PRESETS: readonly DebtorPreset[] = [
   { ico: "21530572", label: "Flowers International" },
   { ico: "07862784", label: "Trdlokafe Development 1" },
-  { ico: "07177658", label: "TwistCafe" },
+  { ico: "07177658", label: "Twistcafe" },
   { ico: "17981336", label: "Bubblify International" },
   { ico: "23083646", label: "Pitstop Minimarket" },
   { ico: "05019001", label: "Trdlokafe International" },
