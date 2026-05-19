@@ -5,6 +5,7 @@ import {
   isContractType,
   isFranchiseVariant,
   hasVariants,
+  isBundleType,
   CONTRACT_TYPE_META,
   DEFAULT_FRANCHISE_VARIANT,
   type FranchiseVariant,
@@ -33,6 +34,8 @@ export default async function TemplatePage({
 }) {
   const { type } = await params;
   if (!isContractType(type)) notFound();
+  // Bundle nemá vlastní editovatelnou šablonu - skládá se ze 3 zdrojových.
+  if (isBundleType(type)) notFound();
 
   const session = await auth();
   if (!session?.user?.email) redirect("/portal/login");

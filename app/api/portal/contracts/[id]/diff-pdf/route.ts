@@ -2,10 +2,13 @@ import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/portal/auth-guard";
 import { getContract } from "@/lib/portal/contracts-db";
 import { getOrSeedContractTemplate } from "@/lib/portal/contract-templates-db";
-import { CONTRACT_TYPE_META } from "@/lib/portal/contract-types";
+import { CONTRACT_TYPE_META, isBundleType } from "@/lib/portal/contract-types";
 import { htmlDiff } from "@/lib/portal/contract-diff";
 import { renderTemplate } from "@/lib/portal/contract-render";
-import { htmlToPdfBuffer } from "@/lib/portal/pdf-generator";
+import {
+  bundleHtmlToPdfBuffer,
+  htmlToPdfBuffer,
+} from "@/lib/portal/pdf-generator";
 import { getCoverForType } from "@/lib/portal/pdf-styles";
 
 export const maxDuration = 60;
@@ -40,32 +43,59 @@ export async function GET(
     return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
   }
 
-  let snapshot = contract.templateSnapshot;
-  if (!snapshot) {
-    const template = await getOrSeedContractTemplate(contract.type);
-    snapshot = template.html;
-  }
-
-  const result = htmlDiff(snapshot, contract.html);
-  if (!result.hasChanges) {
-    return NextResponse.json(
-      { ok: false, error: "Smlouva se od šablony neliší - žádné změny k zobrazení." },
-      { status: 400 },
-    );
-  }
-
-  // Render placeholdery v diff HTML
-  const rendered = renderTemplate(result.diffHtml, contract.variables);
   const meta = CONTRACT_TYPE_META[contract.type];
   const cover = getCoverForType(contract.type);
 
   let pdf: Buffer;
   try {
-    pdf = await htmlToPdfBuffer(rendered, {
-      type: contract.type,
-      cover: { ...cover, subtitle: `${cover.subtitle} · zobrazeny změny oproti šabloně` },
-      diff: true,
-    });
+    if (isBundleType(contract.type) && contract.bundleSections) {
+      // Bundle: diff per section, agregovaná kontrola změn.
+      const sectionDiffs = contract.bundleSections.map((section) => ({
+        type: section.type,
+        diff: htmlDiff(section.templateSnapshot, section.html),
+      }));
+      const totalChanges = sectionDiffs.reduce(
+        (sum, s) => sum + s.diff.changeCount,
+        0,
+      );
+      if (totalChanges === 0) {
+        return NextResponse.json(
+          { ok: false, error: "Smlouva se od šablony neliší - žádné změny k zobrazení." },
+          { status: 400 },
+        );
+      }
+      const renderedSections = sectionDiffs.map((s) => ({
+        type: s.type,
+        html: renderTemplate(s.diff.diffHtml, contract.variables),
+      }));
+      pdf = await bundleHtmlToPdfBuffer(renderedSections, {
+        type: contract.type,
+        cover: {
+          ...cover,
+          subtitle: `${cover.subtitle} · zobrazeny změny oproti šabloně`,
+        },
+        diff: true,
+      });
+    } else {
+      let snapshot = contract.templateSnapshot;
+      if (!snapshot) {
+        const template = await getOrSeedContractTemplate(contract.type);
+        snapshot = template.html;
+      }
+      const result = htmlDiff(snapshot, contract.html);
+      if (!result.hasChanges) {
+        return NextResponse.json(
+          { ok: false, error: "Smlouva se od šablony neliší - žádné změny k zobrazení." },
+          { status: 400 },
+        );
+      }
+      const rendered = renderTemplate(result.diffHtml, contract.variables);
+      pdf = await htmlToPdfBuffer(rendered, {
+        type: contract.type,
+        cover: { ...cover, subtitle: `${cover.subtitle} · zobrazeny změny oproti šabloně` },
+        diff: true,
+      });
+    }
   } catch (err) {
     console.error("[contracts] diff PDF render failed", err);
     return NextResponse.json(

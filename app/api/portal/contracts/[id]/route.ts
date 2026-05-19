@@ -7,12 +7,22 @@ import {
   deleteContract,
   getContract,
   upsertContract,
+  type BundleSection,
 } from "@/lib/portal/contracts-db";
+import { isClaimBundleSection } from "@/lib/portal/contract-types";
+
+const bundleSectionSchema = z.object({
+  type: z.string().refine(isClaimBundleSection, {
+    message: "Neplatný typ sekce balíčku.",
+  }),
+  html: z.string().max(200_000),
+});
 
 const updateSchema = z.object({
   html: z.string().max(200_000).optional(),
   variables: z.record(z.string(), z.string()).optional(),
   number: z.string().trim().max(40).optional(),
+  bundleSections: z.array(bundleSectionSchema).optional(),
 });
 
 export async function GET(
@@ -64,9 +74,23 @@ export async function PUT(
   // Číslo smlouvy se nemění - zachovat z existing
   mergedVars.contractNumber = existing.number ?? existing.variables.contractNumber ?? "";
 
+  // Bundle: merge příchozí bundleSections do existujících podle type.
+  // Snapshot zachováme (mění se jen při vytvoření / přepnutí varianty).
+  let nextBundleSections: BundleSection[] | undefined = existing.bundleSections;
+  if (parsed.data.bundleSections && existing.bundleSections) {
+    const byType = new Map(
+      parsed.data.bundleSections.map((s) => [s.type, s.html]),
+    );
+    nextBundleSections = existing.bundleSections.map((s) => ({
+      ...s,
+      html: byType.get(s.type) ?? s.html,
+    }));
+  }
+
   const updated = {
     ...existing,
     html: parsed.data.html ?? existing.html,
+    bundleSections: nextBundleSections,
     variables: mergedVars,
     number: existing.number,
     // Editing invalidates the previously generated PDF

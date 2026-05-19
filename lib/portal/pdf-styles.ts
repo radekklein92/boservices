@@ -34,6 +34,11 @@ const COVER_BY_TYPE: Record<ContractType, CoverHeader> = {
     title: "Oznámení o postoupení pohledávky",
     subtitle: "ve smyslu § 1882 zákona č. 89/2012 Sb., občanský zákoník",
   },
+  "claim-bundle": {
+    title: "Postoupení pohledávek",
+    subtitle:
+      "balíček obsahuje smlouvu o postoupení, vedlejší ujednání o úplatě a oznámení dlužníkovi",
+  },
 };
 
 export function getCoverForType(type: ContractType): CoverHeader {
@@ -194,6 +199,34 @@ export const PDF_PAGE_STYLES = `
 
   /* Signature blocks (typický pattern dvou podpisových rámců) */
   .signatures { margin-top: 26pt; page-break-inside: avoid; }
+
+  /* Bundle (claim-bundle) - oddělovač sekcí. První sekce zůstává hned za cover
+   * hlavičkou, další 2 začínají na nové stránce s vlastním sekčním titulkem. */
+  .bundle-section { break-inside: auto; }
+  .bundle-section + .bundle-section { break-before: page; page-break-before: always; }
+  .bundle-section-header {
+    margin: 0 0 18pt 0;
+    padding-bottom: 10pt;
+    border-bottom: 0.6pt solid #0E0E0E;
+  }
+  .bundle-section-header .eyebrow {
+    font-size: 7.5pt;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: #6F7672;
+    margin: 0 0 4pt 0;
+  }
+  .bundle-section-header h2.bundle-section-title {
+    font-size: 16pt;
+    font-weight: 800;
+    margin: 0;
+    color: #0E0E0E;
+    letter-spacing: -0.02em;
+    border: none;
+    padding: 0;
+    line-height: 1.18;
+  }
 `;
 
 function escapeHtml(s: string): string {
@@ -240,12 +273,31 @@ export const PDF_DIFF_STYLES = `
   }
 `;
 
-export function buildServerPdfDocument(
-  html: string,
-  opts: { cover: CoverHeader; diff?: boolean },
-): string {
-  const stripped = stripDuplicateTitle(html, opts.cover.title);
-  const contentWithHeader = renderFirstPageHeader(opts.cover) + stripped;
+// Bundle: cover má jeden hlavní titulek (např. „Postoupení pohledávek - balíček"),
+// pak 3 sekce za sebou, mezi nimi page-break. První sekce začíná hned po cover
+// hlavičce (žádný extra header pro 1. sekci? - ne, pro konzistenci dáme všem).
+export interface BundleSectionInput {
+  type: ContractType;
+  html: string;
+}
+
+function renderBundleBody(sections: BundleSectionInput[]): string {
+  return sections
+    .map((section) => {
+      const sectionCover = getCoverForType(section.type);
+      const stripped = stripDuplicateTitle(section.html, sectionCover.title);
+      return `<section class="bundle-section">
+  <div class="bundle-section-header">
+    <p class="eyebrow">Dokument</p>
+    <h2 class="bundle-section-title">${escapeHtml(sectionCover.title)}</h2>
+  </div>
+  ${stripped}
+</section>`;
+    })
+    .join("\n");
+}
+
+function wrapPdfShell(body: string, opts: { diff?: boolean }): string {
   const diffStyles = opts.diff ? PDF_DIFF_STYLES : "";
   return `<!doctype html>
 <html lang="cs">
@@ -271,9 +323,29 @@ ${diffStyles}
 <div class="__fontwarmup" style="font-weight:600">Mq</div>
 <div class="__fontwarmup" style="font-weight:700">Mq</div>
 <div class="__fontwarmup" style="font-weight:800">Mq</div>
-${contentWithHeader}
+${body}
 </body>
 </html>`;
+}
+
+export function buildServerPdfDocument(
+  html: string,
+  opts: { cover: CoverHeader; diff?: boolean },
+): string {
+  const stripped = stripDuplicateTitle(html, opts.cover.title);
+  const contentWithHeader = renderFirstPageHeader(opts.cover) + stripped;
+  return wrapPdfShell(contentWithHeader, { diff: opts.diff });
+}
+
+// Bundle PDF: cover hlavička balíčku + sekce s vlastními pod-headery oddělené
+// page-breakem. Jediné puppeteer page.pdf() volání zajistí souvislou paginaci
+// a jednotný header/footer napříč všemi 3 dokumenty.
+export function buildServerBundlePdfDocument(
+  sections: BundleSectionInput[],
+  opts: { cover: CoverHeader; diff?: boolean },
+): string {
+  const body = renderFirstPageHeader(opts.cover) + renderBundleBody(sections);
+  return wrapPdfShell(body, { diff: opts.diff });
 }
 
 // SVG logo inline pro puppeteer headerTemplate (žádný external import)

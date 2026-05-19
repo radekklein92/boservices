@@ -4,7 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { X } from "lucide-react";
 import type { Client } from "@/lib/portal/clients-db";
 import {
-  CONTRACT_TYPES,
+  CONTRACT_TYPES_PICKABLE,
   CONTRACT_TYPE_META,
   FRANCHISE_VARIANTS,
   FRANCHISE_VARIANT_META,
@@ -121,7 +121,7 @@ export function ContractCreateModal({
               Typ smlouvy
             </span>
             <div className="flex flex-col gap-1.5">
-              {CONTRACT_TYPES.map((t) => {
+              {CONTRACT_TYPES_PICKABLE.map((t) => {
                 const meta = CONTRACT_TYPE_META[t];
                 const active = t === type;
                 return (

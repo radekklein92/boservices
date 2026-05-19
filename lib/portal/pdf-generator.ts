@@ -1,9 +1,11 @@
 import chromium from "@sparticuz/chromium-min";
 import {
   buildServerPdfDocument,
+  buildServerBundlePdfDocument,
   buildHeaderTemplate,
   getCoverForType,
   FOOTER_TEMPLATE,
+  type BundleSectionInput,
   type CoverHeader,
 } from "./pdf-styles";
 import { CONTRACT_TYPE_META, type ContractType } from "./contract-types";
@@ -40,6 +42,27 @@ export async function htmlToPdfBuffer(
 ): Promise<Buffer> {
   const cover = opts.cover ?? getCoverForType(opts.type);
   const fullHtml = buildServerPdfDocument(bodyHtml, { cover, diff: opts.diff });
+  return renderHtmlToPdf(fullHtml, opts.type);
+}
+
+// Bundle (claim-bundle): konkatenuje N renderovaných HTML do jednoho PDF
+// s page-break mezi sekcemi. Headery/footery jsou jednotné napříč všemi sekcemi.
+export async function bundleHtmlToPdfBuffer(
+  sections: BundleSectionInput[],
+  opts: { type: ContractType; cover?: CoverHeader; diff?: boolean },
+): Promise<Buffer> {
+  const cover = opts.cover ?? getCoverForType(opts.type);
+  const fullHtml = buildServerBundlePdfDocument(sections, {
+    cover,
+    diff: opts.diff,
+  });
+  return renderHtmlToPdf(fullHtml, opts.type);
+}
+
+async function renderHtmlToPdf(
+  fullHtml: string,
+  type: ContractType,
+): Promise<Buffer> {
 
   const puppeteer = (await import("puppeteer-core")).default;
   const executablePath = await getExecutablePath();
@@ -69,7 +92,7 @@ export async function htmlToPdfBuffer(
       await document.fonts.ready;
     });
 
-    const headerTitle = CONTRACT_TYPE_META[opts.type].shortName;
+    const headerTitle = CONTRACT_TYPE_META[type].shortName;
 
     const pdf = await page.pdf({
       format: "A4",

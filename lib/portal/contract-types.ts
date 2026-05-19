@@ -2,12 +2,33 @@ export const CONTRACT_TYPES = [
   "franchise",
   "cooperation",
   "operation",
+  "claim-bundle",
   "claim-assignment",
   "side-fee",
   "assignment-notice",
 ] as const;
 
 export type ContractType = (typeof CONTRACT_TYPES)[number];
+
+// Typy, které lze nově vytvořit z modálu „Nová smlouva". Bundle „claim-bundle"
+// nahrazuje 3 původní samostatné typy (claim-assignment/side-fee/assignment-notice).
+// Ty zůstávají v CONTRACT_TYPES kvůli zpětné kompatibilitě (otvírání existujících
+// záznamů, správa šablon), ale nelze je již nově zakládat samostatně.
+export const CONTRACT_TYPES_PICKABLE = [
+  "franchise",
+  "cooperation",
+  "operation",
+  "claim-bundle",
+] as const;
+
+// Sekce, ze kterých se skládá balíček postoupení pohledávek (v tomto pořadí).
+export const CLAIM_BUNDLE_SECTIONS = [
+  "claim-assignment",
+  "side-fee",
+  "assignment-notice",
+] as const;
+
+export type ClaimBundleSectionType = (typeof CLAIM_BUNDLE_SECTIONS)[number];
 
 export type ContractTypeMeta = {
   key: ContractType;
@@ -53,6 +74,13 @@ export const CONTRACT_TYPE_META: Record<ContractType, ContractTypeMeta> = {
     fullName: "Oznámení o postoupení pohledávky",
     description: "Jednostranné oznámení dlužníkovi o postoupení pohledávky.",
   },
+  "claim-bundle": {
+    key: "claim-bundle",
+    shortName: "Postoupení pohledávek",
+    fullName: "Postoupení pohledávek (balíček 3 dokumentů)",
+    description:
+      "Smlouva o postoupení + Vedlejší ujednání o úplatě + Oznámení dlužníkovi. Generuje se jako jediný PDF.",
+  },
 };
 
 export function isContractType(value: string): value is ContractType {
@@ -83,6 +111,16 @@ export const FRANCHISE_VARIANT_META: Record<
 
 export function hasVariants(type: ContractType): type is "franchise" {
   return type === "franchise";
+}
+
+export function isBundleType(type: ContractType): type is "claim-bundle" {
+  return type === "claim-bundle";
+}
+
+export function isClaimBundleSection(
+  value: string,
+): value is ClaimBundleSectionType {
+  return (CLAIM_BUNDLE_SECTIONS as readonly string[]).includes(value);
 }
 
 export function isFranchiseVariant(value: string): value is FranchiseVariant {

@@ -21,13 +21,14 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { Editor } from "@tiptap/react";
-import type { Contract } from "@/lib/portal/contracts-db";
+import type { BundleSection, Contract } from "@/lib/portal/contracts-db";
 import {
   CONTRACT_TYPE_META,
   FRANCHISE_VARIANTS,
   FRANCHISE_VARIANT_META,
   franchiseVariantShort,
   hasVariants,
+  isBundleType,
   type ContractType,
   type FranchiseVariant,
 } from "@/lib/portal/contract-types";
@@ -59,6 +60,9 @@ export function ContractDetailClient({ initial }: Props) {
   const router = useRouter();
   const [contract, setContract] = useState(initial);
   const [html, setHtml] = useState(initial.html);
+  const [bundleSections, setBundleSections] = useState<BundleSection[]>(
+    initial.bundleSections ?? [],
+  );
   const [variables, setVariables] = useState(initial.variables);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -66,20 +70,39 @@ export function ContractDetailClient({ initial }: Props) {
   const [uploadPending, setUploadPending] = useState(false);
   const [toast, setToast] = useState<{ kind: "ok" | "error"; msg: string } | null>(null);
   const [diffOpen, setDiffOpen] = useState(false);
+  // Pro bundle: index aktuálně fokusovaného editoru - kam se vkládají placeholdery.
+  const [activeBundleIdx, setActiveBundleIdx] = useState(0);
   const editorRef = useRef<Editor | null>(null);
+  const bundleEditorRefs = useRef<(Editor | null)[]>([]);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const saveTimerRef = useRef<number | null>(null);
   const isMountedRef = useRef(false);
 
+  const isBundle = isBundleType(contract.type);
   const dirty = saveState === "pending" || saveState === "saving";
-  const hasTemplateChanges =
-    !!contract.templateSnapshot && contract.templateSnapshot !== html;
+
+  // Template changes detection - pro bundle agreguje napříč sekcemi.
+  const hasTemplateChanges = isBundle
+    ? bundleSections.some(
+        (s) => s.templateSnapshot && s.templateSnapshot !== s.html,
+      )
+    : !!contract.templateSnapshot && contract.templateSnapshot !== html;
 
   const meta = CONTRACT_TYPE_META[contract.type as ContractType];
-  const usedTokens = useMemo(
-    () => extractPlaceholderTokens(html),
-    [html],
-  );
+
+  // Placeholder tokens - pro bundle scanuje všechny sekce, jinak single html.
+  const usedTokens = useMemo(() => {
+    if (isBundle) {
+      const set = new Set<string>();
+      for (const section of bundleSections) {
+        for (const token of extractPlaceholderTokens(section.html)) {
+          set.add(token);
+        }
+      }
+      return set;
+    }
+    return extractPlaceholderTokens(html);
+  }, [isBundle, html, bundleSections]);
   const has = (token: string) => usedTokens.has(token);
   const hasAny = (tokens: string[]) => tokens.some((t) => usedTokens.has(t));
 
@@ -97,12 +120,26 @@ export function ContractDetailClient({ initial }: Props) {
     setHtml(next);
     markDirty();
   }
+  function updateBundleSection(idx: number, nextHtml: string) {
+    setBundleSections((prev) => {
+      const copy = [...prev];
+      copy[idx] = { ...copy[idx]!, html: nextHtml };
+      return copy;
+    });
+    markDirty();
+  }
   function updateVar(key: string, value: string) {
     setVariables((prev) => ({ ...prev, [key]: value }));
     markDirty();
   }
 
   function handleInsert(token: string) {
+    if (isBundle) {
+      const editor = bundleEditorRefs.current[activeBundleIdx];
+      if (!editor) return;
+      editor.chain().focus().insertContent(token).run();
+      return;
+    }
     const editor = editorRef.current;
     if (!editor) return;
     editor.chain().focus().insertContent(token).run();
@@ -111,16 +148,25 @@ export function ContractDetailClient({ initial }: Props) {
   async function performSave(
     htmlSnapshot: string,
     variablesSnapshot: Record<string, string>,
+    bundleSnapshot: BundleSection[],
   ) {
     setSaveState("saving");
     try {
+      const body: Record<string, unknown> = {
+        variables: variablesSnapshot,
+      };
+      if (isBundle) {
+        body.bundleSections = bundleSnapshot.map((s) => ({
+          type: s.type,
+          html: s.html,
+        }));
+      } else {
+        body.html = htmlSnapshot;
+      }
       const res = await fetch(`/api/portal/contracts/${contract.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          html: htmlSnapshot,
-          variables: variablesSnapshot,
-        }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || "Uložení selhalo.");
@@ -155,14 +201,15 @@ export function ContractDetailClient({ initial }: Props) {
     if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
     const htmlSnap = html;
     const varsSnap = variables;
+    const bundleSnap = bundleSections;
     saveTimerRef.current = window.setTimeout(() => {
-      performSave(htmlSnap, varsSnap);
+      performSave(htmlSnap, varsSnap, bundleSnap);
     }, 800);
     return () => {
       if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [html, variables, saveState]);
+  }, [html, variables, bundleSections, saveState]);
 
   async function ensureSaved() {
     if (saveState === "pending" || saveState === "saving") {
@@ -170,7 +217,7 @@ export function ContractDetailClient({ initial }: Props) {
         window.clearTimeout(saveTimerRef.current);
         saveTimerRef.current = null;
       }
-      await performSave(html, variables);
+      await performSave(html, variables, bundleSections);
     }
   }
 
@@ -765,23 +812,55 @@ export function ContractDetailClient({ initial }: Props) {
       <section>
         <div className="mb-3 flex items-baseline gap-2.5">
           <h2 className="text-[10.5px] font-semibold uppercase tracking-[0.18em] text-ink-base">
-            Znění smlouvy
+            {isBundle ? "Znění balíčku" : "Znění smlouvy"}
           </h2>
           <span className="text-[11.5px] text-ink-mid">
-            · Editujte text. Placeholdery se nahradí hodnotami nahoře.
+            ·{" "}
+            {isBundle
+              ? "Tři dokumenty pod sebou. Placeholdery se vyplňují společně nahoře. Vložení placeholderu z palety jde do naposledy zaměřeného editoru."
+              : "Editujte text. Placeholdery se nahradí hodnotami nahoře."}
           </span>
         </div>
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_300px]">
-          <div>
-            <TiptapEditor
-              value={html}
-              onChange={updateHtml}
-              editorRef={(e) => (editorRef.current = e)}
-            />
+          <div className="flex min-w-0 flex-col gap-5">
+            {isBundle ? (
+              bundleSections.map((section, idx) => (
+                <BundleSectionEditor
+                  key={section.type}
+                  index={idx}
+                  total={bundleSections.length}
+                  section={section}
+                  isActive={idx === activeBundleIdx}
+                  onChange={(next) => updateBundleSection(idx, next)}
+                  onFocus={() => setActiveBundleIdx(idx)}
+                  editorRef={(e) => {
+                    bundleEditorRefs.current[idx] = e;
+                  }}
+                />
+              ))
+            ) : (
+              <TiptapEditor
+                value={html}
+                onChange={updateHtml}
+                editorRef={(e) => (editorRef.current = e)}
+              />
+            )}
           </div>
-          <aside className="flex h-full min-h-[480px] flex-col overflow-hidden rounded-2xl border border-edge bg-paper-warm">
+          <aside className="flex h-full min-h-[480px] flex-col overflow-hidden rounded-2xl border border-edge bg-paper-warm lg:sticky lg:top-6">
             <div className="flex-1 overflow-y-auto p-4">
               <PlaceholderPalette onInsert={handleInsert} />
+              {isBundle && (
+                <div className="mt-4 rounded-lg border border-edge bg-paper p-3 text-[11px] leading-relaxed text-ink-mid">
+                  Aktivní editor:{" "}
+                  <span className="font-semibold text-ink-base">
+                    {bundleSections[activeBundleIdx]
+                      ? CONTRACT_TYPE_META[
+                          bundleSections[activeBundleIdx]!.type
+                        ].shortName
+                      : "—"}
+                  </span>
+                </div>
+              )}
             </div>
           </aside>
         </div>
@@ -806,6 +885,68 @@ export function ContractDetailClient({ initial }: Props) {
           onClose={() => setDiffOpen(false)}
         />
       )}
+    </div>
+  );
+}
+
+function BundleSectionEditor({
+  index,
+  total,
+  section,
+  isActive,
+  onChange,
+  onFocus,
+  editorRef,
+}: {
+  index: number;
+  total: number;
+  section: BundleSection;
+  isActive: boolean;
+  onChange: (next: string) => void;
+  onFocus: () => void;
+  editorRef: (e: Editor | null) => void;
+}) {
+  const sectionMeta = CONTRACT_TYPE_META[section.type];
+  const changed = section.templateSnapshot !== section.html;
+  return (
+    <div
+      onFocusCapture={onFocus}
+      className={[
+        "flex flex-col gap-3 rounded-2xl border bg-paper p-4 transition-colors md:p-5",
+        isActive ? "border-ink-base shadow-[0_18px_42px_-28px_rgba(14,14,14,0.28)]" : "border-edge",
+      ].join(" ")}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-baseline gap-2">
+          <span className="font-mono text-[10.5px] text-ink-soft">
+            {String(index + 1).padStart(2, "0")} / {String(total).padStart(2, "0")}
+          </span>
+          <h3 className="text-[14px] font-bold tracking-[-0.01em] text-ink-base">
+            {sectionMeta.fullName}
+          </h3>
+        </div>
+        <span
+          className={[
+            "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10.5px] font-medium",
+            changed
+              ? "bg-ink-base text-paper"
+              : "bg-paper-warm text-ink-mid",
+          ].join(" ")}
+        >
+          <span
+            className={[
+              "inline-block h-1.5 w-1.5 rounded-full",
+              changed ? "bg-paper" : "bg-ink-soft",
+            ].join(" ")}
+          />
+          {changed ? "Upraveno proti šabloně" : "Beze změn proti šabloně"}
+        </span>
+      </div>
+      <TiptapEditor
+        value={section.html}
+        onChange={onChange}
+        editorRef={editorRef}
+      />
     </div>
   );
 }
@@ -854,6 +995,13 @@ function DiffSection({
   );
 }
 
+type DiffSectionPayload = {
+  type: ContractType;
+  hasChanges: boolean;
+  changeCount: number;
+  diffHtml: string;
+};
+
 function DiffModal({
   contractId,
   onClose,
@@ -863,9 +1011,15 @@ function DiffModal({
 }) {
   const [state, setState] = useState<
     | { kind: "loading" }
-    | { kind: "ok"; diffHtml: string; count: number }
+    | {
+        kind: "ok";
+        diffHtml: string;
+        count: number;
+        sections?: DiffSectionPayload[];
+      }
     | { kind: "error"; msg: string }
   >({ kind: "loading" });
+  const [activeTab, setActiveTab] = useState(0);
 
   useEffect(() => {
     const original = document.body.style.overflow;
@@ -895,7 +1049,9 @@ function DiffModal({
           kind: "ok",
           diffHtml: data.diffHtml,
           count: data.changeCount,
+          sections: data.sections,
         });
+        setActiveTab(0);
       } catch (err) {
         if (alive) {
           setState({
@@ -949,6 +1105,37 @@ function DiffModal({
           </button>
         </div>
 
+        {state.kind === "ok" && state.sections && state.sections.length > 0 && (
+          <div className="flex items-center gap-1 overflow-x-auto border-b border-edge px-6 pb-px">
+            {state.sections.map((section, i) => {
+              const active = i === activeTab;
+              return (
+                <button
+                  key={section.type}
+                  type="button"
+                  onClick={() => setActiveTab(i)}
+                  className={[
+                    "relative inline-flex h-11 items-center gap-2 whitespace-nowrap px-4 text-[12.5px] font-medium transition-colors",
+                    active
+                      ? "text-ink-base"
+                      : "text-ink-mid hover:text-ink-base",
+                  ].join(" ")}
+                >
+                  {CONTRACT_TYPE_META[section.type].shortName}
+                  {section.hasChanges && (
+                    <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-ink-base px-1.5 text-[10px] font-semibold text-paper">
+                      {section.changeCount}
+                    </span>
+                  )}
+                  {active && (
+                    <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-ink-base" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         <div className="max-h-[70vh] overflow-y-auto p-6 md:p-8">
           {state.kind === "loading" && (
             <div className="text-[13px] text-ink-mid">Načítám změny…</div>
@@ -959,10 +1146,27 @@ function DiffModal({
             </div>
           )}
           {state.kind === "ok" && (
-            <div
-              className="diff-view"
-              dangerouslySetInnerHTML={{ __html: state.diffHtml }}
-            />
+            <>
+              {state.sections && state.sections.length > 0 ? (
+                state.sections[activeTab]?.hasChanges ? (
+                  <div
+                    className="diff-view"
+                    dangerouslySetInnerHTML={{
+                      __html: state.sections[activeTab]!.diffHtml,
+                    }}
+                  />
+                ) : (
+                  <div className="rounded-2xl border border-edge bg-paper-warm px-5 py-6 text-[13px] text-ink-mid">
+                    Tato sekce se od šablony neliší.
+                  </div>
+                )
+              ) : (
+                <div
+                  className="diff-view"
+                  dangerouslySetInnerHTML={{ __html: state.diffHtml }}
+                />
+              )}
+            </>
           )}
         </div>
 

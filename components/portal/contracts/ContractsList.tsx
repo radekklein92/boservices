@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import type { Contract } from "@/lib/portal/contracts-db";
 import type { Client } from "@/lib/portal/clients-db";
-import { CONTRACT_TYPE_META } from "@/lib/portal/contract-types";
+import { CONTRACT_TYPE_META, isBundleType } from "@/lib/portal/contract-types";
 import { ContractCreateModal } from "./ContractCreateModal";
 
 function formatDate(iso: string): string {
@@ -372,7 +372,11 @@ export function ContractsList({
                     className="h-4 w-4 shrink-0 cursor-pointer accent-ink-base"
                   />
                   <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-edge bg-paper-warm text-ink-deep">
-                    <FileText className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+                    {isBundleType(c.type) ? (
+                      <Package className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+                    ) : (
+                      <FileText className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+                    )}
                   </div>
                   <div className="min-w-0 flex-1">
                     <Link

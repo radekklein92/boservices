@@ -6,9 +6,12 @@ import {
   getContract,
   upsertContract,
 } from "@/lib/portal/contracts-db";
-import { CONTRACT_TYPE_META } from "@/lib/portal/contract-types";
+import { CONTRACT_TYPE_META, isBundleType } from "@/lib/portal/contract-types";
 import { renderTemplate } from "@/lib/portal/contract-render";
-import { htmlToPdfBuffer } from "@/lib/portal/pdf-generator";
+import {
+  bundleHtmlToPdfBuffer,
+  htmlToPdfBuffer,
+} from "@/lib/portal/pdf-generator";
 import { getCoverForType } from "@/lib/portal/pdf-styles";
 
 export const maxDuration = 60;
@@ -33,14 +36,26 @@ export async function POST(
     );
   }
 
-  const rendered = renderTemplate(contract.html, contract.variables);
   const meta = CONTRACT_TYPE_META[contract.type];
   const title = `${meta.shortName} - ${contract.clientName}`;
   const cover = getCoverForType(contract.type);
 
   let pdf: Buffer;
   try {
-    pdf = await htmlToPdfBuffer(rendered, { type: contract.type, cover });
+    if (isBundleType(contract.type) && contract.bundleSections) {
+      // Bundle: render každou sekci samostatně (placeholders), pak konkatenovat.
+      const renderedSections = contract.bundleSections.map((section) => ({
+        type: section.type,
+        html: renderTemplate(section.html, contract.variables),
+      }));
+      pdf = await bundleHtmlToPdfBuffer(renderedSections, {
+        type: contract.type,
+        cover,
+      });
+    } else {
+      const rendered = renderTemplate(contract.html, contract.variables);
+      pdf = await htmlToPdfBuffer(rendered, { type: contract.type, cover });
+    }
   } catch (err) {
     console.error("[contracts] PDF render failed", err);
     return NextResponse.json(

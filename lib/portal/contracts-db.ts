@@ -1,5 +1,9 @@
 import { getRedis } from "@/lib/redis";
-import type { ContractType, FranchiseVariant } from "./contract-types";
+import type {
+  ClaimBundleSectionType,
+  ContractType,
+  FranchiseVariant,
+} from "./contract-types";
 
 export type ContractStatus =
   | "draft"
@@ -8,16 +12,24 @@ export type ContractStatus =
   | "picked-up"
   | "archived";
 
+export interface BundleSection {
+  type: ClaimBundleSectionType;
+  html: string;
+  templateSnapshot: string;
+}
+
 export interface Contract {
   id: string;
   type: ContractType;
   clientId: string;
   clientName: string;
   status: ContractStatus;
+  // Pro NE-bundle typy: aktuální HTML smlouvy. Pro bundle prázdné, obsah je
+  // v bundleSections (každá sekce má vlastní HTML a snapshot).
   html: string;
-  // Snapshot HTML šablony v okamžiku vytvoření smlouvy - slouží pro diff
-  // proti aktuálnímu znění (vidíme co user upravil)
   templateSnapshot?: string;
+  // Bundle (claim-bundle): pole 3 sekcí s vlastním HTML a snapshotem šablony.
+  bundleSections?: BundleSection[];
   // Varianta šablony - aktuálně pouze franchise (AB | B). Pro ostatní typy undefined.
   variant?: FranchiseVariant;
   variables: Record<string, string>;

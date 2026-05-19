@@ -7,7 +7,9 @@ import {
   isContractType,
   isFranchiseVariant,
   hasVariants,
+  isBundleType,
   CONTRACT_TYPE_META,
+  CLAIM_BUNDLE_SECTIONS,
   DEFAULT_FRANCHISE_VARIANT,
   type FranchiseVariant,
 } from "@/lib/portal/contract-types";
@@ -16,6 +18,7 @@ import {
   getNextContractNumber,
   listContracts,
   upsertContract,
+  type BundleSection,
 } from "@/lib/portal/contracts-db";
 import {
   buildClientVariables,
@@ -78,7 +81,29 @@ export async function POST(req: Request) {
     }
   }
 
-  const template = await getOrSeedContractTemplate(type, variant);
+  // Bundle: load 3 source templates (claim-assignment, side-fee, assignment-notice).
+  // Pro NE-bundle: load 1 template.
+  let bundleSections: BundleSection[] | undefined;
+  let templateHtml = "";
+  let templateSnapshot = "";
+
+  if (isBundleType(type)) {
+    const sourceTemplates = await Promise.all(
+      CLAIM_BUNDLE_SECTIONS.map((sectionType) =>
+        getOrSeedContractTemplate(sectionType),
+      ),
+    );
+    bundleSections = sourceTemplates.map((tpl, i) => ({
+      type: CLAIM_BUNDLE_SECTIONS[i]!,
+      html: tpl.html,
+      templateSnapshot: tpl.html,
+    }));
+  } else {
+    const template = await getOrSeedContractTemplate(type, variant);
+    templateHtml = template.html;
+    templateSnapshot = template.html;
+  }
+
   const now = new Date();
   const meta = buildDefaultContractMeta(now);
   const number = await getNextContractNumber(now);
@@ -106,8 +131,9 @@ export async function POST(req: Request) {
     clientId: client.id,
     clientName: client.companyName,
     status: "draft",
-    html: template.html,
-    templateSnapshot: template.html,
+    html: templateHtml,
+    templateSnapshot: templateSnapshot || undefined,
+    bundleSections,
     variant,
     variables,
     number,

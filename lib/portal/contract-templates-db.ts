@@ -4,9 +4,14 @@ import {
   CONTRACT_TYPES,
   FRANCHISE_VARIANTS,
   hasVariants,
+  isBundleType,
   type ContractType,
   type FranchiseVariant,
 } from "./contract-types";
+
+// Bundle (claim-bundle) nemá vlastní šablonu - skládá se ze 3 zdrojových šablon
+// (claim-assignment, side-fee, assignment-notice), které admin edituje samostatně.
+const EDITABLE_TYPES = CONTRACT_TYPES.filter((t) => !isBundleType(t));
 import { buildDefaultHtml } from "./default-templates";
 
 export interface ContractTemplate {
@@ -70,7 +75,7 @@ export type TemplateListEntry = {
 export async function listContractTemplates(): Promise<TemplateListEntry[]> {
   const r = getRedis();
   if (!r) {
-    return CONTRACT_TYPES.map((type) => ({
+    return EDITABLE_TYPES.map((type) => ({
       type,
       meta: CONTRACT_TYPE_META[type],
       template: null,
@@ -83,7 +88,7 @@ export async function listContractTemplates(): Promise<TemplateListEntry[]> {
   const pipe = r.pipeline();
   const keys: Array<{ type: ContractType; variant?: FranchiseVariant }> = [];
 
-  for (const type of CONTRACT_TYPES) {
+  for (const type of EDITABLE_TYPES) {
     if (hasVariants(type)) {
       for (const v of FRANCHISE_VARIANTS) {
         keys.push({ type, variant: v });
