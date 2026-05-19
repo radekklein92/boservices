@@ -35,6 +35,10 @@ import {
 import { extractPlaceholderTokens } from "@/lib/portal/contract-render";
 import { TiptapEditor } from "./TiptapEditor";
 import { PlaceholderPalette } from "./PlaceholderPalette";
+import {
+  DebtorPresetPicker,
+  type DebtorFillPayload,
+} from "./DebtorPresetPicker";
 
 type Props = {
   initial: Contract;
@@ -131,6 +135,11 @@ export function ContractDetailClient({ initial }: Props) {
   function updateVar(key: string, value: string) {
     setVariables((prev) => ({ ...prev, [key]: value }));
     markDirty();
+  }
+  function fillDebtor(payload: DebtorFillPayload) {
+    setVariables((prev) => ({ ...prev, ...payload }));
+    markDirty();
+    notify("ok", `Dlužník vyplněn: ${payload.debtorName || payload.debtorIco}.`);
   }
 
   function handleInsert(token: string) {
@@ -719,6 +728,10 @@ export function ContractDetailClient({ initial }: Props) {
           "debtorZip",
         ]) && (
           <FieldGroup label="Dlužník">
+            <DebtorPresetPicker
+              selectedIco={variables.debtorIco}
+              onFill={(payload) => fillDebtor(payload)}
+            />
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               {has("debtorName") && (
                 <SmallField
