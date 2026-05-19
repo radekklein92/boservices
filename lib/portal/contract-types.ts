@@ -130,13 +130,11 @@ export const FRANCHISE_VARIANT_META: Record<FranchiseVariant, VariantMeta> = {
 export const WITHDRAWAL_VARIANT_META: Record<WithdrawalVariant, VariantMeta> = {
   A: {
     label: "A — porušení Manažera",
-    description:
-      "Manažer (BOServices) trvale porušuje povinnost dodávat PNL reporty. Primárně odstoupení od MS, sekundárně padá FS.",
+    description: "Při aktivní manažerské smlouvě.",
   },
   B: {
     label: "B — porušení Poskytovatele",
-    description:
-      "Poskytovatel (BOServices) pozbyl právní titul k podnájmu provozovny. Primárně odstoupení od FS, sekundárně padá MS.",
+    description: "Pokud TWIST přišel o místo.",
   },
 };
 
