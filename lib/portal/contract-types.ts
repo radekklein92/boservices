@@ -79,7 +79,7 @@ export const CONTRACT_TYPE_META: Record<ContractType, ContractTypeMeta> = {
     shortName: "Postoupení pohledávek",
     fullName: "Postoupení pohledávek (balíček 3 dokumentů)",
     description:
-      "Smlouva o postoupení + Vedlejší ujednání o úplatě + Oznámení dlužníkovi. Generuje se jako jediný PDF.",
+      "Smlouva o postoupení + Vedlejší ujednání o úplatě + Oznámení dlužníkovi.",
   },
 };
 
