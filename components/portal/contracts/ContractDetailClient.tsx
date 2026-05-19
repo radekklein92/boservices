@@ -793,11 +793,12 @@ export function ContractDetailClient({ initial }: Props) {
                 />
               )}
               {has("originContractTitle") && (
-                <SmallField
+                <ChipField
                   label="Předmět původní smlouvy"
+                  hint="vyplní se za „ze smlouvy o…"
                   value={variables.originContractTitle ?? ""}
-                  placeholder="dodávkách zboží"
                   onChange={(v) => updateVar("originContractTitle", v)}
+                  options={ORIGIN_CONTRACT_TITLE_OPTIONS}
                 />
               )}
               {has("totalClaimsAmount") && (
@@ -1270,6 +1271,63 @@ function ActionCard({
         </div>
       </div>
       <div>{children}</div>
+    </div>
+  );
+}
+
+const ORIGIN_CONTRACT_TITLE_OPTIONS: ChipOption[] = [
+  { label: "Franšízingová smlouva", value: "franšíze" },
+  { label: "Kupní smlouva", value: "koupi zboží" },
+];
+
+type ChipOption = { label: string; value: string };
+
+function ChipField({
+  label,
+  hint,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  hint?: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: ChipOption[];
+}) {
+  // Aktivní chip = chip, jehož stored value se shoduje s aktuální hodnotou pole.
+  // Pokud uživatel ručně dopsal něco jiného, žádný chip není aktivní.
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="flex items-baseline gap-2 text-[10px] font-medium uppercase tracking-[0.16em] text-ink-mid">
+        <span>{label}</span>
+        {hint && (
+          <span className="normal-case tracking-normal text-[10px] text-ink-soft">
+            · {hint}
+          </span>
+        )}
+      </span>
+      <div className="flex flex-wrap gap-1.5">
+        {options.map((opt) => {
+          const active = value === opt.value;
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => onChange(opt.value)}
+              aria-pressed={active}
+              className={[
+                "inline-flex h-9 items-center rounded-full border px-3.5 text-[12.5px] font-medium transition-all",
+                active
+                  ? "border-ink-base bg-ink-base text-paper"
+                  : "border-edge bg-paper text-ink-deep hover:border-ink-soft",
+              ].join(" ")}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
