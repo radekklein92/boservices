@@ -7,18 +7,18 @@ import { ArrowLeft, Save, ShieldCheck } from "lucide-react";
 import type { Editor } from "@tiptap/react";
 import {
   CONTRACT_TYPE_META,
-  FRANCHISE_VARIANTS,
-  FRANCHISE_VARIANT_META,
+  getVariantsForType,
+  getVariantMeta,
   hasVariants,
   type ContractType,
-  type FranchiseVariant,
+  type ContractVariant,
 } from "@/lib/portal/contract-types";
 import { TiptapEditor } from "./TiptapEditor";
 import { PlaceholderPalette } from "./PlaceholderPalette";
 
 type Props = {
   type: ContractType;
-  variant?: FranchiseVariant;
+  variant?: ContractVariant;
   initialHtml: string;
   updatedAt: string;
   updatedBy: string;
@@ -162,8 +162,9 @@ export function TemplateEditorClient({
             Varianta
           </span>
           <div className="inline-flex items-center gap-1 rounded-full border border-edge bg-paper-warm p-1">
-            {FRANCHISE_VARIANTS.map((v) => {
-              const vm = FRANCHISE_VARIANT_META[v];
+            {getVariantsForType(type).map((v) => {
+              const vm = getVariantMeta(type, v);
+              if (!vm) return null;
               const active = v === variant;
               return (
                 <Link

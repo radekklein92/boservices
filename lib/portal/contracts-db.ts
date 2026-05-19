@@ -2,7 +2,7 @@ import { getRedis } from "@/lib/redis";
 import type {
   ClaimBundleSectionType,
   ContractType,
-  FranchiseVariant,
+  ContractVariant,
 } from "./contract-types";
 
 export type ContractStatus =
@@ -30,8 +30,9 @@ export interface Contract {
   templateSnapshot?: string;
   // Bundle (claim-bundle): pole 3 sekcí s vlastním HTML a snapshotem šablony.
   bundleSections?: BundleSection[];
-  // Varianta šablony - aktuálně pouze franchise (AB | B). Pro ostatní typy undefined.
-  variant?: FranchiseVariant;
+  // Varianta šablony - franchise (AB | B) nebo withdrawal (A | B). Pro typy
+  // bez variant je undefined. Platné hodnoty určuje isValidVariantForType().
+  variant?: ContractVariant;
   variables: Record<string, string>;
   // PDF vygenerováno
   generatedPdfUrl?: string;

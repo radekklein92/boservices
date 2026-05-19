@@ -24,14 +24,15 @@ import type { Editor } from "@tiptap/react";
 import type { BundleSection, Contract } from "@/lib/portal/contracts-db";
 import {
   CONTRACT_TYPE_META,
-  FRANCHISE_VARIANTS,
-  FRANCHISE_VARIANT_META,
-  franchiseVariantShort,
+  getVariantsForType,
+  getVariantMeta,
   hasVariants,
   isBundleType,
+  variantShortLabel,
   type ContractType,
-  type FranchiseVariant,
+  type ContractVariant,
 } from "@/lib/portal/contract-types";
+import { WITHDRAWAL_KS_TEXTS } from "@/lib/portal/contract-render";
 import { extractPlaceholderTokens } from "@/lib/portal/contract-render";
 import { TiptapEditor } from "./TiptapEditor";
 import { PlaceholderPalette } from "./PlaceholderPalette";
@@ -140,6 +141,20 @@ export function ContractDetailClient({ initial }: Props) {
     setVariables((prev) => ({ ...prev, ...payload }));
     markDirty();
     notify("ok", `Dlužník vyplněn: ${payload.debtorName || payload.debtorIco}.`);
+  }
+  function setKsMode(mode: string) {
+    // Toggle „KS padá" / „KS zůstává v platnosti" se promítne do dvou
+    // raw-HTML placeholderů, které šablona vykresluje na příslušných místech.
+    const texts =
+      mode === "preserved"
+        ? WITHDRAWAL_KS_TEXTS.preserved
+        : WITHDRAWAL_KS_TEXTS.dropped;
+    setVariables((prev) => ({
+      ...prev,
+      ksDropClause: texts.ksDropClause,
+      ksPreservedClause: texts.ksPreservedClause,
+    }));
+    markDirty();
   }
 
   function handleInsert(token: string) {
@@ -604,7 +619,9 @@ export function ContractDetailClient({ initial }: Props) {
             notify(
               "ok",
               `Šablona přepnuta na variantu ${
-                updated.variant ? franchiseVariantShort(updated.variant) : ""
+                updated.variant
+                  ? variantShortLabel(updated.type, updated.variant)
+                  : ""
               }.`,
             );
             router.refresh();
@@ -810,6 +827,43 @@ export function ContractDetailClient({ initial }: Props) {
                 />
               )}
             </div>
+          </FieldGroup>
+        )}
+
+        {hasAny([
+          "originContractsDate",
+          "leaseLostDate",
+          "ksDropClause",
+          "ksPreservedClause",
+        ]) && (
+          <FieldGroup label="Specifika odstoupení">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              {has("originContractsDate") && (
+                <SmallField
+                  label="Datum uzavření MS+FS (+KS)"
+                  value={variables.originContractsDate ?? ""}
+                  placeholder="1. ledna 2026"
+                  onChange={(v) => updateVar("originContractsDate", v)}
+                />
+              )}
+              {has("leaseLostDate") && (
+                <SmallField
+                  label="Datum ztráty nájmu (var. B)"
+                  value={variables.leaseLostDate ?? ""}
+                  placeholder="1. dubna 2026"
+                  onChange={(v) => updateVar("leaseLostDate", v)}
+                />
+              )}
+            </div>
+            {(has("ksDropClause") || has("ksPreservedClause")) && (
+              <ChipField
+                label="Kupní smlouva (KS)"
+                hint="jak se ke KS chovat v dokumentu"
+                value={detectKsMode(variables)}
+                onChange={(mode) => setKsMode(mode)}
+                options={KS_MODE_OPTIONS}
+              />
+            )}
           </FieldGroup>
         )}
 
@@ -1280,6 +1334,21 @@ const ORIGIN_CONTRACT_TITLE_OPTIONS: ChipOption[] = [
   { label: "Kupní smlouva", value: "koupi zboží" },
 ];
 
+const KS_MODE_OPTIONS: ChipOption[] = [
+  { label: "KS padá s ostatními", value: "dropped" },
+  { label: "KS zůstává v platnosti", value: "preserved" },
+];
+
+// Z dvojice hodnot (ksDropClause + ksPreservedClause) odvodí aktuální mode.
+// Pokud má ksDropClause obsah, KS „padá"; jinak (ksPreservedClause má obsah)
+// KS „zůstává v platnosti". Default = dropped.
+function detectKsMode(variables: Record<string, string>): string {
+  const drop = variables.ksDropClause ?? "";
+  const preserved = variables.ksPreservedClause ?? "";
+  if (preserved.trim() && !drop.trim()) return "preserved";
+  return "dropped";
+}
+
 type ChipOption = { label: string; value: string };
 
 function ChipField({
@@ -1432,10 +1501,11 @@ function VariantSection({
   onError: (msg: string) => void;
 }) {
   const current = contract.variant;
-  const [pending, setPending] = useState<FranchiseVariant | null>(null);
-  const [confirmFor, setConfirmFor] = useState<FranchiseVariant | null>(null);
+  const [pending, setPending] = useState<ContractVariant | null>(null);
+  const [confirmFor, setConfirmFor] = useState<ContractVariant | null>(null);
+  const variants = getVariantsForType(contract.type);
 
-  async function doSwitch(target: FranchiseVariant) {
+  async function doSwitch(target: ContractVariant) {
     setPending(target);
     setConfirmFor(null);
     try {
@@ -1461,14 +1531,16 @@ function VariantSection({
           Varianta šablony
         </h2>
         <span className="text-[11.5px] text-ink-mid">
-          · Která verze franšízingové smlouvy se použije.
+          · Která verze smlouvy se použije.
         </span>
       </div>
       <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-        {FRANCHISE_VARIANTS.map((v) => {
-          const meta = FRANCHISE_VARIANT_META[v];
-          const active = v === current;
-          const isPending = pending === v;
+        {variants.map((v) => {
+          const meta = getVariantMeta(contract.type, v);
+          if (!meta) return null;
+          const variant = v as ContractVariant;
+          const active = variant === current;
+          const isPending = pending === variant;
           return (
             <button
               key={v}
@@ -1477,9 +1549,9 @@ function VariantSection({
               onClick={() => {
                 if (active) return;
                 if (dirty) {
-                  setConfirmFor(v);
+                  setConfirmFor(variant);
                 } else {
-                  void doSwitch(v);
+                  void doSwitch(variant);
                 }
               }}
               className={[
@@ -1524,7 +1596,7 @@ function VariantSection({
               Přepsat smlouvu novou šablonou?
             </h3>
             <p className="mt-3 text-[12.5px] leading-relaxed text-ink-mid">
-              Přepnutím na variantu <strong>{franchiseVariantShort(confirmFor)}</strong> dojde k
+              Přepnutím na variantu <strong>{variantShortLabel(contract.type, confirmFor)}</strong> dojde k
               přepsání aktuálního znění smlouvy textem nové šablony. Veškeré
               vlastní úpravy v editoru budou ztraceny.
             </p>

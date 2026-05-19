@@ -6,12 +6,11 @@ import type { Client } from "@/lib/portal/clients-db";
 import {
   CONTRACT_TYPES_PICKABLE,
   CONTRACT_TYPE_META,
-  FRANCHISE_VARIANTS,
-  FRANCHISE_VARIANT_META,
-  DEFAULT_FRANCHISE_VARIANT,
+  getVariantsForType,
+  getVariantMeta,
+  getDefaultVariantForType,
   hasVariants,
   type ContractType,
-  type FranchiseVariant,
 } from "@/lib/portal/contract-types";
 import { ClientCombobox } from "@/components/portal/ui/ClientCombobox";
 
@@ -26,13 +25,25 @@ export function ContractCreateModal({
 }) {
   const [clientId, setClientId] = useState("");
   const [type, setType] = useState<ContractType>("franchise");
-  const [variant, setVariant] = useState<FranchiseVariant>(DEFAULT_FRANCHISE_VARIANT);
+  // Variant per type; přepnutí typu může změnit povolené varianty, takže když
+  // user přehodí na withdrawal, vezme se default A. Pro typy bez variant undefined.
+  const [variant, setVariant] = useState<string | undefined>(
+    getDefaultVariantForType("franchise"),
+  );
   // Franšízový poplatek (%) - AB: volitelné 0-8 (default 8), B: pevně 8
   const [franchiseFeePercent, setFranchiseFeePercent] = useState<number>(8);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const effectiveFeePercent = variant === "B" ? 8 : franchiseFeePercent;
+  const availableVariants = getVariantsForType(type);
+
+  function changeType(next: ContractType) {
+    setType(next);
+    // Reset variant na default toho typu (jinak by zůstala varianta z předchozího
+    // typu, která pro nový typ nemusí být platná).
+    setVariant(getDefaultVariantForType(next));
+  }
 
   useEffect(() => {
     const original = document.body.style.overflow;
@@ -128,7 +139,7 @@ export function ContractCreateModal({
                   <button
                     key={t}
                     type="button"
-                    onClick={() => setType(t)}
+                    onClick={() => changeType(t)}
                     className={[
                       "flex items-start gap-3 rounded-lg border px-3.5 py-3 text-left transition-all",
                       active
@@ -172,8 +183,9 @@ export function ContractCreateModal({
                 Varianta
               </span>
               <div className="grid grid-cols-2 gap-1.5">
-                {FRANCHISE_VARIANTS.map((v) => {
-                  const meta = FRANCHISE_VARIANT_META[v];
+                {availableVariants.map((v) => {
+                  const meta = getVariantMeta(type, v);
+                  if (!meta) return null;
                   const active = v === variant;
                   return (
                     <button

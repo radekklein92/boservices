@@ -76,6 +76,16 @@ export const PLACEHOLDER_GROUPS: PlaceholderGroup[] = [
       { token: "{{franchiseFeePercent}}", label: "Franšízový poplatek (%)", example: "8" },
     ],
   },
+  {
+    key: "withdrawal",
+    label: "Odstoupení od smluv",
+    items: [
+      { token: "{{originContractsDate}}", label: "Datum uzavření MS+FS (+KS)", example: "1. ledna 2026" },
+      { token: "{{leaseLostDate}}", label: "Datum ztráty nájmu (var. B)", example: "1. dubna 2026" },
+      { token: "{{ksDropClause}}", label: "KS — doplnění do bodu 4 (auto)", example: " a Kupní smlouvy k vybavení (KS)" },
+      { token: "{{ksPreservedClause}}", label: "KS — bod 5 prohlášení (auto)", example: "<li>Pro vyloučení pochybností…</li>" },
+    ],
+  },
 ];
 
 export function findPlaceholderLabel(token: string): string | undefined {

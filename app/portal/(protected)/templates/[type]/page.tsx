@@ -3,12 +3,12 @@ import { auth } from "@/auth";
 import { isAdminRole } from "@/lib/portal/auth-guard";
 import {
   isContractType,
-  isFranchiseVariant,
   hasVariants,
   isBundleType,
+  isValidVariantForType,
+  getDefaultVariantForType,
   CONTRACT_TYPE_META,
-  DEFAULT_FRANCHISE_VARIANT,
-  type FranchiseVariant,
+  type ContractVariant,
 } from "@/lib/portal/contract-types";
 import { getOrSeedContractTemplate } from "@/lib/portal/contract-templates-db";
 import { TemplateEditorClient } from "@/components/portal/contracts/TemplateEditorClient";
@@ -42,12 +42,12 @@ export default async function TemplatePage({
   if (!isAdminRole(session.user?.role)) redirect("/portal");
 
   const sp = await searchParams;
-  let variant: FranchiseVariant | undefined;
+  let variant: ContractVariant | undefined;
   if (hasVariants(type)) {
     variant =
-      sp.variant && isFranchiseVariant(sp.variant)
-        ? sp.variant
-        : DEFAULT_FRANCHISE_VARIANT;
+      sp.variant && isValidVariantForType(type, sp.variant)
+        ? (sp.variant as ContractVariant)
+        : (getDefaultVariantForType(type) as ContractVariant | undefined);
   }
 
   const template = await getOrSeedContractTemplate(type, variant);

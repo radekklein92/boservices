@@ -2,11 +2,11 @@ import { getRedis } from "@/lib/redis";
 import {
   CONTRACT_TYPE_META,
   CONTRACT_TYPES,
-  FRANCHISE_VARIANTS,
+  getVariantsForType,
   hasVariants,
   isBundleType,
   type ContractType,
-  type FranchiseVariant,
+  type ContractVariant,
 } from "./contract-types";
 
 // Bundle (claim-bundle) nemá vlastní šablonu - skládá se ze 3 zdrojových šablon
@@ -16,21 +16,21 @@ import { buildDefaultHtml } from "./default-templates";
 
 export interface ContractTemplate {
   type: ContractType;
-  variant?: FranchiseVariant;
+  variant?: ContractVariant;
   name: string;
   html: string;
   updatedBy: string;
   updatedAt: string;
 }
 
-const templateKey = (type: ContractType, variant?: FranchiseVariant) =>
+const templateKey = (type: ContractType, variant?: ContractVariant) =>
   hasVariants(type) && variant
     ? `portal:contract-template:${type}:${variant}`
     : `portal:contract-template:${type}`;
 
 export async function getContractTemplate(
   type: ContractType,
-  variant?: FranchiseVariant,
+  variant?: ContractVariant,
 ): Promise<ContractTemplate | null> {
   const r = getRedis();
   if (!r) return null;
@@ -39,7 +39,7 @@ export async function getContractTemplate(
 
 export async function getOrSeedContractTemplate(
   type: ContractType,
-  variant?: FranchiseVariant,
+  variant?: ContractVariant,
 ): Promise<ContractTemplate> {
   const existing = await getContractTemplate(type, variant);
   if (existing) return existing;
@@ -67,7 +67,7 @@ export type TemplateListEntry = {
   meta: (typeof CONTRACT_TYPE_META)[ContractType];
   template: ContractTemplate | null;
   variants?: Array<{
-    variant: FranchiseVariant;
+    variant: ContractVariant;
     template: ContractTemplate | null;
   }>;
 };
@@ -80,19 +80,22 @@ export async function listContractTemplates(): Promise<TemplateListEntry[]> {
       meta: CONTRACT_TYPE_META[type],
       template: null,
       variants: hasVariants(type)
-        ? FRANCHISE_VARIANTS.map((v) => ({ variant: v, template: null }))
+        ? getVariantsForType(type).map((v) => ({
+            variant: v as ContractVariant,
+            template: null,
+          }))
         : undefined,
     }));
   }
 
   const pipe = r.pipeline();
-  const keys: Array<{ type: ContractType; variant?: FranchiseVariant }> = [];
+  const keys: Array<{ type: ContractType; variant?: ContractVariant }> = [];
 
   for (const type of EDITABLE_TYPES) {
     if (hasVariants(type)) {
-      for (const v of FRANCHISE_VARIANTS) {
-        keys.push({ type, variant: v });
-        pipe.get<ContractTemplate>(templateKey(type, v));
+      for (const v of getVariantsForType(type)) {
+        keys.push({ type, variant: v as ContractVariant });
+        pipe.get<ContractTemplate>(templateKey(type, v as ContractVariant));
       }
     } else {
       keys.push({ type });
@@ -102,10 +105,11 @@ export async function listContractTemplates(): Promise<TemplateListEntry[]> {
 
   const results = (await pipe.exec()) as (ContractTemplate | null)[];
 
-  return CONTRACT_TYPES.map((type) => {
+  return EDITABLE_TYPES.map((type) => {
     const meta = CONTRACT_TYPE_META[type];
     if (hasVariants(type)) {
-      const variants = FRANCHISE_VARIANTS.map((variant) => {
+      const variants = getVariantsForType(type).map((v) => {
+        const variant = v as ContractVariant;
         const idx = keys.findIndex(
           (k) => k.type === type && k.variant === variant,
         );

@@ -78,7 +78,7 @@ export function DebtorPresetPicker({
               disabled={loading}
               aria-pressed={active}
               className={[
-                "inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[12px] font-medium transition-all disabled:opacity-60",
+                "inline-flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-[12.5px] font-medium transition-all disabled:opacity-60",
                 active
                   ? "border-ink-base bg-ink-base text-paper"
                   : "border-edge bg-paper text-ink-deep hover:border-ink-soft",
@@ -95,7 +95,7 @@ export function DebtorPresetPicker({
           type="button"
           onClick={() => setModalOpen(true)}
           aria-label="Přidat dalšího dlužníka"
-          className="inline-flex h-8 items-center gap-1.5 rounded-full border border-dashed border-edge bg-paper px-3 text-[12px] font-medium text-ink-mid transition-colors hover:border-ink-base hover:text-ink-base"
+          className="inline-flex h-9 items-center gap-1.5 rounded-full border border-dashed border-edge bg-paper px-3.5 text-[12.5px] font-medium text-ink-mid transition-colors hover:border-ink-base hover:text-ink-base"
         >
           <Plus className="h-3 w-3" strokeWidth={1.5} aria-hidden="true" />
           Jiná firma

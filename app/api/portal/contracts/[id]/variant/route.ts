@@ -10,7 +10,8 @@ import {
 import { getOrSeedContractTemplate } from "@/lib/portal/contract-templates-db";
 import {
   hasVariants,
-  isFranchiseVariant,
+  isValidVariantForType,
+  type ContractVariant,
 } from "@/lib/portal/contract-types";
 
 const switchSchema = z.object({
@@ -43,13 +44,16 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "Invalid JSON" }, { status: 400 });
   }
   const parsed = switchSchema.safeParse(body);
-  if (!parsed.success || !isFranchiseVariant(parsed.data.variant)) {
+  if (
+    !parsed.success ||
+    !isValidVariantForType(contract.type, parsed.data.variant)
+  ) {
     return NextResponse.json(
       { ok: false, error: "Neplatná varianta." },
       { status: 400 },
     );
   }
-  const variant = parsed.data.variant;
+  const variant = parsed.data.variant as ContractVariant;
 
   if (contract.variant === variant) {
     return NextResponse.json({ ok: true, contract });

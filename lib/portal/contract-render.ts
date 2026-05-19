@@ -74,8 +74,32 @@ export function buildDefaultContractMeta(date = new Date()): ContractVariables {
     debtorZip: "",
     provozovnaAddress: "",
     conceptName: "",
+    // Odstoupení od smluv
+    originContractsDate: "",
+    leaseLostDate: "",
+    ksDropClause: "",
+    ksPreservedClause: "",
   };
 }
+
+// Hotové texty pro toggle „nakládání s KS" v odstoupení od smluv. Při změně
+// nastavení (KS padá / KS zůstává v platnosti) klient nastaví obě tyto hodnoty.
+export const WITHDRAWAL_KS_TEXTS = {
+  dropped: {
+    ksDropClause: " a Kupní smlouvy k vybavení (KS)",
+    ksPreservedClause: "",
+  },
+  preserved: {
+    ksDropClause: "",
+    ksPreservedClause:
+      `<li>Pro vyloučení pochybností Odesílatel prohlašuje, že odstoupení se ` +
+      `<strong>nevztahuje na Kupní smlouvu k vybavení (KS)</strong>; ` +
+      `KS není ve smyslu § 1727 OZ závislá, její účel je splněn a Odesílatel ` +
+      `má zájem na jejím zachování.</li>`,
+  },
+} as const;
+
+export type WithdrawalKsMode = keyof typeof WITHDRAWAL_KS_TEXTS;
 
 const TOKEN_RE = /\{\{(\w+)\}\}/g;
 
@@ -88,6 +112,18 @@ const ALLOW_EMPTY = new Set([
   "clientStatutoryRole",
   "clientDic",
   "clientBankAccount",
+  // Conditional bloky pro odstoupení od smluv - prázdný řetězec znamená
+  // "tato klauzule se v dokumentu neuplatní".
+  "ksDropClause",
+  "ksPreservedClause",
+]);
+
+// Placeholdery, jejichž hodnoty se NEescapují - hodnota je raw HTML zlomek.
+// Pozor: tyto hodnoty musí být generované systémově (např. ksPreservedClause
+// se nastavuje z konstanty v WITHDRAWAL_KS_TEXTS), nikdy uživatelem volně,
+// jinak by hrozila XSS injekce do PDF.
+const RAW_HTML_PLACEHOLDERS = new Set([
+  "ksPreservedClause",
 ]);
 
 export function renderTemplate(
@@ -103,6 +139,7 @@ export function renderTemplate(
       if (ALLOW_EMPTY.has(key)) return "";
       return `<span style="background:#f3eecf;color:#7a5b00;padding:0 4px;border-radius:3px;font-style:italic">${key}</span>`;
     }
+    if (RAW_HTML_PLACEHOLDERS.has(key)) return value;
     return escapeHtml(value);
   });
 }

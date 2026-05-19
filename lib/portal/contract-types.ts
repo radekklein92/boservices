@@ -3,6 +3,7 @@ export const CONTRACT_TYPES = [
   "cooperation",
   "operation",
   "claim-bundle",
+  "withdrawal",
   "claim-assignment",
   "side-fee",
   "assignment-notice",
@@ -19,6 +20,7 @@ export const CONTRACT_TYPES_PICKABLE = [
   "cooperation",
   "operation",
   "claim-bundle",
+  "withdrawal",
 ] as const;
 
 // Sekce, ze kterých se skládá balíček postoupení pohledávek (v tomto pořadí).
@@ -81,6 +83,13 @@ export const CONTRACT_TYPE_META: Record<ContractType, ContractTypeMeta> = {
     description:
       "Smlouva o postoupení + Vedlejší ujednání o úplatě + Oznámení dlužníkovi.",
   },
+  withdrawal: {
+    key: "withdrawal",
+    shortName: "Odstoupení od smluv",
+    fullName: "Odstoupení od smluv (MS + FS, případně KS)",
+    description:
+      "Jednostranný projev vůle klienta odstoupit od MS a FS jako závislých smluv, volitelně i KS.",
+  },
 };
 
 export function isContractType(value: string): value is ContractType {
@@ -88,15 +97,25 @@ export function isContractType(value: string): value is ContractType {
 }
 
 // Některé typy smluv mají varianty (např. franšíza: AB s volbou A/B v textu,
-// nebo B-only s pevně daným podnájmem). Variant patří k samostatné šabloně,
-// uložené pod klíčem portal:contract-template:{type}:{variant}.
+// nebo B-only s pevně daným podnájmem; odstoupení: A porušení Manažera nebo
+// B porušení Poskytovatele). Variant patří k samostatné šabloně, uložené
+// pod klíčem portal:contract-template:{type}:{variant}.
 export const FRANCHISE_VARIANTS = ["AB", "B"] as const;
 export type FranchiseVariant = (typeof FRANCHISE_VARIANTS)[number];
 
-export const FRANCHISE_VARIANT_META: Record<
-  FranchiseVariant,
-  { label: string; description: string }
-> = {
+export const WITHDRAWAL_VARIANTS = ["A", "B"] as const;
+export type WithdrawalVariant = (typeof WITHDRAWAL_VARIANTS)[number];
+
+// Sjednocený typ - každý Contract.variant je textový identifikátor, jehož
+// platné hodnoty určuje typ smlouvy.
+export type ContractVariant = FranchiseVariant | WithdrawalVariant;
+
+export interface VariantMeta {
+  label: string;
+  description: string;
+}
+
+export const FRANCHISE_VARIANT_META: Record<FranchiseVariant, VariantMeta> = {
   AB: {
     label: "A — nájem na franšízantovi",
     description:
@@ -109,8 +128,23 @@ export const FRANCHISE_VARIANT_META: Record<
   },
 };
 
-export function hasVariants(type: ContractType): type is "franchise" {
-  return type === "franchise";
+export const WITHDRAWAL_VARIANT_META: Record<WithdrawalVariant, VariantMeta> = {
+  A: {
+    label: "A — porušení Manažera",
+    description:
+      "Manažer (BOServices) trvale porušuje povinnost dodávat PNL reporty. Primárně odstoupení od MS, sekundárně padá FS.",
+  },
+  B: {
+    label: "B — porušení Poskytovatele",
+    description:
+      "Poskytovatel (BOServices) pozbyl právní titul k podnájmu provozovny. Primárně odstoupení od FS, sekundárně padá MS.",
+  },
+};
+
+export function hasVariants(
+  type: ContractType,
+): type is "franchise" | "withdrawal" {
+  return type === "franchise" || type === "withdrawal";
 }
 
 export function isBundleType(type: ContractType): type is "claim-bundle" {
@@ -127,11 +161,63 @@ export function isFranchiseVariant(value: string): value is FranchiseVariant {
   return (FRANCHISE_VARIANTS as readonly string[]).includes(value);
 }
 
+export function isWithdrawalVariant(
+  value: string,
+): value is WithdrawalVariant {
+  return (WITHDRAWAL_VARIANTS as readonly string[]).includes(value);
+}
+
+// Vrátí pole platných variant pro daný typ smlouvy (prázdné pole pro typy
+// bez variant). Generický helper - používá ho UI variant switcher.
+export function getVariantsForType(type: ContractType): readonly string[] {
+  if (type === "franchise") return FRANCHISE_VARIANTS;
+  if (type === "withdrawal") return WITHDRAWAL_VARIANTS;
+  return [];
+}
+
+// Vrátí meta info (label, description) pro variantu daného typu.
+export function getVariantMeta(
+  type: ContractType,
+  variant: string,
+): VariantMeta | null {
+  if (type === "franchise" && isFranchiseVariant(variant)) {
+    return FRANCHISE_VARIANT_META[variant];
+  }
+  if (type === "withdrawal" && isWithdrawalVariant(variant)) {
+    return WITHDRAWAL_VARIANT_META[variant];
+  }
+  return null;
+}
+
+export function isValidVariantForType(
+  type: ContractType,
+  variant: string,
+): boolean {
+  return getVariantsForType(type).includes(variant);
+}
+
 // Krátký label pro zobrazení v hláškách (např. „Přepnuto na variantu A").
-// Identifikátor varianty „AB" zůstává historicky v datech, navenek se
-// ale prezentuje jen jako „A".
+// Identifikátor varianty „AB" (franšíza) zůstává historicky v datech, navenek
+// se ale prezentuje jen jako „A". U withdrawal je už A/B nativně.
 export function franchiseVariantShort(v: FranchiseVariant): "A" | "B" {
   return v === "AB" ? "A" : "B";
 }
 
+export function variantShortLabel(
+  type: ContractType,
+  variant: string,
+): string {
+  if (type === "franchise" && isFranchiseVariant(variant)) {
+    return franchiseVariantShort(variant);
+  }
+  return variant;
+}
+
 export const DEFAULT_FRANCHISE_VARIANT: FranchiseVariant = "B";
+export const DEFAULT_WITHDRAWAL_VARIANT: WithdrawalVariant = "A";
+
+export function getDefaultVariantForType(type: ContractType): string | undefined {
+  if (type === "franchise") return DEFAULT_FRANCHISE_VARIANT;
+  if (type === "withdrawal") return DEFAULT_WITHDRAWAL_VARIANT;
+  return undefined;
+}

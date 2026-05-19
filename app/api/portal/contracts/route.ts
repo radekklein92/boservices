@@ -5,14 +5,15 @@ import { requireSession } from "@/lib/portal/auth-guard";
 import { getClient } from "@/lib/portal/clients-db";
 import {
   isContractType,
-  isFranchiseVariant,
   hasVariants,
   isBundleType,
+  isValidVariantForType,
+  getDefaultVariantForType,
   CONTRACT_TYPE_META,
   CLAIM_BUNDLE_SECTIONS,
-  DEFAULT_FRANCHISE_VARIANT,
-  type FranchiseVariant,
+  type ContractVariant,
 } from "@/lib/portal/contract-types";
+import { WITHDRAWAL_KS_TEXTS } from "@/lib/portal/contract-render";
 import { getOrSeedContractTemplate } from "@/lib/portal/contract-templates-db";
 import {
   getNextContractNumber,
@@ -72,12 +73,12 @@ export async function POST(req: Request) {
     );
   }
 
-  let variant: FranchiseVariant | undefined;
+  let variant: ContractVariant | undefined;
   if (hasVariants(type)) {
-    if (rawVariant && isFranchiseVariant(rawVariant)) {
-      variant = rawVariant;
+    if (rawVariant && isValidVariantForType(type, rawVariant)) {
+      variant = rawVariant as ContractVariant;
     } else {
-      variant = DEFAULT_FRANCHISE_VARIANT;
+      variant = getDefaultVariantForType(type) as ContractVariant | undefined;
     }
   }
 
@@ -120,6 +121,14 @@ export async function POST(req: Request) {
   if (type === "franchise") {
     const feePercent = variant === "B" ? 8 : (rawFeePercent ?? 8);
     variables.franchiseFeePercent = String(feePercent);
+  }
+
+  // Odstoupení od smluv: default „KS padá s ostatními" (ksDropClause naplněn,
+  // ksPreservedClause prázdný). User to může v detailu přepnout.
+  if (type === "withdrawal") {
+    const ks = WITHDRAWAL_KS_TEXTS.dropped;
+    variables.ksDropClause = ks.ksDropClause;
+    variables.ksPreservedClause = ks.ksPreservedClause;
   }
 
   const nowIso = now.toISOString();
