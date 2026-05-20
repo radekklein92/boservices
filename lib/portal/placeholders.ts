@@ -77,6 +77,17 @@ export const PLACEHOLDER_GROUPS: PlaceholderGroup[] = [
     ],
   },
   {
+    key: "manager",
+    label: "Manažer (odstoupení)",
+    items: [
+      { token: "{{managerName}}", label: "Obchodní jméno", example: "Twistcafe s.r.o." },
+      { token: "{{managerIco}}", label: "IČO", example: "07177658" },
+      { token: "{{managerStreet}}", label: "Ulice a č.p.", example: "Hlavní 1" },
+      { token: "{{managerCity}}", label: "Obec", example: "Praha 1" },
+      { token: "{{managerZip}}", label: "PSČ", example: "11000" },
+    ],
+  },
+  {
     key: "withdrawal",
     label: "Odstoupení od smluv",
     items: [

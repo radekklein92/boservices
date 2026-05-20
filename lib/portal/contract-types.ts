@@ -86,7 +86,7 @@ export const CONTRACT_TYPE_META: Record<ContractType, ContractTypeMeta> = {
   withdrawal: {
     key: "withdrawal",
     shortName: "Odstoupení od smluv",
-    fullName: "Odstoupení od smluv (MS + FS, případně KS)",
+    fullName: "Odstoupení od smluv",
     description: "Klient odstupuje od MS a FS, volitelně i od KS.",
   },
 };

@@ -108,9 +108,13 @@ export async function POST(req: Request) {
   const now = new Date();
   const meta = buildDefaultContractMeta(now);
   const number = await getNextContractNumber(now);
+  // Pro odstoupení od smluv NEpřidávat PROVIDER_DEFAULTS - Manažer i Poskytovatel
+  // jsou jiné firmy ze sítě BOServices, které si user vybere chip-pickerem.
+  // Pro ostatní typy provider* = BOServices (sjednaný poskytovatel).
+  const providerVars = type === "withdrawal" ? {} : PROVIDER_DEFAULTS;
   const variables: Record<string, string> = {
     ...meta,
-    ...PROVIDER_DEFAULTS,
+    ...providerVars,
     ...buildClientVariables(client),
     contractNumber: number,
     effectiveDate: meta.contractDate ?? "",

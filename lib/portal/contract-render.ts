@@ -79,6 +79,14 @@ export function buildDefaultContractMeta(date = new Date()): ContractVariables {
     leaseLostDate: "",
     ksDropClause: "",
     ksPreservedClause: "",
+    // Manažer (odstoupení) - obě firmy (Manažer i Poskytovatel) si user vybere
+    // ze stejných 7 preset firem. Proto pro withdrawal nepředplňujeme
+    // provider* PROVIDER_DEFAULTS (řeší se v POST /api/portal/contracts).
+    managerName: "",
+    managerIco: "",
+    managerStreet: "",
+    managerCity: "",
+    managerZip: "",
   };
 }
 

@@ -647,7 +647,7 @@ function withdrawalAHtml(): string {
 
 <h2>Smluvní strany</h2>
 <p><strong>{{clientName}}</strong>, IČO: {{clientIco}}, se sídlem {{clientStreet}}, {{clientZip}} {{clientCity}}{{clientRepresentationClause}} (dále jen „<strong>Odesílatel</strong>“)</p>
-<p><strong>{{providerName}}</strong>, IČO: {{providerIco}}, se sídlem {{providerStreet}}, {{providerZip}} {{providerCity}} (dále jen „<strong>Manažer</strong>“)</p>
+<p><strong>{{managerName}}</strong>, IČO: {{managerIco}}, se sídlem {{managerStreet}}, {{managerZip}} {{managerCity}} (dále jen „<strong>Manažer</strong>“)</p>
 <p><strong>{{providerName}}</strong>, IČO: {{providerIco}}, se sídlem {{providerStreet}}, {{providerZip}} {{providerCity}} (dále jen „<strong>Poskytovatel</strong>“)</p>
 
 <h2>Úvodní ustanovení</h2>
@@ -690,7 +690,7 @@ function withdrawalBHtml(): string {
 
 <h2>Smluvní strany</h2>
 <p><strong>{{clientName}}</strong>, IČO: {{clientIco}}, se sídlem {{clientStreet}}, {{clientZip}} {{clientCity}}{{clientRepresentationClause}} (dále jen „<strong>Odesílatel</strong>“)</p>
-<p><strong>{{providerName}}</strong>, IČO: {{providerIco}}, se sídlem {{providerStreet}}, {{providerZip}} {{providerCity}} (dále jen „<strong>Manažer</strong>“)</p>
+<p><strong>{{managerName}}</strong>, IČO: {{managerIco}}, se sídlem {{managerStreet}}, {{managerZip}} {{managerCity}} (dále jen „<strong>Manažer</strong>“)</p>
 <p><strong>{{providerName}}</strong>, IČO: {{providerIco}}, se sídlem {{providerStreet}}, {{providerZip}} {{providerCity}} (dále jen „<strong>Poskytovatel</strong>“)</p>
 
 <h2>Úvodní ustanovení</h2>

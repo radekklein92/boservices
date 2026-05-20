@@ -40,6 +40,10 @@ import {
   DebtorPresetPicker,
   type DebtorFillPayload,
 } from "./DebtorPresetPicker";
+import {
+  CompanyChipPicker,
+  type CompanyFillPayload,
+} from "./CompanyChipPicker";
 
 type Props = {
   initial: Contract;
@@ -141,6 +145,30 @@ export function ContractDetailClient({ initial }: Props) {
     setVariables((prev) => ({ ...prev, ...payload }));
     markDirty();
     notify("ok", `Dlužník vyplněn: ${payload.debtorName || payload.debtorIco}.`);
+  }
+  function fillManager(p: CompanyFillPayload) {
+    setVariables((prev) => ({
+      ...prev,
+      managerName: p.name,
+      managerIco: p.ico,
+      managerStreet: p.street,
+      managerCity: p.city,
+      managerZip: p.zip,
+    }));
+    markDirty();
+    notify("ok", `Manažer vyplněn: ${p.name || p.ico}.`);
+  }
+  function fillWithdrawalProvider(p: CompanyFillPayload) {
+    setVariables((prev) => ({
+      ...prev,
+      providerName: p.name,
+      providerIco: p.ico,
+      providerStreet: p.street,
+      providerCity: p.city,
+      providerZip: p.zip,
+    }));
+    markDirty();
+    notify("ok", `Poskytovatel vyplněn: ${p.name || p.ico}.`);
   }
   function setKsMode(mode: string) {
     // Toggle „KS padá" / „KS zůstává v platnosti" se promítne do dvou
@@ -660,10 +688,98 @@ export function ContractDetailClient({ initial }: Props) {
           </div>
         </FieldGroup>
 
-        {/* Odstoupení od smluv: na něm BOServices nepodepisuje, takže sekce
-            zástupců se neukazuje ani pro starší smlouvy, jejichž šablona může
-            mít zbylé tokeny - ty se vyrenderují z provider defaults nebo
-            si je user může smazat přímo v editoru znění níže. */}
+        {/* Odstoupení od smluv: Manažer i Poskytovatel jsou firmy ze sítě
+            BOServices, ne hlavní s.r.o. User je vybírá ze stejných 7 presetů
+            jako Dlužníka. Sekce „Zástupci poskytovatele" se neukazuje (na
+            odstoupení BOServices nepodepisuje). */}
+        {contract.type === "withdrawal" && (
+          <>
+            <FieldGroup label="Manažer (adresát MS)">
+              <CompanyChipPicker
+                selectedIco={variables.managerIco}
+                onFill={fillManager}
+                addLabel="Jiná firma"
+                modalEyebrow="Manažer mimo presety"
+                modalTitle="Vyhledat firmu v ARES"
+              />
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <SmallField
+                  label="Manažer - obchodní jméno"
+                  value={variables.managerName ?? ""}
+                  placeholder="Twistcafe s.r.o."
+                  onChange={(v) => updateVar("managerName", v)}
+                />
+                <SmallField
+                  label="Manažer - IČO"
+                  value={variables.managerIco ?? ""}
+                  placeholder="12345678"
+                  onChange={(v) => updateVar("managerIco", v)}
+                />
+                <SmallField
+                  label="Manažer - ulice a č.p."
+                  value={variables.managerStreet ?? ""}
+                  placeholder="Hlavní 1"
+                  onChange={(v) => updateVar("managerStreet", v)}
+                />
+                <SmallField
+                  label="Manažer - obec"
+                  value={variables.managerCity ?? ""}
+                  placeholder="Praha 1"
+                  onChange={(v) => updateVar("managerCity", v)}
+                />
+                <SmallField
+                  label="Manažer - PSČ"
+                  value={variables.managerZip ?? ""}
+                  placeholder="11000"
+                  onChange={(v) => updateVar("managerZip", v)}
+                />
+              </div>
+            </FieldGroup>
+
+            <FieldGroup label="Poskytovatel (adresát FS)">
+              <CompanyChipPicker
+                selectedIco={variables.providerIco}
+                onFill={fillWithdrawalProvider}
+                addLabel="Jiná firma"
+                modalEyebrow="Poskytovatel mimo presety"
+                modalTitle="Vyhledat firmu v ARES"
+              />
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <SmallField
+                  label="Poskytovatel - obchodní jméno"
+                  value={variables.providerName ?? ""}
+                  placeholder="Trdlokafe International s.r.o."
+                  onChange={(v) => updateVar("providerName", v)}
+                />
+                <SmallField
+                  label="Poskytovatel - IČO"
+                  value={variables.providerIco ?? ""}
+                  placeholder="12345678"
+                  onChange={(v) => updateVar("providerIco", v)}
+                />
+                <SmallField
+                  label="Poskytovatel - ulice a č.p."
+                  value={variables.providerStreet ?? ""}
+                  placeholder="Hlavní 1"
+                  onChange={(v) => updateVar("providerStreet", v)}
+                />
+                <SmallField
+                  label="Poskytovatel - obec"
+                  value={variables.providerCity ?? ""}
+                  placeholder="Praha 1"
+                  onChange={(v) => updateVar("providerCity", v)}
+                />
+                <SmallField
+                  label="Poskytovatel - PSČ"
+                  value={variables.providerZip ?? ""}
+                  placeholder="11000"
+                  onChange={(v) => updateVar("providerZip", v)}
+                />
+              </div>
+            </FieldGroup>
+          </>
+        )}
+
         {contract.type !== "withdrawal" && (
           <FieldGroup label="Zástupci poskytovatele (BOServices podepisují vždy 2 jednatelé)">
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
