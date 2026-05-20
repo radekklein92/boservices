@@ -660,34 +660,40 @@ export function ContractDetailClient({ initial }: Props) {
           </div>
         </FieldGroup>
 
-        <FieldGroup label="Zástupci poskytovatele (BOServices podepisují vždy 2 jednatelé)">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <SmallField
-              label="1. zástupce - jméno"
-              value={variables.providerStatutory1Name ?? ""}
-              placeholder="Ing. Jiří Slavkovský"
-              onChange={(v) => updateVar("providerStatutory1Name", v)}
-            />
-            <SmallField
-              label="1. zástupce - funkce"
-              value={variables.providerStatutory1Role ?? ""}
-              placeholder="jednatel"
-              onChange={(v) => updateVar("providerStatutory1Role", v)}
-            />
-            <SmallField
-              label="2. zástupce - jméno"
-              value={variables.providerStatutory2Name ?? ""}
-              placeholder="Mgr. Jakub Pešek"
-              onChange={(v) => updateVar("providerStatutory2Name", v)}
-            />
-            <SmallField
-              label="2. zástupce - funkce"
-              value={variables.providerStatutory2Role ?? ""}
-              placeholder="jednatel"
-              onChange={(v) => updateVar("providerStatutory2Role", v)}
-            />
-          </div>
-        </FieldGroup>
+        {/* Odstoupení od smluv: na něm BOServices nepodepisuje, takže sekce
+            zástupců se neukazuje ani pro starší smlouvy, jejichž šablona může
+            mít zbylé tokeny - ty se vyrenderují z provider defaults nebo
+            si je user může smazat přímo v editoru znění níže. */}
+        {contract.type !== "withdrawal" && (
+          <FieldGroup label="Zástupci poskytovatele (BOServices podepisují vždy 2 jednatelé)">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <SmallField
+                label="1. zástupce - jméno"
+                value={variables.providerStatutory1Name ?? ""}
+                placeholder="Ing. Jiří Slavkovský"
+                onChange={(v) => updateVar("providerStatutory1Name", v)}
+              />
+              <SmallField
+                label="1. zástupce - funkce"
+                value={variables.providerStatutory1Role ?? ""}
+                placeholder="jednatel"
+                onChange={(v) => updateVar("providerStatutory1Role", v)}
+              />
+              <SmallField
+                label="2. zástupce - jméno"
+                value={variables.providerStatutory2Name ?? ""}
+                placeholder="Mgr. Jakub Pešek"
+                onChange={(v) => updateVar("providerStatutory2Name", v)}
+              />
+              <SmallField
+                label="2. zástupce - funkce"
+                value={variables.providerStatutory2Role ?? ""}
+                placeholder="jednatel"
+                onChange={(v) => updateVar("providerStatutory2Role", v)}
+              />
+            </div>
+          </FieldGroup>
+        )}
 
         {has("clientBankAccount") && (
           <FieldGroup label="Bankovní účet klienta">

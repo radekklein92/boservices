@@ -62,6 +62,17 @@ export async function upsertContractTemplate(
   await r.set(templateKey(template.type, template.variant), template);
 }
 
+// Smaže uloženou šablonu z Redisu - příští getOrSeedContractTemplate vrátí
+// čistý default z buildDefaultHtml(). Používá se pro „reset na výchozí".
+export async function deleteContractTemplate(
+  type: ContractType,
+  variant?: ContractVariant,
+): Promise<void> {
+  const r = getRedis();
+  if (!r) return;
+  await r.del(templateKey(type, variant));
+}
+
 export type TemplateListEntry = {
   type: ContractType;
   meta: (typeof CONTRACT_TYPE_META)[ContractType];

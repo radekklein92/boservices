@@ -9,6 +9,7 @@ import {
   type ContractVariant,
 } from "@/lib/portal/contract-types";
 import {
+  deleteContractTemplate,
   getOrSeedContractTemplate,
   upsertContractTemplate,
 } from "@/lib/portal/contract-templates-db";
@@ -74,6 +75,26 @@ export async function PUT(
     updatedBy: g.session.user!.email!,
     updatedAt: new Date().toISOString(),
   });
+
+  return NextResponse.json({ ok: true });
+}
+
+// Reset šablony na výchozí (smaže Redis záznam, příští GET vrátí čistý default).
+export async function DELETE(
+  req: Request,
+  { params }: { params: Promise<{ type: string }> },
+) {
+  const g = await requireAdmin();
+  if (!g.ok) return g.response;
+
+  const { type } = await params;
+  if (!isContractType(type)) {
+    return NextResponse.json({ ok: false, error: "Unknown type" }, { status: 404 });
+  }
+
+  const url = new URL(req.url);
+  const variant = resolveVariant(type, url);
+  await deleteContractTemplate(type, variant);
 
   return NextResponse.json({ ok: true });
 }
