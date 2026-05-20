@@ -647,8 +647,8 @@ function withdrawalAHtml(): string {
 
 <h2>Smluvní strany</h2>
 <p><strong>{{clientName}}</strong>, IČO: {{clientIco}}, se sídlem {{clientStreet}}, {{clientZip}} {{clientCity}}{{clientRepresentationClause}} (dále jen „<strong>Odesílatel</strong>“)</p>
-<p><strong>{{providerName}}</strong>, IČO: {{providerIco}}, se sídlem {{providerStreet}}, {{providerZip}} {{providerCity}}, zastoupená {{providerStatutory1Name}}, {{providerStatutory1Role}} (dále jen „<strong>Manažer</strong>“)</p>
-<p><strong>{{providerName}}</strong>, IČO: {{providerIco}}, se sídlem {{providerStreet}}, {{providerZip}} {{providerCity}}, zastoupená {{providerStatutory1Name}}, {{providerStatutory1Role}} (dále jen „<strong>Poskytovatel</strong>“)</p>
+<p><strong>{{providerName}}</strong>, IČO: {{providerIco}}, se sídlem {{providerStreet}}, {{providerZip}} {{providerCity}} (dále jen „<strong>Manažer</strong>“)</p>
+<p><strong>{{providerName}}</strong>, IČO: {{providerIco}}, se sídlem {{providerStreet}}, {{providerZip}} {{providerCity}} (dále jen „<strong>Poskytovatel</strong>“)</p>
 
 <h2>Úvodní ustanovení</h2>
 <ol>
@@ -690,8 +690,8 @@ function withdrawalBHtml(): string {
 
 <h2>Smluvní strany</h2>
 <p><strong>{{clientName}}</strong>, IČO: {{clientIco}}, se sídlem {{clientStreet}}, {{clientZip}} {{clientCity}}{{clientRepresentationClause}} (dále jen „<strong>Odesílatel</strong>“)</p>
-<p><strong>{{providerName}}</strong>, IČO: {{providerIco}}, se sídlem {{providerStreet}}, {{providerZip}} {{providerCity}}, zastoupená {{providerStatutory1Name}}, {{providerStatutory1Role}} (dále jen „<strong>Manažer</strong>“)</p>
-<p><strong>{{providerName}}</strong>, IČO: {{providerIco}}, se sídlem {{providerStreet}}, {{providerZip}} {{providerCity}}, zastoupená {{providerStatutory1Name}}, {{providerStatutory1Role}} (dále jen „<strong>Poskytovatel</strong>“)</p>
+<p><strong>{{providerName}}</strong>, IČO: {{providerIco}}, se sídlem {{providerStreet}}, {{providerZip}} {{providerCity}} (dále jen „<strong>Manažer</strong>“)</p>
+<p><strong>{{providerName}}</strong>, IČO: {{providerIco}}, se sídlem {{providerStreet}}, {{providerZip}} {{providerCity}} (dále jen „<strong>Poskytovatel</strong>“)</p>
 
 <h2>Úvodní ustanovení</h2>
 <ol>

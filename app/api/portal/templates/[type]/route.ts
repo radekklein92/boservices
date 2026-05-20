@@ -2,11 +2,11 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/portal/auth-guard";
 import {
-  DEFAULT_FRANCHISE_VARIANT,
+  getDefaultVariantForType,
   hasVariants,
   isContractType,
-  isFranchiseVariant,
-  type FranchiseVariant,
+  isValidVariantForType,
+  type ContractVariant,
 } from "@/lib/portal/contract-types";
 import {
   getOrSeedContractTemplate,
@@ -20,11 +20,11 @@ const updateSchema = z.object({
 function resolveVariant(
   type: string,
   url: URL,
-): FranchiseVariant | undefined {
+): ContractVariant | undefined {
   if (!isContractType(type) || !hasVariants(type)) return undefined;
   const raw = url.searchParams.get("variant");
-  if (raw && isFranchiseVariant(raw)) return raw;
-  return DEFAULT_FRANCHISE_VARIANT;
+  if (raw && isValidVariantForType(type, raw)) return raw as ContractVariant;
+  return getDefaultVariantForType(type) as ContractVariant | undefined;
 }
 
 export async function GET(

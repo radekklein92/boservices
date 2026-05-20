@@ -846,6 +846,15 @@ export function ContractDetailClient({ initial }: Props) {
                   onChange={(v) => updateVar("originContractsDate", v)}
                 />
               )}
+              {(has("ksDropClause") || has("ksPreservedClause")) && (
+                <ChipField
+                  label="Kupní smlouva (KS)"
+                  hint="jak se ke KS chovat v dokumentu"
+                  value={detectKsMode(variables)}
+                  onChange={(mode) => setKsMode(mode)}
+                  options={KS_MODE_OPTIONS}
+                />
+              )}
               {has("leaseLostDate") && (
                 <SmallField
                   label="Datum ztráty nájmu (var. B)"
@@ -855,15 +864,6 @@ export function ContractDetailClient({ initial }: Props) {
                 />
               )}
             </div>
-            {(has("ksDropClause") || has("ksPreservedClause")) && (
-              <ChipField
-                label="Kupní smlouva (KS)"
-                hint="jak se ke KS chovat v dokumentu"
-                value={detectKsMode(variables)}
-                onChange={(mode) => setKsMode(mode)}
-                options={KS_MODE_OPTIONS}
-              />
-            )}
           </FieldGroup>
         )}
 
