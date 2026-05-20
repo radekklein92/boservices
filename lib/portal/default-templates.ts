@@ -642,41 +642,7 @@ function franchiseAbHtml(): string {
  * a {{ksPreservedClause}} placeholdery (KS padá / KS zůstává v platnosti).
  * ------------------------------------------------------------------------- */
 function withdrawalAHtml(): string {
-  return `<h1>Odstoupení od smlouvy</h1>
-<p><em>Smlouva o provozování provozovny a Franšízingová smlouva</em></p>
-
-<h2>Smluvní strany</h2>
-<p><strong>{{clientName}}</strong>, IČO: {{clientIco}}, se sídlem {{clientStreet}}, {{clientZip}} {{clientCity}}{{clientRepresentationClause}} (dále jen „<strong>Odesílatel</strong>“)</p>
-<p><strong>{{managerName}}</strong>, IČO: {{managerIco}}, se sídlem {{managerStreet}}, {{managerZip}} {{managerCity}} (dále jen „<strong>Manažer</strong>“)</p>
-<p><strong>{{providerName}}</strong>, IČO: {{providerIco}}, se sídlem {{providerStreet}}, {{providerZip}} {{providerCity}} (dále jen „<strong>Poskytovatel</strong>“)</p>
-
-<h2>Úvodní ustanovení</h2>
-<ol>
-  <li>Mezi Smluvními stranami byly dne <strong>{{originContractsDate}}</strong> uzavřeny při témže jednání následující smlouvy, jejichž předmětem je lokace <strong>{{withdrawalLocation}}</strong>:
-    <ol>
-      <li><strong>Smlouva o provozování provozovny</strong> mezi Odesílatelem a Manažerem (dále jen „<strong>MS</strong>“);</li>
-      <li><strong>Franšízingová smlouva</strong> mezi Odesílatelem a Poskytovatelem (dále jen „<strong>FS</strong>“);</li>
-      <li><strong>Kupní smlouva k vybavení</strong> mezi Odesílatelem a Manažerem (dále jen „<strong>KS</strong>“).</li>
-    </ol>
-  </li>
-  <li>Smlouvy tvoří <strong>jediný hospodářský celek</strong> a jsou ve smyslu <strong>§ 1727 občanského zákoníku</strong> smlouvami závislými.</li>
-</ol>
-
-<h2>Odstoupení</h2>
-<ol>
-  <li>Manažer trvale porušuje svou základní povinnost dodávat měsíční PNL reporty za Provozovnu od počátku franšízového vztahu. Jde o esenciální povinnost Manažera podle MS, bez níž nelze ověřit hospodářský výsledek Provozovny ani vypořádat ekonomické vztahy podle Smluv.</li>
-  <li>Popsané jednání je <strong>podstatným porušením</strong> smluvní povinnosti ve smyslu § 2002 odst. 1 občanského zákoníku — Odesílatel by Smlouvy neuzavřel, pokud by takový stav v době uzavření Smluv předvídal.</li>
-  <li><strong>Odesílatel tímto odstupuje od Smlouvy o provozování provozovny (MS)</strong> dle <strong>§ 2002 odst. 1 občanského zákoníku</strong>. Odstoupení je účinné okamžikem doručení tohoto projevu vůle (§ 570 odst. 1 OZ).</li>
-  <li>Zároveň podle <strong>§ 1727 občanského zákoníku</strong> dochází k zániku též <strong>Franšízingové smlouvy (FS)</strong>{{ksDropClause}} jako smluv závislých.</li>
-  {{ksPreservedClause}}
-  <li>Pohledávky vzniklé před odstoupením (úroky z prodlení, smluvní pokuty) zůstávají zachovány (§ 2005 odst. 1 OZ). Odesílatel si vyhrazuje veškeré další nároky.</li>
-</ol>
-
-<p><em>Toto Odstoupení je výhradně civilní povahy a žádná z výzev ani požadavků v něm obsažených není vázána na hrozbu trestního oznámení.</em></p>
-
-<p>V {{place}} dne {{contractDate}}</p>
-<p>&nbsp;</p>
-<p>__________________________<br/><strong>{{clientName}}</strong><br/>{{clientSignerName}}, {{clientSignerRole}}</p>`;
+  return `<h2>Smluvní strany</h2><p><strong>{{clientName}}</strong>, IČO: {{clientIco}}, se sídlem {{clientStreet}}, {{clientZip}} {{clientCity}}{{clientRepresentationClause}} (dále jen „<strong>Odesílatel</strong>“)</p><p><strong>{{managerName}}</strong>, IČO: {{managerIco}}, se sídlem {{managerStreet}}, {{managerZip}} {{managerCity}} (dále jen „<strong>Manažer</strong>“)</p><p><strong>{{providerName}}</strong>, IČO: {{providerIco}}, se sídlem {{providerStreet}}, {{providerZip}} {{providerCity}} (dále jen „<strong>Poskytovatel</strong>“)</p><h2>Úvodní ustanovení</h2><ol><li><p>Mezi Smluvními stranami byly dne <strong>{{originContractsDate}}</strong> uzavřeny při témže jednání následující smlouvy, jejichž předmětem je lokace <strong>{{withdrawalLocation}}</strong>:</p><ol><li><p><strong>Smlouva o provozování provozovny</strong> mezi Odesílatelem a Manažerem (dále jen „<strong>MS</strong>“);</p></li><li><p><strong>Franšízingová smlouva</strong> mezi Odesílatelem a Poskytovatelem (dále jen „<strong>FS</strong>“);</p></li><li><p><strong>Kupní smlouva k vybavení</strong> mezi Odesílatelem a Manažerem (dále jen „<strong>KS</strong>“).</p></li></ol></li><li><p>Smlouvy tvoří <strong>jediný hospodářský celek</strong> a jsou ve smyslu <strong>§ 1727 občanského zákoníku</strong> smlouvami závislými.</p></li></ol><h2>Odstoupení</h2><ol><li><p>Manažer trvale porušuje svou základní povinnost dodávat měsíční PNL reporty za Provozovnu od počátku franšízového vztahu. Jde o esenciální povinnost Manažera podle MS, bez níž nelze ověřit hospodářský výsledek Provozovny ani vypořádat ekonomické vztahy podle Smluv.</p></li><li><p>Popsané jednání je <strong>podstatným porušením</strong> smluvní povinnosti ve smyslu § 2002 odst. 1 občanského zákoníku — Odesílatel by Smlouvy neuzavřel, pokud by takový stav v době uzavření Smluv předvídal.</p></li><li><p><strong>Odesílatel tímto odstupuje od Smlouvy o provozování provozovny (MS)</strong> dle <strong>§ 2002 odst. 1 občanského zákoníku</strong>. Odstoupení je účinné okamžikem doručení tohoto projevu vůle (§ 570 odst. 1 OZ).</p></li><li><p>Zároveň podle <strong>§ 1727 občanského zákoníku</strong> dochází k zániku též <strong>Franšízingové smlouvy (FS)</strong>{{ksDropClause}} jako smluv závislých. {{ksPreservedClause}}</p></li><li><p>Pohledávky vzniklé před odstoupením (úroky z prodlení, smluvní pokuty) zůstávají zachovány (§ 2005 odst. 1 OZ). Odesílatel si vyhrazuje veškeré další nároky.</p></li></ol><p></p><p>V {{place}} dne {{contractDate}}</p><p>&nbsp;</p><p>__________________________<br><strong>{{clientName}}</strong><br>{{clientSignerName}}, {{clientSignerRole}}</p>`;
 }
 
 /* -------------------------------------------------------------------------
@@ -685,41 +651,7 @@ function withdrawalAHtml(): string {
  * padá MS. Nakládání s KS řízeno stejně jako u varianty A.
  * ------------------------------------------------------------------------- */
 function withdrawalBHtml(): string {
-  return `<h1>Odstoupení od smlouvy</h1>
-<p><em>Smlouva o provozování provozovny a Franšízingová smlouva</em></p>
-
-<h2>Smluvní strany</h2>
-<p><strong>{{clientName}}</strong>, IČO: {{clientIco}}, se sídlem {{clientStreet}}, {{clientZip}} {{clientCity}}{{clientRepresentationClause}} (dále jen „<strong>Odesílatel</strong>“)</p>
-<p><strong>{{managerName}}</strong>, IČO: {{managerIco}}, se sídlem {{managerStreet}}, {{managerZip}} {{managerCity}} (dále jen „<strong>Manažer</strong>“)</p>
-<p><strong>{{providerName}}</strong>, IČO: {{providerIco}}, se sídlem {{providerStreet}}, {{providerZip}} {{providerCity}} (dále jen „<strong>Poskytovatel</strong>“)</p>
-
-<h2>Úvodní ustanovení</h2>
-<ol>
-  <li>Mezi Smluvními stranami byly dne <strong>{{originContractsDate}}</strong> uzavřeny při témže jednání následující smlouvy, jejichž předmětem je lokace <strong>{{withdrawalLocation}}</strong>:
-    <ol>
-      <li><strong>Smlouva o provozování provozovny</strong> mezi Odesílatelem a Manažerem (dále jen „<strong>MS</strong>“);</li>
-      <li><strong>Franšízingová smlouva</strong> mezi Odesílatelem a Poskytovatelem (dále jen „<strong>FS</strong>“);</li>
-      <li><strong>Kupní smlouva k vybavení</strong> mezi Odesílatelem a Manažerem (dále jen „<strong>KS</strong>“).</li>
-    </ol>
-  </li>
-  <li>Smlouvy tvoří <strong>jediný hospodářský celek</strong> a jsou ve smyslu <strong>§ 1727 občanského zákoníku</strong> smlouvami závislými.</li>
-</ol>
-
-<h2>Odstoupení</h2>
-<ol>
-  <li>Poskytovatel dne <strong>{{leaseLostDate}}</strong> pozbyl právní titul, na jehož základě byl povinen přenechat Odesílateli prostory Provozovny do podnájmu podle FS, a v přiměřené době nezajistil náhradní prostory ani jiné rovnocenné plnění. Bez zajištěného provozního prostoru pozbývá FS svého hospodářského účelu.</li>
-  <li>Popsané jednání je <strong>podstatným porušením</strong> smluvní povinnosti ve smyslu § 2002 odst. 1 občanského zákoníku — Odesílatel by Smlouvy neuzavřel, pokud by takový stav v době uzavření Smluv předvídal.</li>
-  <li><strong>Odesílatel tímto odstupuje od Franšízingové smlouvy (FS)</strong> dle <strong>§ 2002 odst. 1 občanského zákoníku</strong>. Odstoupení je účinné okamžikem doručení tohoto projevu vůle (§ 570 odst. 1 OZ).</li>
-  <li>Zároveň podle <strong>§ 1727 občanského zákoníku</strong> dochází k zániku též <strong>Smlouvy o provozování provozovny (MS)</strong>{{ksDropClause}} jako smluv závislých.</li>
-  {{ksPreservedClause}}
-  <li>Pohledávky vzniklé před odstoupením (úroky z prodlení, smluvní pokuty) zůstávají zachovány (§ 2005 odst. 1 OZ). Odesílatel si vyhrazuje veškeré další nároky.</li>
-</ol>
-
-<p><em>Toto Odstoupení je výhradně civilní povahy a žádná z výzev ani požadavků v něm obsažených není vázána na hrozbu trestního oznámení.</em></p>
-
-<p>V {{place}} dne {{contractDate}}</p>
-<p>&nbsp;</p>
-<p>__________________________<br/><strong>{{clientName}}</strong><br/>{{clientSignerName}}, {{clientSignerRole}}</p>`;
+  return `<h2>Smluvní strany</h2><p><strong>{{clientName}}</strong>, IČO: {{clientIco}}, se sídlem {{clientStreet}}, {{clientZip}} {{clientCity}}{{clientRepresentationClause}} (dále jen „<strong>Odesílatel</strong>“)</p><p><strong>{{managerName}}</strong>, IČO: {{managerIco}}, se sídlem {{managerStreet}}, {{managerZip}} {{managerCity}} (dále jen „<strong>Manažer</strong>“)</p><p><strong>{{providerName}}</strong>, IČO: {{providerIco}}, se sídlem {{providerStreet}}, {{providerZip}} {{providerCity}} (dále jen „<strong>Poskytovatel</strong>“)</p><h2>Úvodní ustanovení</h2><ol><li><p>Mezi Smluvními stranami byly dne <strong>{{originContractsDate}}</strong> uzavřeny při témže jednání následující smlouvy, jejichž předmětem je lokace <strong>{{withdrawalLocation}}</strong>:</p><ol><li><p><strong>Smlouva o provozování provozovny</strong> mezi Odesílatelem a Manažerem (dále jen „<strong>MS</strong>“);</p></li><li><p><strong>Franšízingová smlouva</strong> mezi Odesílatelem a Poskytovatelem (dále jen „<strong>FS</strong>“);</p></li><li><p><strong>Kupní smlouva k vybavení</strong> mezi Odesílatelem a Manažerem (dále jen „<strong>KS</strong>“).</p></li></ol></li><li><p>Smlouvy tvoří <strong>jediný hospodářský celek</strong> a jsou ve smyslu <strong>§ 1727 občanského zákoníku</strong> smlouvami závislými.</p></li></ol><h2>Odstoupení</h2><ol><li><p>Poskytovatel dne <strong>{{leaseLostDate}}</strong> pozbyl právní titul, na jehož základě byl povinen přenechat Odesílateli prostory Provozovny do podnájmu podle FS, a v přiměřené době nezajistil náhradní prostory ani jiné rovnocenné plnění. Bez zajištěného provozního prostoru pozbývá FS svého hospodářského účelu.</p></li><li><p>Popsané jednání je <strong>podstatným porušením</strong> smluvní povinnosti ve smyslu § 2002 odst. 1 občanského zákoníku — Odesílatel by Smlouvy neuzavřel, pokud by takový stav v době uzavření Smluv předvídal.</p></li><li><p><strong>Odesílatel tímto odstupuje od Franšízingové smlouvy (FS)</strong> dle <strong>§ 2002 odst. 1 občanského zákoníku</strong>. Odstoupení je účinné okamžikem doručení tohoto projevu vůle (§ 570 odst. 1 OZ).</p></li><li><p>Zároveň podle <strong>§ 1727 občanského zákoníku</strong> dochází k zániku též <strong>Smlouvy o provozování provozovny (MS)</strong>{{ksDropClause}} jako smluv závislých. {{ksPreservedClause}}</p></li><li><p>Pohledávky vzniklé před odstoupením (úroky z prodlení, smluvní pokuty) zůstávají zachovány (§ 2005 odst. 1 OZ). Odesílatel si vyhrazuje veškeré další nároky.</p></li></ol><p></p><p>V {{place}} dne {{contractDate}}</p><p>&nbsp;</p><p>__________________________<br><strong>{{clientName}}</strong><br>{{clientSignerName}}, {{clientSignerRole}}</p>`;
 }
 
 export function buildDefaultHtml(
