@@ -57,6 +57,7 @@ export default async function TemplatePage({
       type={type}
       variant={variant}
       initialHtml={template.html}
+      initialLetterhead={template.letterhead ?? true}
       updatedAt={template.updatedAt}
       updatedBy={template.updatedBy === "system" ? "výchozí" : template.updatedBy}
       isAdmin

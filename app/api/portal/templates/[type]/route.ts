@@ -16,6 +16,7 @@ import {
 
 const updateSchema = z.object({
   html: z.string().max(200_000),
+  letterhead: z.boolean().optional(),
 });
 
 function resolveVariant(
@@ -72,6 +73,10 @@ export async function PUT(
     ...existing,
     variant,
     html: parsed.data.html,
+    letterhead:
+      parsed.data.letterhead !== undefined
+        ? parsed.data.letterhead
+        : existing.letterhead,
     updatedBy: g.session.user!.email!,
     updatedAt: new Date().toISOString(),
   });

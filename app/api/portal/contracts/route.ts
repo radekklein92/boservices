@@ -83,10 +83,13 @@ export async function POST(req: Request) {
   }
 
   // Bundle: load 3 source templates (claim-assignment, side-fee, assignment-notice).
-  // Pro NE-bundle: load 1 template.
+  // Pro NE-bundle: load 1 template. Default letterhead=true (pokud šablona
+  // nemá explicitně uložené false). Pro bundle se použije letterhead první
+  // sekce (claim-assignment) jako reprezentativní.
   let bundleSections: BundleSection[] | undefined;
   let templateHtml = "";
   let templateSnapshot = "";
+  let letterhead = true;
 
   if (isBundleType(type)) {
     const sourceTemplates = await Promise.all(
@@ -99,10 +102,12 @@ export async function POST(req: Request) {
       html: tpl.html,
       templateSnapshot: tpl.html,
     }));
+    letterhead = sourceTemplates[0]?.letterhead ?? true;
   } else {
     const template = await getOrSeedContractTemplate(type, variant);
     templateHtml = template.html;
     templateSnapshot = template.html;
+    letterhead = template.letterhead ?? true;
   }
 
   const now = new Date();
@@ -148,6 +153,7 @@ export async function POST(req: Request) {
     templateSnapshot: templateSnapshot || undefined,
     bundleSections,
     variant,
+    letterhead,
     variables,
     number,
     createdBy: g.session.user!.email!,

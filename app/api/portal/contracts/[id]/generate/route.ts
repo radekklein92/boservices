@@ -42,6 +42,7 @@ export async function POST(
 
   let pdf: Buffer;
   try {
+    const letterhead = contract.letterhead ?? true;
     if (isBundleType(contract.type) && contract.bundleSections) {
       // Bundle: render každou sekci samostatně (placeholders), pak konkatenovat.
       const renderedSections = contract.bundleSections.map((section) => ({
@@ -51,10 +52,15 @@ export async function POST(
       pdf = await bundleHtmlToPdfBuffer(renderedSections, {
         type: contract.type,
         cover,
+        letterhead,
       });
     } else {
       const rendered = renderTemplate(contract.html, contract.variables);
-      pdf = await htmlToPdfBuffer(rendered, { type: contract.type, cover });
+      pdf = await htmlToPdfBuffer(rendered, {
+        type: contract.type,
+        cover,
+        letterhead,
+      });
     }
   } catch (err) {
     console.error("[contracts] PDF render failed", err);

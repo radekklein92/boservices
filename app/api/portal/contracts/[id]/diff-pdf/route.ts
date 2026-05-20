@@ -75,6 +75,7 @@ export async function GET(
           subtitle: `${cover.subtitle} · zobrazeny změny oproti šabloně`,
         },
         diff: true,
+        letterhead: contract.letterhead ?? true,
       });
     } else {
       let snapshot = contract.templateSnapshot;
@@ -94,6 +95,7 @@ export async function GET(
         type: contract.type,
         cover: { ...cover, subtitle: `${cover.subtitle} · zobrazeny změny oproti šabloně` },
         diff: true,
+        letterhead: contract.letterhead ?? true,
       });
     }
   } catch (err) {

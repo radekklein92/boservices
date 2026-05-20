@@ -33,6 +33,9 @@ export interface Contract {
   // Varianta šablony - franchise (AB | B) nebo withdrawal (A | B). Pro typy
   // bez variant je undefined. Platné hodnoty určuje isValidVariantForType().
   variant?: ContractVariant;
+  // PDF s logem v záhlaví a textem v patičce (true, default) nebo bez nich.
+  // Snapshot z template.letterhead při vytvoření smlouvy.
+  letterhead?: boolean;
   variables: Record<string, string>;
   // PDF vygenerováno
   generatedPdfUrl?: string;

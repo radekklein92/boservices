@@ -4,7 +4,9 @@ import {
   buildServerBundlePdfDocument,
   buildHeaderTemplate,
   getCoverForType,
+  BLANK_HEADER_TEMPLATE,
   FOOTER_TEMPLATE,
+  MINIMAL_FOOTER_TEMPLATE,
   type BundleSectionInput,
   type CoverHeader,
 } from "./pdf-styles";
@@ -38,30 +40,41 @@ async function getExecutablePath(): Promise<string | undefined> {
 
 export async function htmlToPdfBuffer(
   bodyHtml: string,
-  opts: { type: ContractType; cover?: CoverHeader; diff?: boolean },
+  opts: {
+    type: ContractType;
+    cover?: CoverHeader;
+    diff?: boolean;
+    letterhead?: boolean;
+  },
 ): Promise<Buffer> {
   const cover = opts.cover ?? getCoverForType(opts.type);
   const fullHtml = buildServerPdfDocument(bodyHtml, { cover, diff: opts.diff });
-  return renderHtmlToPdf(fullHtml, opts.type);
+  return renderHtmlToPdf(fullHtml, opts.type, opts.letterhead);
 }
 
 // Bundle (claim-bundle): konkatenuje N renderovaných HTML do jednoho PDF
 // s page-break mezi sekcemi. Headery/footery jsou jednotné napříč všemi sekcemi.
 export async function bundleHtmlToPdfBuffer(
   sections: BundleSectionInput[],
-  opts: { type: ContractType; cover?: CoverHeader; diff?: boolean },
+  opts: {
+    type: ContractType;
+    cover?: CoverHeader;
+    diff?: boolean;
+    letterhead?: boolean;
+  },
 ): Promise<Buffer> {
   const cover = opts.cover ?? getCoverForType(opts.type);
   const fullHtml = buildServerBundlePdfDocument(sections, {
     cover,
     diff: opts.diff,
   });
-  return renderHtmlToPdf(fullHtml, opts.type);
+  return renderHtmlToPdf(fullHtml, opts.type, opts.letterhead);
 }
 
 async function renderHtmlToPdf(
   fullHtml: string,
   type: ContractType,
+  letterhead: boolean = true,
 ): Promise<Buffer> {
 
   const puppeteer = (await import("puppeteer-core")).default;
@@ -94,15 +107,25 @@ async function renderHtmlToPdf(
 
     const headerTitle = CONTRACT_TYPE_META[type].shortName;
 
+    // Bez hlavičkového papíru: vypustíme logo header i brand footer, ponecháme
+    // pouze číslování stránek (centered v patičce). Horní marže může být
+    // o něco menší, protože nemáme co tam zobrazovat.
+    const headerTemplate = letterhead
+      ? buildHeaderTemplate(headerTitle)
+      : BLANK_HEADER_TEMPLATE;
+    const footerTemplate = letterhead
+      ? FOOTER_TEMPLATE
+      : MINIMAL_FOOTER_TEMPLATE;
+
     const pdf = await page.pdf({
       format: "A4",
       printBackground: true,
       preferCSSPageSize: false,
       displayHeaderFooter: true,
-      headerTemplate: buildHeaderTemplate(headerTitle),
-      footerTemplate: FOOTER_TEMPLATE,
+      headerTemplate,
+      footerTemplate,
       margin: {
-        top: "22mm",
+        top: letterhead ? "22mm" : "16mm",
         right: "12mm",
         bottom: "16mm",
         left: "12mm",

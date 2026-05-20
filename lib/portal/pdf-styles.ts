@@ -381,3 +381,12 @@ export const FOOTER_TEMPLATE = `<div style="font-family: 'Manrope', sans-serif; 
   <span style="letter-spacing: 0.18em; text-transform: uppercase; font-size: 7pt;">Provoz · Lidé · Standard · Růst</span>
   <span style="font-variant-numeric: tabular-nums;"><span class="pageNumber"></span> / <span class="totalPages"></span></span>
 </div>`;
+
+// „Bez hlavičkového papíru" - header bez loga (jen placeholder pro správné
+// odsazení obsahu, puppeteer ignoruje úplně prázdný element) a footer jen
+// s číslováním. Cover stránka v body zůstává.
+export const BLANK_HEADER_TEMPLATE = `<div style="font-size: 0; height: 0; width: 100%;"></div>`;
+
+export const MINIMAL_FOOTER_TEMPLATE = `<div style="font-family: 'Manrope', sans-serif; font-size: 8pt; width: 100%; padding: 0 12mm 4mm 12mm; text-align: center; color: #6F7672;">
+  <span style="font-variant-numeric: tabular-nums;"><span class="pageNumber"></span> / <span class="totalPages"></span></span>
+</div>`;

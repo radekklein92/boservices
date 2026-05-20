@@ -20,6 +20,7 @@ type Props = {
   type: ContractType;
   variant?: ContractVariant;
   initialHtml: string;
+  initialLetterhead: boolean;
   updatedAt: string;
   updatedBy: string;
   isAdmin: boolean;
@@ -43,6 +44,7 @@ export function TemplateEditorClient({
   type,
   variant,
   initialHtml,
+  initialLetterhead,
   updatedAt,
   updatedBy,
   isAdmin,
@@ -51,6 +53,7 @@ export function TemplateEditorClient({
   const meta = CONTRACT_TYPE_META[type];
   const showVariants = hasVariants(type);
   const [html, setHtml] = useState(initialHtml);
+  const [letterhead, setLetterhead] = useState(initialLetterhead);
   const [pending, setPending] = useState(false);
   const [saved, setSaved] = useState<string | null>(updatedAt);
   const [savedBy, setSavedBy] = useState<string>(updatedBy);
@@ -62,10 +65,11 @@ export function TemplateEditorClient({
   // dál ukazoval znění předchozí varianty.
   useEffect(() => {
     setHtml(initialHtml);
+    setLetterhead(initialLetterhead);
     setSaved(updatedAt);
     setSavedBy(updatedBy);
     setError(null);
-  }, [type, variant, initialHtml, updatedAt, updatedBy]);
+  }, [type, variant, initialHtml, initialLetterhead, updatedAt, updatedBy]);
 
   function handleInsert(token: string) {
     const editor = editorRef.current;
@@ -84,7 +88,7 @@ export function TemplateEditorClient({
       const res = await fetch(url, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ html }),
+        body: JSON.stringify({ html, letterhead }),
       });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || "Uložení selhalo.");
@@ -223,6 +227,46 @@ export function TemplateEditorClient({
           </span>
         </div>
       )}
+
+      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-edge bg-paper p-3 md:p-4">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-mid">
+          Hlavičkový papír
+        </span>
+        <div className="inline-flex items-center gap-1 rounded-full border border-edge bg-paper-warm p-1">
+          <button
+            type="button"
+            disabled={!isAdmin}
+            onClick={() => setLetterhead(true)}
+            className={[
+              "inline-flex h-8 items-center rounded-full px-3 text-[12px] font-semibold transition-colors disabled:cursor-not-allowed",
+              letterhead
+                ? "bg-ink-base text-paper"
+                : "text-ink-mid hover:text-ink-base",
+            ].join(" ")}
+          >
+            Zapnuto (logo + patička)
+          </button>
+          <button
+            type="button"
+            disabled={!isAdmin}
+            onClick={() => setLetterhead(false)}
+            className={[
+              "inline-flex h-8 items-center rounded-full px-3 text-[12px] font-semibold transition-colors disabled:cursor-not-allowed",
+              !letterhead
+                ? "bg-ink-base text-paper"
+                : "text-ink-mid hover:text-ink-base",
+            ].join(" ")}
+          >
+            Vypnuto (jen čísla stránek)
+          </button>
+        </div>
+        <span className="text-[11.5px] text-ink-mid">
+          ·{" "}
+          {letterhead
+            ? "PDF bude mít logo v záhlaví, brand text v patičce + čísla stránek."
+            : "PDF bez loga a brand textu; v patičce zůstávají jen čísla stránek."}
+        </span>
+      </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_300px]">
         <div className={isAdmin ? "" : "pointer-events-none opacity-90"}>

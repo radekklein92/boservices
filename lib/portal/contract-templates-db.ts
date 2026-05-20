@@ -19,6 +19,10 @@ export interface ContractTemplate {
   variant?: ContractVariant;
   name: string;
   html: string;
+  // PDF se generuje s logo headerem + brand footerem (true, default) nebo
+  // bez nich (false) - pak má jen číslování stránek. Cover stránka v body
+  // zůstává bez ohledu na toto nastavení.
+  letterhead?: boolean;
   updatedBy: string;
   updatedAt: string;
 }
