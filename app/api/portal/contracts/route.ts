@@ -24,7 +24,7 @@ import {
 import {
   buildClientVariables,
   buildDefaultContractMeta,
-  PROVIDER_DEFAULTS,
+  getProviderDefaults,
 } from "@/lib/portal/contract-render";
 
 const createSchema = z.object({
@@ -113,10 +113,12 @@ export async function POST(req: Request) {
   const now = new Date();
   const meta = buildDefaultContractMeta(now);
   const number = await getNextContractNumber(now);
-  // Pro odstoupení od smluv NEpřidávat PROVIDER_DEFAULTS - Manažer i Poskytovatel
-  // jsou jiné firmy ze sítě BOServices, které si user vybere chip-pickerem.
-  // Pro ostatní typy provider* = BOServices (sjednaný poskytovatel).
-  const providerVars = type === "withdrawal" ? {} : PROVIDER_DEFAULTS;
+  // Provider defaults podle typu smlouvy:
+  // - withdrawal: prázdné (Manažer i Poskytovatel se vybírá chip-pickerem)
+  // - claim-bundle / claim-assignment / side-fee / assignment-notice:
+  //   Clamora Bridge s.r.o. (Postupník)
+  // - ostatní: BOServices (sjednaný Poskytovatel)
+  const providerVars = type === "withdrawal" ? {} : getProviderDefaults(type);
   const variables: Record<string, string> = {
     ...meta,
     ...providerVars,
