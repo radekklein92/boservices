@@ -79,7 +79,7 @@ export const CONTRACT_TYPE_META: Record<ContractType, ContractTypeMeta> = {
   "claim-bundle": {
     key: "claim-bundle",
     shortName: "Postoupení pohledávek",
-    fullName: "Postoupení pohledávek (balíček 3 dokumentů)",
+    fullName: "Postoupení pohledávek",
     description:
       "Smlouva o postoupení + Vedlejší ujednání o úplatě + Oznámení dlužníkovi.",
   },
