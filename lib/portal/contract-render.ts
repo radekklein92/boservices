@@ -76,6 +76,7 @@ export function buildDefaultContractMeta(date = new Date()): ContractVariables {
     conceptName: "",
     // Odstoupení od smluv
     originContractsDate: "",
+    withdrawalLocation: "",
     leaseLostDate: "",
     ksDropClause: "",
     ksPreservedClause: "",

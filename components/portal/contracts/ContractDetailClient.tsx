@@ -954,6 +954,7 @@ export function ContractDetailClient({ initial }: Props) {
 
         {hasAny([
           "originContractsDate",
+          "withdrawalLocation",
           "leaseLostDate",
           "ksDropClause",
           "ksPreservedClause",
@@ -966,6 +967,15 @@ export function ContractDetailClient({ initial }: Props) {
                   value={variables.originContractsDate ?? ""}
                   placeholder="1. ledna 2026"
                   onChange={(v) => updateVar("originContractsDate", v)}
+                />
+              )}
+              {has("withdrawalLocation") && (
+                <SmallField
+                  label="Lokace (předmět smluv)"
+                  hint="koncept + adresa"
+                  value={variables.withdrawalLocation ?? ""}
+                  placeholder="Kytky od Pepy Štefánikova Praha"
+                  onChange={(v) => updateVar("withdrawalLocation", v)}
                 />
               )}
               {(has("ksDropClause") || has("ksPreservedClause")) && (

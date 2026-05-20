@@ -92,6 +92,7 @@ export const PLACEHOLDER_GROUPS: PlaceholderGroup[] = [
     label: "Odstoupení od smluv",
     items: [
       { token: "{{originContractsDate}}", label: "Datum uzavření MS+FS (+KS)", example: "1. ledna 2026" },
+      { token: "{{withdrawalLocation}}", label: "Lokace (předmět smluv)", example: "Kytky od Pepy Štefánikova Praha" },
       { token: "{{leaseLostDate}}", label: "Datum ztráty nájmu (var. B)", example: "1. dubna 2026" },
       { token: "{{ksDropClause}}", label: "KS — doplnění do bodu 4 (auto)", example: " a Kupní smlouvy k vybavení (KS)" },
       { token: "{{ksPreservedClause}}", label: "KS — bod 5 prohlášení (auto)", example: "<li>Pro vyloučení pochybností…</li>" },

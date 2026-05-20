@@ -652,7 +652,7 @@ function withdrawalAHtml(): string {
 
 <h2>Úvodní ustanovení</h2>
 <ol>
-  <li>Mezi Smluvními stranami byly dne <strong>{{originContractsDate}}</strong> uzavřeny při témže jednání následující smlouvy:
+  <li>Mezi Smluvními stranami byly dne <strong>{{originContractsDate}}</strong> uzavřeny při témže jednání následující smlouvy, jejichž předmětem je lokace <strong>{{withdrawalLocation}}</strong>:
     <ol>
       <li><strong>Smlouva o provozování provozovny</strong> mezi Odesílatelem a Manažerem (dále jen „<strong>MS</strong>“);</li>
       <li><strong>Franšízingová smlouva</strong> mezi Odesílatelem a Poskytovatelem (dále jen „<strong>FS</strong>“);</li>
@@ -695,7 +695,7 @@ function withdrawalBHtml(): string {
 
 <h2>Úvodní ustanovení</h2>
 <ol>
-  <li>Mezi Smluvními stranami byly dne <strong>{{originContractsDate}}</strong> uzavřeny při témže jednání následující smlouvy:
+  <li>Mezi Smluvními stranami byly dne <strong>{{originContractsDate}}</strong> uzavřeny při témže jednání následující smlouvy, jejichž předmětem je lokace <strong>{{withdrawalLocation}}</strong>:
     <ol>
       <li><strong>Smlouva o provozování provozovny</strong> mezi Odesílatelem a Manažerem (dále jen „<strong>MS</strong>“);</li>
       <li><strong>Franšízingová smlouva</strong> mezi Odesílatelem a Poskytovatelem (dále jen „<strong>FS</strong>“);</li>
