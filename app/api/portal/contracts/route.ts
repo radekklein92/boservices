@@ -132,10 +132,12 @@ export async function POST(req: Request) {
     variables.franchiseFeePercent = String(feePercent);
   }
 
-  // Odstoupení od smluv: default „KS padá s ostatními" (ksDropClause naplněn,
-  // ksPreservedClause prázdný). User to může v detailu přepnout.
+  // Odstoupení od smluv: default „KS padá s ostatními" (KS bod 3 v Úvodním
+  // prohlášení, dovětek v bodě 4 Odstoupení). User to může v detailu přepnout.
   if (type === "withdrawal") {
     const ks = WITHDRAWAL_KS_TEXTS.dropped;
+    variables.ksIntroLineSeparator = ks.ksIntroLineSeparator;
+    variables.ksIntroClause = ks.ksIntroClause;
     variables.ksDropClause = ks.ksDropClause;
     variables.ksPreservedClause = ks.ksPreservedClause;
   }

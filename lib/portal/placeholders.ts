@@ -94,6 +94,8 @@ export const PLACEHOLDER_GROUPS: PlaceholderGroup[] = [
       { token: "{{originContractsDate}}", label: "Datum uzavření MS+FS (+KS)", example: "1. ledna 2026" },
       { token: "{{withdrawalLocation}}", label: "Lokace (předmět smluv)", example: "Kytky od Pepy Štefánikova Praha" },
       { token: "{{leaseLostDate}}", label: "Datum ztráty nájmu (var. B)", example: "1. dubna 2026" },
+      { token: "{{ksIntroLineSeparator}}", label: "KS — oddělovač FS řádku (auto)", example: ";" },
+      { token: "{{ksIntroClause}}", label: "KS — bod 3 v úvodu (auto)", example: "<li>Kupní smlouva k vybavení…</li>" },
       { token: "{{ksDropClause}}", label: "KS — doplnění do bodu 4 (auto)", example: " a Kupní smlouvy k vybavení (KS)" },
       { token: "{{ksPreservedClause}}", label: "KS — bod 5 prohlášení (auto)", example: "<li>Pro vyloučení pochybností…</li>" },
     ],

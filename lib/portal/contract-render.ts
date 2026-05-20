@@ -80,6 +80,8 @@ export function buildDefaultContractMeta(date = new Date()): ContractVariables {
     leaseLostDate: "",
     ksDropClause: "",
     ksPreservedClause: "",
+    ksIntroLineSeparator: ";",
+    ksIntroClause: "",
     // Manažer (odstoupení) - obě firmy (Manažer i Poskytovatel) si user vybere
     // ze stejných 7 preset firem. Proto pro withdrawal nepředplňujeme
     // provider* PROVIDER_DEFAULTS (řeší se v POST /api/portal/contracts).
@@ -92,13 +94,27 @@ export function buildDefaultContractMeta(date = new Date()): ContractVariables {
 }
 
 // Hotové texty pro toggle „nakládání s KS" v odstoupení od smluv. Při změně
-// nastavení (KS padá / KS zůstává v platnosti) klient nastaví obě tyto hodnoty.
+// nastavení (KS padá / KS zůstává v platnosti) klient nastaví všechny 4 hodnoty.
+//
+// Význam:
+// - ksIntroLineSeparator: zakončení FS řádku v Úvodním prohlášení (";" pokud
+//   za FS následuje KS bod 3, "." pokud je FS poslední položkou seznamu).
+// - ksIntroClause: celý <li> bod 3 s Kupní smlouvou k vybavení v Úvodním
+//   prohlášení. Zobrazuje se jen když KS padá s ostatními.
+// - ksDropClause: dovětek „ a Kupní smlouvy k vybavení (KS)" v bodě 4 Odstoupení.
+// - ksPreservedClause: bod 5 s prohlášením, že KS zůstává v platnosti.
 export const WITHDRAWAL_KS_TEXTS = {
   dropped: {
+    ksIntroLineSeparator: ";",
+    ksIntroClause:
+      `<li><p><strong>Kupní smlouva k vybavení</strong> mezi Odesílatelem ` +
+      `a Manažerem (dále jen „<strong>KS</strong>“).</p></li>`,
     ksDropClause: " a Kupní smlouvy k vybavení (KS)",
     ksPreservedClause: "",
   },
   preserved: {
+    ksIntroLineSeparator: ".",
+    ksIntroClause: "",
     ksDropClause: "",
     ksPreservedClause:
       `<li>Pro vyloučení pochybností Odesílatel prohlašuje, že odstoupení se ` +
@@ -125,6 +141,7 @@ const ALLOW_EMPTY = new Set([
   // "tato klauzule se v dokumentu neuplatní".
   "ksDropClause",
   "ksPreservedClause",
+  "ksIntroClause",
 ]);
 
 // Placeholdery, jejichž hodnoty se NEescapují - hodnota je raw HTML zlomek.
@@ -133,6 +150,7 @@ const ALLOW_EMPTY = new Set([
 // jinak by hrozila XSS injekce do PDF.
 const RAW_HTML_PLACEHOLDERS = new Set([
   "ksPreservedClause",
+  "ksIntroClause",
 ]);
 
 export function renderTemplate(

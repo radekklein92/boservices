@@ -171,14 +171,20 @@ export function ContractDetailClient({ initial }: Props) {
     notify("ok", `Poskytovatel vyplněn: ${p.name || p.ico}.`);
   }
   function setKsMode(mode: string) {
-    // Toggle „KS padá" / „KS zůstává v platnosti" se promítne do dvou
-    // raw-HTML placeholderů, které šablona vykresluje na příslušných místech.
+    // Toggle „KS padá" / „KS zůstává v platnosti" se promítne do 4 placeholderů,
+    // které šablona vykresluje na příslušných místech:
+    // - ksIntroLineSeparator: ; nebo . za FS řádkem v Úvodním prohlášení
+    // - ksIntroClause: <li>KS bod 3</li> v Úvodním prohlášení (jen když padá)
+    // - ksDropClause: „a KS" dovětek v bodě 4 Odstoupení (jen když padá)
+    // - ksPreservedClause: bod 5 prohlášení o zachování KS (jen když zůstává)
     const texts =
       mode === "preserved"
         ? WITHDRAWAL_KS_TEXTS.preserved
         : WITHDRAWAL_KS_TEXTS.dropped;
     setVariables((prev) => ({
       ...prev,
+      ksIntroLineSeparator: texts.ksIntroLineSeparator,
+      ksIntroClause: texts.ksIntroClause,
       ksDropClause: texts.ksDropClause,
       ksPreservedClause: texts.ksPreservedClause,
     }));
