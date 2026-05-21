@@ -3,7 +3,6 @@ import { auth } from "@/auth";
 import { isAdminRole } from "@/lib/portal/auth-guard";
 import { listUsers } from "@/lib/portal/users-db";
 import { listAllowlist } from "@/lib/portal/allowlist-db";
-import { PageHeader } from "@/components/portal/shell/PageHeader";
 import { UsersClient } from "@/components/portal/users/UsersClient";
 
 export const dynamic = "force-dynamic";
@@ -23,19 +22,11 @@ export default async function UsersPage() {
   });
 
   return (
-    <div className="flex flex-col gap-10">
-      <PageHeader
-        eyebrow="Administrace"
-        title="Uživatelé"
-        lede="Pozvánky platí 7 dní. Reset hesla 1 hodinu. Vše se eviduje v allowlistu."
-      />
-
-      <UsersClient
-        currentEmail={session.user.email}
-        currentRole={session.user.role!}
-        initialUsers={sanitized}
-        initialAllowlist={pending}
-      />
-    </div>
+    <UsersClient
+      currentEmail={session.user.email}
+      currentRole={session.user.role!}
+      initialUsers={sanitized}
+      initialAllowlist={pending}
+    />
   );
 }

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import type { AllowlistEntry } from "@/lib/portal/allowlist-db";
 import type { User, UserRole } from "@/lib/portal/users-db";
+import { PageHeader } from "@/components/portal/shell/PageHeader";
 import { InviteModal } from "./InviteModal";
 
 type Props = {
@@ -186,17 +187,22 @@ export function UsersClient({
   }
 
   return (
-    <>
-      <div className="flex justify-end">
-        <button
-          type="button"
-          onClick={() => setInviteOpen(true)}
-          className="group inline-flex h-11 items-center gap-2 rounded-full bg-ink-base px-5 text-[13.5px] font-semibold text-paper transition-transform active:translate-y-px"
-        >
-          <Plus className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
-          Pozvat uživatele
-        </button>
-      </div>
+    <div className="flex flex-col gap-10">
+      <PageHeader
+        eyebrow="Administrace"
+        title="Uživatelé"
+        lede="Pozvánky platí 7 dní. Reset hesla 1 hodinu. Vše se eviduje v allowlistu."
+        actions={
+          <button
+            type="button"
+            onClick={() => setInviteOpen(true)}
+            className="inline-flex h-11 items-center gap-2 rounded-full bg-ink-base px-5 text-[13.5px] font-semibold text-paper transition-transform active:translate-y-px"
+          >
+            <Plus className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+            Pozvat uživatele
+          </button>
+        }
+      />
 
       <Section
         title="Aktivní"
@@ -337,7 +343,7 @@ export function UsersClient({
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }
 
