@@ -7,6 +7,9 @@ import {
   upsertContract,
 } from "@/lib/portal/contracts-db";
 import { getUser } from "@/lib/portal/users-db";
+import { renderAndStoreContractPdf } from "@/lib/portal/pdf-flow";
+
+export const maxDuration = 60;
 
 const pickSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
@@ -62,17 +65,42 @@ export async function POST(
   }
 
   const now = new Date().toISOString();
-  const updated = {
+  const withSigner = {
     ...contract,
     signerEmail: signer.email,
     signerPickedAt: contract.signerPickedAt ?? now,
     signerPickedBy: g.session.user!.email!,
     updatedAt: now,
   };
-  updated.status = computeContractStatus(updated);
+  withSigner.status = computeContractStatus(withSigner);
+
+  // Po přiřazení podepisujícího automaticky vygenerujeme finální PDF (bez
+  // watermarku, s daty signera) - jinak by Stáhnout PDF servíroval starou
+  // preview verzi z fáze Schváleno.
+  let pdfUpload: Awaited<ReturnType<typeof renderAndStoreContractPdf>> | null = null;
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    try {
+      pdfUpload = await renderAndStoreContractPdf(withSigner);
+    } catch (err) {
+      console.error("[pick-signer] regenerate PDF failed", { id, err });
+      // PDF regen je best-effort - signer se uloží i tak; uživatel může
+      // ručně přegenerovat tlačítkem v hlavičce.
+    }
+  }
+
+  const updated = pdfUpload
+    ? {
+        ...withSigner,
+        generatedPdfUrl: pdfUpload.url,
+        generatedPdfPath: pdfUpload.path,
+        generatedAt: pdfUpload.generatedAt,
+        updatedAt: pdfUpload.generatedAt,
+      }
+    : withSigner;
+
   await upsertContract(updated);
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, regenerated: !!pdfUpload });
 }
 
 export async function DELETE(
