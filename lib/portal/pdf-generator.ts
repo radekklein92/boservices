@@ -45,10 +45,17 @@ export async function htmlToPdfBuffer(
     cover?: CoverHeader;
     diff?: boolean;
     letterhead?: boolean;
+    // Watermark "NÁVRH — nepoužívat k podpisu" přes celý dokument. Používá se
+    // pro preview ve stavech Koncept a Schváleno (před výběrem podepisujícího).
+    watermark?: boolean;
   },
 ): Promise<Buffer> {
   const cover = opts.cover ?? getCoverForType(opts.type);
-  const fullHtml = buildServerPdfDocument(bodyHtml, { cover, diff: opts.diff });
+  const fullHtml = buildServerPdfDocument(bodyHtml, {
+    cover,
+    diff: opts.diff,
+    watermark: opts.watermark,
+  });
   return renderHtmlToPdf(fullHtml, opts.type, opts.letterhead);
 }
 
@@ -61,12 +68,14 @@ export async function bundleHtmlToPdfBuffer(
     cover?: CoverHeader;
     diff?: boolean;
     letterhead?: boolean;
+    watermark?: boolean;
   },
 ): Promise<Buffer> {
   const cover = opts.cover ?? getCoverForType(opts.type);
   const fullHtml = buildServerBundlePdfDocument(sections, {
     cover,
     diff: opts.diff,
+    watermark: opts.watermark,
   });
   return renderHtmlToPdf(fullHtml, opts.type, opts.letterhead);
 }

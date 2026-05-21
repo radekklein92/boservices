@@ -9,12 +9,19 @@ import {
   Mail,
   ShieldCheck,
   Clock,
+  PenLine,
+  Pencil,
   type LucideIcon,
 } from "lucide-react";
 import type { AllowlistEntry } from "@/lib/portal/allowlist-db";
-import type { User, UserRole } from "@/lib/portal/users-db";
+import {
+  signerFunctionLabel,
+  type User,
+  type UserRole,
+} from "@/lib/portal/users-db";
 import { PageHeader } from "@/components/portal/shell/PageHeader";
 import { InviteModal } from "./InviteModal";
+import { EditUserModal } from "./EditUserModal";
 
 type Props = {
   currentEmail: string;
@@ -79,10 +86,14 @@ export function UsersClient({
   const [users, setUsers] = useState<User[]>(initialUsers);
   const [allowlist, setAllowlist] = useState<AllowlistEntry[]>(initialAllowlist);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [editingEmail, setEditingEmail] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [toast, setToast] = useState<{ kind: "ok" | "error"; msg: string } | null>(null);
 
   const isSuperadmin = currentRole === "superadmin";
+  const editingUser = editingEmail
+    ? users.find((u) => u.email === editingEmail) ?? null
+    : null;
 
   function showToast(kind: "ok" | "error", msg: string) {
     setToast({ kind, msg });
@@ -222,12 +233,22 @@ export function UsersClient({
                   {initials(u.name, u.email)}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-baseline gap-2.5">
+                  <div className="flex flex-wrap items-baseline gap-2.5">
                     <div className="truncate text-[15px] font-bold tracking-[-0.01em] text-ink-base">
                       {u.name}
                     </div>
                     {u.email === currentEmail && (
                       <Badge tone="muted">Vy</Badge>
+                    )}
+                    {u.isSigner && u.signerFunction && (
+                      <Badge tone="ink">
+                        <PenLine
+                          className="mr-1 h-3 w-3"
+                          strokeWidth={1.5}
+                          aria-hidden="true"
+                        />
+                        Podepisující · {signerFunctionLabel(u.signerFunction)}
+                      </Badge>
                     )}
                   </div>
                   <div className="truncate text-[12.5px] text-ink-mid">{u.email}</div>
@@ -240,6 +261,11 @@ export function UsersClient({
                   />
                 </div>
                 <div className="flex items-center gap-1.5 md:ml-2">
+                  <RowButton
+                    label="Upravit"
+                    Icon={Pencil}
+                    onClick={() => setEditingEmail(u.email)}
+                  />
                   <RowButton
                     label="Resetovat heslo"
                     Icon={KeyRound}
@@ -324,6 +350,19 @@ export function UsersClient({
         />
       )}
 
+      {editingUser && (
+        <EditUserModal
+          user={editingUser}
+          canEditSuperadmin={isSuperadmin}
+          onClose={() => setEditingEmail(null)}
+          onSaved={async () => {
+            setEditingEmail(null);
+            await refresh();
+            showToast("ok", "Uloženo.");
+          }}
+        />
+      )}
+
       {toast && (
         <div
           role="status"
@@ -388,10 +427,20 @@ function Empty({ label }: { label: string }) {
   );
 }
 
-function Badge({ tone, children }: { tone: "muted"; children: React.ReactNode }) {
+function Badge({
+  tone,
+  children,
+}: {
+  tone: "muted" | "ink";
+  children: React.ReactNode;
+}) {
+  const cls =
+    tone === "ink"
+      ? "border-ink-base bg-ink-base text-paper"
+      : "border-edge bg-edge-warm text-ink-mid";
   return (
     <span
-      className={`inline-flex h-5 items-center rounded-full border border-edge bg-edge-warm px-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-mid`}
+      className={`inline-flex h-5 items-center rounded-full border px-2 text-[10px] font-semibold uppercase tracking-[0.18em] ${cls}`}
     >
       {children}
     </span>

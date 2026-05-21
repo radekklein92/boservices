@@ -7,12 +7,13 @@ import {
   upsertContract,
 } from "@/lib/portal/contracts-db";
 import { CONTRACT_TYPE_META, isBundleType } from "@/lib/portal/contract-types";
-import { renderTemplate } from "@/lib/portal/contract-render";
+import { applySignerOverride, renderTemplate } from "@/lib/portal/contract-render";
 import {
   bundleHtmlToPdfBuffer,
   htmlToPdfBuffer,
 } from "@/lib/portal/pdf-generator";
 import { getCoverForType } from "@/lib/portal/pdf-styles";
+import { getUser } from "@/lib/portal/users-db";
 
 export const maxDuration = 60;
 
@@ -40,26 +41,42 @@ export async function POST(
   const title = `${meta.shortName} - ${contract.clientName}`;
   const cover = getCoverForType(contract.type);
 
+  // Status v okamžiku generace rozhoduje:
+  //   - koncept / schvaleno = preview (watermark, žádné signer overrides)
+  //   - k-podpisu+ = final (bez watermarku, providerStatutory1* nahrazeny ze
+  //     vybraného Podepisujícího v User.signerDisplayName + signerFunction)
+  const isFinal = !!contract.signerPickedAt;
+  let signer: Awaited<ReturnType<typeof getUser>> = null;
+  if (isFinal && contract.signerEmail) {
+    signer = await getUser(contract.signerEmail);
+  }
+  const variables = signer
+    ? applySignerOverride(contract.variables, signer)
+    : contract.variables;
+
   let pdf: Buffer;
   try {
     const letterhead = contract.letterhead ?? true;
+    const watermark = !isFinal;
     if (isBundleType(contract.type) && contract.bundleSections) {
       // Bundle: render každou sekci samostatně (placeholders), pak konkatenovat.
       const renderedSections = contract.bundleSections.map((section) => ({
         type: section.type,
-        html: renderTemplate(section.html, contract.variables),
+        html: renderTemplate(section.html, variables),
       }));
       pdf = await bundleHtmlToPdfBuffer(renderedSections, {
         type: contract.type,
         cover,
         letterhead,
+        watermark,
       });
     } else {
-      const rendered = renderTemplate(contract.html, contract.variables);
+      const rendered = renderTemplate(contract.html, variables);
       pdf = await htmlToPdfBuffer(rendered, {
         type: contract.type,
         cover,
         letterhead,
+        watermark,
       });
     }
   } catch (err) {

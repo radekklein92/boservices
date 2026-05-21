@@ -2,6 +2,13 @@ import { getRedis } from "@/lib/redis";
 
 export type UserRole = "superadmin" | "admin" | "user";
 
+// Sekundární atribut "Podepisující". Ortogonální k role - může ho mít kdokoli.
+// Když je isSigner=true, signerFunction určuje text v PDF u podpisu poskytovatele
+// (jednatel = "jednatel", power-of-attorney = "na základě plné moci").
+// signerDisplayName je volitelný override jména v PDF (např. "Ing. Jiří Slavkovský"
+// místo jen "Jiří Slavkovský" v users listu).
+export type SignerFunction = "jednatel" | "power-of-attorney";
+
 export interface User {
   email: string;
   name: string;
@@ -10,6 +17,17 @@ export interface User {
   createdAt: string;
   lastLoginAt?: string;
   lastActiveAt?: string;
+  isSigner?: boolean;
+  signerFunction?: SignerFunction;
+  signerDisplayName?: string;
+}
+
+export function signerRoleText(fn: SignerFunction): string {
+  return fn === "jednatel" ? "jednatel" : "na základě plné moci";
+}
+
+export function signerFunctionLabel(fn: SignerFunction): string {
+  return fn === "jednatel" ? "Jednatel" : "Na základě plné moci";
 }
 
 const ACTIVITY_THROTTLE_MS = 60_000;

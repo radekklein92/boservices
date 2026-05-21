@@ -1,4 +1,5 @@
 import type { Client } from "./clients-db";
+import { signerRoleText, type User } from "./users-db";
 
 export type ContractVariables = Record<string, string>;
 
@@ -43,6 +44,25 @@ export function getProviderDefaults(type: string): ContractVariables {
   return CLAMORA_PROVIDER_TYPES.has(type)
     ? CLAMORA_BRIDGE_DEFAULTS
     : PROVIDER_DEFAULTS;
+}
+
+// Když je u smlouvy vybrán Podepisující (signerEmail), přepíšeme statutary
+// pole v PDF jeho daty. signerDisplayName umožňuje formální tvar včetně titulu
+// (např. "Ing. Jiří Slavkovský"), který v User.name typicky není.
+export function applySignerOverride(
+  variables: ContractVariables,
+  signer: Pick<
+    User,
+    "name" | "signerDisplayName" | "signerFunction" | "isSigner"
+  >,
+): ContractVariables {
+  if (!signer.isSigner || !signer.signerFunction) return variables;
+  return {
+    ...variables,
+    providerStatutory1Name:
+      signer.signerDisplayName?.trim() || signer.name || variables.providerStatutory1Name,
+    providerStatutory1Role: signerRoleText(signer.signerFunction),
+  };
 }
 
 export function buildClientVariables(client: Client): ContractVariables {

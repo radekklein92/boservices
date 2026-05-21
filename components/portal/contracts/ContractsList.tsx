@@ -14,13 +14,21 @@ import {
   Circle,
   PenLine,
   Package,
+  Gavel,
+  Stamp,
+  Download,
   X,
   type LucideIcon,
 } from "lucide-react";
 import type { Contract } from "@/lib/portal/contracts-db";
+import {
+  CONTRACT_STATUSES,
+  CONTRACT_STATUS_LABEL,
+} from "@/lib/portal/contracts-db";
 import type { Client } from "@/lib/portal/clients-db";
 import { CONTRACT_TYPE_META, isBundleType } from "@/lib/portal/contract-types";
 import { ContractCreateModal } from "./ContractCreateModal";
+import { SignerPickerModal } from "./SignerPickerModal";
 
 function formatDate(iso: string): string {
   try {
@@ -34,26 +42,42 @@ function formatDate(iso: string): string {
   }
 }
 
-const STATUS_ORDER: Contract["status"][] = [
-  "draft",
-  "generated",
-  "signed",
-  "picked-up",
-  "archived",
-];
+const STATUS_ORDER = CONTRACT_STATUSES;
 
 const STATUS_META: Record<
   Contract["status"],
   { label: string; Icon: LucideIcon; tone: "muted" | "ink" | "ok" }
 > = {
-  draft: { label: "Koncept", Icon: Circle, tone: "muted" },
-  generated: { label: "Vygenerováno", Icon: CheckCircle2, tone: "ink" },
-  signed: { label: "Podepsáno", Icon: PenLine, tone: "ink" },
-  "picked-up": { label: "Vyzvednuto", Icon: Package, tone: "ink" },
-  archived: { label: "Archivováno", Icon: ScanLine, tone: "ok" },
+  koncept: { label: CONTRACT_STATUS_LABEL.koncept, Icon: Circle, tone: "muted" },
+  schvaleno: {
+    label: CONTRACT_STATUS_LABEL.schvaleno,
+    Icon: CheckCircle2,
+    tone: "ink",
+  },
+  "k-podpisu": {
+    label: CONTRACT_STATUS_LABEL["k-podpisu"],
+    Icon: Gavel,
+    tone: "ink",
+  },
+  "podepsano-bos": {
+    label: CONTRACT_STATUS_LABEL["podepsano-bos"],
+    Icon: Stamp,
+    tone: "ink",
+  },
+  "podepsano-klientem": {
+    label: CONTRACT_STATUS_LABEL["podepsano-klientem"],
+    Icon: PenLine,
+    tone: "ink",
+  },
+  archivovano: {
+    label: CONTRACT_STATUS_LABEL.archivovano,
+    Icon: ScanLine,
+    tone: "ok",
+  },
 };
 
 type StatusFilter = "all" | Contract["status"];
+type BulkAction = "approve" | "pick-signer" | "signed" | "client-signed" | "download-zip";
 
 export function ContractsList({
   contracts,
@@ -69,18 +93,18 @@ export function ContractsList({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [modalOpen, setModalOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
-  const [bulkPending, setBulkPending] = useState<null | "signed" | "picked-up">(
-    null,
-  );
+  const [bulkPending, setBulkPending] = useState<BulkAction | null>(null);
   const [bulkToast, setBulkToast] = useState<string | null>(null);
+  const [signerPickerOpen, setSignerPickerOpen] = useState(false);
 
   const counts = useMemo(() => {
     const m: Record<Contract["status"], number> = {
-      draft: 0,
-      generated: 0,
-      signed: 0,
-      "picked-up": 0,
-      archived: 0,
+      koncept: 0,
+      schvaleno: 0,
+      "k-podpisu": 0,
+      "podepsano-bos": 0,
+      "podepsano-klientem": 0,
+      archivovano: 0,
     };
     for (const c of items) m[c.status]++;
     return m;
@@ -154,7 +178,10 @@ export function ContractsList({
     }
   }
 
-  async function bulkAction(action: "signed" | "picked-up") {
+  async function bulkStatus(
+    action: "approve" | "pick-signer" | "signed" | "client-signed",
+    extra?: { signerEmail?: string },
+  ) {
     const ids = Array.from(selected);
     if (!ids.length) return;
     setBulkPending(action);
@@ -162,22 +189,26 @@ export function ContractsList({
       const res = await fetch("/api/portal/contracts/bulk", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids, action }),
+        body: JSON.stringify({ ids, action, ...extra }),
       });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error ?? "Hromadná akce selhala.");
 
-      // Refresh items from server
       const listRes = await fetch("/api/portal/contracts");
       const listData = await listRes.json();
       if (listData.ok) setItems(listData.contracts);
 
       clearSelection();
-      const label = action === "signed" ? "Podepsáno" : "Vyzvednuto";
+      const labels: Record<typeof action, string> = {
+        approve: "Schváleno",
+        "pick-signer": "Podepisující přiřazen",
+        signed: "Podepsáno BOS",
+        "client-signed": "Podepsáno klientem",
+      };
       const skippedMsg = data.skipped
-        ? ` · ${data.skipped} přeskočeno (chybí PDF nebo už mají stav)`
+        ? ` · ${data.skipped} přeskočeno (už mají stav)`
         : "";
-      setBulkToast(`${label}: ${data.changed} smluv${skippedMsg}`);
+      setBulkToast(`${labels[action]}: ${data.changed} smluv${skippedMsg}`);
       window.setTimeout(() => setBulkToast(null), 4500);
       router.refresh();
     } catch (err) {
@@ -185,6 +216,44 @@ export function ContractsList({
     } finally {
       setBulkPending(null);
     }
+  }
+
+  async function bulkDownloadZip() {
+    const ids = Array.from(selected);
+    if (!ids.length) return;
+    setBulkPending("download-zip");
+    try {
+      const res = await fetch("/api/portal/contracts/bulk-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? "Stažení selhalo.");
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const filename = res.headers.get("X-Filename") ?? "smlouvy.zip";
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setBulkToast(`Staženo ${ids.length} smluv jako ZIP.`);
+      window.setTimeout(() => setBulkToast(null), 4500);
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : "Chyba");
+    } finally {
+      setBulkPending(null);
+    }
+  }
+
+  async function pickSignerForBulk(email: string) {
+    setSignerPickerOpen(false);
+    await bulkStatus("pick-signer", { signerEmail: email });
   }
 
   if (items.length === 0) {
@@ -298,24 +367,46 @@ export function ContractsList({
               {selected.size === 1 ? "smlouva" : selected.size < 5 ? "smlouvy" : "smluv"}
             </span>
             <div className="flex-1" />
-            <button
-              type="button"
-              onClick={() => bulkAction("signed")}
+            <BulkButton
+              onClick={() => bulkStatus("approve")}
               disabled={bulkPending !== null}
-              className="inline-flex h-9 items-center gap-2 rounded-full bg-paper px-4 text-[12.5px] font-semibold text-ink-base transition-transform active:translate-y-px disabled:opacity-60"
+              Icon={CheckCircle2}
+              pending={bulkPending === "approve"}
             >
-              <PenLine className="h-3.5 w-3.5" strokeWidth={1.5} />
-              {bulkPending === "signed" ? "Označuju…" : "Označit jako podepsáno"}
-            </button>
-            <button
-              type="button"
-              onClick={() => bulkAction("picked-up")}
+              Schválit
+            </BulkButton>
+            <BulkButton
+              onClick={() => setSignerPickerOpen(true)}
               disabled={bulkPending !== null}
-              className="inline-flex h-9 items-center gap-2 rounded-full bg-paper px-4 text-[12.5px] font-semibold text-ink-base transition-transform active:translate-y-px disabled:opacity-60"
+              Icon={Gavel}
+              pending={bulkPending === "pick-signer"}
             >
-              <Package className="h-3.5 w-3.5" strokeWidth={1.5} />
-              {bulkPending === "picked-up" ? "Označuju…" : "Označit jako vyzvednuto"}
-            </button>
+              Vybrat podepisujícího
+            </BulkButton>
+            <BulkButton
+              onClick={() => bulkStatus("signed")}
+              disabled={bulkPending !== null}
+              Icon={Stamp}
+              pending={bulkPending === "signed"}
+            >
+              Podepsáno BOS
+            </BulkButton>
+            <BulkButton
+              onClick={() => bulkStatus("client-signed")}
+              disabled={bulkPending !== null}
+              Icon={PenLine}
+              pending={bulkPending === "client-signed"}
+            >
+              Podepsáno klientem
+            </BulkButton>
+            <BulkButton
+              onClick={bulkDownloadZip}
+              disabled={bulkPending !== null}
+              Icon={Download}
+              pending={bulkPending === "download-zip"}
+            >
+              Stáhnout ZIP
+            </BulkButton>
             <button
               type="button"
               onClick={clearSelection}
@@ -453,7 +544,41 @@ export function ContractsList({
           }}
         />
       )}
+
+      {signerPickerOpen && (
+        <SignerPickerModal
+          bulkCount={selected.size}
+          onClose={() => setSignerPickerOpen(false)}
+          onPicked={pickSignerForBulk}
+        />
+      )}
     </>
+  );
+}
+
+function BulkButton({
+  onClick,
+  disabled,
+  Icon,
+  pending,
+  children,
+}: {
+  onClick: () => void;
+  disabled?: boolean;
+  Icon: LucideIcon;
+  pending?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="inline-flex h-9 items-center gap-2 rounded-full bg-paper px-4 text-[12.5px] font-semibold text-ink-base transition-transform active:translate-y-px disabled:opacity-60"
+    >
+      <Icon className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+      {pending ? "Pracuji…" : children}
+    </button>
   );
 }
 

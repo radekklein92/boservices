@@ -22,8 +22,8 @@ export async function POST(
   const now = new Date().toISOString();
   const updated = {
     ...contract,
-    pickedUpAt: now,
-    pickedUpBy: g.session.user!.email!,
+    clientSignedAt: now,
+    clientSignedBy: g.session.user!.email!,
     updatedAt: now,
   };
   updated.status = computeContractStatus(updated);
@@ -45,9 +45,12 @@ export async function DELETE(
     return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
   }
 
-  const { pickedUpAt, pickedUpBy, ...rest } = contract;
-  void pickedUpAt;
-  void pickedUpBy;
+  const {
+    clientSignedAt: _cs,
+    clientSignedBy: _csb,
+    ...rest
+  } = contract;
+  void _cs; void _csb;
   const updated = {
     ...rest,
     updatedAt: new Date().toISOString(),

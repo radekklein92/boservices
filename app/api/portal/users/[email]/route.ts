@@ -7,6 +7,9 @@ import { removeAllowlistEntry } from "@/lib/portal/allowlist-db";
 const patchSchema = z.object({
   role: z.enum(["admin", "user", "superadmin"]).optional(),
   name: z.string().trim().max(120).optional(),
+  isSigner: z.boolean().optional(),
+  signerFunction: z.enum(["jednatel", "power-of-attorney"]).nullable().optional(),
+  signerDisplayName: z.string().trim().max(160).nullable().optional(),
 });
 
 function decodeEmail(raw: string): string {
@@ -53,10 +56,37 @@ export async function PATCH(
     );
   }
 
+  // Když isSigner=false, vymažeme signerFunction a signerDisplayName, aby v DB
+  // nezůstal mrtvý stav. Když je isSigner=true, signerFunction je povinná.
+  const nextIsSigner = parsed.data.isSigner ?? user.isSigner;
+  let nextSignerFunction = user.signerFunction;
+  let nextSignerDisplayName = user.signerDisplayName;
+  if (parsed.data.isSigner === false) {
+    nextSignerFunction = undefined;
+    nextSignerDisplayName = undefined;
+  } else {
+    if (parsed.data.signerFunction !== undefined) {
+      nextSignerFunction = parsed.data.signerFunction ?? undefined;
+    }
+    if (parsed.data.signerDisplayName !== undefined) {
+      nextSignerDisplayName =
+        parsed.data.signerDisplayName?.trim() || undefined;
+    }
+  }
+  if (nextIsSigner && !nextSignerFunction) {
+    return NextResponse.json(
+      { ok: false, error: "Vyber funkci podepisujícího." },
+      { status: 400 },
+    );
+  }
+
   await upsertUser({
     ...user,
     role: parsed.data.role ?? user.role,
     name: parsed.data.name?.trim() || user.name,
+    isSigner: nextIsSigner || false,
+    signerFunction: nextSignerFunction,
+    signerDisplayName: nextSignerDisplayName,
   });
 
   return NextResponse.json({ ok: true });

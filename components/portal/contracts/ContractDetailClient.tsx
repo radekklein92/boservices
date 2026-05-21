@@ -9,14 +9,9 @@ import {
   Download,
   FileText,
   FileWarning,
-  PenLine,
-  Package,
   RefreshCw,
   Save,
-  ScanLine,
   Trash2,
-  Undo2,
-  Upload,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -34,6 +29,7 @@ import {
 } from "@/lib/portal/contract-types";
 import { WITHDRAWAL_KS_TEXTS } from "@/lib/portal/contract-render";
 import { extractPlaceholderTokens } from "@/lib/portal/contract-render";
+import { signerFunctionLabel } from "@/lib/portal/users-db";
 import { TiptapEditor } from "./TiptapEditor";
 import { PlaceholderPalette } from "./PlaceholderPalette";
 import {
@@ -44,6 +40,8 @@ import {
   CompanyChipPicker,
   type CompanyFillPayload,
 } from "./CompanyChipPicker";
+import { ContractStatusStepper } from "./ContractStatusStepper";
+import { ContractCurrentActionPanel } from "./ContractCurrentActionPanel";
 
 type Props = {
   initial: Contract;
@@ -79,6 +77,9 @@ export function ContractDetailClient({ initial }: Props) {
   const [uploadPending, setUploadPending] = useState(false);
   const [toast, setToast] = useState<{ kind: "ok" | "error"; msg: string } | null>(null);
   const [diffOpen, setDiffOpen] = useState(false);
+  // Display name + funkce vybraného Podepisujícího (pro zobrazení ve stepperu).
+  // Fetchne se on-demand z /api/portal/users/[email] když je contract.signerEmail.
+  const [signerLabel, setSignerLabel] = useState<string | null>(null);
   // Pro bundle: index aktuálně fokusovaného editoru - kam se vkládají placeholdery.
   const [activeBundleIdx, setActiveBundleIdx] = useState(0);
   const editorRef = useRef<Editor | null>(null);
@@ -254,6 +255,40 @@ export function ContractDetailClient({ initial }: Props) {
     };
   }, []);
 
+  // Fetch signer label kdykoliv se změní signerEmail - pro zobrazení ve stepperu.
+  useEffect(() => {
+    if (!contract.signerEmail) {
+      setSignerLabel(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/portal/users", { cache: "no-store" });
+        const data = await res.json();
+        if (cancelled || !data.ok) return;
+        const user = (data.users as Array<{
+          email: string;
+          name: string;
+          signerDisplayName?: string;
+          signerFunction?: "jednatel" | "power-of-attorney";
+        }>).find((u) => u.email === contract.signerEmail);
+        if (user) {
+          const name = user.signerDisplayName?.trim() || user.name;
+          const fn = user.signerFunction ? signerFunctionLabel(user.signerFunction) : "";
+          setSignerLabel(fn ? `${name} · ${fn}` : name);
+        } else {
+          setSignerLabel(contract.signerEmail ?? null);
+        }
+      } catch {
+        if (!cancelled) setSignerLabel(contract.signerEmail ?? null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [contract.signerEmail]);
+
   useEffect(() => {
     if (saveState !== "pending") return;
     if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
@@ -300,90 +335,8 @@ export function ContractDetailClient({ initial }: Props) {
     }
   }
 
-  async function uploadScan(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-
-    setUploadPending(true);
-    try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await fetch(
-        `/api/portal/contracts/${contract.id}/scan`,
-        { method: "POST", body: fd },
-      );
-      const data = await res.json();
-      if (!data.ok) throw new Error(data.error || "Nahrání selhalo.");
-      const reload = await fetch(`/api/portal/contracts/${contract.id}`);
-      const j = await reload.json();
-      if (j.ok) setContract(j.contract);
-      notify("ok", "Sken nahrán.");
-    } catch (err) {
-      notify("error", err instanceof Error ? err.message : "Chyba");
-    } finally {
-      setUploadPending(false);
-    }
-  }
-
-  async function setMilestone(kind: "signed" | "picked-up") {
-    try {
-      const res = await fetch(
-        `/api/portal/contracts/${contract.id}/${kind}`,
-        { method: "POST" },
-      );
-      const data = await res.json();
-      if (!data.ok) throw new Error(data.error);
-      const reload = await fetch(`/api/portal/contracts/${contract.id}`);
-      const j = await reload.json();
-      if (j.ok) setContract(j.contract);
-      notify(
-        "ok",
-        kind === "signed"
-          ? "Označeno jako podepsáno jednateli."
-          : "Označeno jako vyzvednuto obchodníkem.",
-      );
-    } catch (err) {
-      notify("error", err instanceof Error ? err.message : "Chyba");
-    }
-  }
-
-  async function unsetMilestone(kind: "signed" | "picked-up") {
-    const label = kind === "signed" ? "podepsání" : "vyzvednutí";
-    if (!window.confirm(`Zrušit označení ${label}?`)) return;
-    try {
-      const res = await fetch(
-        `/api/portal/contracts/${contract.id}/${kind}`,
-        { method: "DELETE" },
-      );
-      const data = await res.json();
-      if (!data.ok) throw new Error(data.error);
-      const reload = await fetch(`/api/portal/contracts/${contract.id}`);
-      const j = await reload.json();
-      if (j.ok) setContract(j.contract);
-      notify("ok", "Označení zrušeno.");
-    } catch (err) {
-      notify("error", err instanceof Error ? err.message : "Chyba");
-    }
-  }
-
-  async function removeScan() {
-    if (!window.confirm("Odebrat nahraný sken?")) return;
-    try {
-      const res = await fetch(
-        `/api/portal/contracts/${contract.id}/scan`,
-        { method: "DELETE" },
-      );
-      const data = await res.json();
-      if (!data.ok) throw new Error(data.error);
-      const reload = await fetch(`/api/portal/contracts/${contract.id}`);
-      const j = await reload.json();
-      if (j.ok) setContract(j.contract);
-      notify("ok", "Sken odebrán.");
-    } catch (err) {
-      notify("error", err instanceof Error ? err.message : "Chyba");
-    }
-  }
+  // setMilestone/unsetMilestone/uploadScan/removeScan logika přesunutá
+  // do ContractCurrentActionPanel - viz panel.
 
   async function removeContract() {
     if (
@@ -468,176 +421,13 @@ export function ContractDetailClient({ initial }: Props) {
         </div>
       </header>
 
-      {/* Milestones - 4 kroky */}
-      <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <ActionCard
-          step="1"
-          title="Vygenerované PDF"
-          subtitle={
-            contract.generatedAt
-              ? `vytvořeno ${formatDateTime(contract.generatedAt)}`
-              : "ještě nevygenerováno"
-          }
-          Icon={FileText}
-          done={!!contract.generatedPdfUrl}
-        >
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              {contract.generatedPdfUrl ? (
-                <a
-                  href={`/api/portal/contracts/${contract.id}/download/generated`}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className="inline-flex h-9 items-center gap-2 rounded-full bg-ink-base px-4 text-[12px] font-semibold text-paper transition-transform active:translate-y-px"
-                >
-                  <Download className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
-                  Stáhnout PDF
-                </a>
-              ) : (
-                <span className="text-[12px] text-ink-mid">
-                  Klikněte na „Vygenerovat PDF" výše.
-                </span>
-              )}
-            </div>
-            <DiffSection
-              hasChanges={hasTemplateChanges}
-              onOpen={() => setDiffOpen(true)}
-              diffPdfUrl={`/api/portal/contracts/${contract.id}/diff-pdf`}
-            />
-          </div>
-        </ActionCard>
-
-        <ActionCard
-          step="2"
-          title="Podepsáno jednateli"
-          subtitle={
-            contract.signedAt
-              ? `${formatDateTime(contract.signedAt)}${
-                  contract.signedBy ? ` · ${contract.signedBy}` : ""
-                }`
-              : "po vytisknutí a podpisu jednateli"
-          }
-          Icon={PenLine}
-          done={!!contract.signedAt}
-        >
-          {contract.signedAt ? (
-            <button
-              type="button"
-              onClick={() => unsetMilestone("signed")}
-              className="inline-flex h-9 items-center gap-2 rounded-full border border-edge px-3 text-[12px] font-medium text-ink-mid transition-colors hover:border-ink-base hover:text-ink-base"
-            >
-              <Undo2 className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
-              Zrušit označení
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setMilestone("signed")}
-              className="inline-flex h-9 items-center gap-2 rounded-full bg-ink-base px-4 text-[12px] font-semibold text-paper transition-transform active:translate-y-px"
-            >
-              <PenLine className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
-              Označit jako podepsáno
-            </button>
-          )}
-        </ActionCard>
-
-        <ActionCard
-          step="3"
-          title="Vyzvednuto obchodníkem"
-          subtitle={
-            contract.pickedUpAt
-              ? `${formatDateTime(contract.pickedUpAt)}${
-                  contract.pickedUpBy ? ` · ${contract.pickedUpBy}` : ""
-                }`
-              : "obchodník odnesl tištěnou smlouvu ke klientovi"
-          }
-          Icon={Package}
-          done={!!contract.pickedUpAt}
-        >
-          {contract.pickedUpAt ? (
-            <button
-              type="button"
-              onClick={() => unsetMilestone("picked-up")}
-              className="inline-flex h-9 items-center gap-2 rounded-full border border-edge px-3 text-[12px] font-medium text-ink-mid transition-colors hover:border-ink-base hover:text-ink-base"
-            >
-              <Undo2 className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
-              Zrušit označení
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setMilestone("picked-up")}
-              className="inline-flex h-9 items-center gap-2 rounded-full bg-ink-base px-4 text-[12px] font-semibold text-paper transition-transform active:translate-y-px"
-            >
-              <Package className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
-              Označit jako vyzvednuto
-            </button>
-          )}
-        </ActionCard>
-
-        <ActionCard
-          step="4"
-          title="Naskenovaná kopie"
-          subtitle={
-            contract.scanUploadedAt
-              ? `nahráno ${formatDateTime(contract.scanUploadedAt)}${
-                  contract.scanUploadedBy ? ` · ${contract.scanUploadedBy}` : ""
-                }`
-              : "podepsaná verze klientem"
-          }
-          Icon={ScanLine}
-          done={!!contract.scanPdfUrl}
-        >
-          <div className="flex flex-wrap items-center gap-2">
-            <input
-              ref={fileRef}
-              type="file"
-              accept="application/pdf,.pdf"
-              onChange={uploadScan}
-              className="hidden"
-            />
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              disabled={uploadPending}
-              className={[
-                "inline-flex h-9 items-center gap-2 rounded-full px-4 text-[12px] font-semibold transition-transform active:translate-y-px disabled:opacity-50",
-                contract.scanPdfUrl
-                  ? "border border-edge bg-paper text-ink-deep hover:border-ink-base hover:text-ink-base"
-                  : "bg-ink-base text-paper",
-              ].join(" ")}
-            >
-              <Upload className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
-              {uploadPending
-                ? "Nahrávám…"
-                : contract.scanPdfUrl
-                  ? "Nahrát novou verzi"
-                  : "Nahrát sken"}
-            </button>
-            {contract.scanPdfUrl && (
-              <>
-                <a
-                  href={`/api/portal/contracts/${contract.id}/download/scan`}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className="inline-flex h-9 items-center gap-2 rounded-full bg-ink-base px-4 text-[12px] font-semibold text-paper"
-                >
-                  <Download className="h-3.5 w-3.5" strokeWidth={1.5} />
-                  Stáhnout
-                </a>
-                <button
-                  type="button"
-                  onClick={removeScan}
-                  aria-label="Odebrat sken"
-                  className="grid h-9 w-9 place-items-center rounded-full border border-edge text-ink-mid transition-colors hover:border-ink-base hover:bg-ink-base hover:text-paper"
-                >
-                  <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
-                </button>
-              </>
-            )}
-          </div>
-        </ActionCard>
-      </section>
+      {/* Stav smlouvy + aktuální akce */}
+      <ContractStatusStepper contract={contract} signerLabel={signerLabel} />
+      <ContractCurrentActionPanel
+        contract={contract}
+        onChanged={(next) => setContract(next)}
+        notify={notify}
+      />
 
       {/* Variant switcher (jen pro typy s variantami, např. franšíza) */}
       {hasVariants(contract.type) && (

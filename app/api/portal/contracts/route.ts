@@ -152,7 +152,7 @@ export async function POST(req: Request) {
     type,
     clientId: client.id,
     clientName: client.companyName,
-    status: "draft",
+    status: "koncept",
     html: templateHtml,
     templateSnapshot: templateSnapshot || undefined,
     bundleSections,

@@ -5,12 +5,40 @@ import type {
   ContractVariant,
 } from "./contract-types";
 
+// Status flow:
+//   koncept → schvaleno → k-podpisu → podepsano-bos → podepsano-klientem → archivovano
+// Status je computed z timestampů jednotlivých milestones (viz computeContractStatus).
+// Každý milestone má samostatný POST/DELETE endpoint pro rollback (smazání timestampu
+// vrátí smlouvu o status zpět).
 export type ContractStatus =
-  | "draft"
-  | "generated"
-  | "signed"
-  | "picked-up"
-  | "archived";
+  | "koncept"
+  | "schvaleno"
+  | "k-podpisu"
+  | "podepsano-bos"
+  | "podepsano-klientem"
+  | "archivovano";
+
+export const CONTRACT_STATUSES: ContractStatus[] = [
+  "koncept",
+  "schvaleno",
+  "k-podpisu",
+  "podepsano-bos",
+  "podepsano-klientem",
+  "archivovano",
+];
+
+export const CONTRACT_STATUS_LABEL: Record<ContractStatus, string> = {
+  koncept: "Koncept",
+  schvaleno: "Schváleno",
+  "k-podpisu": "K podpisu",
+  "podepsano-bos": "Podepsáno BOS",
+  "podepsano-klientem": "Podepsáno klientem",
+  archivovano: "Archivováno",
+};
+
+export function statusOrder(status: ContractStatus): number {
+  return CONTRACT_STATUSES.indexOf(status);
+}
 
 export interface BundleSection {
   type: ClaimBundleSectionType;
@@ -37,17 +65,26 @@ export interface Contract {
   // Snapshot z template.letterhead při vytvoření smlouvy.
   letterhead?: boolean;
   variables: Record<string, string>;
-  // PDF vygenerováno
+  // PDF vygenerováno (preview nebo finální - rozhoduje status v okamžiku generace).
   generatedPdfUrl?: string;
   generatedPdfPath?: string;
   generatedAt?: string;
-  // Podepsáno jednateli (manuální milestone)
+  // Schváleno: manažer prošel obsah a označil jako připravené k podpisu BOS.
+  approvedAt?: string;
+  approvedBy?: string;
+  // Vybrán konkrétní Podepisující (User.email s isSigner=true). signerPickedAt
+  // zároveň označuje přechod do statusu "k-podpisu" - finální PDF se generuje
+  // až po této volbě (bez watermarku, s daty signera v providerStatutory1*).
+  signerEmail?: string;
+  signerPickedAt?: string;
+  signerPickedBy?: string;
+  // Podepsáno BOS (= podepisující fyzicky podepsal a označil)
   signedAt?: string;
   signedBy?: string;
-  // Vyzvednuto obchodníkem (manuální milestone)
-  pickedUpAt?: string;
-  pickedUpBy?: string;
-  // Naskenovaná podepsaná kopie
+  // Podepsáno klientem
+  clientSignedAt?: string;
+  clientSignedBy?: string;
+  // Naskenovaná podepsaná kopie - spouští přechod do "archivovano"
   scanPdfUrl?: string;
   scanPdfPath?: string;
   scanUploadedAt?: string;
@@ -61,14 +98,19 @@ export interface Contract {
 export function computeContractStatus(
   c: Pick<
     Contract,
-    "generatedAt" | "signedAt" | "pickedUpAt" | "scanUploadedAt"
+    | "approvedAt"
+    | "signerPickedAt"
+    | "signedAt"
+    | "clientSignedAt"
+    | "scanUploadedAt"
   >,
 ): ContractStatus {
-  if (c.scanUploadedAt) return "archived";
-  if (c.pickedUpAt) return "picked-up";
-  if (c.signedAt) return "signed";
-  if (c.generatedAt) return "generated";
-  return "draft";
+  if (c.scanUploadedAt) return "archivovano";
+  if (c.clientSignedAt) return "podepsano-klientem";
+  if (c.signedAt) return "podepsano-bos";
+  if (c.signerPickedAt) return "k-podpisu";
+  if (c.approvedAt) return "schvaleno";
+  return "koncept";
 }
 
 const INDEX = "portal:contracts:index";
@@ -77,10 +119,31 @@ const byClientKey = (clientId: string) =>
   `portal:contracts:by-client:${clientId}`;
 const byTypeKey = (type: ContractType) => `portal:contracts:by-type:${type}`;
 
+// Lazy migrace: starý záznam má status z {draft, generated, signed, picked-up,
+// archived} a pole pickedUpAt místo clientSignedAt. Doplníme nové timestamps
+// z těch existujících (1:1 mapování dle dohody) a status vždy přepočítáme.
+function migrateContract(raw: Contract | null): Contract | null {
+  if (!raw) return null;
+  // Cast přes any kvůli starým polím, která už nejsou v typu.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const c = raw as any;
+  if (!c.approvedAt && (c.generatedAt || c.signedAt || c.scanUploadedAt || c.pickedUpAt)) {
+    c.approvedAt = c.generatedAt ?? c.signedAt ?? c.pickedUpAt ?? c.scanUploadedAt;
+  }
+  if (!c.signerPickedAt && (c.signedAt || c.pickedUpAt || c.scanUploadedAt)) {
+    c.signerPickedAt = c.signedAt ?? c.pickedUpAt ?? c.scanUploadedAt;
+  }
+  if (!c.clientSignedAt && (c.pickedUpAt || c.scanUploadedAt)) {
+    c.clientSignedAt = c.pickedUpAt ?? c.scanUploadedAt;
+  }
+  c.status = computeContractStatus(c);
+  return c as Contract;
+}
+
 export async function getContract(id: string): Promise<Contract | null> {
   const r = getRedis();
   if (!r) return null;
-  return r.get<Contract>(contractKey(id));
+  return migrateContract(await r.get<Contract>(contractKey(id)));
 }
 
 export async function upsertContract(contract: Contract): Promise<void> {
@@ -103,7 +166,9 @@ export async function listContracts(): Promise<Contract[]> {
   const pipe = r.pipeline();
   ids.forEach((id) => pipe.get<Contract>(contractKey(id)));
   const results = (await pipe.exec()) as (Contract | null)[];
-  return results.filter((c): c is Contract => c !== null);
+  return results
+    .map(migrateContract)
+    .filter((c): c is Contract => c !== null);
 }
 
 export async function listContractsByClient(
@@ -117,6 +182,7 @@ export async function listContractsByClient(
   ids.forEach((id) => pipe.get<Contract>(contractKey(id)));
   const results = (await pipe.exec()) as (Contract | null)[];
   return results
+    .map(migrateContract)
     .filter((c): c is Contract => c !== null)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }

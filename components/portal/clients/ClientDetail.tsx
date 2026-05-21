@@ -4,7 +4,7 @@ import {
   Circle,
   CheckCircle2,
   PenLine,
-  Package,
+  Stamp,
   ScanLine,
   FileText,
   type LucideIcon,
@@ -22,11 +22,12 @@ const STATUS_META: Record<
   Contract["status"],
   { label: string; Icon: LucideIcon }
 > = {
-  draft: { label: "Koncept", Icon: Circle },
-  generated: { label: "Vygenerováno", Icon: CheckCircle2 },
-  signed: { label: "Podepsáno", Icon: PenLine },
-  "picked-up": { label: "Vyzvednuto", Icon: Package },
-  archived: { label: "Archivováno", Icon: ScanLine },
+  koncept: { label: "Koncept", Icon: Circle },
+  schvaleno: { label: "Schváleno", Icon: CheckCircle2 },
+  "k-podpisu": { label: "K podpisu", Icon: PenLine },
+  "podepsano-bos": { label: "Podepsáno BOS", Icon: Stamp },
+  "podepsano-klientem": { label: "Podepsáno klientem", Icon: PenLine },
+  archivovano: { label: "Archivováno", Icon: ScanLine },
 };
 
 function formatDate(iso: string): string {

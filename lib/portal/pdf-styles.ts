@@ -302,8 +302,34 @@ function renderBundleBody(sections: BundleSectionInput[]): string {
     .join("\n");
 }
 
-function wrapPdfShell(body: string, opts: { diff?: boolean }): string {
+// Watermark renderujeme jako fixed-positioned ::before pseudo na <body>.
+// Chrome v print režimu opakuje position:fixed na každé stránce, takže
+// stejný watermark prosvítá přes celý dokument. Lehce průhledný šedý text
+// rotovaný -30° napříč stránkou. Používá se pro preview (status < k-podpisu).
+const PDF_WATERMARK_STYLES = `
+body::before {
+  content: "NÁVRH — nepoužívat k podpisu";
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-30deg);
+  font-family: "Manrope", sans-serif;
+  font-weight: 800;
+  font-size: 64pt;
+  letter-spacing: -0.02em;
+  color: rgba(14, 14, 14, 0.08);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 9999;
+}
+`;
+
+function wrapPdfShell(
+  body: string,
+  opts: { diff?: boolean; watermark?: boolean },
+): string {
   const diffStyles = opts.diff ? PDF_DIFF_STYLES : "";
+  const watermarkStyles = opts.watermark ? PDF_WATERMARK_STYLES : "";
   return `<!doctype html>
 <html lang="cs">
 <head>
@@ -313,6 +339,7 @@ function wrapPdfShell(body: string, opts: { diff?: boolean }): string {
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>${PDF_PAGE_STYLES}
 ${diffStyles}
+${watermarkStyles}
 .__fontwarmup {
   position: absolute;
   top: -9999px;
@@ -335,11 +362,14 @@ ${body}
 
 export function buildServerPdfDocument(
   html: string,
-  opts: { cover: CoverHeader; diff?: boolean },
+  opts: { cover: CoverHeader; diff?: boolean; watermark?: boolean },
 ): string {
   const stripped = stripDuplicateTitle(html, opts.cover.title);
   const contentWithHeader = renderFirstPageHeader(opts.cover) + stripped;
-  return wrapPdfShell(contentWithHeader, { diff: opts.diff });
+  return wrapPdfShell(contentWithHeader, {
+    diff: opts.diff,
+    watermark: opts.watermark,
+  });
 }
 
 // Bundle PDF: cover hlavička balíčku + sekce s vlastními pod-headery oddělené
@@ -347,10 +377,13 @@ export function buildServerPdfDocument(
 // a jednotný header/footer napříč všemi 3 dokumenty.
 export function buildServerBundlePdfDocument(
   sections: BundleSectionInput[],
-  opts: { cover: CoverHeader; diff?: boolean },
+  opts: { cover: CoverHeader; diff?: boolean; watermark?: boolean },
 ): string {
   const body = renderFirstPageHeader(opts.cover) + renderBundleBody(sections);
-  return wrapPdfShell(body, { diff: opts.diff });
+  return wrapPdfShell(body, {
+    diff: opts.diff,
+    watermark: opts.watermark,
+  });
 }
 
 // SVG logo inline pro puppeteer headerTemplate (žádný external import)
