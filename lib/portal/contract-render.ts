@@ -12,14 +12,12 @@ export const PROVIDER_DEFAULTS: ContractVariables = {
   providerRegistry: "Městský soud v Praze, oddíl C, vložka 442640",
   providerStatutory1Name: "Ing. Jiří Slavkovský",
   providerStatutory1Role: "jednatel",
-  providerStatutory2Name: "Mgr. Jakub Pešek",
-  providerStatutory2Role: "jednatel",
 };
 
 // Postupník v 3 šablonách postoupení pohledávek (claim-assignment, side-fee,
 // assignment-notice) a v balíčku „claim-bundle" je Clamora Bridge s.r.o., ne
 // BOServices. Šablony používají stejné {{provider*}} placeholdery, jen je
-// naplníme jinou firmou. Statutární zástupci jsou shodní s BOServices.
+// naplníme jinou firmou. Statutární zástupce je shodný s BOServices (Slavkovský).
 export const CLAMORA_BRIDGE_DEFAULTS: ContractVariables = {
   providerName: "Clamora Bridge s.r.o.",
   providerIco: "29582181",
@@ -30,8 +28,6 @@ export const CLAMORA_BRIDGE_DEFAULTS: ContractVariables = {
   providerRegistry: "Městský soud v Praze, oddíl C, vložka 448879",
   providerStatutory1Name: "Ing. Jiří Slavkovský",
   providerStatutory1Role: "jednatel",
-  providerStatutory2Name: "Mgr. Jakub Pešek",
-  providerStatutory2Role: "jednatel",
 };
 
 // Typy smluv, kde Postupník/Poskytovatel je Clamora Bridge (postoupení

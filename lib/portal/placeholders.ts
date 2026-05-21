@@ -43,10 +43,8 @@ export const PLACEHOLDER_GROUPS: PlaceholderGroup[] = [
       { token: "{{providerStreet}}", label: "Ulice a č.p.", example: "Uhelný trh 414/9" },
       { token: "{{providerCity}}", label: "Obec", example: "Praha 1" },
       { token: "{{providerZip}}", label: "PSČ", example: "11000" },
-      { token: "{{providerStatutory1Name}}", label: "1. zástupce - jméno", example: "Ing. Jiří Slavkovský" },
-      { token: "{{providerStatutory1Role}}", label: "1. zástupce - funkce", example: "jednatel" },
-      { token: "{{providerStatutory2Name}}", label: "2. zástupce - jméno", example: "Mgr. Jakub Pešek" },
-      { token: "{{providerStatutory2Role}}", label: "2. zástupce - funkce", example: "jednatel" },
+      { token: "{{providerStatutory1Name}}", label: "Zástupce - jméno", example: "Ing. Jiří Slavkovský" },
+      { token: "{{providerStatutory1Role}}", label: "Zástupce - funkce", example: "jednatel" },
     ],
   },
   {

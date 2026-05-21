@@ -787,31 +787,19 @@ export function ContractDetailClient({ initial }: Props) {
         )}
 
         {contract.type !== "withdrawal" && (
-          <FieldGroup label="Zástupci poskytovatele (BOServices podepisují vždy 2 jednatelé)">
+          <FieldGroup label="Zástupce poskytovatele">
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <SmallField
-                label="1. zástupce - jméno"
+                label="Jméno"
                 value={variables.providerStatutory1Name ?? ""}
                 placeholder="Ing. Jiří Slavkovský"
                 onChange={(v) => updateVar("providerStatutory1Name", v)}
               />
               <SmallField
-                label="1. zástupce - funkce"
+                label="Funkce"
                 value={variables.providerStatutory1Role ?? ""}
                 placeholder="jednatel"
                 onChange={(v) => updateVar("providerStatutory1Role", v)}
-              />
-              <SmallField
-                label="2. zástupce - jméno"
-                value={variables.providerStatutory2Name ?? ""}
-                placeholder="Mgr. Jakub Pešek"
-                onChange={(v) => updateVar("providerStatutory2Name", v)}
-              />
-              <SmallField
-                label="2. zástupce - funkce"
-                value={variables.providerStatutory2Role ?? ""}
-                placeholder="jednatel"
-                onChange={(v) => updateVar("providerStatutory2Role", v)}
               />
             </div>
           </FieldGroup>
