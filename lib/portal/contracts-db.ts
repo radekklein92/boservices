@@ -120,21 +120,38 @@ const byClientKey = (clientId: string) =>
 const byTypeKey = (type: ContractType) => `portal:contracts:by-type:${type}`;
 
 // Lazy migrace: starý záznam má status z {draft, generated, signed, picked-up,
-// archived} a pole pickedUpAt místo clientSignedAt. Doplníme nové timestamps
-// z těch existujících (1:1 mapování dle dohody) a status vždy přepočítáme.
+// archived}. Doplníme nové timestamps z těch existujících (1:1 mapování dle
+// dohody). DŮLEŽITÉ: gateujeme migraci přes status string - jakmile contract
+// jednou prošel a má status z nové sady, NEbackfillujeme. Jinak by `approvedAt`
+// znovu vyplýval z `generatedAt` po každém rollbacku ("Zrušit schválení").
+const LEGACY_STATUSES = new Set([
+  "draft",
+  "generated",
+  "signed",
+  "picked-up",
+  "archived",
+]);
+
 function migrateContract(raw: Contract | null): Contract | null {
   if (!raw) return null;
-  // Cast přes any kvůli starým polím, která už nejsou v typu.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const c = raw as any;
-  if (!c.approvedAt && (c.generatedAt || c.signedAt || c.scanUploadedAt || c.pickedUpAt)) {
-    c.approvedAt = c.generatedAt ?? c.signedAt ?? c.pickedUpAt ?? c.scanUploadedAt;
-  }
-  if (!c.signerPickedAt && (c.signedAt || c.pickedUpAt || c.scanUploadedAt)) {
-    c.signerPickedAt = c.signedAt ?? c.pickedUpAt ?? c.scanUploadedAt;
-  }
-  if (!c.clientSignedAt && (c.pickedUpAt || c.scanUploadedAt)) {
-    c.clientSignedAt = c.pickedUpAt ?? c.scanUploadedAt;
+  const isLegacy = typeof c.status === "string" && LEGACY_STATUSES.has(c.status);
+  if (isLegacy) {
+    if (
+      !c.approvedAt &&
+      (c.generatedAt || c.signedAt || c.scanUploadedAt || c.pickedUpAt)
+    ) {
+      c.approvedAt = c.generatedAt ?? c.signedAt ?? c.pickedUpAt ?? c.scanUploadedAt;
+    }
+    if (!c.signerPickedAt && (c.signedAt || c.pickedUpAt || c.scanUploadedAt)) {
+      c.signerPickedAt = c.signedAt ?? c.pickedUpAt ?? c.scanUploadedAt;
+    }
+    if (!c.clientSignedAt && (c.pickedUpAt || c.scanUploadedAt)) {
+      c.clientSignedAt = c.pickedUpAt ?? c.scanUploadedAt;
+    }
+    delete c.pickedUpAt;
+    delete c.pickedUpBy;
   }
   c.status = computeContractStatus(c);
   return c as Contract;

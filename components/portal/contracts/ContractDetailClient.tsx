@@ -390,6 +390,17 @@ export function ContractDetailClient({ initial }: Props) {
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <SaveIndicator state={saveState} error={saveError} />
+            {contract.generatedPdfUrl && (
+              <a
+                href={`/api/portal/contracts/${contract.id}/download/generated`}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="inline-flex h-10 items-center gap-2 rounded-full border border-edge bg-paper px-5 text-[13px] font-semibold text-ink-deep transition-colors hover:border-ink-base hover:text-ink-base"
+              >
+                <Download className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+                Stáhnout PDF
+              </a>
+            )}
             <button
               type="button"
               onClick={generatePdf}
