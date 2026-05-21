@@ -148,6 +148,19 @@ export function isBundleType(type: ContractType): type is "claim-bundle" {
   return type === "claim-bundle";
 }
 
+// Jednostranné smlouvy/prohlášení - BOS na nich nepodepisuje, šablona má
+// jen podpis klienta. Flow se proto zkracuje: Koncept → Schváleno →
+// Podepsáno klientem → Archivováno (skipuje se "K podpisu" a "Podepsáno BOS",
+// které jsou specifické pro výběr podepisujícího za BOS).
+const UNILATERAL_TYPES: Set<ContractType> = new Set([
+  "withdrawal",
+  "assignment-notice",
+]);
+
+export function isUnilateralContract(type: ContractType): boolean {
+  return UNILATERAL_TYPES.has(type);
+}
+
 export function isClaimBundleSection(
   value: string,
 ): value is ClaimBundleSectionType {

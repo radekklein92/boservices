@@ -12,6 +12,7 @@ import {
   Stamp,
 } from "lucide-react";
 import type { Contract } from "@/lib/portal/contracts-db";
+import { isUnilateralContract } from "@/lib/portal/contract-types";
 import { SignerPickerModal } from "./SignerPickerModal";
 
 type Notify = (kind: "ok" | "error", msg: string) => void;
@@ -134,6 +135,7 @@ export function ContractCurrentActionPanel({
   }
 
   const status = contract.status;
+  const unilateral = isUnilateralContract(contract.type);
 
   return (
     <div className="flex flex-col gap-4 rounded-2xl border border-edge bg-paper px-6 py-6 md:px-8 md:py-7">
@@ -155,13 +157,34 @@ export function ContractCurrentActionPanel({
         />
       )}
 
-      {status === "schvaleno" && (
+      {status === "schvaleno" && !unilateral && (
         <ActionRow
           headline="Schváleno - vyber podepisujícího"
           description="Vyber konkrétního podepisujícího. Po výběru se vygeneruje finální PDF bez vodoznaku."
           primary={
             <PrimaryButton onClick={() => setPickerOpen(true)} Icon={Gavel}>
               Vybrat podepisujícího
+            </PrimaryButton>
+          }
+          rollback={
+            <SubtleButton onClick={unapprove} pending={pending === "DELETE:approve"} Icon={Undo2}>
+              Zrušit schválení
+            </SubtleButton>
+          }
+        />
+      )}
+
+      {status === "schvaleno" && unilateral && (
+        <ActionRow
+          headline="Schváleno - připraveno k podpisu klientem"
+          description="Smlouvu podepisuje pouze klient. Vytiskni finální PDF, předej k podpisu a označ jako Podepsáno klientem."
+          primary={
+            <PrimaryButton
+              onClick={markClientSigned}
+              pending={pending === "POST:client-signed"}
+              Icon={PenLine}
+            >
+              Označit Podepsáno klientem
             </PrimaryButton>
           }
           rollback={

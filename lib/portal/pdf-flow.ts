@@ -1,6 +1,10 @@
 import { put } from "@vercel/blob";
 import type { Contract } from "./contracts-db";
-import { CONTRACT_TYPE_META, isBundleType } from "./contract-types";
+import {
+  CONTRACT_TYPE_META,
+  isBundleType,
+  isUnilateralContract,
+} from "./contract-types";
 import { applySignerOverride, renderTemplate } from "./contract-render";
 import { bundleHtmlToPdfBuffer, htmlToPdfBuffer } from "./pdf-generator";
 import { getCoverForType } from "./pdf-styles";
@@ -38,9 +42,20 @@ export async function renderAndStoreContractPdf(contract: Contract): Promise<{
   const title = `${meta.shortName} - ${contract.clientName}`;
   const cover = getCoverForType(contract.type);
 
-  const isFinal = !!contract.signerPickedAt;
+  // Kdy je PDF finální (bez watermarku):
+  //   - bilateral typ: po výběru podepisujícího (signerPickedAt)
+  //   - unilateral typ (odstoupení, oznámení): hned po schválení (approvedAt),
+  //     protože BOS žádného podepisujícího nepotřebuje.
+  const unilateral = isUnilateralContract(contract.type);
+  const isFinal = unilateral
+    ? !!contract.approvedAt
+    : !!contract.signerPickedAt;
+  // Signer override má smysl jen pro bilateral typy (signerEmail je vázán na
+  // pick-signer step, který unilateral flow nemá).
   const signer =
-    isFinal && contract.signerEmail ? await getUser(contract.signerEmail) : null;
+    !unilateral && isFinal && contract.signerEmail
+      ? await getUser(contract.signerEmail)
+      : null;
   const variables = signer
     ? applySignerOverride(contract.variables, signer)
     : contract.variables;

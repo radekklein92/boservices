@@ -4,6 +4,7 @@ import type {
   ContractType,
   ContractVariant,
 } from "./contract-types";
+import { isUnilateralContract } from "./contract-types";
 
 // Status flow:
 //   koncept → schvaleno → k-podpisu → podepsano-bos → podepsano-klientem → archivovano
@@ -18,6 +19,7 @@ export type ContractStatus =
   | "podepsano-klientem"
   | "archivovano";
 
+// Bilateral flow (BOS i klient podepisují) - 6 kroků.
 export const CONTRACT_STATUSES: ContractStatus[] = [
   "koncept",
   "schvaleno",
@@ -26,6 +28,21 @@ export const CONTRACT_STATUSES: ContractStatus[] = [
   "podepsano-klientem",
   "archivovano",
 ];
+
+// Unilateral flow (jen klient podepisuje) - 4 kroky, skipují se "K podpisu"
+// a "Podepsáno BOS", které se týkají výběru podepisujícího za BOS.
+export const UNILATERAL_CONTRACT_STATUSES: ContractStatus[] = [
+  "koncept",
+  "schvaleno",
+  "podepsano-klientem",
+  "archivovano",
+];
+
+export function getStatusFlowForType(type: ContractType): ContractStatus[] {
+  return isUnilateralContract(type)
+    ? UNILATERAL_CONTRACT_STATUSES
+    : CONTRACT_STATUSES;
+}
 
 export const CONTRACT_STATUS_LABEL: Record<ContractStatus, string> = {
   koncept: "Koncept",

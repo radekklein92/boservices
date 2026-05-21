@@ -30,6 +30,13 @@ export function signerFunctionLabel(fn: SignerFunction): string {
   return fn === "jednatel" ? "Jednatel" : "Na základě plné moci";
 }
 
+// Krátká varianta pro stísněné UI prvky (badge v listu uživatelů).
+// "Na základě plné moci" je do uppercase trackovaného badge moc dlouhé a
+// láme přes 2 řádky - tady jen "Plná moc".
+export function signerFunctionShortLabel(fn: SignerFunction): string {
+  return fn === "jednatel" ? "Jednatel" : "Plná moc";
+}
+
 const ACTIVITY_THROTTLE_MS = 60_000;
 
 const userKey = (email: string) => `portal:user:${email.toLowerCase()}`;

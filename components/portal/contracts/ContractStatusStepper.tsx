@@ -2,8 +2,9 @@
 
 import { Check } from "lucide-react";
 import {
-  CONTRACT_STATUSES,
   CONTRACT_STATUS_LABEL,
+  getStatusFlowForType,
+  statusOrder,
   type Contract,
   type ContractStatus,
 } from "@/lib/portal/contracts-db";
@@ -39,7 +40,15 @@ export function ContractStatusStepper({
   signerLabel?: string | null;
 }) {
   const current = contract.status;
-  const currentIdx = CONTRACT_STATUSES.indexOf(current);
+  const flow = getStatusFlowForType(contract.type);
+  // Když je smlouva už ve statusu, který v jejím flow neexistuje (např. data
+  // ze starého času před zavedením unilateral flow), spadne to do max(flow).
+  const currentIdx =
+    flow.indexOf(current) === -1
+      ? Math.min(statusOrder(current), flow.length - 1)
+      : flow.indexOf(current);
+  // Délka linky je responzivní - na úzké flow (4 kroky) by 640px byla obří.
+  const minWidth = flow.length <= 4 ? 480 : 640;
 
   return (
     <div className="rounded-2xl border border-edge bg-paper px-6 py-7 md:px-8 md:py-8">
@@ -54,8 +63,11 @@ export function ContractStatusStepper({
 
       {/* Stepper. Na úzkých zařízeních scrolluje horizontálně. */}
       <div className="-mx-2 overflow-x-auto px-2 pb-1">
-        <ol className="relative flex min-w-[640px] items-start gap-0">
-          {CONTRACT_STATUSES.map((status, idx) => {
+        <ol
+          className="relative flex items-start gap-0"
+          style={{ minWidth: `${minWidth}px` }}
+        >
+          {flow.map((status, idx) => {
             const isDone = idx < currentIdx;
             const isCurrent = idx === currentIdx;
             const isFuture = idx > currentIdx;
@@ -83,7 +95,7 @@ export function ContractStatusStepper({
                     aria-hidden="true"
                   />
                 )}
-                {idx < CONTRACT_STATUSES.length - 1 && (
+                {idx < flow.length - 1 && (
                   <span
                     className={`absolute left-1/2 right-0 top-[18px] h-[2px] -translate-y-1/2 ${
                       idx < currentIdx ? "bg-ink-base" : "bg-edge"

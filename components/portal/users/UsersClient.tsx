@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import type { AllowlistEntry } from "@/lib/portal/allowlist-db";
 import {
-  signerFunctionLabel,
+  signerFunctionShortLabel,
   type User,
   type UserRole,
 } from "@/lib/portal/users-db";
@@ -247,7 +247,7 @@ export function UsersClient({
                           strokeWidth={1.5}
                           aria-hidden="true"
                         />
-                        Podepisující · {signerFunctionLabel(u.signerFunction)}
+                        Podepisující · {signerFunctionShortLabel(u.signerFunction)}
                       </Badge>
                     )}
                   </div>
@@ -440,7 +440,7 @@ function Badge({
       : "border-edge bg-edge-warm text-ink-mid";
   return (
     <span
-      className={`inline-flex h-5 items-center rounded-full border px-2 text-[10px] font-semibold uppercase tracking-[0.18em] ${cls}`}
+      className={`inline-flex h-5 shrink-0 items-center whitespace-nowrap rounded-full border px-2 text-[10px] font-semibold uppercase tracking-[0.18em] ${cls}`}
     >
       {children}
     </span>
