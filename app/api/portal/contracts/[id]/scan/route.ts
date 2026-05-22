@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { put, del } from "@vercel/blob";
 import { requireSession } from "@/lib/portal/auth-guard";
+import { bustContracts } from "@/lib/portal/revalidate";
 import {
   computeContractStatus,
   getContract,
@@ -106,6 +107,7 @@ export async function POST(
   updated.status = computeContractStatus(updated);
   await upsertContract(updated);
 
+  bustContracts();
   return NextResponse.json({ ok: true, url: uploaded.url });
 }
 
@@ -141,6 +143,7 @@ export async function DELETE(
   updated.status = computeContractStatus(updated);
   await upsertContract(updated);
 
+  bustContracts();
   return NextResponse.json({ ok: true });
 }
 

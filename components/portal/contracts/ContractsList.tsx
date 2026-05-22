@@ -26,9 +26,17 @@ import {
   CONTRACT_STATUS_LABEL,
 } from "@/lib/portal/contracts-db";
 import type { Client } from "@/lib/portal/clients-db";
+import dynamicImport from "next/dynamic";
 import { CONTRACT_TYPE_META, isBundleType } from "@/lib/portal/contract-types";
-import { ContractCreateModal } from "./ContractCreateModal";
-import { SignerPickerModal } from "./SignerPickerModal";
+
+const ContractCreateModal = dynamicImport(
+  () => import("./ContractCreateModal").then((m) => m.ContractCreateModal),
+  { ssr: false },
+);
+const SignerPickerModal = dynamicImport(
+  () => import("./SignerPickerModal").then((m) => m.SignerPickerModal),
+  { ssr: false },
+);
 
 function formatDate(iso: string): string {
   try {

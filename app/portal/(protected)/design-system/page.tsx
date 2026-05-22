@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { Download, FileText, Eye } from "lucide-react";
-import { auth } from "@/auth";
+import { getSession } from "@/lib/portal/get-session";
 import { isAdminRole } from "@/lib/portal/auth-guard";
 import { PageHeader } from "@/components/portal/shell/PageHeader";
 
@@ -12,7 +12,7 @@ const PDF_FILENAME = "BOServices-Design-System.pdf";
 const PDF_SIZE_MB = 2.2;
 
 export default async function DesignSystemPage() {
-  const session = await auth();
+  const session = await getSession();
   if (!session?.user?.email) redirect("/portal/login");
   if (!isAdminRole(session.user?.role)) redirect("/portal");
 

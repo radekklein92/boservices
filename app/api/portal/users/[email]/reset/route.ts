@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/portal/auth-guard";
 import { getUser, upsertUser } from "@/lib/portal/users-db";
 import { createAuthToken } from "@/lib/portal/auth-tokens";
 import { sendResetEmail } from "@/lib/portal/email";
+import { bustUsers } from "@/lib/portal/revalidate";
 
 function decodeEmail(raw: string): string {
   try {
@@ -58,5 +59,6 @@ export async function POST(
     console.error("[portal users] reset email failed", err);
   }
 
+  bustUsers();
   return NextResponse.json({ ok: true });
 }

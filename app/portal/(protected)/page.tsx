@@ -8,24 +8,25 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
-import { auth } from "@/auth";
 import { PageHeader } from "@/components/portal/shell/PageHeader";
-import { listUsers } from "@/lib/portal/users-db";
-import { listAllowlist } from "@/lib/portal/allowlist-db";
 import { countLeads } from "@/lib/portal/leads-db";
 import { isAdminRole } from "@/lib/portal/auth-guard";
+import { getSession } from "@/lib/portal/get-session";
+import {
+  cachedListAllowlist,
+  cachedListUsers,
+} from "@/lib/portal/cached-db";
 
 export const dynamic = "force-dynamic";
 
 export default async function PortalDashboardPage() {
-  const session = await auth();
-  const isAdmin = isAdminRole(session?.user?.role);
-
-  const [users, allowlist, leads] = await Promise.all([
-    listUsers(),
-    listAllowlist(),
+  const [session, users, allowlist, leads] = await Promise.all([
+    getSession(),
+    cachedListUsers(),
+    cachedListAllowlist(),
     countLeads(),
   ]);
+  const isAdmin = isAdminRole(session?.user?.role);
 
   const pendingInvites = allowlist.filter((a) => a.status === "pending").length;
   const displayName =

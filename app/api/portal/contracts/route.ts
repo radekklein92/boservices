@@ -15,6 +15,7 @@ import {
 } from "@/lib/portal/contract-types";
 import { WITHDRAWAL_KS_TEXTS } from "@/lib/portal/contract-render";
 import { getOrSeedContractTemplate } from "@/lib/portal/contract-templates-db";
+import { bustContracts } from "@/lib/portal/revalidate";
 import {
   getNextContractNumber,
   listContracts,
@@ -165,8 +166,8 @@ export async function POST(req: Request) {
     updatedAt: nowIso,
   });
 
-  return NextResponse.json({
-    ok: true,
+  bustContracts();
+  return NextResponse.json({ ok: true,
     id,
     typeName: CONTRACT_TYPE_META[type].fullName,
   });

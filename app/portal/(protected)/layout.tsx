@@ -1,14 +1,16 @@
 import { redirect } from "next/navigation";
-import { auth } from "@/auth";
 import { recordActivity } from "@/lib/portal/users-db";
 import { Sidebar } from "@/components/portal/shell/Sidebar";
+import { getSession } from "@/lib/portal/get-session";
 
 export default async function ProtectedLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const session = await auth();
+  // getSession je React.cache memoizovaná - další volání ze stránek v rámci
+  // stejného requestu nevyvolá nový JWT decrypt.
+  const session = await getSession();
   if (!session?.user?.email) {
     redirect("/portal/login");
   }

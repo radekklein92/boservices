@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireSession } from "@/lib/portal/auth-guard";
+import { bustClients } from "@/lib/portal/revalidate";
 import {
   deleteClient,
   getClient,
@@ -134,5 +135,6 @@ export async function DELETE(
   if (!g.ok) return g.response;
   const { id } = await params;
   await deleteClient(id);
+  bustClients();
   return NextResponse.json({ ok: true });
 }

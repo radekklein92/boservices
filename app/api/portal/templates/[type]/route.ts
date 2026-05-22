@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/portal/auth-guard";
+import { bustTemplates } from "@/lib/portal/revalidate";
 import {
   getDefaultVariantForType,
   hasVariants,
@@ -101,5 +102,6 @@ export async function DELETE(
   const variant = resolveVariant(type, url);
   await deleteContractTemplate(type, variant);
 
+  bustTemplates();
   return NextResponse.json({ ok: true });
 }

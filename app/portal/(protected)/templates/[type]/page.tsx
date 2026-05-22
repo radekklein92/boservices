@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
-import { auth } from "@/auth";
 import { isAdminRole } from "@/lib/portal/auth-guard";
+import { getSession } from "@/lib/portal/get-session";
 import {
   isContractType,
   hasVariants,
@@ -10,7 +10,7 @@ import {
   CONTRACT_TYPE_META,
   type ContractVariant,
 } from "@/lib/portal/contract-types";
-import { getOrSeedContractTemplate } from "@/lib/portal/contract-templates-db";
+import { cachedGetOrSeedContractTemplate } from "@/lib/portal/cached-db";
 import { TemplateEditorClient } from "@/components/portal/contracts/TemplateEditorClient";
 
 export const dynamic = "force-dynamic";
@@ -37,11 +37,10 @@ export default async function TemplatePage({
   // Bundle nemá vlastní editovatelnou šablonu - skládá se ze 3 zdrojových.
   if (isBundleType(type)) notFound();
 
-  const session = await auth();
+  const [session, sp] = await Promise.all([getSession(), searchParams]);
   if (!session?.user?.email) redirect("/portal/login");
   if (!isAdminRole(session.user?.role)) redirect("/portal");
 
-  const sp = await searchParams;
   let variant: ContractVariant | undefined;
   if (hasVariants(type)) {
     variant =
@@ -50,7 +49,7 @@ export default async function TemplatePage({
         : (getDefaultVariantForType(type) as ContractVariant | undefined);
   }
 
-  const template = await getOrSeedContractTemplate(type, variant);
+  const template = await cachedGetOrSeedContractTemplate(type, variant);
 
   return (
     <TemplateEditorClient

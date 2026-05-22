@@ -7,6 +7,7 @@ import {
   upsertContract,
 } from "@/lib/portal/contracts-db";
 import { getUser } from "@/lib/portal/users-db";
+import { bustContracts } from "@/lib/portal/revalidate";
 
 const bulkSchema = z.object({
   ids: z.array(z.string().min(1)).min(1).max(200),
@@ -147,5 +148,6 @@ export async function POST(req: Request) {
     }
   }
 
+  bustContracts();
   return NextResponse.json({ ok: true, changed, skipped, errors });
 }

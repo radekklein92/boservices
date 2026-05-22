@@ -8,6 +8,7 @@ import {
   upsertContract,
 } from "@/lib/portal/contracts-db";
 import { getOrSeedContractTemplate } from "@/lib/portal/contract-templates-db";
+import { bustContracts } from "@/lib/portal/revalidate";
 import {
   hasVariants,
   isValidVariantForType,
@@ -56,6 +57,7 @@ export async function POST(
   const variant = parsed.data.variant as ContractVariant;
 
   if (contract.variant === variant) {
+    bustContracts();
     return NextResponse.json({ ok: true, contract });
   }
 
@@ -94,5 +96,6 @@ export async function POST(
   updated.status = computeContractStatus(updated);
 
   await upsertContract(updated);
+  bustContracts();
   return NextResponse.json({ ok: true, contract: updated });
 }

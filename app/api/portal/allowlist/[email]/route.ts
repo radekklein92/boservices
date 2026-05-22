@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/portal/auth-guard";
 import { removeAllowlistEntry } from "@/lib/portal/allowlist-db";
+import { bustUsers } from "@/lib/portal/revalidate";
 
 function decodeEmail(raw: string): string {
   try {
@@ -28,5 +29,6 @@ export async function DELETE(
   }
 
   await removeAllowlistEntry(email);
+  bustUsers();
   return NextResponse.json({ ok: true });
 }

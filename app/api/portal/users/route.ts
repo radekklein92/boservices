@@ -5,6 +5,7 @@ import { getUser, listUsers } from "@/lib/portal/users-db";
 import { listAllowlist, upsertAllowlistEntry } from "@/lib/portal/allowlist-db";
 import { createAuthToken } from "@/lib/portal/auth-tokens";
 import { sendInviteEmail } from "@/lib/portal/email";
+import { bustUsers } from "@/lib/portal/revalidate";
 
 export async function GET() {
   const g = await requireAdmin();
@@ -78,5 +79,6 @@ export async function POST(req: Request) {
     console.error("[portal users] invite email failed", err);
   }
 
+  bustUsers();
   return NextResponse.json({ ok: true });
 }

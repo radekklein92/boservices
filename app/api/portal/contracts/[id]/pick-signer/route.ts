@@ -8,6 +8,7 @@ import {
 } from "@/lib/portal/contracts-db";
 import { getUser } from "@/lib/portal/users-db";
 import { renderAndStoreContractPdf } from "@/lib/portal/pdf-flow";
+import { bustContracts } from "@/lib/portal/revalidate";
 
 export const maxDuration = 60;
 
@@ -100,6 +101,7 @@ export async function POST(
 
   await upsertContract(updated);
 
+  bustContracts();
   return NextResponse.json({ ok: true, regenerated: !!pdfUpload });
 }
 
@@ -136,5 +138,6 @@ export async function DELETE(
   updated.status = computeContractStatus(updated);
   await upsertContract(updated);
 
+  bustContracts();
   return NextResponse.json({ ok: true });
 }

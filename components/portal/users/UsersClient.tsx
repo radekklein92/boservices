@@ -19,9 +19,19 @@ import {
   type User,
   type UserRole,
 } from "@/lib/portal/users-db";
+import dynamicImport from "next/dynamic";
 import { PageHeader } from "@/components/portal/shell/PageHeader";
-import { InviteModal } from "./InviteModal";
-import { EditUserModal } from "./EditUserModal";
+
+// Modaly se renderují conditional ({open && <Modal />}). next/dynamic je
+// code-splitne do separátního chunku, který se stáhne až při open=true.
+const InviteModal = dynamicImport(
+  () => import("./InviteModal").then((m) => m.InviteModal),
+  { ssr: false },
+);
+const EditUserModal = dynamicImport(
+  () => import("./EditUserModal").then((m) => m.EditUserModal),
+  { ssr: false },
+);
 
 type Props = {
   currentEmail: string;

@@ -11,9 +11,14 @@ import {
   Gavel,
   Stamp,
 } from "lucide-react";
+import dynamicImport from "next/dynamic";
 import type { Contract } from "@/lib/portal/contracts-db";
 import { isUnilateralContract } from "@/lib/portal/contract-types";
-import { SignerPickerModal } from "./SignerPickerModal";
+
+const SignerPickerModal = dynamicImport(
+  () => import("./SignerPickerModal").then((m) => m.SignerPickerModal),
+  { ssr: false },
+);
 
 type Notify = (kind: "ok" | "error", msg: string) => void;
 

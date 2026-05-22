@@ -6,6 +6,7 @@ import {
   upsertContract,
 } from "@/lib/portal/contracts-db";
 import { renderAndStoreContractPdf } from "@/lib/portal/pdf-flow";
+import { bustContracts } from "@/lib/portal/revalidate";
 
 export const maxDuration = 60;
 
@@ -51,5 +52,6 @@ export async function POST(
   updated.status = computeContractStatus(updated);
   await upsertContract(updated);
 
+  bustContracts();
   return NextResponse.json({ ok: true, url: uploaded.url });
 }

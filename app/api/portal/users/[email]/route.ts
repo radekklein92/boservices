@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/portal/auth-guard";
 import { deleteUser, getUser, upsertUser } from "@/lib/portal/users-db";
 import { removeAllowlistEntry } from "@/lib/portal/allowlist-db";
+import { bustUsers } from "@/lib/portal/revalidate";
 
 const patchSchema = z.object({
   role: z.enum(["admin", "user", "superadmin"]).optional(),
@@ -89,6 +90,7 @@ export async function PATCH(
     signerDisplayName: nextSignerDisplayName,
   });
 
+  bustUsers();
   return NextResponse.json({ ok: true });
 }
 
@@ -121,5 +123,6 @@ export async function DELETE(
   }
 
   await Promise.all([deleteUser(email), removeAllowlistEntry(email)]);
+  bustUsers();
   return NextResponse.json({ ok: true });
 }

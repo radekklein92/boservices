@@ -10,6 +10,7 @@ import {
   type BundleSection,
 } from "@/lib/portal/contracts-db";
 import { isClaimBundleSection } from "@/lib/portal/contract-types";
+import { bustContracts } from "@/lib/portal/revalidate";
 
 const bundleSectionSchema = z.object({
   type: z.string().refine(isClaimBundleSection, {
@@ -114,6 +115,7 @@ export async function DELETE(
   const { id } = await params;
   const contract = await deleteContract(id);
   if (!contract) {
+    bustContracts();
     return NextResponse.json({ ok: true });
   }
 
@@ -131,5 +133,6 @@ export async function DELETE(
     }
   }
 
+  bustContracts();
   return NextResponse.json({ ok: true });
 }

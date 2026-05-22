@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/portal/auth-guard";
+import { bustContracts } from "@/lib/portal/revalidate";
 import {
   computeContractStatus,
   getContract,
@@ -29,6 +30,7 @@ export async function POST(
   updated.status = computeContractStatus(updated);
   await upsertContract(updated);
 
+  bustContracts();
   return NextResponse.json({ ok: true });
 }
 
@@ -58,5 +60,6 @@ export async function DELETE(
   updated.status = computeContractStatus(updated);
   await upsertContract(updated);
 
+  bustContracts();
   return NextResponse.json({ ok: true });
 }

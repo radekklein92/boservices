@@ -1,20 +1,21 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowUpRight, FileEdit } from "lucide-react";
-import { auth } from "@/auth";
 import { PageHeader } from "@/components/portal/shell/PageHeader";
-import { listContractTemplates } from "@/lib/portal/contract-templates-db";
+import { cachedListContractTemplates } from "@/lib/portal/cached-db";
+import { getSession } from "@/lib/portal/get-session";
 import { isAdminRole } from "@/lib/portal/auth-guard";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Šablony smluv" };
 
 export default async function TemplatesPage() {
-  const session = await auth();
+  const [session, items] = await Promise.all([
+    getSession(),
+    cachedListContractTemplates(),
+  ]);
   if (!session?.user?.email) redirect("/portal/login");
   if (!isAdminRole(session.user?.role)) redirect("/portal");
-
-  const items = await listContractTemplates();
 
   return (
     <div className="flex flex-col gap-10">

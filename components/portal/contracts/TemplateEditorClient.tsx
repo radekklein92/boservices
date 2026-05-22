@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import dynamicImport from "next/dynamic";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, RotateCcw, Save, ShieldCheck } from "lucide-react";
@@ -13,8 +14,17 @@ import {
   type ContractType,
   type ContractVariant,
 } from "@/lib/portal/contract-types";
-import { TiptapEditor } from "./TiptapEditor";
 import { PlaceholderPalette } from "./PlaceholderPalette";
+
+const TiptapEditor = dynamicImport(
+  () => import("./TiptapEditor").then((m) => m.TiptapEditor),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-[420px] animate-pulse rounded-xl bg-edge-warm" />
+    ),
+  },
+);
 
 type Props = {
   type: ContractType;

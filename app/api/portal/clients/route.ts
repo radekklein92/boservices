@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { nanoid } from "nanoid";
 import { requireSession } from "@/lib/portal/auth-guard";
+import { bustClients } from "@/lib/portal/revalidate";
 import {
   getClientByIco,
   listClients,
@@ -119,5 +120,6 @@ export async function POST(req: Request) {
     updatedAt: now,
   });
 
+  bustClients();
   return NextResponse.json({ ok: true, id });
 }

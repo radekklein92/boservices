@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import dynamicImport from "next/dynamic";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -30,8 +31,20 @@ import {
 import { WITHDRAWAL_KS_TEXTS } from "@/lib/portal/contract-render";
 import { extractPlaceholderTokens } from "@/lib/portal/contract-render";
 import { signerFunctionLabel } from "@/lib/portal/users-db";
-import { TiptapEditor } from "./TiptapEditor";
 import { PlaceholderPalette } from "./PlaceholderPalette";
+
+// Tiptap editor (~350KB gzip s extensions) lazy-loaded přes next/dynamic.
+// Bez ssr=false, protože editor potřebuje DOM. loading: vrátí stylovaný
+// skeleton, aby uživatel nečekal s prázdným místem.
+const TiptapEditor = dynamicImport(
+  () => import("./TiptapEditor").then((m) => m.TiptapEditor),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-[420px] animate-pulse rounded-xl bg-edge-warm" />
+    ),
+  },
+);
 import {
   DebtorPresetPicker,
   type DebtorFillPayload,

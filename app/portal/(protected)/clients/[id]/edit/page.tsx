@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getClient } from "@/lib/portal/clients-db";
+import { cachedGetClient } from "@/lib/portal/cached-db";
 import { PageHeader } from "@/components/portal/shell/PageHeader";
 import { ClientForm } from "@/components/portal/clients/ClientForm";
 
@@ -12,7 +12,7 @@ export default async function EditClientPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const client = await getClient(id);
+  const client = await cachedGetClient(id);
   if (!client) notFound();
 
   return (

@@ -1,13 +1,18 @@
 import { PageHeader } from "@/components/portal/shell/PageHeader";
 import { ContractsList } from "@/components/portal/contracts/ContractsList";
-import { listContracts } from "@/lib/portal/contracts-db";
-import { listClients } from "@/lib/portal/clients-db";
+import {
+  cachedListClients,
+  cachedListContracts,
+} from "@/lib/portal/cached-db";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Smlouvy" };
 
 export default async function ContractsPage() {
-  const [contracts, clients] = await Promise.all([listContracts(), listClients()]);
+  const [contracts, clients] = await Promise.all([
+    cachedListContracts(),
+    cachedListClients(),
+  ]);
 
   return (
     <div className="flex flex-col gap-10">
