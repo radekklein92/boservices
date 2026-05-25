@@ -53,7 +53,11 @@ export function applySignerOverride(
   variables: ContractVariables,
   signer: Pick<
     User,
-    "name" | "signerDisplayName" | "signerFunction" | "isSigner"
+    | "name"
+    | "signerDisplayName"
+    | "signerFunction"
+    | "signerPoaSubstituteFor"
+    | "isSigner"
   >,
 ): ContractVariables {
   if (!signer.isSigner || !signer.signerFunction) return variables;
@@ -61,7 +65,7 @@ export function applySignerOverride(
     ...variables,
     providerStatutory1Name:
       signer.signerDisplayName?.trim() || signer.name || variables.providerStatutory1Name,
-    providerStatutory1Role: signerRoleText(signer.signerFunction),
+    providerStatutory1Role: signerRoleText(signer),
   };
 }
 

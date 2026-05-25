@@ -11,6 +11,7 @@ const patchSchema = z.object({
   isSigner: z.boolean().optional(),
   signerFunction: z.enum(["jednatel", "power-of-attorney"]).nullable().optional(),
   signerDisplayName: z.string().trim().max(160).nullable().optional(),
+  signerPoaSubstituteFor: z.string().trim().max(160).nullable().optional(),
 });
 
 function decodeEmail(raw: string): string {
@@ -62,9 +63,11 @@ export async function PATCH(
   const nextIsSigner = parsed.data.isSigner ?? user.isSigner;
   let nextSignerFunction = user.signerFunction;
   let nextSignerDisplayName = user.signerDisplayName;
+  let nextSignerPoaSubstituteFor = user.signerPoaSubstituteFor;
   if (parsed.data.isSigner === false) {
     nextSignerFunction = undefined;
     nextSignerDisplayName = undefined;
+    nextSignerPoaSubstituteFor = undefined;
   } else {
     if (parsed.data.signerFunction !== undefined) {
       nextSignerFunction = parsed.data.signerFunction ?? undefined;
@@ -73,6 +76,15 @@ export async function PATCH(
       nextSignerDisplayName =
         parsed.data.signerDisplayName?.trim() || undefined;
     }
+    if (parsed.data.signerPoaSubstituteFor !== undefined) {
+      nextSignerPoaSubstituteFor =
+        parsed.data.signerPoaSubstituteFor?.trim() || undefined;
+    }
+  }
+  // Pole "Substituce za" je relevantní jen u substituční PM. Když uživatel
+  // přepne na jednatele, vyčistíme ho - jinak by tam zůstal mrtvý zápis.
+  if (nextSignerFunction === "jednatel") {
+    nextSignerPoaSubstituteFor = undefined;
   }
   if (nextIsSigner && !nextSignerFunction) {
     return NextResponse.json(
@@ -88,6 +100,7 @@ export async function PATCH(
     isSigner: nextIsSigner || false,
     signerFunction: nextSignerFunction,
     signerDisplayName: nextSignerDisplayName,
+    signerPoaSubstituteFor: nextSignerPoaSubstituteFor,
   });
 
   bustUsers();

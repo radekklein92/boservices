@@ -20,21 +20,38 @@ export interface User {
   isSigner?: boolean;
   signerFunction?: SignerFunction;
   signerDisplayName?: string;
+  // Pouze relevantní když signerFunction === "power-of-attorney":
+  // jméno osoby, jejíž substituční plnou moc Podepisující vykonává.
+  // Volitelné - když není vyplněné, role text fallbackuje na "na základě
+  // plné moci" (bez substituční přídavku).
+  signerPoaSubstituteFor?: string;
 }
 
-export function signerRoleText(fn: SignerFunction): string {
-  return fn === "jednatel" ? "jednatel" : "na základě plné moci";
+// Vrací text pro {{providerStatutory1Role}} v PDF/HTML smlouvy.
+// Pro jednatele: "jednatel".
+// Pro substituční PM s vyplněným polem: "na základě substituční plné moci za X".
+// Pro substituční PM bez vyplnění: fallback "na základě plné moci".
+export function signerRoleText(
+  user: Pick<User, "signerFunction" | "signerPoaSubstituteFor">,
+): string {
+  if (user.signerFunction === "jednatel") return "jednatel";
+  if (user.signerFunction === "power-of-attorney") {
+    const sub = user.signerPoaSubstituteFor?.trim();
+    return sub
+      ? `na základě substituční plné moci za ${sub}`
+      : "na základě plné moci";
+  }
+  return "";
 }
 
+// UI label v dropdownu / detailu uživatele.
 export function signerFunctionLabel(fn: SignerFunction): string {
-  return fn === "jednatel" ? "Jednatel" : "Na základě plné moci";
+  return fn === "jednatel" ? "Jednatel" : "Substituční plná moc";
 }
 
 // Krátká varianta pro stísněné UI prvky (badge v listu uživatelů).
-// "Na základě plné moci" je do uppercase trackovaného badge moc dlouhé a
-// láme přes 2 řádky - tady jen "Plná moc".
 export function signerFunctionShortLabel(fn: SignerFunction): string {
-  return fn === "jednatel" ? "Jednatel" : "Plná moc";
+  return fn === "jednatel" ? "Jednatel" : "Subst. PM";
 }
 
 const ACTIVITY_THROTTLE_MS = 60_000;

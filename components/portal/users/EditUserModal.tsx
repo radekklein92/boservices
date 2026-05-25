@@ -6,7 +6,13 @@ import type { SignerFunction, User, UserRole } from "@/lib/portal/users-db";
 
 type EditableUser = Pick<
   User,
-  "email" | "name" | "role" | "isSigner" | "signerFunction" | "signerDisplayName"
+  | "email"
+  | "name"
+  | "role"
+  | "isSigner"
+  | "signerFunction"
+  | "signerDisplayName"
+  | "signerPoaSubstituteFor"
 >;
 
 export function EditUserModal({
@@ -27,6 +33,9 @@ export function EditUserModal({
   );
   const [signerDisplayName, setSignerDisplayName] = useState<string>(
     user.signerDisplayName ?? "",
+  );
+  const [signerPoaSubstituteFor, setSignerPoaSubstituteFor] = useState<string>(
+    user.signerPoaSubstituteFor ?? "",
   );
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,6 +63,12 @@ export function EditUserModal({
           isSigner,
           signerFunction: isSigner ? signerFunction : null,
           signerDisplayName: isSigner ? signerDisplayName.trim() || null : null,
+          // "Substituce za" se ukládá jen u substituční PM; u jednatele
+          // server stejně vyčistí, tady to taky neposíláme.
+          signerPoaSubstituteFor:
+            isSigner && signerFunction === "power-of-attorney"
+              ? signerPoaSubstituteFor.trim() || null
+              : null,
         }),
       });
       const data = await res.json();
@@ -182,11 +197,27 @@ export function EditUserModal({
                   <FunctionChip
                     active={signerFunction === "power-of-attorney"}
                     onClick={() => setSignerFunction("power-of-attorney")}
-                    label="Na základě plné moci"
-                    hint={`V PDF se zobrazí „na základě plné moci".`}
+                    label="Substituční plná moc"
+                    hint={`V PDF: „na základě substituční plné moci za …".`}
                   />
                 </div>
               </Field>
+
+              {signerFunction === "power-of-attorney" && (
+                <Field label="Substituce za (volitelné)">
+                  <input
+                    type="text"
+                    value={signerPoaSubstituteFor}
+                    onChange={(e) => setSignerPoaSubstituteFor(e.target.value)}
+                    placeholder="např. Mgr. Jakub Pešek"
+                    className="h-12 w-full rounded-xl border border-edge bg-paper px-4 text-[15px] text-ink-base outline-none transition-colors placeholder:text-ink-soft focus:border-ink-base"
+                  />
+                  <div className="mt-1 text-[11.5px] text-ink-mid">
+                    Jméno osoby, jejíž substituční plnou moc vykonává. Pokud
+                    necháš prázdné, v PDF bude jen „na základě plné moci".
+                  </div>
+                </Field>
+              )}
 
               <Field label="Jméno v PDF (volitelné)">
                 <input
