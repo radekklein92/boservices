@@ -41,6 +41,12 @@ export function Navbar() {
             {t("services")}
           </a>
           <a
+            href="#people"
+            className="relative transition-opacity duration-200 hover:opacity-60"
+          >
+            {t("people")}
+          </a>
+          <a
             href="#contact"
             className="relative transition-opacity duration-200 hover:opacity-60"
           >
