@@ -7,6 +7,7 @@ import {
 } from "@/lib/portal/allowlist-db";
 import { getUser, upsertUser, type UserRole } from "@/lib/portal/users-db";
 import { hashPassword, passwordIssues } from "@/lib/portal/passwords";
+import { bustUsers } from "@/lib/portal/revalidate";
 
 const SUPERADMIN_EMAILS = (process.env.PORTAL_SUPERADMIN_EMAILS ?? "klein.radek@seznam.cz")
   .split(",")
@@ -94,8 +95,14 @@ export async function POST(req: Request) {
       passwordHash,
       createdAt: new Date().toISOString(),
     });
-    await markAllowlistActive(email);
   }
+  // markAllowlistActive voláme vždy (idempotentní). Když user už existoval
+  // a šel přes forgot password, allowlist by mohla mít stale pending stav -
+  // tady to spolehlivě dorovnáme.
+  await markAllowlistActive(email);
+  // Cache invalidation - bez tohohle by /portal/users list vracel stale
+  // pending pozvánku, dokud nevyprší 1h TTL nebo nezasáhne jiná mutace.
+  bustUsers();
 
   return NextResponse.json({ ok: true, email, kind });
 }
