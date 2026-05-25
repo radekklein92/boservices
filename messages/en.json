@@ -77,14 +77,12 @@
       "icoLabel": "Company ID",
       "ico": "245 200 39",
       "dicLabel": "VAT ID",
-      "dic": "CZ24520039",
-      "groupLabel": "Group",
-      "group": "<ceip>CEIP</ceip>"
-    }
+      "dic": "CZ24520039"
+    },
+    "justiceLink": "Justice.cz registry"
   },
   "footer": {
     "pillars": "Operations · People · Standards · Growth",
-    "copyright": "© {year} Business Operations Services s.r.o.",
-    "group": "Part of the <ceip>CEIP</ceip> group"
+    "copyright": "© {year} Business Operations Services s.r.o."
   }
 }

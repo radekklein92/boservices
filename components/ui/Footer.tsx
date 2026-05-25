@@ -1,6 +1,5 @@
 import { useTranslations } from "next-intl";
 import { Logo } from "@/components/brand/Logo";
-import { ceipLink } from "@/components/brand/CeipLink";
 
 export function Footer() {
   const t = useTranslations("footer");
@@ -19,7 +18,6 @@ export function Footer() {
 
         <div className="flex flex-col items-start gap-1 text-[12px] text-paper/60 md:items-end md:text-right">
           <span>{t("copyright", { year })}</span>
-          <span>{t.rich("group", { ceip: ceipLink })}</span>
         </div>
       </div>
     </footer>

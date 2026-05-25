@@ -1,7 +1,12 @@
 import type { ReactNode } from "react";
+import { ArrowUpRight } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { ContactForm } from "@/components/ui/ContactForm";
-import { ceipLink } from "@/components/brand/CeipLink";
+
+// Veřejný odkaz do obchodního rejstříku pro BOServices s.r.o. Stejný napříč
+// lokacemi, proto nejde přes i18n.
+const JUSTICE_URL =
+  "https://or.justice.cz/ias/ui/rejstrik-firma.vysledky?subjektId=1309164&typ=PLATNY";
 
 export function Contact() {
   const t = useTranslations("contact");
@@ -41,11 +46,23 @@ export function Contact() {
               value={t("details.dic")}
               mono
             />
-            <DetailRow
-              label={t("details.groupLabel")}
-              value={t.rich("details.group", { ceip: ceipLink })}
-            />
           </dl>
+
+          <div className="pt-2">
+            <a
+              href={JUSTICE_URL}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="group inline-flex h-12 items-center gap-2.5 rounded-full border border-edge bg-paper px-6 text-[14px] font-semibold text-ink-base transition-colors hover:border-ink-base hover:bg-ink-base hover:text-paper"
+            >
+              {t("justiceLink")}
+              <ArrowUpRight
+                className="h-4 w-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+                strokeWidth={1.75}
+                aria-hidden="true"
+              />
+            </a>
+          </div>
         </div>
 
         <ContactForm />

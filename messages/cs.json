@@ -77,14 +77,12 @@
       "icoLabel": "IČO",
       "ico": "245 200 39",
       "dicLabel": "DIČ",
-      "dic": "CZ24520039",
-      "groupLabel": "Skupina",
-      "group": "<ceip>CEIP</ceip>"
-    }
+      "dic": "CZ24520039"
+    },
+    "justiceLink": "Více na justice.cz"
   },
   "footer": {
     "pillars": "Provoz · Lidé · Standard · Růst",
-    "copyright": "© {year} Business Operations Services s.r.o.",
-    "group": "Součást skupiny <ceip>CEIP</ceip>"
+    "copyright": "© {year} Business Operations Services s.r.o."
   }
 }
