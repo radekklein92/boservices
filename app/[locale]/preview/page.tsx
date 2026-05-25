@@ -4,7 +4,6 @@ import { Navbar } from "@/components/ui/Navbar";
 import { Footer } from "@/components/ui/Footer";
 import { Hero } from "@/components/sections/Hero";
 import { WhatWeDo } from "@/components/sections/WhatWeDo";
-import { People } from "@/components/sections/People";
 import { Contact } from "@/components/sections/Contact";
 
 // Náhled původního marketingového webu na neveřejné URL. Hlavní landing
@@ -45,7 +44,6 @@ export default async function PreviewPage({
       <main>
         <Hero />
         <WhatWeDo />
-        <People />
         <Contact />
       </main>
       <Footer />
