@@ -220,52 +220,47 @@ function MilestoneHero({ count }: { count: number }) {
         </div>
       </div>
 
-      {/* MILESTONE BAR - absolutně pozicované tečky podle skutečné hodnoty.
-          Track má outer padding pro star dot, který přesahuje. */}
-      <div className="relative mt-12 px-6 pb-2 pt-12 md:px-8">
-        {/* Floating "aktuální hodnota" pill nad barem - pozice exact % */}
-        {count > 0 && (
+      {/* MILESTONE BAR - jednotný souřadný systém:
+          Track jde od levého kraje (HALF_DOT) do pravého kraje (100% - HALF_DOT).
+          Vše (dot, label, pill, fill) se pozicuje stejnou formulkou:
+          position(m) = HALF_DOT + (m/100) * (100% - FULL_DOT)
+          Kde HALF_DOT = 28px (polovina star dotu 56px). Tím je vždy zajištěné,
+          že dot na hodnotě 100 sedí na pravém okraji a fill bar v něm končí.
+      */}
+      <div className="relative mt-12 pb-2 pt-12">
+        {/* Floating pill aktuální hodnoty - pozice = count% na škále */}
+        {count > 0 && !goalReached && (
           <div
-            className="absolute top-0 z-20"
+            className="absolute top-0 z-20 flex flex-col items-center"
             style={{
-              left: `calc(${24}px + ${progressPct}% * (1 - ${48 / 100}))`,
-              // ↑ Bar uvnitř má padding 24px na každé straně; pill se počítá
-              // proporcionálně. 48 = 2× 24 (pad), proto škála lineární mezi
-              // 24px (0%) a (100% - 24px) (100%).
+              left: `calc(28px + ${Math.min(count, 100) / 100} * (100% - 56px))`,
               transform: "translateX(-50%)",
-              maxWidth: "calc(100% - 24px)",
             }}
           >
-            <div className="flex flex-col items-center">
-              <div className="rounded-full bg-ink-base px-3.5 py-1.5 text-[12.5px] font-bold tracking-tight text-paper shadow-[0_6px_16px_-4px_rgba(14,14,14,0.4)]">
-                {count}
-              </div>
-              <div
-                aria-hidden="true"
-                className="h-3 w-px bg-ink-base/40"
-              />
+            <div className="rounded-full bg-ink-base px-3.5 py-1.5 text-[12.5px] font-bold tracking-tight text-paper shadow-[0_6px_16px_-4px_rgba(14,14,14,0.4)]">
+              {count}
             </div>
+            <div aria-hidden="true" className="h-3 w-px bg-ink-base/40" />
           </div>
         )}
 
-        {/* Track and progress */}
-        <div className="relative h-12">
-          {/* Background track */}
-          <div className="absolute left-6 right-6 top-1/2 h-[6px] -translate-y-1/2 rounded-full bg-edge md:left-8 md:right-8" />
-          {/* Filled progress - absolutně pozicovaná podle pct */}
+        {/* Track - od HALF_DOT (28px) zleva po HALF_DOT zprava */}
+        <div className="relative h-14">
+          <div className="absolute left-7 right-7 top-1/2 h-[5px] -translate-y-1/2 rounded-full bg-edge" />
+          {/* Fill - šířka = pct * (track length) */}
           <div
             className={[
-              "absolute left-6 top-1/2 h-[6px] -translate-y-1/2 rounded-full transition-all duration-1000 ease-out md:left-8",
+              "absolute left-7 top-1/2 h-[5px] -translate-y-1/2 rounded-full transition-all duration-1000 ease-out",
               goalReached
-                ? "bg-emerald-600 shadow-[0_0_24px_rgba(5,150,105,0.4)]"
+                ? "bg-emerald-600 shadow-[0_0_28px_rgba(5,150,105,0.45)]"
                 : "bg-ink-base",
             ].join(" ")}
             style={{
-              width: `calc(${progressPct}% - ${progressPct === 0 ? 0 : progressPct === 100 ? 48 : (progressPct / 100) * 48}px)`,
+              width: `calc(${Math.min(progressPct, 100) / 100} * (100% - 56px))`,
             }}
           />
 
-          {/* Milestone dots - každý pozicovaný absolutně na svou % hodnotu */}
+          {/* Milestone dots - na svých % pozicích */}
           {MILESTONES.map((m) => {
             const reached = count >= m;
             const isTarget = m === TARGET;
@@ -275,9 +270,7 @@ function MilestoneHero({ count }: { count: number }) {
                 key={m}
                 className="absolute top-1/2 -translate-y-1/2"
                 style={{
-                  // Bar má padding-x 24px (md:32px). Pozice "m%" je proporcionálně
-                  // mezi těmi dvěma okraji.
-                  left: `calc(24px + ${m}% * (1 - ${48 / 100}))`,
+                  left: `calc(28px + ${m / 100} * (100% - 56px))`,
                   transform: "translate(-50%, -50%)",
                 }}
               >
@@ -292,8 +285,8 @@ function MilestoneHero({ count }: { count: number }) {
           })}
         </div>
 
-        {/* Labels pod tečkami - také absolutně pozicované */}
-        <div className="relative mt-2 h-10">
+        {/* Labels pod tečkami - stejná formulka jako dots */}
+        <div className="relative mt-3 h-10">
           {MILESTONES.map((m) => {
             const reached = count >= m;
             const isTarget = m === TARGET;
@@ -302,7 +295,7 @@ function MilestoneHero({ count }: { count: number }) {
                 key={m}
                 className="absolute top-0 flex flex-col items-center"
                 style={{
-                  left: `calc(24px + ${m}% * (1 - ${48 / 100}))`,
+                  left: `calc(28px + ${m / 100} * (100% - 56px))`,
                   transform: "translateX(-50%)",
                 }}
               >
@@ -322,7 +315,7 @@ function MilestoneHero({ count }: { count: number }) {
                 </span>
                 <span
                   className={[
-                    "mt-0.5 text-[9px] font-semibold uppercase tracking-[0.18em]",
+                    "mt-1 text-[9px] font-semibold uppercase tracking-[0.2em]",
                     isTarget
                       ? reached
                         ? "text-emerald-700"
@@ -342,11 +335,11 @@ function MilestoneHero({ count }: { count: number }) {
 
       <style>{`
         @keyframes pulseRing {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(14,14,14,0.15); }
-          50% { box-shadow: 0 0 0 8px rgba(14,14,14,0); }
+          0%, 100% { box-shadow: 0 0 0 0 rgba(14,14,14,0.18); }
+          50% { box-shadow: 0 0 0 10px rgba(14,14,14,0); }
         }
         .ms-pulse {
-          animation: pulseRing 2.2s ease-in-out infinite;
+          animation: pulseRing 2.4s ease-in-out infinite;
         }
       `}</style>
     </section>
@@ -364,18 +357,20 @@ function MilestoneDot({
   isTarget: boolean;
   isNext: boolean;
 }) {
+  // Star dot (100) - vždy h-14 w-14 (= 56px = 2× HALF_DOT padding outer baru).
+  // Když dosaženo → filled emerald se silnějším glow ringem.
   if (isTarget) {
     return (
       <div
         className={[
-          "relative z-10 grid h-12 w-12 place-items-center rounded-full transition-all duration-300",
+          "relative z-10 grid h-14 w-14 place-items-center rounded-full transition-all duration-300",
           reached
-            ? "bg-emerald-600 text-paper shadow-[0_0_0_6px_rgba(5,150,105,0.18)]"
-            : "border-2 border-ink-base bg-paper text-ink-base shadow-[0_0_0_6px_rgba(14,14,14,0.06)]",
+            ? "bg-emerald-600 text-paper shadow-[0_0_0_8px_rgba(5,150,105,0.18),0_8px_24px_-4px_rgba(5,150,105,0.45)]"
+            : "border-2 border-ink-base bg-paper text-ink-base shadow-[0_0_0_8px_rgba(14,14,14,0.06),0_4px_12px_-2px_rgba(14,14,14,0.12)]",
         ].join(" ")}
       >
         <Star
-          className="h-5 w-5"
+          className="h-6 w-6"
           strokeWidth={2}
           fill={reached ? "currentColor" : "none"}
           aria-hidden="true"
@@ -383,12 +378,13 @@ function MilestoneDot({
       </div>
     );
   }
+  // Regular milestones - h-12 (48px) pro proporci s 56px star dotem.
   return (
     <div
       className={[
-        "relative z-10 grid h-10 w-10 place-items-center rounded-full transition-all duration-300",
+        "relative z-10 grid h-12 w-12 place-items-center rounded-full transition-all duration-300",
         reached
-          ? "bg-emerald-600 text-paper shadow-[0_4px_12px_-2px_rgba(5,150,105,0.4)]"
+          ? "bg-emerald-600 text-paper shadow-[0_6px_16px_-2px_rgba(5,150,105,0.45)]"
           : isNext
             ? "border-2 border-ink-base bg-paper text-ink-base ms-pulse"
             : "border border-edge bg-paper text-ink-soft",
@@ -396,7 +392,7 @@ function MilestoneDot({
       aria-hidden="true"
     >
       {reached ? (
-        <Check className="h-4 w-4" strokeWidth={2.75} aria-hidden="true" />
+        <Check className="h-5 w-5" strokeWidth={2.75} aria-hidden="true" />
       ) : (
         <span
           className={[
