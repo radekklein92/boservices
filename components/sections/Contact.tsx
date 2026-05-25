@@ -9,7 +9,7 @@ export function Contact() {
   return (
     <section
       id="contact"
-      className="relative border-t border-edge bg-paper-warm py-24 md:py-32"
+      className="relative border-t border-edge bg-paper py-24 md:py-32"
     >
       <div className="mx-auto grid max-w-[1280px] grid-cols-1 gap-14 px-5 md:grid-cols-[5fr_7fr] md:gap-20 md:px-8">
         <div className="flex flex-col gap-10">
