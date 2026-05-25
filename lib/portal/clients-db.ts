@@ -64,15 +64,27 @@ export async function upsertClient(client: Client): Promise<void> {
   await Promise.all(ops);
 }
 
-export async function listClients(): Promise<Client[]> {
+export async function listClients(opts?: {
+  limit?: number;
+  offset?: number;
+}): Promise<Client[]> {
   const r = getRedis();
   if (!r) return [];
-  const ids = (await r.zrange<string[]>(INDEX_KEY, 0, -1, { rev: true })) ?? [];
+  const offset = opts?.offset ?? 0;
+  const limit = opts?.limit;
+  const stop = limit !== undefined ? offset + limit - 1 : -1;
+  const ids = (await r.zrange<string[]>(INDEX_KEY, offset, stop, { rev: true })) ?? [];
   if (!ids.length) return [];
   const pipe = r.pipeline();
   ids.forEach((id) => pipe.get<Client>(clientKey(id)));
   const results = (await pipe.exec()) as (Client | null)[];
   return results.filter((c): c is Client => c !== null);
+}
+
+export async function countClients(): Promise<number> {
+  const r = getRedis();
+  if (!r) return 0;
+  return (await r.zcard(INDEX_KEY)) ?? 0;
 }
 
 export async function deleteClient(id: string): Promise<void> {

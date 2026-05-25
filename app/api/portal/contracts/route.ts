@@ -17,6 +17,7 @@ import { WITHDRAWAL_KS_TEXTS } from "@/lib/portal/contract-render";
 import { getOrSeedContractTemplate } from "@/lib/portal/contract-templates-db";
 import { bustContracts } from "@/lib/portal/revalidate";
 import {
+  countContracts,
   getNextContractNumber,
   listContracts,
   upsertContract,
@@ -35,11 +36,25 @@ const createSchema = z.object({
   franchiseFeePercent: z.number().int().min(0).max(8).optional(),
 });
 
-export async function GET() {
+export async function GET(req: Request) {
   const g = await requireSession();
   if (!g.ok) return g.response;
-  const contracts = await listContracts();
-  return NextResponse.json({ ok: true, contracts });
+  // Volitelná paginace: ?limit=N&offset=M. Bez parametrů vrátíme vše
+  // (backwards compat s existujícím UI). UI prozatím paginaci nepoužívá.
+  const url = new URL(req.url);
+  const limitRaw = url.searchParams.get("limit");
+  const offsetRaw = url.searchParams.get("offset");
+  const limit = limitRaw ? Math.max(1, Math.min(500, Number(limitRaw))) : undefined;
+  const offset = offsetRaw ? Math.max(0, Number(offsetRaw)) : 0;
+  const [contracts, total] = await Promise.all([
+    listContracts({ limit, offset }),
+    limit !== undefined ? countContracts() : Promise.resolve(undefined),
+  ]);
+  return NextResponse.json({
+    ok: true,
+    contracts,
+    ...(total !== undefined ? { total, limit, offset } : {}),
+  });
 }
 
 export async function POST(req: Request) {

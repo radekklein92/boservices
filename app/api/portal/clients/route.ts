@@ -4,6 +4,7 @@ import { nanoid } from "nanoid";
 import { requireSession } from "@/lib/portal/auth-guard";
 import { bustClients } from "@/lib/portal/revalidate";
 import {
+  countClients,
   getClientByIco,
   listClients,
   upsertClient,
@@ -48,11 +49,24 @@ function strip<T extends Record<string, unknown>>(obj: T): Partial<T> {
   ) as Partial<T>;
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   const g = await requireSession();
   if (!g.ok) return g.response;
-  const clients = await listClients();
-  return NextResponse.json({ ok: true, clients });
+  // Volitelná paginace - viz contracts endpoint.
+  const url = new URL(req.url);
+  const limitRaw = url.searchParams.get("limit");
+  const offsetRaw = url.searchParams.get("offset");
+  const limit = limitRaw ? Math.max(1, Math.min(500, Number(limitRaw))) : undefined;
+  const offset = offsetRaw ? Math.max(0, Number(offsetRaw)) : 0;
+  const [clients, total] = await Promise.all([
+    listClients({ limit, offset }),
+    limit !== undefined ? countClients() : Promise.resolve(undefined),
+  ]);
+  return NextResponse.json({
+    ok: true,
+    clients,
+    ...(total !== undefined ? { total, limit, offset } : {}),
+  });
 }
 
 export async function POST(req: Request) {

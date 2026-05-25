@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/portal/auth-guard";
 import { getUser, listUsers } from "@/lib/portal/users-db";
-import { listAllowlist, upsertAllowlistEntry } from "@/lib/portal/allowlist-db";
+import {
+  getAllowlistEntry,
+  listAllowlist,
+  upsertAllowlistEntry,
+} from "@/lib/portal/allowlist-db";
 import { createAuthToken } from "@/lib/portal/auth-tokens";
 import { sendInviteEmail } from "@/lib/portal/email";
 import { bustUsers } from "@/lib/portal/revalidate";
@@ -53,6 +57,20 @@ export async function POST(req: Request) {
   if (existingUser?.passwordHash) {
     return NextResponse.json(
       { ok: false, error: "Tento e-mail už má aktivní účet." },
+      { status: 409 },
+    );
+  }
+
+  // Duplicate invite check - pokud už čeká pozvánka, nezakládat další token.
+  // Bez této kontroly se mlčky vytvářely paralelní tokeny pro stejný e-mail.
+  const existingAllowlist = await getAllowlistEntry(email);
+  if (existingAllowlist?.status === "pending") {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          "Tento e-mail už má aktivní pozvánku. Pošlete ji znovu z pozvánek namísto vytvoření nové.",
+      },
       { status: 409 },
     );
   }

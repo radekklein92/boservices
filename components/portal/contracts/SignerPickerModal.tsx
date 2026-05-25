@@ -102,7 +102,7 @@ export function SignerPickerModal({
             type="button"
             aria-label="Zavřít"
             onClick={onClose}
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-ink-mid transition-colors hover:bg-edge-warm hover:text-ink-base"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-ink-mid transition-colors hover:bg-edge-warm hover:text-ink-base focus:outline-none focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2"
           >
             <X className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
           </button>
@@ -188,7 +188,7 @@ export function SignerPickerModal({
           <button
             type="button"
             onClick={onClose}
-            className="h-12 rounded-full px-5 text-[13.5px] font-medium text-ink-mid transition-colors hover:text-ink-base"
+            className="h-11 rounded-full px-5 text-[13.5px] font-medium text-ink-mid transition-colors hover:text-ink-base"
           >
             Zrušit
           </button>
@@ -196,7 +196,7 @@ export function SignerPickerModal({
             type="button"
             disabled={!selected || pending}
             onClick={confirm}
-            className="inline-flex h-12 items-center gap-2 rounded-full bg-ink-base px-6 text-[13.5px] font-semibold text-paper transition-transform active:translate-y-px disabled:opacity-60"
+            className="inline-flex h-11 items-center gap-2 rounded-full bg-ink-base px-6 text-[13.5px] font-semibold text-paper transition-transform active:translate-y-px disabled:opacity-60"
           >
             {pending
               ? "Přiřazuji…"

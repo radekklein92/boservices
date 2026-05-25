@@ -192,10 +192,19 @@ export async function upsertContract(contract: Contract): Promise<void> {
   ]);
 }
 
-export async function listContracts(): Promise<Contract[]> {
+// Volitelné limit/offset pro paginaci. Index je sorted set podle createdAt
+// (descending = rev:true), takže offset 0 + limit 50 vrátí 50 nejnovějších.
+// Bez parametrů = zachovává původní chování (vrátí všechno).
+export async function listContracts(opts?: {
+  limit?: number;
+  offset?: number;
+}): Promise<Contract[]> {
   const r = getRedis();
   if (!r) return [];
-  const ids = (await r.zrange<string[]>(INDEX, 0, -1, { rev: true })) ?? [];
+  const offset = opts?.offset ?? 0;
+  const limit = opts?.limit;
+  const stop = limit !== undefined ? offset + limit - 1 : -1;
+  const ids = (await r.zrange<string[]>(INDEX, offset, stop, { rev: true })) ?? [];
   if (!ids.length) return [];
   const pipe = r.pipeline();
   ids.forEach((id) => pipe.get<Contract>(contractKey(id)));
@@ -203,6 +212,13 @@ export async function listContracts(): Promise<Contract[]> {
   return results
     .map(migrateContract)
     .filter((c): c is Contract => c !== null);
+}
+
+// Celkový počet smluv (pro pagination metadata).
+export async function countContracts(): Promise<number> {
+  const r = getRedis();
+  if (!r) return 0;
+  return (await r.zcard(INDEX)) ?? 0;
 }
 
 export async function listContractsByClient(
