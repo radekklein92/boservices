@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { recordActivity } from "@/lib/portal/users-db";
 import { Sidebar } from "@/components/portal/shell/Sidebar";
+import { MobileTopBar } from "@/components/portal/shell/MobileTopBar";
 import { getSession } from "@/lib/portal/get-session";
 
 export default async function ProtectedLayout({
@@ -22,7 +23,8 @@ export default async function ProtectedLayout({
   return (
     <div className="min-h-[100dvh] bg-paper-warm">
       <Sidebar session={session} />
-      <main className="px-5 py-10 md:ml-64 md:px-12 md:py-14 lg:px-16 lg:py-16">
+      <MobileTopBar session={session} />
+      <main className="px-5 py-6 md:ml-64 md:px-12 md:py-14 lg:px-16 lg:py-16">
         <div className="mx-auto w-full max-w-[1280px]">{children}</div>
       </main>
     </div>
