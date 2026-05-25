@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  AlertTriangle,
   ArrowUpRight,
   FileText,
   Plus,
@@ -28,6 +29,18 @@ import {
 import type { Client } from "@/lib/portal/clients-db";
 import dynamicImport from "next/dynamic";
 import { CONTRACT_TYPE_META, isBundleType } from "@/lib/portal/contract-types";
+
+// Stejná logika jako v ContractDetailClient.hasTemplateChanges - zda se
+// smlouva odchýlila od šablony. Pro bundle: aspoň jedna sekce má snapshot
+// jiný než html. Pro NE-bundle: top-level templateSnapshot vs html.
+function contractHasTemplateChanges(c: Contract): boolean {
+  if (isBundleType(c.type)) {
+    return (c.bundleSections ?? []).some(
+      (s) => s.templateSnapshot && s.templateSnapshot !== s.html,
+    );
+  }
+  return !!c.templateSnapshot && c.templateSnapshot !== c.html;
+}
 
 const ContractCreateModal = dynamicImport(
   () => import("./ContractCreateModal").then((m) => m.ContractCreateModal),
@@ -480,11 +493,25 @@ export function ContractsList({
                   <div className="min-w-0 flex-1">
                     <Link
                       href={`/portal/contracts/${c.id}`}
-                      className="flex items-baseline gap-3"
+                      className="flex items-center gap-3"
                     >
                       <span className="truncate text-[15px] font-bold tracking-[-0.01em] text-ink-base">
                         {c.clientName}
                       </span>
+                      {contractHasTemplateChanges(c) && (
+                        <span
+                          className="inline-flex h-6 shrink-0 items-center gap-1 rounded-full bg-red-600 px-2 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-paper"
+                          title="Smlouva má změny proti šabloně"
+                          aria-label="Smlouva má změny proti šabloně"
+                        >
+                          <AlertTriangle
+                            className="h-3 w-3"
+                            strokeWidth={2.25}
+                            aria-hidden="true"
+                          />
+                          Změny
+                        </span>
+                      )}
                       <ArrowUpRight
                         className="h-3.5 w-3.5 shrink-0 text-ink-soft transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
                         strokeWidth={1.5}
