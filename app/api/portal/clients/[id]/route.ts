@@ -124,6 +124,7 @@ export async function PUT(
   };
   await upsertClient(updated);
 
+  bustClients();
   return NextResponse.json({ ok: true });
 }
 

@@ -82,6 +82,7 @@ export async function PUT(
     updatedAt: new Date().toISOString(),
   });
 
+  bustTemplates();
   return NextResponse.json({ ok: true });
 }
 

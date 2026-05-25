@@ -102,6 +102,7 @@ export async function PUT(
   };
   updated.status = computeContractStatus(updated);
   await upsertContract(updated);
+  bustContracts();
   return NextResponse.json({ ok: true });
 }
 
