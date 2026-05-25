@@ -5,6 +5,7 @@ import dynamicImport from "next/dynamic";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
+  AlertTriangle,
   ArrowLeft,
   CheckCircle2,
   Download,
@@ -403,6 +404,10 @@ export function ContractDetailClient({ initial }: Props) {
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <SaveIndicator state={saveState} error={saveError} />
+            <TemplateMatchBadge
+              hasChanges={hasTemplateChanges}
+              onOpenDiff={() => setDiffOpen(true)}
+            />
             {contract.generatedPdfUrl && (
               <a
                 href={`/api/portal/contracts/${contract.id}/download/generated`}
@@ -956,6 +961,46 @@ function BundleSectionEditor({
         editorRef={editorRef}
       />
     </div>
+  );
+}
+
+// Pill v hlavičce smlouvy: stav "soulad/změny" proti původní šabloně.
+// Když jsou změny, klik otevře DiffModal (Word-style track changes).
+// Když není co řešit, je pill jen informativní (žádné hover/click).
+function TemplateMatchBadge({
+  hasChanges,
+  onOpenDiff,
+}: {
+  hasChanges: boolean;
+  onOpenDiff: () => void;
+}) {
+  if (!hasChanges) {
+    return (
+      <span
+        className="inline-flex h-10 items-center gap-2 rounded-full border border-edge bg-paper-warm px-4 text-[12px] font-semibold text-ink-mid"
+        aria-label="Smlouva souhlasí se šablonou"
+      >
+        <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+        Souhlasí s šablonou
+      </span>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={onOpenDiff}
+      className="group inline-flex h-10 items-center gap-2 rounded-full border border-ink-base bg-ink-base px-4 text-[12px] font-semibold text-paper transition-transform active:translate-y-px"
+      aria-label="Zobrazit změny proti šabloně"
+    >
+      <AlertTriangle className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+      Pozor, změny
+      <span
+        aria-hidden="true"
+        className="ml-1 text-paper/60 transition-transform group-hover:translate-x-0.5"
+      >
+        →
+      </span>
+    </button>
   );
 }
 
