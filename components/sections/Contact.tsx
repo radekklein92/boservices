@@ -46,23 +46,25 @@ export function Contact() {
               value={t("details.dic")}
               mono
             />
+            {/* Tlačítko Justice.cz v posledně prázdné buňce gridu - vpravo
+                vedle DIČ. items-end aby spodní hrana button seděla na
+                spodní hraně DIČ row. */}
+            <div className="flex items-end">
+              <a
+                href={JUSTICE_URL}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="group inline-flex h-11 items-center gap-2 rounded-full border border-edge bg-paper px-5 text-[13.5px] font-semibold text-ink-base transition-colors hover:border-ink-base hover:bg-ink-base hover:text-paper"
+              >
+                {t("justiceLink")}
+                <ArrowUpRight
+                  className="h-3.5 w-3.5 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+                  strokeWidth={1.75}
+                  aria-hidden="true"
+                />
+              </a>
+            </div>
           </dl>
-
-          <div className="pt-2">
-            <a
-              href={JUSTICE_URL}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="group inline-flex h-12 items-center gap-2.5 rounded-full border border-edge bg-paper px-6 text-[14px] font-semibold text-ink-base transition-colors hover:border-ink-base hover:bg-ink-base hover:text-paper"
-            >
-              {t("justiceLink")}
-              <ArrowUpRight
-                className="h-4 w-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
-                strokeWidth={1.75}
-                aria-hidden="true"
-              />
-            </a>
-          </div>
         </div>
 
         <ContactForm />
