@@ -270,6 +270,8 @@ export function ContractDetailClient({ initial }: Props) {
   }, []);
 
   // Fetch signer label kdykoliv se změní signerEmail - pro zobrazení ve stepperu.
+  // Používá /api/portal/signers, ne /api/portal/users (ten je admin-only,
+  // běžní uživatelé by 403, label by se nezobrazil).
   useEffect(() => {
     if (!contract.signerEmail) {
       setSignerLabel(null);
@@ -278,10 +280,10 @@ export function ContractDetailClient({ initial }: Props) {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/portal/users", { cache: "no-store" });
+        const res = await fetch("/api/portal/signers", { cache: "no-store" });
         const data = await res.json();
         if (cancelled || !data.ok) return;
-        const user = (data.users as Array<{
+        const user = (data.signers as Array<{
           email: string;
           name: string;
           signerDisplayName?: string;

@@ -36,16 +36,15 @@ export function SignerPickerModal({
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/portal/users", { cache: "no-store" });
+        // /api/portal/signers vrací jen seznam Podepisujících (dostupné
+        // pro všechny přihlášené, nejen pro adminy - běžný user musí
+        // pickovat signera u svých smluv stejně jako admin).
+        const res = await fetch("/api/portal/signers", { cache: "no-store" });
         const data = await res.json();
         if (cancelled) return;
         if (!data.ok) throw new Error(data.error || "Chyba");
-        const list: User[] = Array.isArray(data.users) ? data.users : [];
-        setSigners(
-          list.filter((u) => u.isSigner && u.signerFunction).sort((a, b) =>
-            a.name.localeCompare(b.name, "cs"),
-          ),
-        );
+        const list: User[] = Array.isArray(data.signers) ? data.signers : [];
+        setSigners(list);
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "Chyba");
