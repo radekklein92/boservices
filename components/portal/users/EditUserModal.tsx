@@ -47,11 +47,18 @@ export function EditUserModal({
 
   useEffect(() => {
     firstRef.current?.focus();
+    // Scroll lock - dokud je modal otevřený, body se nesmí scrollovat.
+    // Jinak by scroll wheel/touch v modalu protékal na stránku pod ním.
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      document.removeEventListener("keydown", onKey);
+    };
   }, [onClose]);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
@@ -87,7 +94,7 @@ export function EditUserModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink-base/40 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-ink-base/40 p-4 py-8 backdrop-blur-sm md:py-12"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
