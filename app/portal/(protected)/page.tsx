@@ -486,7 +486,7 @@ function NextMilestonePanel({ count }: { count: number }) {
   return (
     <div className="relative overflow-hidden rounded-[24px] border border-edge bg-paper p-7">
       <div className="text-[10.5px] font-medium uppercase tracking-[0.22em] text-ink-mid">
-        Závěr k milníku
+        Zbývá k milníku
       </div>
       <div className="mt-3 flex items-baseline gap-2">
         <div className="font-extrabold leading-none tracking-[-0.045em] text-ink-base text-[clamp(2.5rem,6vw,3.5rem)]">
