@@ -25,6 +25,19 @@ export interface ContractTemplate {
   letterhead?: boolean;
   updatedBy: string;
   updatedAt: string;
+  // Schválení šablony. Pokud approvedAt < updatedAt, šablona je opět pending
+  // (po další editaci se musí znovu schválit). approvedBy je email
+  // schvalovatele (User.isTemplateApprover) v okamžiku schválení.
+  approvedAt?: string;
+  approvedBy?: string;
+}
+
+// True, když je šablona aktuálně schválená (approvedAt existuje a NENÍ
+// starší než poslední uložení = updatedAt). Po každé editaci se musí
+// schválit znovu.
+export function isTemplateApproved(t: ContractTemplate | null): boolean {
+  if (!t || !t.approvedAt) return false;
+  return t.approvedAt >= t.updatedAt;
 }
 
 const templateKey = (type: ContractType, variant?: ContractVariant) =>

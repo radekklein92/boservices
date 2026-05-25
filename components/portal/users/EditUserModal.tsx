@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { X, PenLine, Gavel } from "lucide-react";
+import { X, PenLine, Gavel, ShieldCheck } from "lucide-react";
 import type { SignerFunction, User, UserRole } from "@/lib/portal/users-db";
 
 type EditableUser = Pick<
@@ -13,6 +13,7 @@ type EditableUser = Pick<
   | "signerFunction"
   | "signerDisplayName"
   | "signerPoaSubstituteFor"
+  | "isTemplateApprover"
 >;
 
 export function EditUserModal({
@@ -36,6 +37,9 @@ export function EditUserModal({
   );
   const [signerPoaSubstituteFor, setSignerPoaSubstituteFor] = useState<string>(
     user.signerPoaSubstituteFor ?? "",
+  );
+  const [isTemplateApprover, setIsTemplateApprover] = useState<boolean>(
+    !!user.isTemplateApprover,
   );
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,6 +73,7 @@ export function EditUserModal({
             isSigner && signerFunction === "power-of-attorney"
               ? signerPoaSubstituteFor.trim() || null
               : null,
+          isTemplateApprover,
         }),
       });
       const data = await res.json();
@@ -233,6 +238,56 @@ export function EditUserModal({
               </Field>
             </>
           )}
+
+          <Field label="Schvalovatel šablon">
+            <button
+              type="button"
+              onClick={() => setIsTemplateApprover((v) => !v)}
+              className={[
+                "flex w-full items-center gap-4 rounded-2xl border px-5 py-4 text-left transition-all duration-200",
+                isTemplateApprover
+                  ? "border-ink-base bg-ink-base text-paper"
+                  : "border-edge bg-paper text-ink-deep hover:border-ink-soft",
+              ].join(" ")}
+              aria-pressed={isTemplateApprover}
+            >
+              <span
+                className={[
+                  "grid h-9 w-9 shrink-0 place-items-center rounded-full",
+                  isTemplateApprover ? "bg-paper text-ink-base" : "bg-edge-warm text-ink-mid",
+                ].join(" ")}
+              >
+                <ShieldCheck className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[13.5px] font-semibold tracking-[-0.01em]">
+                  {isTemplateApprover ? "Schvaluje šablony smluv" : "Aktivovat schvalovatele"}
+                </span>
+                <span
+                  className={`mt-0.5 block text-[11.5px] leading-snug ${
+                    isTemplateApprover ? "text-paper/70" : "text-ink-mid"
+                  }`}
+                >
+                  Jen schvalovatel může kliknout „Schválit" na šabloně. E-mailové
+                  připomínky chodí na jeho adresu. Měl by být max jeden.
+                </span>
+              </span>
+              <span
+                className={[
+                  "relative h-6 w-11 shrink-0 rounded-full transition-colors",
+                  isTemplateApprover ? "bg-paper" : "bg-edge",
+                ].join(" ")}
+                aria-hidden="true"
+              >
+                <span
+                  className={[
+                    "absolute top-0.5 h-5 w-5 rounded-full bg-ink-base transition-transform",
+                    isTemplateApprover ? "translate-x-[22px]" : "translate-x-0.5",
+                  ].join(" ")}
+                />
+              </span>
+            </button>
+          </Field>
 
           {error && (
             <div role="alert" className="text-[13px] text-ink-deep">

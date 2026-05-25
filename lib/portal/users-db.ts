@@ -25,6 +25,26 @@ export interface User {
   // Volitelné - když není vyplněné, role text fallbackuje na "na základě
   // plné moci" (bez substituční přídavku).
   signerPoaSubstituteFor?: string;
+  // Schvalovatel šablon smluv. Přesně jeden uživatel by měl mít tento flag.
+  // V UI šablon vidí "Schválit" tlačítko, ostatní uživatelé vidí "Čeká na
+  // schválení" + "Připomenout emailem". E-mail upozornění chodí na jeho
+  // adresu (User.email).
+  isTemplateApprover?: boolean;
+}
+
+// Najde uživatele, který má isTemplateApprover=true. Měl by být max 1.
+// Pokud žádný není, vrací null - UI degraduje gracefully (žádný "Schválit"
+// button se nezobrazí, reminder by neměl kam poslat).
+export async function getTemplateApprover(): Promise<User | null> {
+  const { getRedis: _getRedis } = await import("@/lib/redis");
+  const r = _getRedis();
+  if (!r) return null;
+  const emails = await r.smembers("portal:users:all");
+  if (!emails.length) return null;
+  const pipe = r.pipeline();
+  emails.forEach((e) => pipe.get<User>(userKey(e)));
+  const results = (await pipe.exec()) as (User | null)[];
+  return results.find((u): u is User => !!u && !!u.isTemplateApprover) ?? null;
 }
 
 // Vrací text pro {{providerStatutory1Role}} v PDF/HTML smlouvy.

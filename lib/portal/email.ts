@@ -76,3 +76,40 @@ export async function sendResetEmail(opts: {
     ),
   });
 }
+
+// E-mail upozornění pro schvalovatele šablon (User.isTemplateApprover).
+// Volá se ručně tlačítkem "Připomenout emailem" + automaticky cronem
+// každý den ve 20:00 Prague time, pokud existují pending šablony.
+export async function sendTemplateApprovalReminder(opts: {
+  to: string;
+  approverName?: string;
+  pendingTemplates: Array<{ label: string; deepLink: string }>;
+}): Promise<void> {
+  const resend = getResend();
+  if (!resend) {
+    console.warn("[portal email] Resend not configured");
+    return;
+  }
+  if (opts.pendingTemplates.length === 0) return;
+  const url = `${SITE_URL}/portal/templates`;
+  const greeting = opts.approverName ? `${opts.approverName},` : "dobrý den,";
+  const list = opts.pendingTemplates
+    .map(
+      (t) =>
+        `<li style="margin:6px 0"><a href="${t.deepLink}" style="color:#0E0E0E;font-weight:600">${t.label}</a></li>`,
+    )
+    .join("");
+  const count = opts.pendingTemplates.length;
+  const word = count === 1 ? "šablona" : count < 5 ? "šablony" : "šablon";
+  const body = `<p style="font-size:15px;line-height:1.6">${greeting}</p><p style="font-size:15px;line-height:1.6">${count} ${word} čeká na vaše schválení. Bez schválení se na všech smlouvách, kde jsou tyto šablony použity, zobrazuje upozornění.</p><ul style="font-size:14px;line-height:1.6;padding-left:20px;margin:16px 0">${list}</ul>${button(url, "Otevřít šablony")}${fallbackLink(url)}`;
+  await resend.emails.send({
+    from: FROM,
+    to: [opts.to],
+    subject: `Schválení šablon - ${count} ${word} čekají`,
+    html: shell(
+      "Šablony čekají na schválení.",
+      "BOServices portál",
+      body,
+    ),
+  });
+}

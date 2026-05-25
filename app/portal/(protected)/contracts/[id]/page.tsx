@@ -1,7 +1,14 @@
 import { notFound } from "next/navigation";
 import { getContract, upsertContract } from "@/lib/portal/contracts-db";
-import { CONTRACT_TYPE_META } from "@/lib/portal/contract-types";
-import { getOrSeedContractTemplate } from "@/lib/portal/contract-templates-db";
+import {
+  CLAIM_BUNDLE_SECTIONS,
+  CONTRACT_TYPE_META,
+  isBundleType,
+} from "@/lib/portal/contract-types";
+import {
+  getOrSeedContractTemplate,
+  isTemplateApproved,
+} from "@/lib/portal/contract-templates-db";
 import { ContractDetailClient } from "@/components/portal/contracts/ContractDetailClient";
 
 export const dynamic = "force-dynamic";
@@ -44,5 +51,20 @@ export default async function ContractDetailPage({
     await upsertContract(contract);
   }
 
-  return <ContractDetailClient initial={contract} />;
+  // Aktuální stav schválení šablony - pro červený badge "Šablona neschválená".
+  // Bundle = aspoň jedna ze 3 sub-šablon je pending → unapproved.
+  let templateApproved = true;
+  if (isBundleType(contract.type)) {
+    const sectionTemplates = await Promise.all(
+      CLAIM_BUNDLE_SECTIONS.map((t) => getOrSeedContractTemplate(t)),
+    );
+    templateApproved = sectionTemplates.every(isTemplateApproved);
+  } else {
+    const tpl = await getOrSeedContractTemplate(contract.type, contract.variant);
+    templateApproved = isTemplateApproved(tpl);
+  }
+
+  return (
+    <ContractDetailClient initial={contract} templateApproved={templateApproved} />
+  );
 }

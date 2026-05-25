@@ -12,6 +12,7 @@ const patchSchema = z.object({
   signerFunction: z.enum(["jednatel", "power-of-attorney"]).nullable().optional(),
   signerDisplayName: z.string().trim().max(160).nullable().optional(),
   signerPoaSubstituteFor: z.string().trim().max(160).nullable().optional(),
+  isTemplateApprover: z.boolean().optional(),
 });
 
 function decodeEmail(raw: string): string {
@@ -101,6 +102,8 @@ export async function PATCH(
     signerFunction: nextSignerFunction,
     signerDisplayName: nextSignerDisplayName,
     signerPoaSubstituteFor: nextSignerPoaSubstituteFor,
+    isTemplateApprover:
+      parsed.data.isTemplateApprover ?? user.isTemplateApprover ?? false,
   });
 
   bustUsers();

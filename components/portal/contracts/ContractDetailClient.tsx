@@ -59,6 +59,9 @@ import { ContractCurrentActionPanel } from "./ContractCurrentActionPanel";
 
 type Props = {
   initial: Contract;
+  // Server-snapshot: je aktuálně šablona / všechny sub-šablony schválené?
+  // Pokud ne → červený badge "Šablona neschválená" v hlavičce.
+  templateApproved: boolean;
 };
 
 function formatDateTime(iso: string): string {
@@ -77,7 +80,7 @@ function formatDateTime(iso: string): string {
 
 type SaveState = "idle" | "pending" | "saving" | "saved" | "error";
 
-export function ContractDetailClient({ initial }: Props) {
+export function ContractDetailClient({ initial, templateApproved }: Props) {
   const router = useRouter();
   const [contract, setContract] = useState(initial);
   const [html, setHtml] = useState(initial.html);
@@ -406,6 +409,20 @@ export function ContractDetailClient({ initial }: Props) {
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <SaveIndicator state={saveState} error={saveError} />
+            {!templateApproved && (
+              <Link
+                href="/portal/templates"
+                className="inline-flex h-10 items-center gap-2 rounded-full border border-red-600 bg-red-600 px-5 text-[13px] font-semibold text-paper shadow-[0_1px_2px_rgba(220,38,38,0.18)] transition-transform active:translate-y-px"
+                title="Šablona použitá na této smlouvě čeká na schválení"
+              >
+                <AlertTriangle
+                  className="h-3.5 w-3.5"
+                  strokeWidth={2}
+                  aria-hidden="true"
+                />
+                Šablona neschválená
+              </Link>
+            )}
             <TemplateMatchBadge
               hasChanges={hasTemplateChanges}
               onOpenDiff={() => setDiffOpen(true)}
