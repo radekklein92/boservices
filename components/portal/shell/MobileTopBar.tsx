@@ -1,21 +1,26 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
-import type { Session } from "next-auth";
 import { Logo } from "@/components/brand/Logo";
-import { isAdminRole } from "@/lib/portal/auth-guard";
 import { SidebarNav } from "./SidebarNav";
-import { UserMenu } from "./UserMenu";
 
 // Mobile top bar + slide-in drawer s portálovou navigací. Na desktop schované
 // (Sidebar zůstává jako fixed left), na mobilu nahrazuje sidebar plně.
 // Drawer se zavře sám při navigaci (usePathname change).
+//
+// UserMenu je server komponent s inline server action (signOut), nelze ho
+// importovat do client komponentu - layout ho předává jako children prop.
 
-export function MobileTopBar({ session }: { session: Session }) {
-  const isAdmin = isAdminRole(session.user?.role);
+export function MobileTopBar({
+  isAdmin,
+  userMenu,
+}: {
+  isAdmin: boolean;
+  userMenu: ReactNode;
+}) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
@@ -102,9 +107,7 @@ export function MobileTopBar({ session }: { session: Session }) {
               </button>
             </div>
             <SidebarNav isAdmin={isAdmin} />
-            <div className="border-t border-edge p-3">
-              <UserMenu session={session} />
-            </div>
+            <div className="border-t border-edge p-3">{userMenu}</div>
           </aside>
         </div>
       )}
