@@ -173,11 +173,11 @@ function ClaimCard({
           options={CLAIM_ORIGIN_OPTIONS}
         />
         <TextField
-          label="Číslo faktury"
-          hint="dobrovolné"
-          value={claim.invoiceNumber ?? ""}
-          placeholder="např. FV 2026/014"
-          onChange={(v) => onPatch({ invoiceNumber: v })}
+          label="Datum uzavření smlouvy"
+          hint="ze které pohledávka vznikla"
+          value={claim.originDate ?? ""}
+          placeholder="např. 12. 3. 2026"
+          onChange={(v) => onPatch({ originDate: v })}
         />
       </div>
 
@@ -204,6 +204,16 @@ function ClaimCard({
           value={claim.dueDate ?? ""}
           placeholder="např. 31. 12. 2026"
           onChange={(v) => onPatch({ dueDate: v })}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <TextField
+          label="Číslo faktury"
+          hint="dobrovolné"
+          value={claim.invoiceNumber ?? ""}
+          placeholder="např. FV 2026/014"
+          onChange={(v) => onPatch({ invoiceNumber: v })}
         />
       </div>
 

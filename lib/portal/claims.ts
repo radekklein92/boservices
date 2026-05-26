@@ -19,6 +19,9 @@ export interface ClaimItem {
   // Z jaké smlouvy pohledávka vznikla (dropdown). "jina" -> upřesnění v originOther.
   origin: ClaimOrigin;
   originOther?: string;
+  // Datum uzavření zdrojové smlouvy (volný text) - v tabulce se zobrazí jako
+  // „Kupní smlouva ze dne 12. 3. 2026".
+  originDate?: string;
   // Výše pohledávky vč. DPH - syrový vstup uživatele (např. "150 000" / "150000,50").
   amount: string;
   // Dobrovolná pole:
@@ -33,7 +36,7 @@ export function newClaimItem(): ClaimItem {
     typeof crypto !== "undefined" && "randomUUID" in crypto
       ? crypto.randomUUID()
       : `claim-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  return { id, origin: "kupni", originOther: "", amount: "", invoiceNumber: "", dueDate: "", note: "" };
+  return { id, origin: "kupni", originOther: "", originDate: "", amount: "", invoiceNumber: "", dueDate: "", note: "" };
 }
 
 // Tolerantní parser částky vč. DPH. Akceptuje mezery, nbsp, "Kč"/"CZK" a
@@ -74,16 +77,16 @@ export function formatClaimsTotalAmount(claims: ClaimItem[]): string {
   return formatCzk(computeClaimsTotal(claims));
 }
 
-// Popisek sloupce "Vznikla ze smlouvy". Pro "jina" upřednostní upřesnění.
+// Popisek sloupce "Vznikla ze smlouvy" vč. data uzavření zdrojové smlouvy:
+// „Kupní smlouva ze dne 12. 3. 2026". Pro "jina" upřednostní upřesnění.
 export function claimOriginLabel(item: ClaimItem): string {
-  if (item.origin === "jina") {
-    const custom = item.originOther?.trim();
-    return custom || "Jiná smlouva";
-  }
-  return (
-    CLAIM_ORIGIN_OPTIONS.find((o) => o.value === item.origin)?.label ??
-    "Jiná smlouva"
-  );
+  const base =
+    item.origin === "jina"
+      ? item.originOther?.trim() || "Jiná smlouva"
+      : CLAIM_ORIGIN_OPTIONS.find((o) => o.value === item.origin)?.label ??
+        "Jiná smlouva";
+  const date = item.originDate?.trim();
+  return date ? `${base} ze dne ${date}` : base;
 }
 
 // Pohledávka je "neprázdná", pokud má vyplněnou částku nebo některé textové pole.
@@ -93,7 +96,8 @@ function isNonEmptyClaim(c: ClaimItem): boolean {
       c.invoiceNumber?.trim() ||
       c.dueDate?.trim() ||
       c.note?.trim() ||
-      c.originOther?.trim(),
+      c.originOther?.trim() ||
+      c.originDate?.trim(),
   );
 }
 
