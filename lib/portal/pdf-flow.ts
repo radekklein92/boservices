@@ -9,7 +9,11 @@ import { applySignerOverride, renderTemplate } from "./contract-render";
 import { bundleHtmlToPdfBuffer, htmlToPdfBuffer } from "./pdf-generator";
 import { getCoverForType } from "./pdf-styles";
 import { getUser } from "./users-db";
-import { buildClaimsVariables, ensureClaimsToken } from "./claims";
+import {
+  buildClaimsVariables,
+  prepareClaimsAppendix,
+  stripClamoraDicAndBank,
+} from "./claims";
 
 const DIACRITICS: Record<string, string> = {
   á: "a", č: "c", ď: "d", é: "e", ě: "e", í: "i", ň: "n",
@@ -68,11 +72,20 @@ export async function renderAndStoreContractPdf(contract: Contract): Promise<{
   const letterhead = contract.letterhead ?? true;
   const watermark = !isFinal;
 
+  // Render-time příprava: příloha na novou stránku (vše), u postoupení navíc
+  // odstranění DIČ Clamory a nahrazení čísla účtu linkou (i pro starší smlouvy).
+  const isClaim =
+    contract.type === "claim-assignment" || contract.type === "claim-bundle";
+  const prep = (h: string) => {
+    const x = prepareClaimsAppendix(h);
+    return isClaim ? stripClamoraDicAndBank(x) : x;
+  };
+
   let pdf: Buffer;
   if (isBundleType(contract.type) && contract.bundleSections) {
     const rendered = contract.bundleSections.map((s) => ({
       type: s.type,
-      html: renderTemplate(ensureClaimsToken(s.html), variables),
+      html: renderTemplate(prep(s.html), variables),
     }));
     pdf = await bundleHtmlToPdfBuffer(rendered, {
       type: contract.type,
@@ -81,7 +94,7 @@ export async function renderAndStoreContractPdf(contract: Contract): Promise<{
       watermark,
     });
   } else {
-    const rendered = renderTemplate(ensureClaimsToken(contract.html), variables);
+    const rendered = renderTemplate(prep(contract.html), variables);
     pdf = await htmlToPdfBuffer(rendered, {
       type: contract.type,
       cover,

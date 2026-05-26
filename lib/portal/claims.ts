@@ -164,3 +164,35 @@ export function ensureClaimsToken(html: string): string {
   }
   return html;
 }
+
+// Obalí nadpis Přílohy č. 1 + tabulku do bloku, který v PDF začne na nové
+// stránce a tabulku nezalomí přes konec stránky (CSS .claims-appendix).
+// Idempotentní. Aplikuje se jen při renderu do PDF - uložené HTML zůstává čisté.
+const APPENDIX_WRAP_RE =
+  /(<h2[^>]*>\s*Příloha č\.\s*1[^<]*<\/h2>)\s*(\{\{claimsTable\}\})/;
+
+export function wrapClaimsAppendix(html: string): string {
+  if (html.includes('class="claims-appendix"')) return html;
+  return html.replace(
+    APPENDIX_WRAP_RE,
+    '<div class="claims-appendix">$1$2</div>',
+  );
+}
+
+// Render-time příprava HTML smlouvy postoupení: doplní token tabulky a obalí
+// přílohu do bloku se zalomením na novou stránku.
+export function prepareClaimsAppendix(html: string): string {
+  return wrapClaimsAppendix(ensureClaimsToken(html));
+}
+
+// Clamora Bridge (Postupník) nemá DIČ -> odstraní z řádku „DIČ: {{providerDic}}".
+// Číslo účtu Postupitele se doplňuje ručně při podpisu -> nahradí placeholder
+// linkou. Idempotentní. Volat JEN pro typy postoupení (claim-assignment,
+// claim-bundle) - ostatní smlouvy (BOServices) DIČ legitimně mají.
+export function stripClamoraDicAndBank(html: string): string {
+  return html
+    .split(", DIČ: {{providerDic}}")
+    .join("")
+    .split("č. {{clientBankAccount}}")
+    .join("č. ______________________");
+}

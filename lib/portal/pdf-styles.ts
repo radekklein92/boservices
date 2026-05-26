@@ -205,6 +205,17 @@ export const PDF_PAGE_STYLES = `
   /* Signature blocks (typický pattern dvou podpisových rámců) */
   .signatures { margin-top: 26pt; page-break-inside: avoid; }
 
+  /* Příloha č. 1 (seznam pohledávek) - vždy začíná na samostatné stránce,
+   * tabulka se pokud možno nezalomí přes konec stránky. */
+  .claims-appendix {
+    break-before: page;
+    page-break-before: always;
+  }
+  .claims-appendix table {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
   /* Bundle (claim-bundle) - oddělovač sekcí. První sekce zůstává hned za cover
    * hlavičkou, další 2 začínají na nové stránce s vlastním sekčním titulkem. */
   .bundle-section { break-inside: auto; }

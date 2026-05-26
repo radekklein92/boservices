@@ -13,11 +13,6 @@ import {
   renderTemplate,
 } from "@/lib/portal/contract-render";
 import {
-  buildClaimsVariables,
-  prepareClaimsAppendix,
-  stripClamoraDicAndBank,
-} from "@/lib/portal/claims";
-import {
   bundleHtmlToPdfBuffer,
   htmlToPdfBuffer,
 } from "@/lib/portal/pdf-generator";
@@ -97,26 +92,18 @@ export async function POST(req: Request) {
 
     // Finální PDF: bez watermarku, s signer override.
     const signer = contract.signerEmail ? await loadSigner(contract.signerEmail) : null;
-    const baseVariables = signer
+    const variables = signer
       ? applySignerOverride(contract.variables, signer)
       : contract.variables;
-    // Příloha č. 1: doplnit tabulku pohledávek + součet (vč. DPH) z contract.claims.
-    const variables = buildClaimsVariables(baseVariables, contract.claims ?? []);
     const cover = getCoverForType(contract.type);
     const letterhead = contract.letterhead ?? true;
-    const isClaim =
-      contract.type === "claim-assignment" || contract.type === "claim-bundle";
-    const prep = (h: string) => {
-      const x = prepareClaimsAppendix(h);
-      return isClaim ? stripClamoraDicAndBank(x) : x;
-    };
 
     try {
       let pdf: Buffer;
       if (isBundleType(contract.type) && contract.bundleSections) {
         const rendered = contract.bundleSections.map((s) => ({
           type: s.type,
-          html: renderTemplate(prep(s.html), variables),
+          html: renderTemplate(s.html, variables),
         }));
         pdf = await bundleHtmlToPdfBuffer(rendered, {
           type: contract.type,
@@ -125,7 +112,7 @@ export async function POST(req: Request) {
           watermark: false,
         });
       } else {
-        const rendered = renderTemplate(prep(contract.html), variables);
+        const rendered = renderTemplate(contract.html, variables);
         pdf = await htmlToPdfBuffer(rendered, {
           type: contract.type,
           cover,
