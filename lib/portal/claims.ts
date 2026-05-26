@@ -1,0 +1,166 @@
+// Pohledávky pro Přílohu č. 1 smlouvy o postoupení pohledávek (claim-assignment
+// i balíček claim-bundle). Obchodník vyplní jednotlivé pohledávky strukturovaně
+// a z nich se při generování PDF poskládá tabulka + celková suma (vč. DPH).
+//
+// POZOR (DPH): Na rozdíl od zbytku aplikace, kde se částky zobrazují BEZ DPH,
+// jsou výše pohledávek zde zadávané a sčítané VČETNĚ DPH (úmysl zadavatele).
+
+export type ClaimOrigin = "kupni" | "fransizingova" | "manazerska" | "jina";
+
+export const CLAIM_ORIGIN_OPTIONS: { value: ClaimOrigin; label: string }[] = [
+  { value: "kupni", label: "Kupní smlouva" },
+  { value: "fransizingova", label: "Franšízingová smlouva" },
+  { value: "manazerska", label: "Manažerská smlouva" },
+  { value: "jina", label: "Jiná smlouva" },
+];
+
+export interface ClaimItem {
+  id: string;
+  // Z jaké smlouvy pohledávka vznikla (dropdown). "jina" -> upřesnění v originOther.
+  origin: ClaimOrigin;
+  originOther?: string;
+  // Výše pohledávky vč. DPH - syrový vstup uživatele (např. "150 000" / "150000,50").
+  amount: string;
+  // Dobrovolná pole:
+  invoiceNumber?: string; // číslo faktury, pokud existuje
+  dueDate?: string; // splatnost (volný text); prázdné u dosud neoznámených pohledávek
+  note?: string; // vlastní poznámka
+}
+
+// Vytvoří prázdnou pohledávku s unikátním id (pro React key + editaci).
+export function newClaimItem(): ClaimItem {
+  const id =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `claim-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  return { id, origin: "kupni", originOther: "", amount: "", invoiceNumber: "", dueDate: "", note: "" };
+}
+
+// Tolerantní parser částky vč. DPH. Akceptuje mezery, nbsp, "Kč"/"CZK" a
+// desetinnou čárku (české zvyklosti). Vrací 0 pro neplatný / prázdný vstup.
+export function parseClaimAmount(raw: string | undefined | null): number {
+  if (!raw) return 0;
+  const cleaned = raw
+    .replace(/ /g, "")
+    .replace(/\s/g, "")
+    .replace(/kč/gi, "")
+    .replace(/czk/gi, "")
+    .replace(/,/g, ".")
+    .replace(/[^0-9.\-]/g, "");
+  const value = Number.parseFloat(cleaned);
+  return Number.isFinite(value) ? value : 0;
+}
+
+// Formát částky v českém stylu: nbsp jako oddělovač tisíců, desetinná čárka,
+// desetinná místa jen když jsou nenulová. Vždy se sufixem " Kč".
+export function formatCzk(value: number): string {
+  if (!Number.isFinite(value)) return "0 Kč";
+  const rounded = Math.round(value * 100) / 100;
+  const hasDecimals = Math.abs(rounded % 1) > 0.0001;
+  const fixed = hasDecimals ? rounded.toFixed(2) : String(Math.round(rounded));
+  const [intPartRaw, decPart] = fixed.split(".");
+  const negative = intPartRaw!.startsWith("-");
+  const digits = negative ? intPartRaw!.slice(1) : intPartRaw!;
+  const grouped = digits.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  const sign = negative ? "-" : "";
+  return decPart ? `${sign}${grouped},${decPart} Kč` : `${sign}${grouped} Kč`;
+}
+
+export function computeClaimsTotal(claims: ClaimItem[]): number {
+  return claims.reduce((sum, c) => sum + parseClaimAmount(c.amount), 0);
+}
+
+export function formatClaimsTotalAmount(claims: ClaimItem[]): string {
+  return formatCzk(computeClaimsTotal(claims));
+}
+
+// Popisek sloupce "Vznikla ze smlouvy". Pro "jina" upřednostní upřesnění.
+export function claimOriginLabel(item: ClaimItem): string {
+  if (item.origin === "jina") {
+    const custom = item.originOther?.trim();
+    return custom || "Jiná smlouva";
+  }
+  return (
+    CLAIM_ORIGIN_OPTIONS.find((o) => o.value === item.origin)?.label ??
+    "Jiná smlouva"
+  );
+}
+
+// Pohledávka je "neprázdná", pokud má vyplněnou částku nebo některé textové pole.
+function isNonEmptyClaim(c: ClaimItem): boolean {
+  return Boolean(
+    c.amount?.trim() ||
+      c.invoiceNumber?.trim() ||
+      c.dueDate?.trim() ||
+      c.note?.trim() ||
+      c.originOther?.trim(),
+  );
+}
+
+function esc(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+// Vygeneruje HTML tabulku pro Přílohu č. 1. Vkládá se jako RAW HTML placeholder
+// {{claimsTable}}, proto se veškerý uživatelský text musí escapovat zde.
+// Dědí styly table/th/td z PDF_PAGE_STYLES; jen zarovnání částek a tučný
+// řádek "Celkem" doplníme inline.
+export function renderClaimsTableHtml(claims: ClaimItem[]): string {
+  const valid = claims.filter(isNonEmptyClaim);
+  if (valid.length === 0) {
+    return `<p><em>Seznam postupovaných pohledávek zatím není vyplněn.</em></p>`;
+  }
+  const rows = valid
+    .map((c) => {
+      const amount = formatCzk(parseClaimAmount(c.amount));
+      const invoice = esc(c.invoiceNumber?.trim() ?? "") || "—";
+      const due = esc(c.dueDate?.trim() ?? "") || "—";
+      const note = esc(c.note?.trim() ?? "") || "—";
+      return `<tr><td>${esc(claimOriginLabel(c))}</td><td>${invoice}</td><td style="text-align:right;white-space:nowrap">${amount}</td><td>${due}</td><td>${note}</td></tr>`;
+    })
+    .join("");
+  const total = formatCzk(computeClaimsTotal(valid));
+  return `<table><thead><tr><th>Vznikla ze smlouvy</th><th>Číslo faktury</th><th style="text-align:right">Výše pohledávky (vč. DPH)</th><th>Splatnost</th><th>Poznámka</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><td colspan="2" style="font-weight:700">Celkem</td><td style="text-align:right;font-weight:700;white-space:nowrap">${total}</td><td></td><td></td></tr></tfoot></table>`;
+}
+
+// Doplní do proměnných pro render systémově generované hodnoty z pohledávek:
+//   - claimsTable: HTML tabulka Přílohy č. 1 (raw HTML placeholder)
+//   - totalClaimsAmount: součet vč. DPH (jen pokud existují pohledávky, jinak
+//     ponecháme případnou ruční hodnotu / warning highlight v těle smlouvy)
+// Používá se v každé render cestě (generate i bulk-pdf), aby se chování nerozešlo.
+export function buildClaimsVariables(
+  baseVariables: Record<string, string>,
+  claims: ClaimItem[],
+): Record<string, string> {
+  const out: Record<string, string> = {
+    ...baseVariables,
+    claimsTable: renderClaimsTableHtml(claims),
+  };
+  if (computeClaimsTotal(claims) > 0) {
+    out.totalClaimsAmount = formatClaimsTotalAmount(claims);
+  }
+  return out;
+}
+
+// Token, kterým v šabloně označujeme místo pro vygenerovanou tabulku pohledávek.
+export const CLAIMS_TOKEN = "{{claimsTable}}";
+
+// Starší smlouvy (a šablony) mají místo tokenu původní statický odstavec
+// "Doplňte tabulkou ...". Pro zpětnou kompatibilitu ho při renderu nahradíme
+// tokenem, případně token doplníme hned za nadpis Přílohy č. 1.
+const LEGACY_HINT_RE =
+  /<p[^>]*>\s*<em>\s*Doplňte tabulkou[\s\S]*?<\/em>\s*<\/p>/i;
+const APPENDIX_HEADING_RE = /(<h2[^>]*>\s*Příloha č\.\s*1[^<]*<\/h2>)/i;
+
+export function ensureClaimsToken(html: string): string {
+  if (html.includes(CLAIMS_TOKEN)) return html;
+  if (LEGACY_HINT_RE.test(html)) return html.replace(LEGACY_HINT_RE, CLAIMS_TOKEN);
+  if (APPENDIX_HEADING_RE.test(html)) {
+    return html.replace(APPENDIX_HEADING_RE, `$1${CLAIMS_TOKEN}`);
+  }
+  return html;
+}

@@ -29,8 +29,14 @@ import {
 } from "@/lib/portal/contract-types";
 import { WITHDRAWAL_KS_TEXTS } from "@/lib/portal/contract-render";
 import { extractPlaceholderTokens } from "@/lib/portal/contract-render";
+import {
+  computeClaimsTotal,
+  formatClaimsTotalAmount,
+  type ClaimItem,
+} from "@/lib/portal/claims";
 import { signerFunctionLabel } from "@/lib/portal/users-db";
 import { PlaceholderPalette } from "./PlaceholderPalette";
+import { ClaimsBuilder } from "./ClaimsBuilder";
 
 // Tiptap editor (~350KB gzip s extensions) lazy-loaded přes next/dynamic.
 // Bez ssr=false, protože editor potřebuje DOM. loading: vrátí stylovaný
@@ -89,6 +95,7 @@ export function ContractDetailClient({ initial, templateApproved }: Props) {
     initial.bundleSections ?? [],
   );
   const [variables, setVariables] = useState(initial.variables);
+  const [claims, setClaims] = useState<ClaimItem[]>(initial.claims ?? []);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [saveError, setSaveError] = useState<string | null>(null);
   const [genPending, setGenPending] = useState(false);
@@ -133,6 +140,13 @@ export function ContractDetailClient({ initial, templateApproved }: Props) {
   }, [isBundle, html, bundleSections]);
   const has = (token: string) => usedTokens.has(token);
   const hasAny = (tokens: string[]) => tokens.some((t) => usedTokens.has(t));
+  // Editor seznamu pohledávek (Příloha č. 1) - pro postoupení pohledávek.
+  // Kromě tokenu {{claimsTable}} bereme i typy explicitně (starší smlouvy mohou
+  // mít ještě původní statický text bez tokenu).
+  const showClaims =
+    has("claimsTable") ||
+    contract.type === "claim-assignment" ||
+    contract.type === "claim-bundle";
 
   function notify(kind: "ok" | "error", msg: string) {
     setToast({ kind, msg });
@@ -158,6 +172,15 @@ export function ContractDetailClient({ initial, templateApproved }: Props) {
   }
   function updateVar(key: string, value: string) {
     setVariables((prev) => ({ ...prev, [key]: value }));
+    markDirty();
+  }
+  function updateClaims(next: ClaimItem[]) {
+    setClaims(next);
+    // Součet (vč. DPH) se promítne do {{totalClaimsAmount}} v těle smlouvy.
+    // Prázdný seznam -> prázdná hodnota (placeholder zůstane zvýrazněný k doplnění).
+    const total =
+      computeClaimsTotal(next) > 0 ? formatClaimsTotalAmount(next) : "";
+    setVariables((prev) => ({ ...prev, totalClaimsAmount: total }));
     markDirty();
   }
   function fillDebtor(payload: DebtorFillPayload) {
@@ -226,11 +249,13 @@ export function ContractDetailClient({ initial, templateApproved }: Props) {
     htmlSnapshot: string,
     variablesSnapshot: Record<string, string>,
     bundleSnapshot: BundleSection[],
+    claimsSnapshot: ClaimItem[],
   ) {
     setSaveState("saving");
     try {
       const body: Record<string, unknown> = {
         variables: variablesSnapshot,
+        claims: claimsSnapshot,
       };
       if (isBundle) {
         body.bundleSections = bundleSnapshot.map((s) => ({
@@ -315,14 +340,15 @@ export function ContractDetailClient({ initial, templateApproved }: Props) {
     const htmlSnap = html;
     const varsSnap = variables;
     const bundleSnap = bundleSections;
+    const claimsSnap = claims;
     saveTimerRef.current = window.setTimeout(() => {
-      performSave(htmlSnap, varsSnap, bundleSnap);
+      performSave(htmlSnap, varsSnap, bundleSnap, claimsSnap);
     }, 800);
     return () => {
       if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [html, variables, bundleSections, saveState]);
+  }, [html, variables, bundleSections, claims, saveState]);
 
   async function ensureSaved() {
     if (saveState === "pending" || saveState === "saving") {
@@ -330,7 +356,7 @@ export function ContractDetailClient({ initial, templateApproved }: Props) {
         window.clearTimeout(saveTimerRef.current);
         saveTimerRef.current = null;
       }
-      await performSave(html, variables, bundleSections);
+      await performSave(html, variables, bundleSections, claims);
     }
   }
 
@@ -773,7 +799,7 @@ export function ContractDetailClient({ initial, templateApproved }: Props) {
                   options={ORIGIN_CONTRACT_TITLE_OPTIONS}
                 />
               )}
-              {has("totalClaimsAmount") && (
+              {has("totalClaimsAmount") && !showClaims && (
                 <SmallField
                   label="Celková výše pohledávek"
                   value={variables.totalClaimsAmount ?? ""}
@@ -840,6 +866,11 @@ export function ContractDetailClient({ initial, templateApproved }: Props) {
           je přiřazeno automaticky a nelze upravit.
         </div>
       </section>
+
+      {/* Příloha č. 1 - seznam pohledávek (postoupení pohledávek) */}
+      {showClaims && (
+        <ClaimsBuilder claims={claims} onChange={updateClaims} />
+      )}
 
       {/* Editor */}
       <section>

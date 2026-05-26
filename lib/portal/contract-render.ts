@@ -195,6 +195,8 @@ const ALLOW_EMPTY = new Set([
   "ksDropClause",
   "ksPreservedClause",
   "ksIntroClause",
+  // Příloha č. 1 - tabulka pohledávek se generuje systémově z contract.claims.
+  "claimsTable",
 ]);
 
 // Placeholdery, jejichž hodnoty se NEescapují - hodnota je raw HTML zlomek.
@@ -204,6 +206,10 @@ const ALLOW_EMPTY = new Set([
 const RAW_HTML_PLACEHOLDERS = new Set([
   "ksPreservedClause",
   "ksIntroClause",
+  // Vygenerovaná HTML tabulka pohledávek (Příloha č. 1). Hodnotu skládá systém
+  // z contract.claims (renderClaimsTableHtml), uživatel ji nezadává volně, takže
+  // nehrozí XSS - veškerý uživatelský text je escapovaný uvnitř helperu.
+  "claimsTable",
 ]);
 
 export function renderTemplate(

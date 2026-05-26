@@ -14,6 +14,7 @@ import {
   type ContractVariant,
 } from "@/lib/portal/contract-types";
 import { WITHDRAWAL_KS_TEXTS } from "@/lib/portal/contract-render";
+import { ensureClaimsToken } from "@/lib/portal/claims";
 import { getOrSeedContractTemplate } from "@/lib/portal/contract-templates-db";
 import { bustContracts } from "@/lib/portal/revalidate";
 import {
@@ -113,16 +114,23 @@ export async function POST(req: Request) {
         getOrSeedContractTemplate(sectionType),
       ),
     );
-    bundleSections = sourceTemplates.map((tpl, i) => ({
-      type: CLAIM_BUNDLE_SECTIONS[i]!,
-      html: tpl.html,
-      templateSnapshot: tpl.html,
-    }));
+    // ensureClaimsToken: starší šablona claim-assignment může mít ještě statický
+    // text „Doplňte tabulkou…"; nahradíme ho tokenem {{claimsTable}}, aby nová
+    // smlouva měla v editoru rovnou placeholder pro generovanou tabulku. Pro
+    // ostatní sekce (side-fee, assignment-notice) je to no-op.
+    bundleSections = sourceTemplates.map((tpl, i) => {
+      const html = ensureClaimsToken(tpl.html);
+      return {
+        type: CLAIM_BUNDLE_SECTIONS[i]!,
+        html,
+        templateSnapshot: html,
+      };
+    });
     letterhead = sourceTemplates[0]?.letterhead ?? true;
   } else {
     const template = await getOrSeedContractTemplate(type, variant);
-    templateHtml = template.html;
-    templateSnapshot = template.html;
+    templateHtml = ensureClaimsToken(template.html);
+    templateSnapshot = templateHtml;
     letterhead = template.letterhead ?? true;
   }
 

@@ -12,6 +12,7 @@ import {
   applySignerOverride,
   renderTemplate,
 } from "@/lib/portal/contract-render";
+import { buildClaimsVariables, ensureClaimsToken } from "@/lib/portal/claims";
 import {
   bundleHtmlToPdfBuffer,
   htmlToPdfBuffer,
@@ -92,9 +93,11 @@ export async function POST(req: Request) {
 
     // Finální PDF: bez watermarku, s signer override.
     const signer = contract.signerEmail ? await loadSigner(contract.signerEmail) : null;
-    const variables = signer
+    const baseVariables = signer
       ? applySignerOverride(contract.variables, signer)
       : contract.variables;
+    // Příloha č. 1: doplnit tabulku pohledávek + součet (vč. DPH) z contract.claims.
+    const variables = buildClaimsVariables(baseVariables, contract.claims ?? []);
     const cover = getCoverForType(contract.type);
     const letterhead = contract.letterhead ?? true;
 
@@ -103,7 +106,7 @@ export async function POST(req: Request) {
       if (isBundleType(contract.type) && contract.bundleSections) {
         const rendered = contract.bundleSections.map((s) => ({
           type: s.type,
-          html: renderTemplate(s.html, variables),
+          html: renderTemplate(ensureClaimsToken(s.html), variables),
         }));
         pdf = await bundleHtmlToPdfBuffer(rendered, {
           type: contract.type,
@@ -112,7 +115,7 @@ export async function POST(req: Request) {
           watermark: false,
         });
       } else {
-        const rendered = renderTemplate(contract.html, variables);
+        const rendered = renderTemplate(ensureClaimsToken(contract.html), variables);
         pdf = await htmlToPdfBuffer(rendered, {
           type: contract.type,
           cover,

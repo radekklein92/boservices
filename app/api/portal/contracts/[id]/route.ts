@@ -19,11 +19,22 @@ const bundleSectionSchema = z.object({
   html: z.string().max(200_000),
 });
 
+const claimSchema = z.object({
+  id: z.string().max(100),
+  origin: z.enum(["kupni", "fransizingova", "manazerska", "jina"]),
+  originOther: z.string().max(300).optional(),
+  amount: z.string().max(60),
+  invoiceNumber: z.string().max(120).optional(),
+  dueDate: z.string().max(120).optional(),
+  note: z.string().max(1000).optional(),
+});
+
 const updateSchema = z.object({
   html: z.string().max(200_000).optional(),
   variables: z.record(z.string(), z.string()).optional(),
   number: z.string().trim().max(40).optional(),
   bundleSections: z.array(bundleSectionSchema).optional(),
+  claims: z.array(claimSchema).max(200).optional(),
 });
 
 export async function GET(
@@ -93,6 +104,7 @@ export async function PUT(
     html: parsed.data.html ?? existing.html,
     bundleSections: nextBundleSections,
     variables: mergedVars,
+    claims: parsed.data.claims ?? existing.claims,
     number: existing.number,
     // Editing invalidates the previously generated PDF
     generatedPdfUrl: undefined,

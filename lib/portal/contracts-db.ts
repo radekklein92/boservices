@@ -5,6 +5,7 @@ import type {
   ContractVariant,
 } from "./contract-types";
 import { isUnilateralContract } from "./contract-types";
+import type { ClaimItem } from "./claims";
 
 // Status flow:
 //   koncept → schvaleno → k-podpisu → podepsano-bos → podepsano-klientem → archivovano
@@ -78,6 +79,10 @@ export interface Contract {
   // Varianta šablony - franchise (AB | B) nebo withdrawal (A | B). Pro typy
   // bez variant je undefined. Platné hodnoty určuje isValidVariantForType().
   variant?: ContractVariant;
+  // Postoupení pohledávek (claim-assignment / claim-bundle): strukturovaný
+  // seznam pohledávek pro Přílohu č. 1. Při generování PDF se z něj poskládá
+  // tabulka ({{claimsTable}}) a součet ({{totalClaimsAmount}}, vč. DPH).
+  claims?: ClaimItem[];
   // PDF s logem v záhlaví a textem v patičce (true, default) nebo bez nich.
   // Snapshot z template.letterhead při vytvoření smlouvy.
   letterhead?: boolean;

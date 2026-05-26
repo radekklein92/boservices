@@ -9,6 +9,7 @@ import { applySignerOverride, renderTemplate } from "./contract-render";
 import { bundleHtmlToPdfBuffer, htmlToPdfBuffer } from "./pdf-generator";
 import { getCoverForType } from "./pdf-styles";
 import { getUser } from "./users-db";
+import { buildClaimsVariables, ensureClaimsToken } from "./claims";
 
 const DIACRITICS: Record<string, string> = {
   á: "a", č: "c", ď: "d", é: "e", ě: "e", í: "i", ň: "n",
@@ -56,9 +57,13 @@ export async function renderAndStoreContractPdf(contract: Contract): Promise<{
     !unilateral && isFinal && contract.signerEmail
       ? await getUser(contract.signerEmail)
       : null;
-  const variables = signer
+  const baseVariables = signer
     ? applySignerOverride(contract.variables, signer)
     : contract.variables;
+
+  // Příloha č. 1 - tabulka pohledávek a jejich součet (vč. DPH) se generují
+  // systémově z contract.claims (claimsTable + totalClaimsAmount).
+  const variables = buildClaimsVariables(baseVariables, contract.claims ?? []);
 
   const letterhead = contract.letterhead ?? true;
   const watermark = !isFinal;
@@ -67,7 +72,7 @@ export async function renderAndStoreContractPdf(contract: Contract): Promise<{
   if (isBundleType(contract.type) && contract.bundleSections) {
     const rendered = contract.bundleSections.map((s) => ({
       type: s.type,
-      html: renderTemplate(s.html, variables),
+      html: renderTemplate(ensureClaimsToken(s.html), variables),
     }));
     pdf = await bundleHtmlToPdfBuffer(rendered, {
       type: contract.type,
@@ -76,7 +81,7 @@ export async function renderAndStoreContractPdf(contract: Contract): Promise<{
       watermark,
     });
   } else {
-    const rendered = renderTemplate(contract.html, variables);
+    const rendered = renderTemplate(ensureClaimsToken(contract.html), variables);
     pdf = await htmlToPdfBuffer(rendered, {
       type: contract.type,
       cover,
