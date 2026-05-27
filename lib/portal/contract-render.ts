@@ -18,7 +18,7 @@ export const PROVIDER_DEFAULTS: ContractVariables = {
 // Postupník v 3 šablonách postoupení pohledávek (claim-assignment, side-fee,
 // assignment-notice) a v balíčku „claim-bundle" je Clamora Bridge s.r.o., ne
 // BOServices. Šablony používají stejné {{provider*}} placeholdery, jen je
-// naplníme jinou firmou. Clamora Bridge má vlastního jednatele - Myron Hovdi.
+// naplníme jinou firmou. Za Clamoru jedná Mgr. Petr Zapletal na základě plné moci.
 export const CLAMORA_BRIDGE_DEFAULTS: ContractVariables = {
   providerName: "Clamora Bridge s.r.o.",
   providerIco: "29582181",
@@ -27,8 +27,8 @@ export const CLAMORA_BRIDGE_DEFAULTS: ContractVariables = {
   providerCity: "Praha 1",
   providerZip: "11000",
   providerRegistry: "Městský soud v Praze, oddíl C, vložka 448879",
-  providerStatutory1Name: "Myron Hovdi",
-  providerStatutory1Role: "jednatel",
+  providerStatutory1Name: "Mgr. Petr Zapletal",
+  providerStatutory1Role: "na základě plné moci",
 };
 
 // Typy smluv, kde Postupník/Poskytovatel je Clamora Bridge (postoupení
