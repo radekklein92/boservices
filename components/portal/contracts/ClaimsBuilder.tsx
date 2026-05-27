@@ -99,7 +99,7 @@ export function ClaimsBuilder({ claims, onChange }: Props) {
             <table className="w-full border-collapse text-[12px]">
               <thead>
                 <tr className="bg-paper-warm text-ink-mid">
-                  <Th>Vznikla ze smlouvy</Th>
+                  <Th>Týká se smlouvy</Th>
                   <Th>Právní titul</Th>
                   <Th>Číslo faktury</Th>
                   <Th align="right">Výše (vč. DPH)</Th>
@@ -175,7 +175,7 @@ function ClaimCard({
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <SelectField
-          label="Vznikla ze smlouvy"
+          label="Týká se smlouvy"
           value={claim.origin}
           onChange={(v) => onPatch({ origin: v as ClaimOrigin })}
           options={CLAIM_ORIGIN_OPTIONS}

@@ -115,7 +115,8 @@ export function claimOriginLabel(item: ClaimItem): string {
       : CLAIM_ORIGIN_OPTIONS.find((o) => o.value === item.origin)?.label ??
         "Jiná smlouva";
   const date = item.originDate?.trim();
-  return date ? `${base} ze dne ${date}` : base;
+  const withDate = date ? `${base} ze dne ${date}` : base;
+  return `${withDate} uzavřená mezi Dlužníkem a Postupitelem`;
 }
 
 // Text právního titulu do tabulky. Z dropdownu (legalTitleType), s doplněním
@@ -182,7 +183,7 @@ export function renderClaimsTableHtml(claims: ClaimItem[]): string {
     })
     .join("");
   const total = formatCzk(computeClaimsTotal(valid));
-  return `<table><thead><tr><th>Vznikla ze smlouvy</th><th>Právní titul</th><th>Číslo faktury</th><th style="text-align:right">Výše pohledávky (vč. DPH)</th><th>Splatnost</th><th>Poznámka</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><td colspan="3" style="font-weight:700">Celkem</td><td style="text-align:right;font-weight:700;white-space:nowrap">${total}</td><td></td><td></td></tr></tfoot></table>`;
+  return `<table><thead><tr><th>Týká se smlouvy</th><th>Právní titul</th><th>Číslo faktury</th><th style="text-align:right">Výše pohledávky (vč. DPH)</th><th>Splatnost</th><th>Poznámka</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><td colspan="3" style="font-weight:700">Celkem</td><td style="text-align:right;font-weight:700;white-space:nowrap">${total}</td><td></td><td></td></tr></tfoot></table>`;
 }
 
 // Doplní do proměnných pro render systémově generované hodnoty z pohledávek:
