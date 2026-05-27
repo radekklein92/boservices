@@ -5,35 +5,27 @@ import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { PageHeader } from "@/components/portal/shell/PageHeader";
 import type { Client } from "@/lib/portal/clients-db";
+import type { ClientContractBadge } from "@/lib/portal/client-contract-status";
 import { ClientsTable } from "./ClientsTable";
 import { ClientCreateModal } from "./ClientCreateModal";
 
-export function ClientsPageClient({ initial }: { initial: Client[] }) {
+export function ClientsPageClient({
+  initial,
+  badgesByClient,
+}: {
+  initial: Client[];
+  badgesByClient: Record<string, ClientContractBadge[]>;
+}) {
   const router = useRouter();
-  const [clients, setClients] = useState(initial);
   const [open, setOpen] = useState(false);
 
-  async function refetch() {
-    try {
-      const res = await fetch("/api/portal/clients", { cache: "no-store" });
-      if (!res.ok) return;
-      const data = await res.json();
-      if (data.ok && Array.isArray(data.clients)) {
-        setClients(data.clients as Client[]);
-      }
-    } catch {
-      // ignore
-    }
-  }
-
+  // Po mutaci necháme server přepočítat (klienti i ikonky stavů smluv).
   function handleCreated() {
     setOpen(false);
-    void refetch();
     router.refresh();
   }
 
-  function handleDeleted(id: string) {
-    setClients((prev) => prev.filter((c) => c.id !== id));
+  function handleDeleted() {
     router.refresh();
   }
 
@@ -56,7 +48,8 @@ export function ClientsPageClient({ initial }: { initial: Client[] }) {
       />
 
       <ClientsTable
-        clients={clients}
+        clients={initial}
+        badgesByClient={badgesByClient}
         onAddClick={() => setOpen(true)}
         onDeleted={handleDeleted}
       />

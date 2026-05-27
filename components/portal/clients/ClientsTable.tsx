@@ -2,13 +2,64 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowUpRight, Plus, Search, Trash2 } from "lucide-react";
+import {
+  ArrowUpRight,
+  Plus,
+  Search,
+  Trash2,
+  Store,
+  Handshake,
+  Cog,
+  Coins,
+  FileX2,
+  FileText,
+  type LucideIcon,
+} from "lucide-react";
 import type { Client } from "@/lib/portal/clients-db";
+import {
+  CONTRACT_TYPE_META,
+  type ContractType,
+} from "@/lib/portal/contract-types";
+import type {
+  ClientContractBadge,
+  ContractTypeState,
+} from "@/lib/portal/client-contract-status";
 
 const LEGAL_LABEL: Record<string, string> = {
   PO: "Právnická osoba",
   FO: "Fyzická osoba",
 };
+
+// Ikona pro typ smlouvy (zobrazuje se jen 5 vytvořitelných typů).
+const TYPE_ICON: Partial<Record<ContractType, LucideIcon>> = {
+  franchise: Store,
+  cooperation: Handshake,
+  operation: Cog,
+  "claim-bundle": Coins,
+  withdrawal: FileX2,
+};
+
+// Barva ikonky podle stavu.
+const STATE_STYLE: Record<ContractTypeState, string> = {
+  planned: "border-edge bg-paper text-ink-soft",
+  "in-progress": "border-amber-300 bg-amber-50 text-amber-700",
+  signed: "border-emerald-300 bg-emerald-50 text-emerald-700",
+  archived: "border-ink-base bg-ink-base text-paper",
+};
+
+const STATE_LABEL: Record<ContractTypeState, string> = {
+  planned: "Naplánováno",
+  "in-progress": "Vygenerováno",
+  signed: "Podepsáno",
+  archived: "Archivováno",
+};
+
+const STATE_ORDER: ContractTypeState[] = [
+  "planned",
+  "in-progress",
+  "signed",
+  "archived",
+];
 
 function formatDate(iso: string): string {
   try {
@@ -24,12 +75,14 @@ function formatDate(iso: string): string {
 
 export function ClientsTable({
   clients,
+  badgesByClient,
   onAddClick,
   onDeleted,
 }: {
   clients: Client[];
+  badgesByClient?: Record<string, ClientContractBadge[]>;
   onAddClick?: () => void;
-  onDeleted?: (id: string) => void;
+  onDeleted?: () => void;
 }) {
   const [query, setQuery] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -60,7 +113,7 @@ export function ClientsTable({
       const res = await fetch(`/api/portal/clients/${id}`, { method: "DELETE" });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || "Chyba");
-      onDeleted?.(id);
+      onDeleted?.();
     } catch (err) {
       window.alert(err instanceof Error ? err.message : "Chyba");
     } finally {
@@ -112,6 +165,24 @@ export function ClientsTable({
         </span>
       </div>
 
+      {clients.some((c) => (badgesByClient?.[c.id]?.length ?? 0) > 0) && (
+        <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-ink-mid">
+          <span className="font-semibold uppercase tracking-[0.14em] text-ink-soft">
+            Stav smluv
+          </span>
+          {STATE_ORDER.map((s) => (
+            <span key={s} className="inline-flex items-center gap-1.5">
+              <span
+                className={`grid h-4 w-4 place-items-center rounded-full border ${STATE_STYLE[s]}`}
+              >
+                <span className="h-1.5 w-1.5 rounded-full bg-current" />
+              </span>
+              {STATE_LABEL[s]}
+            </span>
+          ))}
+        </div>
+      )}
+
       <div className="overflow-hidden rounded-[24px] border border-edge bg-paper">
         <ul className="divide-y divide-edge">
           {filtered.map((c) => (
@@ -140,6 +211,22 @@ export function ClientsTable({
                     {LEGAL_LABEL[c.legalForm] ?? c.legalForm}
                   </span>
                 </div>
+                {(badgesByClient?.[c.id]?.length ?? 0) > 0 && (
+                  <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                    {(badgesByClient?.[c.id] ?? []).map((b) => {
+                      const Icon = TYPE_ICON[b.type] ?? FileText;
+                      return (
+                        <span
+                          key={b.type}
+                          title={`${CONTRACT_TYPE_META[b.type].shortName} — ${STATE_LABEL[b.state]}`}
+                          className={`grid h-7 w-7 place-items-center rounded-full border ${STATE_STYLE[b.state]}`}
+                        >
+                          <Icon className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
               <div className="hidden flex-col items-end gap-1 md:flex">
                 <div className="text-[10.5px] font-medium uppercase tracking-[0.18em] text-ink-mid">

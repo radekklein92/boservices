@@ -1,4 +1,5 @@
 import { getRedis } from "@/lib/redis";
+import type { ContractType } from "./contract-types";
 
 export type LegalForm = "PO" | "FO";
 
@@ -29,6 +30,9 @@ export interface Client {
   address: ClientAddress;
   statutory?: ClientStatutory;
   contact?: ClientContact;
+  // Plánované smlouvy - které typy smluv chceme s klientem podepsat (podmnožina
+  // vytvořitelných typů). Slouží k přehledu naplánováno / vygenerováno / podepsáno.
+  plannedContracts?: ContractType[];
   createdBy: string;
   createdAt: string;
   updatedAt: string;

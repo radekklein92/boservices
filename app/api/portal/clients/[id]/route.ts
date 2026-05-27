@@ -39,6 +39,17 @@ const updateSchema = z.object({
       phone: z.string().trim().max(40).optional().or(z.literal("")),
     })
     .optional(),
+  plannedContracts: z
+    .array(
+      z.enum([
+        "franchise",
+        "cooperation",
+        "operation",
+        "claim-bundle",
+        "withdrawal",
+      ]),
+    )
+    .optional(),
 });
 
 export async function GET(
@@ -120,6 +131,7 @@ export async function PUT(
             phone: d.contact.phone?.trim() || undefined,
           }
         : undefined,
+    plannedContracts: d.plannedContracts ?? existing.plannedContracts ?? [],
     updatedAt: new Date().toISOString(),
   };
   await upsertClient(updated);

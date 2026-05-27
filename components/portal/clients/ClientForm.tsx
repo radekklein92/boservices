@@ -4,6 +4,11 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Search, Loader2, ShieldCheck } from "lucide-react";
 import type { Client, LegalForm } from "@/lib/portal/clients-db";
+import {
+  CONTRACT_TYPES_PICKABLE,
+  CONTRACT_TYPE_META,
+  type ContractType,
+} from "@/lib/portal/contract-types";
 
 type Mode =
   | {
@@ -29,6 +34,7 @@ type FormState = {
   contactName: string;
   contactEmail: string;
   contactPhone: string;
+  plannedContracts: ContractType[];
 };
 
 function blankState(): FormState {
@@ -46,6 +52,7 @@ function blankState(): FormState {
     contactName: "",
     contactEmail: "",
     contactPhone: "",
+    plannedContracts: [],
   };
 }
 
@@ -64,6 +71,7 @@ function fromClient(c: Client): FormState {
     contactName: c.contact?.name ?? "",
     contactEmail: c.contact?.email ?? "",
     contactPhone: c.contact?.phone ?? "",
+    plannedContracts: c.plannedContracts ?? [],
   };
 }
 
@@ -85,6 +93,14 @@ export function ClientForm({
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setState((prev) => ({ ...prev, [key]: value }));
+
+  const togglePlanned = (t: ContractType) =>
+    setState((prev) => ({
+      ...prev,
+      plannedContracts: prev.plannedContracts.includes(t)
+        ? prev.plannedContracts.filter((x) => x !== t)
+        : [...prev.plannedContracts, t],
+    }));
 
   async function lookupAres() {
     const ico = state.ico.replace(/\D/g, "");
@@ -157,6 +173,7 @@ export function ClientForm({
                 phone: state.contactPhone.trim() || undefined,
               }
             : undefined,
+        plannedContracts: state.plannedContracts,
       };
 
       const url =
@@ -386,6 +403,34 @@ export function ClientForm({
               className={inputCls}
             />
           </Field>
+        </div>
+      </Section>
+
+      {/* Plánované smlouvy */}
+      <Section
+        label="Plánované smlouvy"
+        hint="Které smlouvy chceš s klientem podepsat. Uvidíš stav na přehledu klientů."
+      >
+        <div className="flex flex-wrap gap-2">
+          {CONTRACT_TYPES_PICKABLE.map((t) => {
+            const active = state.plannedContracts.includes(t);
+            return (
+              <button
+                key={t}
+                type="button"
+                onClick={() => togglePlanned(t)}
+                aria-pressed={active}
+                className={[
+                  "inline-flex h-9 items-center rounded-full border px-3.5 text-[12.5px] font-medium transition-colors",
+                  active
+                    ? "border-ink-base bg-ink-base text-paper"
+                    : "border-edge bg-paper text-ink-deep hover:border-ink-soft",
+                ].join(" ")}
+              >
+                {CONTRACT_TYPE_META[t].shortName}
+              </button>
+            );
+          })}
         </div>
       </Section>
 

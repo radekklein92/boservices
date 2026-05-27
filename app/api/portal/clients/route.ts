@@ -39,6 +39,17 @@ const clientPayload = z.object({
       phone: z.string().trim().max(40).optional().or(z.literal("")),
     })
     .optional(),
+  plannedContracts: z
+    .array(
+      z.enum([
+        "franchise",
+        "cooperation",
+        "operation",
+        "claim-bundle",
+        "withdrawal",
+      ]),
+    )
+    .optional(),
 });
 
 export type ClientPayload = z.infer<typeof clientPayload>;
@@ -129,6 +140,7 @@ export async function POST(req: Request) {
     contact: contact as
       | { name?: string; email?: string; phone?: string }
       | undefined,
+    plannedContracts: d.plannedContracts ?? [],
     createdBy: g.session.user!.email!,
     createdAt: now,
     updatedAt: now,
