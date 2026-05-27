@@ -71,21 +71,55 @@ export function parseCzechDate(input: string | undefined | null): Date | null {
   return null;
 }
 
-// Vrátí pravidlo, pokud je dlužník v úpadku a datum uzavření je v den úpadku
-// nebo po něm (=> zapodstatová pohledávka). Jinak null.
-export function checkInsolvency(
-  debtorName: string | undefined,
+// Pravidlo úpadku pro daný název firmy (podřetězcové porovnání), jinak null.
+export function findInsolvencyRule(
+  name: string | undefined,
+): InsolvencyRule | null {
+  if (!name) return null;
+  const n = name.toLowerCase();
+  return INSOLVENCY_RULES.find((r) => n.includes(r.match)) ?? null;
+}
+
+// Z více firem (Manažer + Poskytovatel u odstoupení) vrátí pravidlo, jehož den
+// úpadku datum uzavření porušuje (datum >= úpadek => zapodstatová pohledávka).
+// Při více porušeních vrátí to s nejdřívějším úpadkem. Jinak null.
+export function checkInsolvencyAny(
+  names: (string | undefined)[],
   contractDateText: string | undefined,
 ): InsolvencyRule | null {
-  if (!debtorName || !contractDateText) return null;
-  const name = debtorName.toLowerCase();
   const date = parseCzechDate(contractDateText);
   if (!date) return null;
-
-  for (const rule of INSOLVENCY_RULES) {
-    if (!name.includes(rule.match)) continue;
+  let hit: InsolvencyRule | null = null;
+  for (const name of names) {
+    const rule = findInsolvencyRule(name);
+    if (!rule) continue;
     const threshold = new Date(`${rule.insolvencyDate}T00:00:00`);
-    if (date.getTime() >= threshold.getTime()) return rule;
+    if (date.getTime() >= threshold.getTime()) {
+      if (!hit || rule.insolvencyDate < hit.insolvencyDate) hit = rule;
+    }
   }
-  return null;
+  return hit;
+}
+
+// Bezpečné datum uzavření = nejdřívější úpadek z vybraných firem mínus N dní
+// (default 3). Vrací český zápis ("11. května 2026"), nebo null když žádná
+// z firem není v úpadku.
+export function safeContractDate(
+  names: (string | undefined)[],
+  daysBefore = 3,
+): string | null {
+  const rules = names
+    .map(findInsolvencyRule)
+    .filter((r): r is InsolvencyRule => r !== null);
+  if (rules.length === 0) return null;
+  const earliest = rules.reduce((a, b) =>
+    a.insolvencyDate <= b.insolvencyDate ? a : b,
+  );
+  const d = new Date(`${earliest.insolvencyDate}T00:00:00`);
+  d.setDate(d.getDate() - daysBefore);
+  return d.toLocaleDateString("cs-CZ", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
 }

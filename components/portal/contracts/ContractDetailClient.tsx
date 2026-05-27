@@ -34,7 +34,7 @@ import {
   formatClaimsTotalAmount,
   type ClaimItem,
 } from "@/lib/portal/claims";
-import { checkInsolvency } from "@/lib/portal/insolvency-rules";
+import { checkInsolvencyAny, safeContractDate } from "@/lib/portal/insolvency-rules";
 import { signerFunctionLabel } from "@/lib/portal/users-db";
 import { PlaceholderPalette } from "./PlaceholderPalette";
 import { ClaimsBuilder } from "./ClaimsBuilder";
@@ -156,8 +156,19 @@ export function ContractDetailClient({ initial, templateApproved }: Props) {
   // Úpadek dlužníka: když je datum uzavření v den úpadku nebo po něm, vzniká
   // zapodstatová pohledávka -> upozornění (lze ignorovat na vlastní odpovědnost).
   const insolvencyRule = useMemo(
-    () => checkInsolvency(variables.debtorName, variables.contractDate),
-    [variables.debtorName, variables.contractDate],
+    () =>
+      contract.type === "withdrawal"
+        ? checkInsolvencyAny(
+            [variables.managerName, variables.providerName],
+            variables.contractDate,
+          )
+        : null,
+    [
+      contract.type,
+      variables.managerName,
+      variables.providerName,
+      variables.contractDate,
+    ],
   );
   const insolvencyKey = insolvencyRule
     ? `${insolvencyRule.match}|${variables.contractDate ?? ""}`
@@ -206,28 +217,59 @@ export function ContractDetailClient({ initial, templateApproved }: Props) {
     notify("ok", `Dlužník vyplněn: ${payload.debtorName || payload.debtorIco}.`);
   }
   function fillManager(p: CompanyFillPayload) {
-    setVariables((prev) => ({
-      ...prev,
-      managerName: p.name,
-      managerIco: p.ico,
-      managerStreet: p.street,
-      managerCity: p.city,
-      managerZip: p.zip,
-    }));
+    let datedToSafe: string | null = null;
+    setVariables((prev) => {
+      const next: Record<string, string> = {
+        ...prev,
+        managerName: p.name,
+        managerIco: p.ico,
+        managerStreet: p.street,
+        managerCity: p.city,
+        managerZip: p.zip,
+      };
+      // Firma v úpadku -> Datum uzavření defaultně 3 dny před úpadkem (bezpečné).
+      const safe = safeContractDate([p.name, prev.providerName]);
+      if (safe) {
+        next.contractDate = safe;
+        next.effectiveDate = safe;
+        datedToSafe = safe;
+      }
+      return next;
+    });
     markDirty();
-    notify("ok", `Manažer vyplněn: ${p.name || p.ico}.`);
+    notify(
+      "ok",
+      datedToSafe
+        ? `Manažer vyplněn: ${p.name || p.ico}. Datum uzavření nastaveno na ${datedToSafe} (před úpadkem).`
+        : `Manažer vyplněn: ${p.name || p.ico}.`,
+    );
   }
   function fillWithdrawalProvider(p: CompanyFillPayload) {
-    setVariables((prev) => ({
-      ...prev,
-      providerName: p.name,
-      providerIco: p.ico,
-      providerStreet: p.street,
-      providerCity: p.city,
-      providerZip: p.zip,
-    }));
+    let datedToSafe: string | null = null;
+    setVariables((prev) => {
+      const next: Record<string, string> = {
+        ...prev,
+        providerName: p.name,
+        providerIco: p.ico,
+        providerStreet: p.street,
+        providerCity: p.city,
+        providerZip: p.zip,
+      };
+      const safe = safeContractDate([prev.managerName, p.name]);
+      if (safe) {
+        next.contractDate = safe;
+        next.effectiveDate = safe;
+        datedToSafe = safe;
+      }
+      return next;
+    });
     markDirty();
-    notify("ok", `Poskytovatel vyplněn: ${p.name || p.ico}.`);
+    notify(
+      "ok",
+      datedToSafe
+        ? `Poskytovatel vyplněn: ${p.name || p.ico}. Datum uzavření nastaveno na ${datedToSafe} (před úpadkem).`
+        : `Poskytovatel vyplněn: ${p.name || p.ico}.`,
+    );
   }
   function setKsMode(mode: string) {
     // Toggle „KS padá" / „KS zůstává v platnosti" se promítne do 4 placeholderů,
