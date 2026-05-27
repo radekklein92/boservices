@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   Mail,
   FileEdit,
+  Eye,
 } from "lucide-react";
 import type {
   ContractType,
@@ -17,6 +18,7 @@ import type {
 } from "@/lib/portal/contract-types";
 import { variantShortLabel } from "@/lib/portal/contract-types";
 import type { ContractTemplate } from "@/lib/portal/contract-templates-db";
+import { TemplateDiffModal } from "./TemplateDiffModal";
 
 // Položka v plochém listu po expandnutí variant.
 export type TemplateRow = {
@@ -57,6 +59,8 @@ export function TemplatesListClient({
   const isApprover = !!approverEmail && currentUserEmail === approverEmail;
   const [busy, setBusy] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  // Která šablona má otevřený modal se změnami.
+  const [diffRow, setDiffRow] = useState<TemplateRow | null>(null);
 
   function notify(msg: string) {
     setToast(msg);
@@ -188,6 +192,14 @@ export function TemplatesListClient({
 
                 {!r.approved && (
                   <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setDiffRow(r)}
+                      className="inline-flex h-9 items-center gap-2 rounded-full border border-edge bg-paper px-3 text-[12px] font-medium text-ink-deep transition-colors hover:border-ink-base hover:text-ink-base"
+                    >
+                      <Eye className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+                      Zobrazit změny
+                    </button>
                     {isApprover ? (
                       <button
                         type="button"
@@ -237,6 +249,28 @@ export function TemplatesListClient({
         >
           {toast}
         </div>
+      )}
+
+      {diffRow && (
+        <TemplateDiffModal
+          type={diffRow.type}
+          variant={diffRow.variant}
+          title={`${diffRow.fullName}${
+            diffRow.variant
+              ? ` · var. ${variantShortLabel(diffRow.type, diffRow.variant)}`
+              : ""
+          }`}
+          onClose={() => setDiffRow(null)}
+          onApprove={
+            isApprover
+              ? async () => {
+                  if (!diffRow) return;
+                  await approve(diffRow);
+                  setDiffRow(null);
+                }
+              : undefined
+          }
+        />
       )}
     </>
   );

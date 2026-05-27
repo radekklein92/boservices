@@ -30,6 +30,9 @@ export interface ContractTemplate {
   // schvalovatele (User.isTemplateApprover) v okamžiku schválení.
   approvedAt?: string;
   approvedBy?: string;
+  // Snapshot HTML v okamžiku posledního schválení - baseline pro diff „co se
+  // změnilo od schválení" v modalu na /portal/templates.
+  approvedHtml?: string;
 }
 
 // True, když je šablona aktuálně schválená (approvedAt existuje a NENÍ

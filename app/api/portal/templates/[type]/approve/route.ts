@@ -57,6 +57,8 @@ export async function POST(
     variant,
     approvedAt: now,
     approvedBy: me.email,
+    // Snapshot schválené verze - baseline pro příští diff „co se změnilo".
+    approvedHtml: existing.html,
   });
 
   bustTemplates();
