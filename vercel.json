@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/template-reminder",
       "schedule": "0 18 * * *"
+    },
+    {
+      "path": "/api/cron/blob-backup",
+      "schedule": "0 2 * * *"
     }
   ]
 }
