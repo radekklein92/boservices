@@ -12,8 +12,10 @@ import { bustContracts } from "@/lib/portal/revalidate";
 const bulkSchema = z.object({
   ids: z.array(z.string().min(1)).min(1).max(200),
   action: z.enum(["approve", "pick-signer", "signed", "client-signed"]),
-  // Vyžadováno jen pro action=pick-signer.
+  // Vyžadováno jen pro action=pick-signer (pokud není keepOriginal).
   signerEmail: z.string().trim().toLowerCase().email().optional(),
+  // pick-signer: „zachovat původního" - nenastaví signerEmail.
+  keepOriginal: z.boolean().optional(),
 });
 
 export async function POST(req: Request) {
@@ -34,13 +36,14 @@ export async function POST(req: Request) {
     );
   }
 
-  const { ids, action, signerEmail } = parsed.data;
+  const { ids, action, signerEmail, keepOriginal } = parsed.data;
   const email = g.session.user!.email!;
   const nowIso = new Date().toISOString();
 
   // Pro pick-signer si načteme usera předem (jeden lookup pro všech N smluv).
+  // U „zachovat původního" (keepOriginal) žádného signera nehledáme.
   let signer: Awaited<ReturnType<typeof getUser>> = null;
-  if (action === "pick-signer") {
+  if (action === "pick-signer" && !keepOriginal) {
     if (!signerEmail) {
       return NextResponse.json(
         { ok: false, error: "Chybí email podepisujícího." },
@@ -91,7 +94,8 @@ export async function POST(req: Request) {
         ...contract,
         approvedAt: contract.approvedAt ?? nowIso,
         approvedBy: contract.approvedBy ?? email,
-        signerEmail: signer!.email,
+        // keepOriginal -> nech zástupce ze smlouvy (signerEmail prázdné).
+        signerEmail: keepOriginal ? undefined : signer!.email,
         signerPickedAt: contract.signerPickedAt ?? nowIso,
         signerPickedBy: email,
         updatedAt: nowIso,

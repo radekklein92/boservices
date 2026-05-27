@@ -13,7 +13,10 @@ import { bustContracts } from "@/lib/portal/revalidate";
 export const maxDuration = 60;
 
 const pickSchema = z.object({
-  email: z.string().trim().toLowerCase().email(),
+  email: z.string().trim().toLowerCase().email().optional(),
+  // „Zachovat původního podepisujícího": nenastaví signerEmail -> v PDF se
+  // nepřepíše zástupce uvedený ve smlouvě (např. Mgr. Petr Zapletal).
+  keepOriginal: z.boolean().optional(),
 });
 
 export async function POST(
@@ -32,24 +35,11 @@ export async function POST(
   const parsed = pickSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { ok: false, error: "Chybí email podepisujícího." },
+      { ok: false, error: "Neplatný vstup." },
       { status: 400 },
     );
   }
-
-  const signer = await getUser(parsed.data.email);
-  if (!signer) {
-    return NextResponse.json(
-      { ok: false, error: "Podepisující nenalezen." },
-      { status: 404 },
-    );
-  }
-  if (!signer.isSigner || !signer.signerFunction) {
-    return NextResponse.json(
-      { ok: false, error: "Vybraný uživatel není podepisující." },
-      { status: 400 },
-    );
-  }
+  const keepOriginal = parsed.data.keepOriginal === true;
 
   const { id } = await params;
   const contract = await getContract(id);
@@ -65,10 +55,38 @@ export async function POST(
     );
   }
 
+  // Buď konkrétní Podepisující (override zástupce v PDF), nebo „zachovat
+  // původního" - pak se signerEmail nenastaví a zástupce ze smlouvy zůstane.
+  let signerEmail: string | undefined;
+  if (!keepOriginal) {
+    if (!parsed.data.email) {
+      return NextResponse.json(
+        { ok: false, error: "Chybí email podepisujícího." },
+        { status: 400 },
+      );
+    }
+    const signer = await getUser(parsed.data.email);
+    if (!signer) {
+      return NextResponse.json(
+        { ok: false, error: "Podepisující nenalezen." },
+        { status: 404 },
+      );
+    }
+    if (!signer.isSigner || !signer.signerFunction) {
+      return NextResponse.json(
+        { ok: false, error: "Vybraný uživatel není podepisující." },
+        { status: 400 },
+      );
+    }
+    signerEmail = signer.email;
+  }
+
   const now = new Date().toISOString();
   const withSigner = {
     ...contract,
-    signerEmail: signer.email,
+    // U „zachovat původního" explicitně vyčistíme signerEmail (undefined se
+    // při uložení do Redisu zahodí) - render pak nepřepíše zástupce.
+    signerEmail,
     signerPickedAt: contract.signerPickedAt ?? now,
     signerPickedBy: g.session.user!.email!,
     updatedAt: now,

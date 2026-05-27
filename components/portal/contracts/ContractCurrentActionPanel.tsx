@@ -14,6 +14,7 @@ import {
 import dynamicImport from "next/dynamic";
 import type { Contract } from "@/lib/portal/contracts-db";
 import { isUnilateralContract } from "@/lib/portal/contract-types";
+import { KEEP_ORIGINAL_SIGNER } from "./signer-keep-original";
 
 const SignerPickerModal = dynamicImport(
   () => import("./SignerPickerModal").then((m) => m.SignerPickerModal),
@@ -81,7 +82,13 @@ export function ContractCurrentActionPanel({
   }
 
   async function pickSigner(email: string) {
-    await callMilestone("POST", "pick-signer", "Podepisující přiřazen.", { email });
+    const keep = email === KEEP_ORIGINAL_SIGNER;
+    await callMilestone(
+      "POST",
+      "pick-signer",
+      keep ? "Zachován původní zástupce ze smlouvy." : "Podepisující přiřazen.",
+      keep ? { keepOriginal: true } : { email },
+    );
     setPickerOpen(false);
   }
 

@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, PenLine, Gavel, Check } from "lucide-react";
+import { X, PenLine, Gavel, Check, UserCheck } from "lucide-react";
 import type { User } from "@/lib/portal/users-db";
 import { signerFunctionLabel } from "@/lib/portal/users-db";
+import { KEEP_ORIGINAL_SIGNER } from "./signer-keep-original";
 
 export function SignerPickerModal({
   currentSignerEmail,
@@ -113,20 +114,62 @@ export function SignerPickerModal({
             <div className="py-12 text-center text-[13px] text-ink-mid">
               Načítám podepisující…
             </div>
-          ) : signers.length === 0 ? (
-            <div className="py-12 text-center">
-              <PenLine
-                className="mx-auto h-10 w-10 text-ink-soft"
-                strokeWidth={1.25}
-                aria-hidden="true"
-              />
-              <p className="mt-3 text-[13px] text-ink-mid">
-                Zatím nemáš žádné Podepisující. Vytvoř je v sekci Uživatelé.
-              </p>
-            </div>
           ) : (
             <ul className="flex flex-col gap-2">
-              {signers.map((s) => {
+              {/* Zachovat původního podepisujícího - bez přepsání zástupce ve smlouvě */}
+              <li>
+                <button
+                  type="button"
+                  onClick={() => setSelected(KEEP_ORIGINAL_SIGNER)}
+                  aria-pressed={selected === KEEP_ORIGINAL_SIGNER}
+                  className={[
+                    "flex w-full items-center gap-4 rounded-2xl border px-5 py-4 text-left transition-all duration-200",
+                    selected === KEEP_ORIGINAL_SIGNER
+                      ? "border-ink-base bg-ink-base text-paper"
+                      : "border-dashed border-edge bg-paper text-ink-deep hover:border-ink-soft",
+                  ].join(" ")}
+                >
+                  <span
+                    className={[
+                      "grid h-10 w-10 shrink-0 place-items-center rounded-full",
+                      selected === KEEP_ORIGINAL_SIGNER
+                        ? "bg-paper text-ink-base"
+                        : "bg-edge-warm text-ink-mid",
+                    ].join(" ")}
+                  >
+                    <UserCheck className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[14px] font-semibold tracking-[-0.01em]">
+                      Zachovat původního podepisujícího
+                    </span>
+                    <span
+                      className={`mt-0.5 block text-[11.5px] ${
+                        selected === KEEP_ORIGINAL_SIGNER ? "text-paper/70" : "text-ink-mid"
+                      }`}
+                    >
+                      Ponechá zástupce uvedeného ve smlouvě (nepřepíše se).
+                    </span>
+                  </span>
+                  {selected === KEEP_ORIGINAL_SIGNER && (
+                    <Check className="h-4 w-4 shrink-0" strokeWidth={2.5} aria-hidden="true" />
+                  )}
+                </button>
+              </li>
+
+              {signers.length === 0 ? (
+                <li className="py-8 text-center">
+                  <PenLine
+                    className="mx-auto h-10 w-10 text-ink-soft"
+                    strokeWidth={1.25}
+                    aria-hidden="true"
+                  />
+                  <p className="mt-3 text-[13px] text-ink-mid">
+                    Zatím nemáš žádné Podepisující. Vytvoř je v sekci Uživatelé.
+                  </p>
+                </li>
+              ) : (
+                signers.map((s) => {
                 const active = selected === s.email;
                 const fn = s.signerFunction!;
                 const displayName = s.signerDisplayName?.trim() || s.name;
@@ -173,7 +216,8 @@ export function SignerPickerModal({
                     </button>
                   </li>
                 );
-              })}
+                })
+              )}
             </ul>
           )}
         </div>

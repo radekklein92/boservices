@@ -50,6 +50,7 @@ const SignerPickerModal = dynamicImport(
   () => import("./SignerPickerModal").then((m) => m.SignerPickerModal),
   { ssr: false },
 );
+import { KEEP_ORIGINAL_SIGNER } from "./signer-keep-original";
 
 function formatDate(iso: string): string {
   try {
@@ -201,7 +202,7 @@ export function ContractsList({
 
   async function bulkStatus(
     action: "approve" | "pick-signer" | "signed" | "client-signed",
-    extra?: { signerEmail?: string },
+    extra?: { signerEmail?: string; keepOriginal?: boolean },
   ) {
     const ids = Array.from(selected);
     if (!ids.length) return;
@@ -274,7 +275,12 @@ export function ContractsList({
 
   async function pickSignerForBulk(email: string) {
     setSignerPickerOpen(false);
-    await bulkStatus("pick-signer", { signerEmail: email });
+    await bulkStatus(
+      "pick-signer",
+      email === KEEP_ORIGINAL_SIGNER
+        ? { keepOriginal: true }
+        : { signerEmail: email },
+    );
   }
 
   if (items.length === 0) {
