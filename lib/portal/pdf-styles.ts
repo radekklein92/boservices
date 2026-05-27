@@ -422,7 +422,7 @@ export function buildHeaderTemplate(
 ): string {
   const safeTitle = escapeAttrish(title);
   const numberPart = contractNumber
-    ? `<span style="margin-left: auto; font-size: 7pt; letter-spacing: 0.18em; text-transform: uppercase; color: #6F7672; font-variant-numeric: tabular-nums; white-space: nowrap;">Smlouva č. ${escapeAttrish(contractNumber)}</span>`
+    ? `<span style="margin-left: auto; font-size: 7pt; letter-spacing: 0.18em; text-transform: uppercase; color: #6F7672; font-variant-numeric: tabular-nums; white-space: nowrap;">Smlouva ${escapeAttrish(contractNumber)}</span>`
     : "";
   return `<div style="font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 7.5pt; width: 100%; padding: 6mm 12mm 0 12mm; display: flex; align-items: center; color: #0E0E0E;">
   ${HEADER_LOGO_SVG}
@@ -440,7 +440,7 @@ export function buildNumberHeaderTemplate(contractNumber?: string): string {
     return `<div style="font-size: 0; height: 0; width: 100%;"></div>`;
   }
   return `<div style="font-family: 'Helvetica Neue', Arial, sans-serif; width: 100%; padding: 6mm 12mm 0 12mm; text-align: right; color: #6F7672;">
-  <span style="font-size: 7pt; letter-spacing: 0.18em; text-transform: uppercase; font-variant-numeric: tabular-nums; white-space: nowrap;">Smlouva č. ${escapeAttrish(contractNumber)}</span>
+  <span style="font-size: 7pt; letter-spacing: 0.18em; text-transform: uppercase; font-variant-numeric: tabular-nums; white-space: nowrap;">Smlouva ${escapeAttrish(contractNumber)}</span>
 </div>`;
 }
 
