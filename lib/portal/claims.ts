@@ -14,6 +14,28 @@ export const CLAIM_ORIGIN_OPTIONS: { value: ClaimOrigin; label: string }[] = [
   { value: "jina", label: "Jiná smlouva" },
 ];
 
+// Právní titul pohledávky - přednastavené možnosti (dropdown), aby se opakující
+// se tituly nemusely psát dokola. "profit" doplňuje období (měsíc/rok),
+// "other" libovolný text.
+export type LegalTitleType =
+  | "unjust-equipment"
+  | "unjust-fee"
+  | "profit"
+  | "other";
+
+export const LEGAL_TITLE_OPTIONS: { value: LegalTitleType; label: string }[] = [
+  {
+    value: "unjust-equipment",
+    label: "Bezdůvodné obohacení za vrácení kupní ceny za vybavení provozovny",
+  },
+  {
+    value: "unjust-fee",
+    label: "Bezdůvodné obohacení za vrácení vstupního franšízingového poplatku",
+  },
+  { value: "profit", label: "Zisk z provozovny za… (měsíc a rok)" },
+  { value: "other", label: "Jiný (vlastní text)" },
+];
+
 export interface ClaimItem {
   id: string;
   // Z jaké smlouvy pohledávka vznikla (dropdown). "jina" -> upřesnění v originOther.
@@ -22,9 +44,13 @@ export interface ClaimItem {
   // Datum uzavření zdrojové smlouvy (volný text) - v tabulce se zobrazí jako
   // „Kupní smlouva ze dne 12. 3. 2026".
   originDate?: string;
-  // Právní titul pohledávky (volný text) - např. „bezdůvodné obohacení za
-  // vrácení kupní ceny za vybavení provozovny" nebo „zisk z provozovny za 3/2026".
-  legalTitle?: string;
+  // Právní titul pohledávky - dropdown. "profit" -> období v legalTitleProfitPeriod,
+  // "other" -> volný text v legalTitleOther. legalTitle (níže) je legacy volný
+  // text starších pohledávek.
+  legalTitleType?: LegalTitleType;
+  legalTitleProfitPeriod?: string; // měsíc a rok pro „zisk z provozovny za …"
+  legalTitleOther?: string; // volný text pro „jiný"
+  legalTitle?: string; // legacy: volný text dřívějších pohledávek
   // Výše pohledávky vč. DPH - syrový vstup uživatele (např. "150 000" / "150000,50").
   amount: string;
   // Dobrovolná pole:
@@ -39,7 +65,7 @@ export function newClaimItem(): ClaimItem {
     typeof crypto !== "undefined" && "randomUUID" in crypto
       ? crypto.randomUUID()
       : `claim-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  return { id, origin: "kupni", originOther: "", originDate: "", legalTitle: "", amount: "", invoiceNumber: "", dueDate: "", note: "" };
+  return { id, origin: "kupni", originOther: "", originDate: "", legalTitleProfitPeriod: "", legalTitleOther: "", amount: "", invoiceNumber: "", dueDate: "", note: "" };
 }
 
 // Tolerantní parser částky vč. DPH. Akceptuje mezery, nbsp, "Kč"/"CZK" a
@@ -92,6 +118,26 @@ export function claimOriginLabel(item: ClaimItem): string {
   return date ? `${base} ze dne ${date}` : base;
 }
 
+// Text právního titulu do tabulky. Z dropdownu (legalTitleType), s doplněním
+// období u „zisk z provozovny" a vlastním textem u „jiný". Fallback na starší
+// volný text legalTitle.
+export function claimLegalTitle(item: ClaimItem): string {
+  switch (item.legalTitleType) {
+    case "unjust-equipment":
+      return "bezdůvodné obohacení za vrácení kupní ceny za vybavení provozovny";
+    case "unjust-fee":
+      return "bezdůvodné obohacení za vrácení vstupního franšízingového poplatku";
+    case "profit": {
+      const period = item.legalTitleProfitPeriod?.trim();
+      return period ? `zisk z provozovny za ${period}` : "zisk z provozovny za";
+    }
+    case "other":
+      return item.legalTitleOther?.trim() ?? "";
+    default:
+      return item.legalTitle?.trim() ?? "";
+  }
+}
+
 // Pohledávka je "neprázdná", pokud má vyplněnou částku nebo některé textové pole.
 function isNonEmptyClaim(c: ClaimItem): boolean {
   return Boolean(
@@ -101,6 +147,9 @@ function isNonEmptyClaim(c: ClaimItem): boolean {
       c.note?.trim() ||
       c.originOther?.trim() ||
       c.originDate?.trim() ||
+      c.legalTitleType ||
+      c.legalTitleProfitPeriod?.trim() ||
+      c.legalTitleOther?.trim() ||
       c.legalTitle?.trim(),
   );
 }
@@ -125,7 +174,7 @@ export function renderClaimsTableHtml(claims: ClaimItem[]): string {
   const rows = valid
     .map((c) => {
       const amount = formatCzk(parseClaimAmount(c.amount));
-      const legal = esc(c.legalTitle?.trim() ?? "") || "—";
+      const legal = esc(claimLegalTitle(c)) || "—";
       const invoice = esc(c.invoiceNumber?.trim() ?? "") || "—";
       const due = esc(c.dueDate?.trim() ?? "") || "—";
       const note = esc(c.note?.trim() ?? "") || "—";

@@ -3,6 +3,8 @@
 import { ChevronDown, Plus, Trash2 } from "lucide-react";
 import {
   CLAIM_ORIGIN_OPTIONS,
+  LEGAL_TITLE_OPTIONS,
+  claimLegalTitle,
   claimOriginLabel,
   computeClaimsTotal,
   formatCzk,
@@ -10,6 +12,7 @@ import {
   parseClaimAmount,
   type ClaimItem,
   type ClaimOrigin,
+  type LegalTitleType,
 } from "@/lib/portal/claims";
 
 type Props = {
@@ -108,8 +111,8 @@ export function ClaimsBuilder({ claims, onChange }: Props) {
                 {filled.map((c) => (
                   <tr key={c.id} className="border-t border-edge">
                     <Td>{claimOriginLabel(c)}</Td>
-                    <Td muted={!c.legalTitle?.trim()}>
-                      {c.legalTitle?.trim() || "—"}
+                    <Td muted={!claimLegalTitle(c)}>
+                      {claimLegalTitle(c) || "—"}
                     </Td>
                     <Td muted={!c.invoiceNumber?.trim()}>
                       {c.invoiceNumber?.trim() || "—"}
@@ -195,13 +198,36 @@ function ClaimCard({
         />
       )}
 
-      <TextAreaField
+      <SelectField
         label="Právní titul"
-        hint="důvod pohledávky"
-        value={claim.legalTitle ?? ""}
-        placeholder="např. bezdůvodné obohacení za vrácení kupní ceny za vybavení provozovny / zisk z provozovny za 3/2026"
-        onChange={(v) => onPatch({ legalTitle: v })}
+        value={claim.legalTitleType ?? ""}
+        onChange={(v) =>
+          onPatch({ legalTitleType: v ? (v as LegalTitleType) : undefined })
+        }
+        options={[
+          { value: "", label: "— vyberte právní titul —" },
+          ...LEGAL_TITLE_OPTIONS,
+        ]}
       />
+
+      {claim.legalTitleType === "profit" && (
+        <TextField
+          label="Období — měsíc a rok"
+          hint="doplní se za „zisk z provozovny za …"
+          value={claim.legalTitleProfitPeriod ?? ""}
+          placeholder="např. 3/2026"
+          onChange={(v) => onPatch({ legalTitleProfitPeriod: v })}
+        />
+      )}
+
+      {claim.legalTitleType === "other" && (
+        <TextField
+          label="Upřesnění — vlastní právní titul"
+          value={claim.legalTitleOther ?? ""}
+          placeholder="vlastní text právního titulu"
+          onChange={(v) => onPatch({ legalTitleOther: v })}
+        />
+      )}
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <TextField
