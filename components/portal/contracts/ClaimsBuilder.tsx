@@ -213,7 +213,8 @@ function ClaimCard({
         />
         <TextField
           label="Splatnost"
-          hint="dobrovolné — neuvádí se u neoznámených"
+          hint="neuvádí se u dosud neoznámených pohledávek"
+          hintTone="warning"
           value={claim.dueDate ?? ""}
           placeholder="např. 31. 12. 2026"
           onChange={(v) => onPatch({ dueDate: v })}
@@ -241,12 +242,24 @@ function ClaimCard({
   );
 }
 
-function FieldLabel({ label, hint }: { label: string; hint?: string }) {
+function FieldLabel({
+  label,
+  hint,
+  hintTone = "muted",
+}: {
+  label: string;
+  hint?: string;
+  hintTone?: "muted" | "warning";
+}) {
   return (
     <span className="flex items-baseline gap-2 text-[10px] font-medium uppercase tracking-[0.16em] text-ink-mid">
       <span>{label}</span>
       {hint && (
-        <span className="normal-case tracking-normal text-[10px] text-ink-soft">
+        <span
+          className={`normal-case tracking-normal text-[10px] ${
+            hintTone === "warning" ? "font-semibold text-red-600" : "text-ink-soft"
+          }`}
+        >
           · {hint}
         </span>
       )}
@@ -257,19 +270,21 @@ function FieldLabel({ label, hint }: { label: string; hint?: string }) {
 function TextField({
   label,
   hint,
+  hintTone,
   value,
   placeholder,
   onChange,
 }: {
   label: string;
   hint?: string;
+  hintTone?: "muted" | "warning";
   value: string;
   placeholder?: string;
   onChange: (v: string) => void;
 }) {
   return (
     <label className="flex flex-col gap-1.5">
-      <FieldLabel label={label} hint={hint} />
+      <FieldLabel label={label} hint={hint} hintTone={hintTone} />
       <input
         type="text"
         value={value}
