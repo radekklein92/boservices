@@ -24,6 +24,7 @@ const claimSchema = z.object({
   origin: z.enum(["kupni", "fransizingova", "manazerska", "jina"]),
   originOther: z.string().max(300).optional(),
   originDate: z.string().max(60).optional(),
+  legalTitle: z.string().max(1000).optional(),
   amount: z.string().max(60),
   invoiceNumber: z.string().max(120).optional(),
   dueDate: z.string().max(120).optional(),

@@ -22,6 +22,9 @@ export interface ClaimItem {
   // Datum uzavření zdrojové smlouvy (volný text) - v tabulce se zobrazí jako
   // „Kupní smlouva ze dne 12. 3. 2026".
   originDate?: string;
+  // Právní titul pohledávky (volný text) - např. „bezdůvodné obohacení za
+  // vrácení kupní ceny za vybavení provozovny" nebo „zisk z provozovny za 3/2026".
+  legalTitle?: string;
   // Výše pohledávky vč. DPH - syrový vstup uživatele (např. "150 000" / "150000,50").
   amount: string;
   // Dobrovolná pole:
@@ -36,7 +39,7 @@ export function newClaimItem(): ClaimItem {
     typeof crypto !== "undefined" && "randomUUID" in crypto
       ? crypto.randomUUID()
       : `claim-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  return { id, origin: "kupni", originOther: "", originDate: "", amount: "", invoiceNumber: "", dueDate: "", note: "" };
+  return { id, origin: "kupni", originOther: "", originDate: "", legalTitle: "", amount: "", invoiceNumber: "", dueDate: "", note: "" };
 }
 
 // Tolerantní parser částky vč. DPH. Akceptuje mezery, nbsp, "Kč"/"CZK" a
@@ -97,7 +100,8 @@ function isNonEmptyClaim(c: ClaimItem): boolean {
       c.dueDate?.trim() ||
       c.note?.trim() ||
       c.originOther?.trim() ||
-      c.originDate?.trim(),
+      c.originDate?.trim() ||
+      c.legalTitle?.trim(),
   );
 }
 
@@ -121,14 +125,15 @@ export function renderClaimsTableHtml(claims: ClaimItem[]): string {
   const rows = valid
     .map((c) => {
       const amount = formatCzk(parseClaimAmount(c.amount));
+      const legal = esc(c.legalTitle?.trim() ?? "") || "—";
       const invoice = esc(c.invoiceNumber?.trim() ?? "") || "—";
       const due = esc(c.dueDate?.trim() ?? "") || "—";
       const note = esc(c.note?.trim() ?? "") || "—";
-      return `<tr><td>${esc(claimOriginLabel(c))}</td><td>${invoice}</td><td style="text-align:right;white-space:nowrap">${amount}</td><td>${due}</td><td>${note}</td></tr>`;
+      return `<tr><td>${esc(claimOriginLabel(c))}</td><td>${legal}</td><td>${invoice}</td><td style="text-align:right;white-space:nowrap">${amount}</td><td>${due}</td><td>${note}</td></tr>`;
     })
     .join("");
   const total = formatCzk(computeClaimsTotal(valid));
-  return `<table><thead><tr><th>Vznikla ze smlouvy</th><th>Číslo faktury</th><th style="text-align:right">Výše pohledávky (vč. DPH)</th><th>Splatnost</th><th>Poznámka</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><td colspan="2" style="font-weight:700">Celkem</td><td style="text-align:right;font-weight:700;white-space:nowrap">${total}</td><td></td><td></td></tr></tfoot></table>`;
+  return `<table><thead><tr><th>Vznikla ze smlouvy</th><th>Právní titul</th><th>Číslo faktury</th><th style="text-align:right">Výše pohledávky (vč. DPH)</th><th>Splatnost</th><th>Poznámka</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><td colspan="3" style="font-weight:700">Celkem</td><td style="text-align:right;font-weight:700;white-space:nowrap">${total}</td><td></td><td></td></tr></tfoot></table>`;
 }
 
 // Doplní do proměnných pro render systémově generované hodnoty z pohledávek:

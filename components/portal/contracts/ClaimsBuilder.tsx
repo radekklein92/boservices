@@ -97,6 +97,7 @@ export function ClaimsBuilder({ claims, onChange }: Props) {
               <thead>
                 <tr className="bg-paper-warm text-ink-mid">
                   <Th>Vznikla ze smlouvy</Th>
+                  <Th>Právní titul</Th>
                   <Th>Číslo faktury</Th>
                   <Th align="right">Výše (vč. DPH)</Th>
                   <Th>Splatnost</Th>
@@ -107,6 +108,9 @@ export function ClaimsBuilder({ claims, onChange }: Props) {
                 {filled.map((c) => (
                   <tr key={c.id} className="border-t border-edge">
                     <Td>{claimOriginLabel(c)}</Td>
+                    <Td muted={!c.legalTitle?.trim()}>
+                      {c.legalTitle?.trim() || "—"}
+                    </Td>
                     <Td muted={!c.invoiceNumber?.trim()}>
                       {c.invoiceNumber?.trim() || "—"}
                     </Td>
@@ -121,6 +125,7 @@ export function ClaimsBuilder({ claims, onChange }: Props) {
               <tfoot>
                 <tr className="border-t-2 border-ink-base bg-paper-warm">
                   <Td bold>Celkem</Td>
+                  <Td />
                   <Td />
                   <Td align="right" nowrap bold>
                     {formatCzk(total)}
@@ -189,6 +194,14 @@ function ClaimCard({
           onChange={(v) => onPatch({ originOther: v })}
         />
       )}
+
+      <TextAreaField
+        label="Právní titul"
+        hint="důvod pohledávky"
+        value={claim.legalTitle ?? ""}
+        placeholder="např. bezdůvodné obohacení za vrácení kupní ceny za vybavení provozovny / zisk z provozovny za 3/2026"
+        onChange={(v) => onPatch({ legalTitle: v })}
+      />
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <TextField
