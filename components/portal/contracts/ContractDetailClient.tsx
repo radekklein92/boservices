@@ -34,6 +34,7 @@ import {
   formatClaimsTotalAmount,
   type ClaimItem,
 } from "@/lib/portal/claims";
+import { checkInsolvency } from "@/lib/portal/insolvency-rules";
 import { signerFunctionLabel } from "@/lib/portal/users-db";
 import { PlaceholderPalette } from "./PlaceholderPalette";
 import { ClaimsBuilder } from "./ClaimsBuilder";
@@ -102,6 +103,10 @@ export function ContractDetailClient({ initial, templateApproved }: Props) {
   const [uploadPending, setUploadPending] = useState(false);
   const [toast, setToast] = useState<{ kind: "ok" | "error"; msg: string } | null>(null);
   const [diffOpen, setDiffOpen] = useState(false);
+  // Kontrola úpadku dlužníka: klíč naposledy ignorovaného upozornění (rule|datum).
+  const [insolvencyDismissed, setInsolvencyDismissed] = useState<string | null>(
+    null,
+  );
   // Display name + funkce vybraného Podepisujícího (pro zobrazení ve stepperu).
   // Fetchne se on-demand z /api/portal/users/[email] když je contract.signerEmail.
   const [signerLabel, setSignerLabel] = useState<string | null>(null);
@@ -147,6 +152,18 @@ export function ContractDetailClient({ initial, templateApproved }: Props) {
     has("claimsTable") ||
     contract.type === "claim-assignment" ||
     contract.type === "claim-bundle";
+
+  // Úpadek dlužníka: když je datum uzavření v den úpadku nebo po něm, vzniká
+  // zapodstatová pohledávka -> upozornění (lze ignorovat na vlastní odpovědnost).
+  const insolvencyRule = useMemo(
+    () => checkInsolvency(variables.debtorName, variables.contractDate),
+    [variables.debtorName, variables.contractDate],
+  );
+  const insolvencyKey = insolvencyRule
+    ? `${insolvencyRule.match}|${variables.contractDate ?? ""}`
+    : null;
+  const insolvencyOpen =
+    !!insolvencyRule && insolvencyKey !== insolvencyDismissed;
 
   function notify(kind: "ok" | "error", msg: string) {
     setToast({ kind, msg });
@@ -540,6 +557,31 @@ export function ContractDetailClient({ initial, templateApproved }: Props) {
             předvyplněné, ostatní doplňte ručně.
           </span>
         </div>
+
+        {insolvencyRule && (
+          <div className="flex items-start gap-3 rounded-xl border border-red-600 bg-red-50 px-4 py-3">
+            <AlertTriangle
+              className="mt-0.5 h-4 w-4 shrink-0 text-red-600"
+              strokeWidth={2}
+              aria-hidden="true"
+            />
+            <div className="flex-1 text-[12.5px] leading-relaxed text-red-700">
+              <strong>Datum po úpadku.</strong> Datum uzavření ({variables.contractDate}){" "}
+              je v den úpadku společnosti {insolvencyRule.label}{" "}
+              ({insolvencyRule.insolvencyDateLabel}) nebo po něm - vzniká pohledávka
+              za majetkovou podstatou (zapodstatová pohledávka).
+            </div>
+            {insolvencyKey === insolvencyDismissed && (
+              <button
+                type="button"
+                onClick={() => setInsolvencyDismissed(null)}
+                className="shrink-0 text-[12px] font-semibold text-red-700 underline underline-offset-2"
+              >
+                Zobrazit
+              </button>
+            )}
+          </div>
+        )}
 
         <FieldGroup label="Smlouva">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -948,6 +990,38 @@ export function ContractDetailClient({ initial, templateApproved }: Props) {
           contractId={contract.id}
           onClose={() => setDiffOpen(false)}
         />
+      )}
+
+      {insolvencyOpen && insolvencyRule && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-ink-base/40 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-[470px] rounded-2xl border border-red-600 bg-paper p-6 shadow-[0_18px_42px_-18px_rgba(14,14,14,0.35)]">
+            <div className="flex items-center gap-2 text-[10px] font-medium uppercase tracking-[0.22em] text-red-600">
+              <AlertTriangle className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
+              Upozornění
+            </div>
+            <h3 className="mt-2 text-[17px] font-bold leading-[1.2] tracking-[-0.02em] text-ink-base">
+              Datum je po úpadku společnosti
+            </h3>
+            <p className="mt-3 text-[13px] leading-relaxed text-ink-mid">
+              Datum uzavření <strong>{variables.contractDate}</strong> je v den úpadku
+              společnosti <strong>{insolvencyRule.label}</strong>{" "}
+              ({insolvencyRule.insolvencyDateLabel}) nebo po něm. Postoupením v tento
+              okamžik vzniká <strong>pohledávka za majetkovou podstatou (zapodstatová
+              pohledávka)</strong>. Zkontroluj datum uzavření a dlužníka.
+            </p>
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  insolvencyKey && setInsolvencyDismissed(insolvencyKey)
+                }
+                className="inline-flex h-10 items-center gap-2 rounded-full bg-ink-base px-5 text-[13px] font-semibold text-paper transition-transform active:translate-y-px"
+              >
+                Ignorovat a pokračovat
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
