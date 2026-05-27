@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { put, del } from "@vercel/blob";
+import { z } from "zod";
+import { head, del } from "@vercel/blob";
 import { requireSession } from "@/lib/portal/auth-guard";
 import { bustContracts } from "@/lib/portal/revalidate";
 import {
@@ -10,12 +11,26 @@ import {
 
 export const maxDuration = 60;
 
+// Sken nahrává prohlížeč přímo do Vercel Blob (viz /scan-upload), čímž se obejde
+// 4,5 MB limit těla serverless funkce. Tento endpoint jen zaeviduje hotový blob
+// na smlouvu a archivuje ji - tělo je malé JSON, žádný limit nevadí.
+const recordSchema = z.object({
+  url: z.string().url(),
+  pathname: z.string().min(1).max(500),
+});
+
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const g = await requireSession();
   if (!g.ok) return g.response;
+
+  const { id } = await params;
+  const contract = await getContract(id);
+  if (!contract) {
+    return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
+  }
 
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
     return NextResponse.json(
@@ -24,70 +39,52 @@ export async function POST(
     );
   }
 
-  const { id } = await params;
-  const contract = await getContract(id);
-  if (!contract) {
-    return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
-  }
-
-  const form = await req.formData();
-  const file = form.get("file");
-  if (!(file instanceof File)) {
-    return NextResponse.json(
-      { ok: false, error: "Soubor chybí." },
-      { status: 400 },
-    );
-  }
-
-  if (file.size === 0) {
-    return NextResponse.json(
-      { ok: false, error: "Prázdný soubor." },
-      { status: 400 },
-    );
-  }
-  if (file.size > 25 * 1024 * 1024) {
-    return NextResponse.json(
-      { ok: false, error: "Soubor je větší než 25 MB." },
-      { status: 400 },
-    );
-  }
-
-  const isPdf =
-    file.type === "application/pdf" ||
-    file.name.toLowerCase().endsWith(".pdf");
-  if (!isPdf) {
-    return NextResponse.json(
-      { ok: false, error: "Nahrávejte prosím PDF." },
-      { status: 400 },
-    );
-  }
-
-  const safeName = slugify(file.name);
-  const path = `portal/contracts/${contract.id}/scans/${Date.now()}-${safeName}`;
-
-  let uploaded;
+  let body: unknown;
   try {
-    uploaded = await put(path, file, {
-      access: "private",
-      contentType: "application/pdf",
-      addRandomSuffix: false,
-      allowOverwrite: true,
-    });
-  } catch (err) {
-    console.error("[contracts] scan upload failed", {
-      path,
-      message: err instanceof Error ? err.message : String(err),
-      err,
-    });
-    const detail = err instanceof Error ? err.message : String(err);
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ ok: false, error: "Invalid JSON" }, { status: 400 });
+  }
+  const parsed = recordSchema.safeParse(body);
+  if (!parsed.success) {
     return NextResponse.json(
-      { ok: false, error: `Nahrání skenu selhalo: ${detail}` },
-      { status: 500 },
+      { ok: false, error: "Chybí údaje o skenu." },
+      { status: 400 },
+    );
+  }
+  const { url, pathname } = parsed.data;
+
+  // Sken musí patřit této smlouvě - klient nemůže podstrčit cizí blob.
+  if (!pathname.startsWith(`portal/contracts/${id}/scans/`)) {
+    return NextResponse.json(
+      { ok: false, error: "Neplatná cesta skenu." },
+      { status: 400 },
     );
   }
 
-  // Replace old scan if exists
-  if (contract.scanPdfPath && contract.scanPdfPath !== uploaded.pathname) {
+  // Ověřit, že nahraný blob existuje a je PDF.
+  try {
+    const info = await head(pathname);
+    if (info.contentType && !info.contentType.includes("pdf")) {
+      try {
+        await del(pathname);
+      } catch {
+        // ignore
+      }
+      return NextResponse.json(
+        { ok: false, error: "Nahrávejte prosím PDF." },
+        { status: 400 },
+      );
+    }
+  } catch {
+    return NextResponse.json(
+      { ok: false, error: "Nahraný sken nebyl nalezen." },
+      { status: 400 },
+    );
+  }
+
+  // Smazat starý sken, pokud byl jiný.
+  if (contract.scanPdfPath && contract.scanPdfPath !== pathname) {
     try {
       await del(contract.scanPdfPath);
     } catch (err) {
@@ -98,8 +95,8 @@ export async function POST(
   const now = new Date().toISOString();
   const updated = {
     ...contract,
-    scanPdfUrl: uploaded.url,
-    scanPdfPath: uploaded.pathname,
+    scanPdfUrl: url,
+    scanPdfPath: pathname,
     scanUploadedAt: now,
     scanUploadedBy: g.session.user!.email!,
     updatedAt: now,
@@ -108,7 +105,7 @@ export async function POST(
   await upsertContract(updated);
 
   bustContracts();
-  return NextResponse.json({ ok: true, url: uploaded.url });
+  return NextResponse.json({ ok: true, url });
 }
 
 export async function DELETE(
@@ -145,21 +142,4 @@ export async function DELETE(
 
   bustContracts();
   return NextResponse.json({ ok: true });
-}
-
-const DIACRITICS: Record<string, string> = {
-  á: "a", č: "c", ď: "d", é: "e", ě: "e", í: "i", ň: "n",
-  ó: "o", ř: "r", š: "s", ť: "t", ú: "u", ů: "u", ý: "y", ž: "z",
-  Á: "A", Č: "C", Ď: "D", É: "E", Ě: "E", Í: "I", Ň: "N",
-  Ó: "O", Ř: "R", Š: "S", Ť: "T", Ú: "U", Ů: "U", Ý: "Y", Ž: "Z",
-};
-
-function slugify(input: string): string {
-  const stripped = Array.from(input)
-    .map((ch) => DIACRITICS[ch] ?? ch)
-    .join("")
-    .replace(/[^a-zA-Z0-9.\-_\s]/g, "")
-    .trim()
-    .replace(/\s+/g, "-");
-  return stripped.slice(0, 100) || "scan.pdf";
 }

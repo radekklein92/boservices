@@ -12,6 +12,7 @@ import {
   Stamp,
 } from "lucide-react";
 import dynamicImport from "next/dynamic";
+import { upload } from "@vercel/blob/client";
 import type { Contract } from "@/lib/portal/contracts-db";
 import { isUnilateralContract } from "@/lib/portal/contract-types";
 import { KEEP_ORIGINAL_SIGNER } from "./signer-keep-original";
@@ -22,6 +23,19 @@ const SignerPickerModal = dynamicImport(
 );
 
 type Notify = (kind: "ok" | "error", msg: string) => void;
+
+// Bezpečný název souboru pro cestu v Blob storu (bez diakritiky a speciálních znaků).
+function scanSlug(name: string): string {
+  return (
+    name
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-zA-Z0-9.\-_\s]/g, "")
+      .trim()
+      .replace(/\s+/g, "-")
+      .slice(0, 100) || "scan.pdf"
+  );
+}
 
 export function ContractCurrentActionPanel({
   contract,
@@ -119,13 +133,34 @@ export function ContractCurrentActionPanel({
   async function uploadScan(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    const isPdf =
+      file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+    if (!isPdf) {
+      notify("error", "Nahrávejte prosím PDF.");
+      if (fileRef.current) fileRef.current.value = "";
+      return;
+    }
+    if (file.size > 25 * 1024 * 1024) {
+      notify("error", "Soubor je větší než 25 MB.");
+      if (fileRef.current) fileRef.current.value = "";
+      return;
+    }
     setPending("scan:upload");
     try {
-      const fd = new FormData();
-      fd.append("file", file);
+      // Nahrát přímo do Vercel Blob z prohlížeče - obejde 4,5 MB limit těla
+      // serverless funkce (jinak velký sken spadne na "Request Entity Too Large").
+      const path = `portal/contracts/${contract.id}/scans/${Date.now()}-${scanSlug(file.name)}`;
+      const blob = await upload(path, file, {
+        access: "private",
+        contentType: "application/pdf",
+        handleUploadUrl: `/api/portal/contracts/${contract.id}/scan-upload`,
+        multipart: file.size > 5 * 1024 * 1024,
+      });
+      // Zaevidovat hotový sken na smlouvu (malé JSON tělo, žádný limit).
       const res = await fetch(`/api/portal/contracts/${contract.id}/scan`, {
         method: "POST",
-        body: fd,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: blob.url, pathname: blob.pathname }),
       });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || "Chyba");
@@ -133,7 +168,7 @@ export function ContractCurrentActionPanel({
       if (next) onChanged(next);
       notify("ok", "Sken nahrán, smlouva archivována.");
     } catch (err) {
-      notify("error", err instanceof Error ? err.message : "Chyba");
+      notify("error", err instanceof Error ? err.message : "Nahrání skenu selhalo.");
     } finally {
       setPending(null);
       if (fileRef.current) fileRef.current.value = "";
