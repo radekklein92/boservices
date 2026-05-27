@@ -9,6 +9,7 @@ import {
   listClients,
   upsertClient,
 } from "@/lib/portal/clients-db";
+import { normalizePlanned } from "@/lib/portal/client-contract-status";
 
 const clientPayload = z.object({
   legalForm: z.enum(["PO", "FO"]),
@@ -40,7 +41,7 @@ const clientPayload = z.object({
     })
     .optional(),
   plannedContracts: z
-    .array(
+    .record(
       z.enum([
         "franchise",
         "cooperation",
@@ -48,6 +49,7 @@ const clientPayload = z.object({
         "claim-bundle",
         "withdrawal",
       ]),
+      z.number().int().min(0).max(99),
     )
     .optional(),
 });
@@ -140,7 +142,7 @@ export async function POST(req: Request) {
     contact: contact as
       | { name?: string; email?: string; phone?: string }
       | undefined,
-    plannedContracts: d.plannedContracts ?? [],
+    plannedContracts: normalizePlanned(d.plannedContracts),
     createdBy: g.session.user!.email!,
     createdAt: now,
     updatedAt: now,

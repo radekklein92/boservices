@@ -83,6 +83,7 @@ export async function renderAndStoreContractPdf(contract: Contract): Promise<{
       cover,
       letterhead,
       watermark,
+      number: contract.number,
     });
   } else {
     const rendered = renderTemplate(prep(contract.html), variables);
@@ -91,6 +92,7 @@ export async function renderAndStoreContractPdf(contract: Contract): Promise<{
       cover,
       letterhead,
       watermark,
+      number: contract.number,
     });
   }
 

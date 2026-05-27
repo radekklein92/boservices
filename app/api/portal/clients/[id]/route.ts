@@ -9,6 +9,7 @@ import {
   upsertClient,
   type Client,
 } from "@/lib/portal/clients-db";
+import { normalizePlanned } from "@/lib/portal/client-contract-status";
 
 const updateSchema = z.object({
   legalForm: z.enum(["PO", "FO"]),
@@ -40,7 +41,7 @@ const updateSchema = z.object({
     })
     .optional(),
   plannedContracts: z
-    .array(
+    .record(
       z.enum([
         "franchise",
         "cooperation",
@@ -48,6 +49,7 @@ const updateSchema = z.object({
         "claim-bundle",
         "withdrawal",
       ]),
+      z.number().int().min(0).max(99),
     )
     .optional(),
 });
@@ -131,7 +133,10 @@ export async function PUT(
             phone: d.contact.phone?.trim() || undefined,
           }
         : undefined,
-    plannedContracts: d.plannedContracts ?? existing.plannedContracts ?? [],
+    plannedContracts:
+      d.plannedContracts !== undefined
+        ? normalizePlanned(d.plannedContracts)
+        : normalizePlanned(existing.plannedContracts),
     updatedAt: new Date().toISOString(),
   };
   await upsertClient(updated);

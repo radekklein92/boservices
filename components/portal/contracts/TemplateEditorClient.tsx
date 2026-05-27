@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import dynamicImport from "next/dynamic";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, RotateCcw, Save, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Save, ShieldCheck } from "lucide-react";
 import type { Editor } from "@tiptap/react";
 import {
   CONTRACT_TYPE_META,
@@ -112,32 +112,6 @@ export function TemplateEditorClient({
     }
   }
 
-  async function resetToDefault() {
-    if (!isAdmin) return;
-    if (
-      !window.confirm(
-        "Resetovat šablonu na výchozí znění z kódu? Aktuální uložené úpravy budou ztraceny.",
-      )
-    ) {
-      return;
-    }
-    setPending(true);
-    setError(null);
-    try {
-      const url = variant
-        ? `/api/portal/templates/${type}?variant=${variant}`
-        : `/api/portal/templates/${type}`;
-      const res = await fetch(url, { method: "DELETE" });
-      const data = await res.json();
-      if (!data.ok) throw new Error(data.error || "Reset selhal.");
-      router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Chyba");
-    } finally {
-      setPending(false);
-    }
-  }
-
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -169,16 +143,6 @@ export function TemplateEditorClient({
                 {error}
               </span>
             )}
-            <button
-              type="button"
-              onClick={resetToDefault}
-              disabled={pending}
-              title="Resetovat na výchozí znění z kódu"
-              className="inline-flex h-11 items-center gap-2 rounded-full border border-edge bg-paper px-4 text-[13px] font-medium text-ink-deep transition-colors hover:border-ink-base hover:text-ink-base disabled:opacity-60"
-            >
-              <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
-              Reset na výchozí
-            </button>
             <button
               type="button"
               onClick={save}

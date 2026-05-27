@@ -416,13 +416,31 @@ function escapeAttrish(s: string): string {
 const WORDMARK_HEIGHT_PX = 11;
 const WORDMARK_WIDTH_PX = Math.round(WORDMARK_HEIGHT_PX * WORDMARK_ASPECT);
 
-export function buildHeaderTemplate(title: string): string {
+export function buildHeaderTemplate(
+  title: string,
+  contractNumber?: string,
+): string {
   const safeTitle = escapeAttrish(title);
+  const numberPart = contractNumber
+    ? `<span style="margin-left: auto; font-size: 7pt; letter-spacing: 0.04em; color: #6F7672; font-variant-numeric: tabular-nums; white-space: nowrap;">Smlouva č. ${escapeAttrish(contractNumber)}</span>`
+    : "";
   return `<div style="font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 7.5pt; width: 100%; padding: 6mm 12mm 0 12mm; display: flex; align-items: center; color: #0E0E0E;">
   ${HEADER_LOGO_SVG}
   <img src="data:image/png;base64,${WORDMARK_PNG_BASE64}" width="${WORDMARK_WIDTH_PX}" height="${WORDMARK_HEIGHT_PX}" alt="BOServices" style="display: block; margin-left: 3pt;" />
   <span style="margin: 0 7pt; color: #BFC3C7;">·</span>
   <span style="font-size: 7pt; letter-spacing: 0.18em; text-transform: uppercase; color: #6F7672;">${safeTitle}</span>
+  ${numberPart}
+</div>`;
+}
+
+// Záhlaví jen s číslem smlouvy vpravo nahoře - pro PDF bez hlavičkového papíru
+// (letterhead=false). Bez čísla se chová jako prázdné záhlaví.
+export function buildNumberHeaderTemplate(contractNumber?: string): string {
+  if (!contractNumber) {
+    return `<div style="font-size: 0; height: 0; width: 100%;"></div>`;
+  }
+  return `<div style="font-family: 'Helvetica Neue', Arial, sans-serif; width: 100%; padding: 6mm 12mm 0 12mm; text-align: right; color: #6F7672;">
+  <span style="font-size: 7pt; letter-spacing: 0.04em; font-variant-numeric: tabular-nums; white-space: nowrap;">Smlouva č. ${escapeAttrish(contractNumber)}</span>
 </div>`;
 }
 

@@ -3,8 +3,8 @@ import {
   buildServerPdfDocument,
   buildServerBundlePdfDocument,
   buildHeaderTemplate,
+  buildNumberHeaderTemplate,
   getCoverForType,
-  BLANK_HEADER_TEMPLATE,
   FOOTER_TEMPLATE,
   MINIMAL_FOOTER_TEMPLATE,
   type BundleSectionInput,
@@ -48,6 +48,8 @@ export async function htmlToPdfBuffer(
     // Watermark "NÁVRH — nepoužívat k podpisu" přes celý dokument. Používá se
     // pro preview ve stavech Koncept a Schváleno (před výběrem podepisujícího).
     watermark?: boolean;
+    // Číslo smlouvy - zobrazí se v záhlaví vpravo nahoře na každé stránce.
+    number?: string;
   },
 ): Promise<Buffer> {
   const cover = opts.cover ?? getCoverForType(opts.type);
@@ -56,7 +58,7 @@ export async function htmlToPdfBuffer(
     diff: opts.diff,
     watermark: opts.watermark,
   });
-  return renderHtmlToPdf(fullHtml, opts.type, opts.letterhead);
+  return renderHtmlToPdf(fullHtml, opts.type, opts.letterhead, opts.number);
 }
 
 // Bundle (claim-bundle): konkatenuje N renderovaných HTML do jednoho PDF
@@ -69,6 +71,7 @@ export async function bundleHtmlToPdfBuffer(
     diff?: boolean;
     letterhead?: boolean;
     watermark?: boolean;
+    number?: string;
   },
 ): Promise<Buffer> {
   const cover = opts.cover ?? getCoverForType(opts.type);
@@ -77,13 +80,14 @@ export async function bundleHtmlToPdfBuffer(
     diff: opts.diff,
     watermark: opts.watermark,
   });
-  return renderHtmlToPdf(fullHtml, opts.type, opts.letterhead);
+  return renderHtmlToPdf(fullHtml, opts.type, opts.letterhead, opts.number);
 }
 
 async function renderHtmlToPdf(
   fullHtml: string,
   type: ContractType,
   letterhead: boolean = true,
+  contractNumber?: string,
 ): Promise<Buffer> {
 
   const puppeteer = (await import("puppeteer-core")).default;
@@ -116,12 +120,11 @@ async function renderHtmlToPdf(
 
     const headerTitle = CONTRACT_TYPE_META[type].shortName;
 
-    // Bez hlavičkového papíru: vypustíme logo header i brand footer, ponecháme
-    // pouze číslování stránek (centered v patičce). Horní marže může být
-    // o něco menší, protože nemáme co tam zobrazovat.
+    // Bez hlavičkového papíru: vypustíme logo header i brand footer. Číslo
+    // smlouvy se ale zobrazuje vždy (vpravo nahoře) - i u bez-hlavičkových PDF.
     const headerTemplate = letterhead
-      ? buildHeaderTemplate(headerTitle)
-      : BLANK_HEADER_TEMPLATE;
+      ? buildHeaderTemplate(headerTitle, contractNumber)
+      : buildNumberHeaderTemplate(contractNumber);
     const footerTemplate = letterhead
       ? FOOTER_TEMPLATE
       : MINIMAL_FOOTER_TEMPLATE;

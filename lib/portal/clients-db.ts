@@ -30,9 +30,10 @@ export interface Client {
   address: ClientAddress;
   statutory?: ClientStatutory;
   contact?: ClientContact;
-  // Plánované smlouvy - které typy smluv chceme s klientem podepsat (podmnožina
-  // vytvořitelných typů). Slouží k přehledu naplánováno / vygenerováno / podepsáno.
-  plannedContracts?: ContractType[];
+  // Plánované smlouvy - počet kusů každého typu, který chceme s klientem
+  // podepsat (klient může mít víc prodejen => víc smluv jednoho typu).
+  // Legacy data mohou být pole typů - normalizuje se přes normalizePlanned().
+  plannedContracts?: Partial<Record<ContractType, number>>;
   createdBy: string;
   createdAt: string;
   updatedAt: string;

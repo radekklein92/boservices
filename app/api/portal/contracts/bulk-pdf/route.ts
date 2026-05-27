@@ -114,6 +114,7 @@ export async function POST(req: Request) {
           cover,
           letterhead,
           watermark: false,
+          number: contract.number,
         });
       } else {
         const rendered = renderTemplate(prep(contract.html), variables);
@@ -122,6 +123,7 @@ export async function POST(req: Request) {
           cover,
           letterhead,
           watermark: false,
+          number: contract.number,
         });
       }
 

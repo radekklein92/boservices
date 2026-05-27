@@ -146,7 +146,7 @@ export function ClientsTable({
 
   return (
     <>
-      <div className="mb-6 flex items-center gap-3">
+      <div className="mb-4 flex items-center gap-3">
         <div className="relative max-w-[400px] flex-1">
           <Search
             className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mid"
@@ -190,7 +190,7 @@ export function ClientsTable({
               key={c.id}
               className="group flex flex-col gap-4 px-5 py-5 transition-colors hover:bg-paper-warm md:flex-row md:items-center md:gap-6 md:px-7 md:py-6"
             >
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0">
                 <Link
                   href={`/portal/clients/${c.id}`}
                   className="flex items-baseline gap-3"
@@ -211,23 +211,35 @@ export function ClientsTable({
                     {LEGAL_LABEL[c.legalForm] ?? c.legalForm}
                   </span>
                 </div>
-                {(badgesByClient?.[c.id]?.length ?? 0) > 0 && (
-                  <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-                    {(badgesByClient?.[c.id] ?? []).map((b) => {
-                      const Icon = TYPE_ICON[b.type] ?? FileText;
-                      return (
-                        <span
-                          key={b.type}
-                          title={`${CONTRACT_TYPE_META[b.type].shortName} — ${STATE_LABEL[b.state]}`}
-                          className={`grid h-7 w-7 place-items-center rounded-full border ${STATE_STYLE[b.state]}`}
-                        >
-                          <Icon className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
-                        </span>
-                      );
-                    })}
-                  </div>
-                )}
               </div>
+
+              {/* Ikonky stavu smluv - uprostřed řádku, proklik do dané smlouvy. */}
+              {(badgesByClient?.[c.id]?.length ?? 0) > 0 ? (
+                <div className="flex flex-wrap items-center gap-1.5 md:flex-1 md:justify-center">
+                  {(badgesByClient?.[c.id] ?? []).map((b, i) => {
+                    const Icon = TYPE_ICON[b.type] ?? FileText;
+                    const tip = `${CONTRACT_TYPE_META[b.type].shortName} — ${STATE_LABEL[b.state]}`;
+                    const cls = `grid h-7 w-7 place-items-center rounded-full border ${STATE_STYLE[b.state]}${b.contractId ? " transition-transform hover:-translate-y-0.5" : ""}`;
+                    return b.contractId ? (
+                      <Link
+                        key={i}
+                        href={`/portal/contracts/${b.contractId}`}
+                        title={tip}
+                        className={cls}
+                      >
+                        <Icon className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+                      </Link>
+                    ) : (
+                      <span key={i} title={tip} className={cls}>
+                        <Icon className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+                      </span>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="hidden md:block md:flex-1" />
+              )}
+
               <div className="hidden flex-col items-end gap-1 md:flex">
                 <div className="text-[10.5px] font-medium uppercase tracking-[0.18em] text-ink-mid">
                   Přidáno

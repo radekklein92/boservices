@@ -30,7 +30,7 @@ export function ClientsPageClient({
   }
 
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-6">
       <PageHeader
         eyebrow="Klienti"
         title="Klienti"

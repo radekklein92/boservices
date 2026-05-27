@@ -9,6 +9,8 @@ import {
   CONTRACT_TYPE_META,
   type ContractType,
 } from "@/lib/portal/contract-types";
+import { normalizePlanned } from "@/lib/portal/client-contract-status";
+import { Minus, Plus } from "lucide-react";
 
 type Mode =
   | {
@@ -34,7 +36,7 @@ type FormState = {
   contactName: string;
   contactEmail: string;
   contactPhone: string;
-  plannedContracts: ContractType[];
+  plannedContracts: Partial<Record<ContractType, number>>;
 };
 
 function blankState(): FormState {
@@ -52,7 +54,7 @@ function blankState(): FormState {
     contactName: "",
     contactEmail: "",
     contactPhone: "",
-    plannedContracts: [],
+    plannedContracts: {},
   };
 }
 
@@ -71,7 +73,7 @@ function fromClient(c: Client): FormState {
     contactName: c.contact?.name ?? "",
     contactEmail: c.contact?.email ?? "",
     contactPhone: c.contact?.phone ?? "",
-    plannedContracts: c.plannedContracts ?? [],
+    plannedContracts: normalizePlanned(c.plannedContracts),
   };
 }
 
@@ -94,13 +96,15 @@ export function ClientForm({
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setState((prev) => ({ ...prev, [key]: value }));
 
-  const togglePlanned = (t: ContractType) =>
-    setState((prev) => ({
-      ...prev,
-      plannedContracts: prev.plannedContracts.includes(t)
-        ? prev.plannedContracts.filter((x) => x !== t)
-        : [...prev.plannedContracts, t],
-    }));
+  const setPlannedCount = (t: ContractType, delta: number) =>
+    setState((prev) => {
+      const cur = prev.plannedContracts[t] ?? 0;
+      const next = Math.max(0, Math.min(99, cur + delta));
+      const map = { ...prev.plannedContracts };
+      if (next === 0) delete map[t];
+      else map[t] = next;
+      return { ...prev, plannedContracts: map };
+    });
 
   async function lookupAres() {
     const ico = state.ico.replace(/\D/g, "");
@@ -406,29 +410,55 @@ export function ClientForm({
         </div>
       </Section>
 
-      {/* Plánované smlouvy */}
+      {/* Plánované smlouvy - počet kusů každého typu (klient může mít víc prodejen). */}
       <Section
         label="Plánované smlouvy"
-        hint="Které smlouvy chceš s klientem podepsat. Uvidíš stav na přehledu klientů."
+        hint="Kolik kusů kterého typu chceš s klientem podepsat. Uvidíš stav na přehledu klientů."
       >
-        <div className="flex flex-wrap gap-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {CONTRACT_TYPES_PICKABLE.map((t) => {
-            const active = state.plannedContracts.includes(t);
+            const count = state.plannedContracts[t] ?? 0;
+            const active = count > 0;
             return (
-              <button
+              <div
                 key={t}
-                type="button"
-                onClick={() => togglePlanned(t)}
-                aria-pressed={active}
                 className={[
-                  "inline-flex h-9 items-center rounded-full border px-3.5 text-[12.5px] font-medium transition-colors",
+                  "flex h-11 items-center justify-between gap-3 rounded-full border pl-4 pr-1.5 transition-colors",
                   active
-                    ? "border-ink-base bg-ink-base text-paper"
-                    : "border-edge bg-paper text-ink-deep hover:border-ink-soft",
+                    ? "border-ink-base bg-paper"
+                    : "border-edge bg-paper",
                 ].join(" ")}
               >
-                {CONTRACT_TYPE_META[t].shortName}
-              </button>
+                <span
+                  className={`truncate text-[12.5px] font-medium ${active ? "text-ink-base" : "text-ink-mid"}`}
+                >
+                  {CONTRACT_TYPE_META[t].shortName}
+                </span>
+                <div className="flex shrink-0 items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setPlannedCount(t, -1)}
+                    disabled={count === 0}
+                    aria-label="Ubrat"
+                    className="grid h-8 w-8 place-items-center rounded-full text-ink-mid transition-colors hover:bg-edge-warm hover:text-ink-base disabled:opacity-30"
+                  >
+                    <Minus className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
+                  </button>
+                  <span
+                    className={`w-5 text-center text-[13px] font-semibold tabular-nums ${active ? "text-ink-base" : "text-ink-soft"}`}
+                  >
+                    {count}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setPlannedCount(t, 1)}
+                    aria-label="Přidat"
+                    className="grid h-8 w-8 place-items-center rounded-full text-ink-mid transition-colors hover:bg-ink-base hover:text-paper"
+                  >
+                    <Plus className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
+                  </button>
+                </div>
+              </div>
             );
           })}
         </div>

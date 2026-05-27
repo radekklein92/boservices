@@ -23,9 +23,11 @@ export default async function ClientsPage() {
   for (const c of contracts) {
     const arr = byClient.get(c.clientId) ?? [];
     arr.push({
+      id: c.id,
       type: c.type,
       clientSignedAt: c.clientSignedAt,
       scanUploadedAt: c.scanUploadedAt,
+      createdAt: c.createdAt,
     });
     byClient.set(c.clientId, arr);
   }
