@@ -23,15 +23,15 @@ export type LegalTitleType =
   | "profit"
   | "other";
 
+// Kanonické texty pevných právních titulů (sdílené dropdownem i tabulkou).
+const LEGAL_TITLE_EQUIPMENT =
+  "Bezdůvodné obohacení za vrácení kupní ceny nábytku a vybavení provozovny vzniklé v důsledku ukončení kupní smlouvy";
+const LEGAL_TITLE_FEE =
+  "Bezdůvodné obohacení za vrácení vstupního franšízingového poplatku vzniklé v důsledku ukončení franšízingové smlouvy";
+
 export const LEGAL_TITLE_OPTIONS: { value: LegalTitleType; label: string }[] = [
-  {
-    value: "unjust-equipment",
-    label: "Bezdůvodné obohacení za vrácení kupní ceny za vybavení provozovny",
-  },
-  {
-    value: "unjust-fee",
-    label: "Bezdůvodné obohacení za vrácení vstupního franšízingového poplatku",
-  },
+  { value: "unjust-equipment", label: LEGAL_TITLE_EQUIPMENT },
+  { value: "unjust-fee", label: LEGAL_TITLE_FEE },
   { value: "profit", label: "Zisk z provozovny za… (měsíc a rok)" },
   { value: "other", label: "Jiný (vlastní text)" },
 ];
@@ -125,9 +125,9 @@ export function claimOriginLabel(item: ClaimItem): string {
 export function claimLegalTitle(item: ClaimItem): string {
   switch (item.legalTitleType) {
     case "unjust-equipment":
-      return "bezdůvodné obohacení za vrácení kupní ceny za vybavení provozovny";
+      return LEGAL_TITLE_EQUIPMENT;
     case "unjust-fee":
-      return "bezdůvodné obohacení za vrácení vstupního franšízingového poplatku";
+      return LEGAL_TITLE_FEE;
     case "profit": {
       const period = item.legalTitleProfitPeriod?.trim();
       return period ? `zisk z provozovny za ${period}` : "zisk z provozovny za";
