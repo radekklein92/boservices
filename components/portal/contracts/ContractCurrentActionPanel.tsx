@@ -13,8 +13,11 @@ import {
 } from "lucide-react";
 import dynamicImport from "next/dynamic";
 import { upload } from "@vercel/blob/client";
-import type { Contract } from "@/lib/portal/contracts-db";
-import { isUnilateralContract } from "@/lib/portal/contract-types";
+import {
+  getStatusFlowForType,
+  type Contract,
+  type ContractStatus,
+} from "@/lib/portal/contracts-db";
 import { KEEP_ORIGINAL_SIGNER } from "./signer-keep-original";
 
 const SignerPickerModal = dynamicImport(
@@ -106,6 +109,14 @@ export function ContractCurrentActionPanel({
     setPickerOpen(false);
   }
 
+  // Odstoupení: BOS nepodepisuje. „Připravit k podpisu" jen vygeneruje finální
+  // PDF (keepOriginal = bez výběru podepisujícího) a posune do stavu K podpisu.
+  async function prepareForSigning() {
+    await callMilestone("POST", "pick-signer", "Připraveno k podpisu.", {
+      keepOriginal: true,
+    });
+  }
+
   async function unpickSigner() {
     if (!window.confirm("Zrušit výběr podepisujícího? Smlouva spadne zpět na Schváleno."))
       return;
@@ -182,7 +193,64 @@ export function ContractCurrentActionPanel({
   }
 
   const status = contract.status;
-  const unilateral = isUnilateralContract(contract.type);
+  const flow = getStatusFlowForType(contract.type);
+  const idx = flow.indexOf(status);
+  const nextStatus: ContractStatus | null =
+    idx >= 0 && idx < flow.length - 1 ? flow[idx + 1]! : null;
+  const isWithdrawalLike =
+    contract.type === "withdrawal" || contract.type === "assignment-notice";
+
+  const downloadFinal = contract.generatedPdfUrl ? (
+    <a
+      href={`/api/portal/contracts/${contract.id}/download/generated`}
+      target="_blank"
+      rel="noreferrer noopener"
+      className="inline-flex h-11 items-center gap-2 rounded-full border border-edge bg-paper px-5 text-[13px] font-semibold text-ink-deep transition-colors hover:border-ink-base hover:text-ink-base"
+    >
+      <Download className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+      Finální PDF
+    </a>
+  ) : null;
+
+  // Rollback (undo) aktuálního kroku - závisí na statusu.
+  function rollbackFor(s: ContractStatus): React.ReactNode {
+    if (s === "k-podpisu") {
+      return (
+        <SubtleButton
+          onClick={unpickSigner}
+          pending={pending === "DELETE:pick-signer"}
+          Icon={Undo2}
+        >
+          {isWithdrawalLike
+            ? "Zrušit přípravu k podpisu"
+            : "Změnit podepisujícího"}
+        </SubtleButton>
+      );
+    }
+    if (s === "podepsano-bos") {
+      return (
+        <SubtleButton
+          onClick={unmarkSignedBos}
+          pending={pending === "DELETE:signed"}
+          Icon={Undo2}
+        >
+          Zrušit Podepsáno BOS
+        </SubtleButton>
+      );
+    }
+    if (s === "podepsano-klientem") {
+      return (
+        <SubtleButton
+          onClick={unmarkClientSigned}
+          pending={pending === "DELETE:client-signed"}
+          Icon={Undo2}
+        >
+          Zrušit Podepsáno klientem
+        </SubtleButton>
+      );
+    }
+    return undefined;
+  }
 
   return (
     <div className="flex flex-col gap-4 rounded-2xl border border-edge bg-paper px-6 py-6 md:px-8 md:py-7">
@@ -204,94 +272,86 @@ export function ContractCurrentActionPanel({
         />
       )}
 
-      {status === "schvaleno" && !unilateral && (
-        <ActionRow
-          headline="Schváleno - vyber podepisujícího"
-          description="Vyber konkrétního podepisujícího. Po výběru se vygeneruje finální PDF bez vodoznaku."
-          primary={
-            <PrimaryButton onClick={() => setPickerOpen(true)} Icon={Gavel}>
-              Vybrat podepisujícího
-            </PrimaryButton>
-          }
-          rollback={
-            <SubtleButton onClick={unapprove} pending={pending === "DELETE:approve"} Icon={Undo2}>
-              Zrušit schválení
-            </SubtleButton>
-          }
-        />
-      )}
+      {status === "schvaleno" &&
+        (isWithdrawalLike ? (
+          <ActionRow
+            headline="Schváleno - připrav k podpisu"
+            description="Smlouvu podepisuje pouze klient. Připrav finální PDF (bez vodoznaku), vytiskni a předej k podpisu."
+            primary={
+              <PrimaryButton
+                onClick={prepareForSigning}
+                pending={pending === "POST:pick-signer"}
+                Icon={Gavel}
+              >
+                Připravit k podpisu
+              </PrimaryButton>
+            }
+            rollback={
+              <SubtleButton onClick={unapprove} pending={pending === "DELETE:approve"} Icon={Undo2}>
+                Zrušit schválení
+              </SubtleButton>
+            }
+          />
+        ) : (
+          <ActionRow
+            headline="Schváleno - vyber podepisujícího"
+            description="Vyber konkrétního podepisujícího. Po výběru se vygeneruje finální PDF bez vodoznaku."
+            primary={
+              <PrimaryButton onClick={() => setPickerOpen(true)} Icon={Gavel}>
+                Vybrat podepisujícího
+              </PrimaryButton>
+            }
+            rollback={
+              <SubtleButton onClick={unapprove} pending={pending === "DELETE:approve"} Icon={Undo2}>
+                Zrušit schválení
+              </SubtleButton>
+            }
+          />
+        ))}
 
-      {status === "schvaleno" && unilateral && (
-        <ActionRow
-          headline="Schváleno - připraveno k podpisu klientem"
-          description="Smlouvu podepisuje pouze klient. Vytiskni finální PDF, předej k podpisu a označ jako Podepsáno klientem."
-          primary={
-            <PrimaryButton
-              onClick={markClientSigned}
-              pending={pending === "POST:client-signed"}
-              Icon={PenLine}
-            >
-              Označit Podepsáno klientem
-            </PrimaryButton>
-          }
-          rollback={
-            <SubtleButton onClick={unapprove} pending={pending === "DELETE:approve"} Icon={Undo2}>
-              Zrušit schválení
-            </SubtleButton>
-          }
-        />
-      )}
-
-      {status === "k-podpisu" && (
+      {/* Mezikroky podpisů - akce se řídí dalším krokem ve flow daného typu
+          (standard: BOS→klient, postoupení: klient→BOS, odstoupení: jen klient). */}
+      {nextStatus === "podepsano-bos" && (
         <ActionRow
           headline="Čeká na podpis BOS"
-          description="Stáhni finální PDF, vytiskni, podepiš a označ jako Podepsáno BOS."
+          description="Stáhni finální PDF, podepiš za BOS a označ jako Podepsáno BOS."
           primary={
             <div className="flex flex-wrap items-center gap-2">
               <PrimaryButton onClick={markSignedBos} pending={pending === "POST:signed"} Icon={Stamp}>
                 Označit Podepsáno BOS
               </PrimaryButton>
-              {contract.generatedPdfUrl && (
-                <a
-                  href={`/api/portal/contracts/${contract.id}/download/generated`}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className="inline-flex h-11 items-center gap-2 rounded-full border border-edge bg-paper px-5 text-[13px] font-semibold text-ink-deep transition-colors hover:border-ink-base hover:text-ink-base"
-                >
-                  <Download className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
-                  Finální PDF
-                </a>
-              )}
+              {downloadFinal}
             </div>
           }
-          rollback={
-            <SubtleButton onClick={unpickSigner} pending={pending === "DELETE:pick-signer"} Icon={Undo2}>
-              Změnit podepisujícího
-            </SubtleButton>
-          }
+          rollback={rollbackFor(status)}
         />
       )}
 
-      {status === "podepsano-bos" && (
+      {nextStatus === "podepsano-klientem" && (
         <ActionRow
-          headline="Podepsáno BOS"
-          description="Předej smlouvu klientovi a po jeho podpisu označ jako Podepsáno klientem."
+          headline={
+            isWithdrawalLike ? "Připraveno k podpisu klientem" : "Čeká na podpis klienta"
+          }
+          description="Předej finální PDF klientovi a po jeho podpisu označ jako Podepsáno klientem."
           primary={
-            <PrimaryButton onClick={markClientSigned} pending={pending === "POST:client-signed"} Icon={PenLine}>
-              Označit Podepsáno klientem
-            </PrimaryButton>
+            <div className="flex flex-wrap items-center gap-2">
+              <PrimaryButton
+                onClick={markClientSigned}
+                pending={pending === "POST:client-signed"}
+                Icon={PenLine}
+              >
+                Označit Podepsáno klientem
+              </PrimaryButton>
+              {status === "k-podpisu" && downloadFinal}
+            </div>
           }
-          rollback={
-            <SubtleButton onClick={unmarkSignedBos} pending={pending === "DELETE:signed"} Icon={Undo2}>
-              Zrušit Podepsáno BOS
-            </SubtleButton>
-          }
+          rollback={rollbackFor(status)}
         />
       )}
 
-      {status === "podepsano-klientem" && (
+      {nextStatus === "archivovano" && (
         <ActionRow
-          headline="Podepsáno klientem"
+          headline="Podepsáno - nahraj sken"
           description="Naskenuj podepsanou smlouvu a nahraj sken. Smlouva se tím archivuje."
           primary={
             <div className="flex flex-wrap items-center gap-2">
@@ -311,15 +371,7 @@ export function ContractCurrentActionPanel({
               </PrimaryButton>
             </div>
           }
-          rollback={
-            <SubtleButton
-              onClick={unmarkClientSigned}
-              pending={pending === "DELETE:client-signed"}
-              Icon={Undo2}
-            >
-              Zrušit Podepsáno klientem
-            </SubtleButton>
-          }
+          rollback={rollbackFor(status)}
         />
       )}
 

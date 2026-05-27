@@ -3,11 +3,7 @@ import { z } from "zod";
 import JSZip from "jszip";
 import { requireSession } from "@/lib/portal/auth-guard";
 import { getContract } from "@/lib/portal/contracts-db";
-import {
-  CONTRACT_TYPE_META,
-  isBundleType,
-  isUnilateralContract,
-} from "@/lib/portal/contract-types";
+import { CONTRACT_TYPE_META, isBundleType } from "@/lib/portal/contract-types";
 import {
   applySignerOverride,
   renderTemplate,
@@ -83,15 +79,10 @@ export async function POST(req: Request) {
       errors.push(`${id}: nenalezeno`);
       continue;
     }
-    // Pro bilateral typy vyžadujeme picked signer; unilateral (odstoupení,
-    // oznámení) přechází do "finální" už po Schválení a žádného signera nemá.
-    const unilateral = isUnilateralContract(contract.type);
-    if (!unilateral && !contract.signerPickedAt) {
-      errors.push(`${contract.number ?? id}: chybí podepisující (musí být ve stavu K podpisu nebo dál)`);
-      continue;
-    }
-    if (unilateral && !contract.approvedAt) {
-      errors.push(`${contract.number ?? id}: smlouva musí být nejdřív schválená`);
+    // Finální PDF vyžaduje krok „K podpisu" (signerPickedAt) - platí pro všechny
+    // typy (odstoupení k němu dojde přes „Připravit k podpisu").
+    if (!contract.signerPickedAt) {
+      errors.push(`${contract.number ?? id}: musí být ve stavu K podpisu nebo dál`);
       continue;
     }
 

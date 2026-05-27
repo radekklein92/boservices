@@ -4,7 +4,6 @@ import type {
   ContractType,
   ContractVariant,
 } from "./contract-types";
-import { isUnilateralContract } from "./contract-types";
 import type { ClaimItem } from "./claims";
 
 // Status flow:
@@ -20,7 +19,8 @@ export type ContractStatus =
   | "podepsano-klientem"
   | "archivovano";
 
-// Bilateral flow (BOS i klient podepisují) - 6 kroků.
+// Standardní flow (BOS podepisuje první, pak klient) - franšíza, provozování,
+// spolupráce.
 export const CONTRACT_STATUSES: ContractStatus[] = [
   "koncept",
   "schvaleno",
@@ -30,19 +30,38 @@ export const CONTRACT_STATUSES: ContractStatus[] = [
   "archivovano",
 ];
 
-// Unilateral flow (jen klient podepisuje) - 4 kroky, skipují se "K podpisu"
-// a "Podepsáno BOS", které se týkají výběru podepisujícího za BOS.
-export const UNILATERAL_CONTRACT_STATUSES: ContractStatus[] = [
+// Postoupení pohledávek - opačné pořadí podpisů: nejdřív klient, pak BOS.
+export const CLAIM_CONTRACT_STATUSES: ContractStatus[] = [
   "koncept",
   "schvaleno",
+  "k-podpisu",
+  "podepsano-klientem",
+  "podepsano-bos",
+  "archivovano",
+];
+
+// Odstoupení (a oznámení) - podepisuje jen klient/protistrana, přeskakuje se
+// "Podepsáno BOS". "K podpisu" zůstává jako krok "připravit finální PDF".
+export const WITHDRAWAL_CONTRACT_STATUSES: ContractStatus[] = [
+  "koncept",
+  "schvaleno",
+  "k-podpisu",
   "podepsano-klientem",
   "archivovano",
 ];
 
 export function getStatusFlowForType(type: ContractType): ContractStatus[] {
-  return isUnilateralContract(type)
-    ? UNILATERAL_CONTRACT_STATUSES
-    : CONTRACT_STATUSES;
+  if (type === "withdrawal" || type === "assignment-notice") {
+    return WITHDRAWAL_CONTRACT_STATUSES;
+  }
+  if (
+    type === "claim-bundle" ||
+    type === "claim-assignment" ||
+    type === "side-fee"
+  ) {
+    return CLAIM_CONTRACT_STATUSES;
+  }
+  return CONTRACT_STATUSES;
 }
 
 export const CONTRACT_STATUS_LABEL: Record<ContractStatus, string> = {
@@ -117,9 +136,27 @@ export interface Contract {
   updatedAt: string;
 }
 
+// Mapuje status na timestamp pole, jehož vyplnění znamená "tento krok dokončen".
+const STATUS_DONE_FIELD: Partial<
+  Record<
+    ContractStatus,
+    "approvedAt" | "signerPickedAt" | "signedAt" | "clientSignedAt" | "scanUploadedAt"
+  >
+> = {
+  schvaleno: "approvedAt",
+  "k-podpisu": "signerPickedAt",
+  "podepsano-bos": "signedAt",
+  "podepsano-klientem": "clientSignedAt",
+  archivovano: "scanUploadedAt",
+};
+
+// Status se počítá flow-driven: projde flow daného typu od konce a vrátí první
+// status, jehož timestamp je vyplněný. Tím podporujeme různé pořadí podpisů
+// (standard: BOS→klient, postoupení: klient→BOS, odstoupení: jen klient).
 export function computeContractStatus(
   c: Pick<
     Contract,
+    | "type"
     | "approvedAt"
     | "signerPickedAt"
     | "signedAt"
@@ -127,11 +164,12 @@ export function computeContractStatus(
     | "scanUploadedAt"
   >,
 ): ContractStatus {
-  if (c.scanUploadedAt) return "archivovano";
-  if (c.clientSignedAt) return "podepsano-klientem";
-  if (c.signedAt) return "podepsano-bos";
-  if (c.signerPickedAt) return "k-podpisu";
-  if (c.approvedAt) return "schvaleno";
+  const flow = getStatusFlowForType(c.type);
+  for (let i = flow.length - 1; i >= 1; i--) {
+    const status = flow[i]!;
+    const field = STATUS_DONE_FIELD[status];
+    if (field && c[field]) return status;
+  }
   return "koncept";
 }
 

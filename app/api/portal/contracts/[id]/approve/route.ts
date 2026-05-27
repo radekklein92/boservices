@@ -5,11 +5,7 @@ import {
   getContract,
   upsertContract,
 } from "@/lib/portal/contracts-db";
-import { isUnilateralContract } from "@/lib/portal/contract-types";
-import { renderAndStoreContractPdf } from "@/lib/portal/pdf-flow";
 import { bustContracts } from "@/lib/portal/revalidate";
-
-export const maxDuration = 60;
 
 export async function POST(
   _req: Request,
@@ -25,40 +21,19 @@ export async function POST(
   }
 
   const now = new Date().toISOString();
-  const withApproval = {
+  // Finální PDF (bez watermarku) se generuje až v kroku „K podpisu" / „Připravit
+  // k podpisu" (pick-signer) pro všechny typy - při schválení tedy negenerujeme.
+  const updated = {
     ...contract,
     approvedAt: now,
     approvedBy: g.session.user!.email!,
     updatedAt: now,
   };
-  withApproval.status = computeContractStatus(withApproval);
-
-  // Unilateral typy (odstoupení, oznámení) přechází Schváleno → Podepsáno
-  // klientem bez pick-signer kroku. PDF v tomto okamžiku už musí být finální
-  // (bez watermarku), aby ho admin mohl vytisknout a předat klientovi.
-  let pdfUpload: Awaited<ReturnType<typeof renderAndStoreContractPdf>> | null = null;
-  if (isUnilateralContract(contract.type) && process.env.BLOB_READ_WRITE_TOKEN) {
-    try {
-      pdfUpload = await renderAndStoreContractPdf(withApproval);
-    } catch (err) {
-      console.error("[approve] regenerate PDF failed", { id, err });
-    }
-  }
-
-  const updated = pdfUpload
-    ? {
-        ...withApproval,
-        generatedPdfUrl: pdfUpload.url,
-        generatedPdfPath: pdfUpload.path,
-        generatedAt: pdfUpload.generatedAt,
-        updatedAt: pdfUpload.generatedAt,
-      }
-    : withApproval;
-
+  updated.status = computeContractStatus(updated);
   await upsertContract(updated);
 
   bustContracts();
-  return NextResponse.json({ ok: true, regenerated: !!pdfUpload });
+  return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(
