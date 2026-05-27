@@ -226,21 +226,38 @@ export function ensureClaimsToken(html: string): string {
 // Obalí nadpis Přílohy č. 1 + tabulku do bloku, který v PDF začne na nové
 // stránce a tabulku nezalomí přes konec stránky (CSS .claims-appendix).
 // Idempotentní. Aplikuje se jen při renderu do PDF - uložené HTML zůstává čisté.
+// Podpis Postupitele s datem pod Přílohou č. 1. Doplňuje se při renderu hned za
+// tabulku pohledávek; placeholdery se resolvnou v renderTemplate. Není v uloženém
+// HTML (čistý editor), přidává se jen pro PDF.
+const APPENDIX_SIGN_BLOCK =
+  `<div class="claims-appendix-sign"><p>V {{place}} dne {{contractDate}}.</p>` +
+  `<p>&nbsp;</p>` +
+  `<p>__________________________<br><strong>{{clientSignerName}}</strong>` +
+  `<br>{{clientSignerRole}}<br>za Postupitele: {{clientName}}</p></div>`;
+
+export function ensureAppendixSignature(html: string): string {
+  if (html.includes('class="claims-appendix-sign"')) return html;
+  if (!html.includes(CLAIMS_TOKEN)) return html;
+  return html.replace(CLAIMS_TOKEN, `${CLAIMS_TOKEN}${APPENDIX_SIGN_BLOCK}`);
+}
+
+// Obal kolem nadpisu + tabulky + (volitelně) podpisu Postupitele - drží přílohu
+// na jedné stránce. Skupina $3 (podpis) je volitelná; když chybí, nahradí se "".
 const APPENDIX_WRAP_RE =
-  /(<h2[^>]*>\s*Příloha č\.\s*1[^<]*<\/h2>)\s*(\{\{claimsTable\}\})/;
+  /(<h2[^>]*>\s*Příloha č\.\s*1[^<]*<\/h2>)\s*(\{\{claimsTable\}\})(\s*<div class="claims-appendix-sign">[\s\S]*?<\/div>)?/;
 
 export function wrapClaimsAppendix(html: string): string {
   if (html.includes('class="claims-appendix"')) return html;
   return html.replace(
     APPENDIX_WRAP_RE,
-    '<div class="claims-appendix">$1$2</div>',
+    '<div class="claims-appendix">$1$2$3</div>',
   );
 }
 
-// Render-time příprava HTML smlouvy postoupení: doplní token tabulky a obalí
-// přílohu do bloku se zalomením na novou stránku.
+// Render-time příprava HTML smlouvy postoupení: doplní token tabulky, podpis
+// Postupitele pod přílohou a obalí vše do bloku se zalomením na novou stránku.
 export function prepareClaimsAppendix(html: string): string {
-  return wrapClaimsAppendix(ensureClaimsToken(html));
+  return wrapClaimsAppendix(ensureAppendixSignature(ensureClaimsToken(html)));
 }
 
 // Clamora Bridge (Postupník) nemá DIČ -> odstraní z řádku „DIČ: {{providerDic}}".

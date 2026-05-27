@@ -215,6 +215,11 @@ export const PDF_PAGE_STYLES = `
     break-inside: avoid;
     page-break-inside: avoid;
   }
+  .claims-appendix-sign {
+    margin-top: 28pt;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
 
   /* Bundle (claim-bundle) - oddělovač sekcí. První sekce zůstává hned za cover
    * hlavičkou, další 2 začínají na nové stránce s vlastním sekčním titulkem. */
