@@ -248,6 +248,64 @@ export const PDF_PAGE_STYLES = `
     padding: 0;
     line-height: 1.18;
   }
+
+  /* Smlouvy bez hlavičkového papíru (Clamora postoupení, klientovo odstoupení).
+   * Vizuálně úplně jiný dokument než BOServices franšízingové smlouvy:
+   * - serif (Crimson Pro)
+   * - sekce bez plného podtržení; mezi sekcemi centrovaná ozdoba „§ § §"
+   * - drobné typografické úpravy (větší řádkování, uppercase malé h2). */
+  body.no-letterhead {
+    font-family: "Crimson Pro", "Source Serif Pro", Georgia, "Times New Roman", Cambria, serif;
+    line-height: 1.62;
+  }
+  body.no-letterhead h1,
+  body.no-letterhead h2,
+  body.no-letterhead h3,
+  body.no-letterhead strong,
+  body.no-letterhead em,
+  body.no-letterhead p,
+  body.no-letterhead li {
+    font-family: "Crimson Pro", "Source Serif Pro", Georgia, "Times New Roman", Cambria, serif;
+  }
+  body.no-letterhead h2 {
+    border: none;
+    padding: 0;
+    margin: 22pt 0 9pt 0;
+    font-size: 10.5pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
+  /* Centrovaná ozdoba mezi sekcemi (před každým h2 kromě prvního v jeho rodiči). */
+  body.no-letterhead h2:not(:first-of-type)::before {
+    content: "§ § §";
+    display: block;
+    text-align: center;
+    margin: 4pt auto 16pt auto;
+    font-family: "Crimson Pro", Georgia, serif;
+    font-size: 11pt;
+    font-weight: 400;
+    letter-spacing: 0.6em;
+    color: #9CA39E;
+    text-transform: none;
+  }
+  /* Cover titulek první stránky - velký serif místo Manrope. */
+  body.no-letterhead h1.first-page-title {
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  /* Bundle: hlavička sekce má svůj velký titulek - vrátit normální vzhled
+   * (přebije se uppercase z body.no-letterhead h2). */
+  body.no-letterhead h2.bundle-section-title {
+    font-size: 16pt;
+    font-weight: 700;
+    text-transform: none;
+    letter-spacing: -0.01em;
+    margin: 0;
+  }
+  body.no-letterhead h2.bundle-section-title::before {
+    content: none;
+  }
 `;
 
 function escapeHtml(s: string): string {
@@ -342,17 +400,22 @@ body::before {
 
 function wrapPdfShell(
   body: string,
-  opts: { diff?: boolean; watermark?: boolean },
+  opts: { diff?: boolean; watermark?: boolean; letterhead?: boolean },
 ): string {
   const diffStyles = opts.diff ? PDF_DIFF_STYLES : "";
   const watermarkStyles = opts.watermark ? PDF_WATERMARK_STYLES : "";
+  // letterhead === false: PDF jiné firmy (Clamora postoupení / klientovo
+  // odstoupení) - serif font, ozdobný oddělovač sekcí. Vizuálně odlišné od
+  // BOServices franšízingových smluv.
+  const noLetterhead = opts.letterhead === false;
+  const bodyClass = noLetterhead ? ' class="no-letterhead"' : "";
   return `<!doctype html>
 <html lang="cs">
 <head>
 <meta charset="utf-8" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800${noLetterhead ? "&family=Crimson+Pro:wght@400;500;600;700" : ""}&display=swap" rel="stylesheet">
 <style>${PDF_PAGE_STYLES}
 ${diffStyles}
 ${watermarkStyles}
@@ -360,17 +423,20 @@ ${watermarkStyles}
   position: absolute;
   top: -9999px;
   left: -9999px;
-  font-family: "Manrope", sans-serif;
   visibility: hidden;
 }
 </style>
 </head>
-<body>
-<div class="__fontwarmup" style="font-weight:400">Mq</div>
-<div class="__fontwarmup" style="font-weight:500">Mq</div>
-<div class="__fontwarmup" style="font-weight:600">Mq</div>
-<div class="__fontwarmup" style="font-weight:700">Mq</div>
-<div class="__fontwarmup" style="font-weight:800">Mq</div>
+<body${bodyClass}>
+<div class="__fontwarmup" style="font-family:'Manrope';font-weight:400">Mq</div>
+<div class="__fontwarmup" style="font-family:'Manrope';font-weight:500">Mq</div>
+<div class="__fontwarmup" style="font-family:'Manrope';font-weight:600">Mq</div>
+<div class="__fontwarmup" style="font-family:'Manrope';font-weight:700">Mq</div>
+<div class="__fontwarmup" style="font-family:'Manrope';font-weight:800">Mq</div>
+${noLetterhead ? `<div class="__fontwarmup" style="font-family:'Crimson Pro';font-weight:400">Mq</div>
+<div class="__fontwarmup" style="font-family:'Crimson Pro';font-weight:500">Mq</div>
+<div class="__fontwarmup" style="font-family:'Crimson Pro';font-weight:600">Mq</div>
+<div class="__fontwarmup" style="font-family:'Crimson Pro';font-weight:700">Mq</div>` : ""}
 ${body}
 </body>
 </html>`;
@@ -378,13 +444,19 @@ ${body}
 
 export function buildServerPdfDocument(
   html: string,
-  opts: { cover: CoverHeader; diff?: boolean; watermark?: boolean },
+  opts: {
+    cover: CoverHeader;
+    diff?: boolean;
+    watermark?: boolean;
+    letterhead?: boolean;
+  },
 ): string {
   const stripped = stripDuplicateTitle(html, opts.cover.title);
   const contentWithHeader = renderFirstPageHeader(opts.cover) + stripped;
   return wrapPdfShell(contentWithHeader, {
     diff: opts.diff,
     watermark: opts.watermark,
+    letterhead: opts.letterhead,
   });
 }
 
@@ -393,12 +465,18 @@ export function buildServerPdfDocument(
 // a jednotný header/footer napříč všemi 3 dokumenty.
 export function buildServerBundlePdfDocument(
   sections: BundleSectionInput[],
-  opts: { cover: CoverHeader; diff?: boolean; watermark?: boolean },
+  opts: {
+    cover: CoverHeader;
+    diff?: boolean;
+    watermark?: boolean;
+    letterhead?: boolean;
+  },
 ): string {
   const body = renderFirstPageHeader(opts.cover) + renderBundleBody(sections);
   return wrapPdfShell(body, {
     diff: opts.diff,
     watermark: opts.watermark,
+    letterhead: opts.letterhead,
   });
 }
 

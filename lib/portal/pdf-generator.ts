@@ -57,6 +57,7 @@ export async function htmlToPdfBuffer(
     cover,
     diff: opts.diff,
     watermark: opts.watermark,
+    letterhead: opts.letterhead,
   });
   return renderHtmlToPdf(fullHtml, opts.type, opts.letterhead, opts.number);
 }
@@ -79,6 +80,7 @@ export async function bundleHtmlToPdfBuffer(
     cover,
     diff: opts.diff,
     watermark: opts.watermark,
+    letterhead: opts.letterhead,
   });
   return renderHtmlToPdf(fullHtml, opts.type, opts.letterhead, opts.number);
 }
@@ -109,14 +111,23 @@ async function renderHtmlToPdf(
     const page = await browser.newPage();
     await page.setContent(fullHtml, { waitUntil: "load" });
 
-    // Force-load Manrope weights and wait for fonts.ready
-    await page.evaluate(async () => {
-      const variants = ["400", "500", "600", "700", "800"];
-      await Promise.all(
-        variants.map((w) => document.fonts.load(`${w} 12pt "Manrope"`)),
+    // Force-load font weights a počkat na fonts.ready. Manrope se používá vždy
+    // (cover, headery, bundle titulky). Crimson Pro jen u smluv bez hlavičkového
+    // papíru (Clamora postoupení, klientovo odstoupení) - načítáme ho jen tam.
+    await page.evaluate(async (loadCrimson: boolean) => {
+      const manrope = ["400", "500", "600", "700", "800"];
+      const crimson = ["400", "500", "600", "700"];
+      const promises: Promise<unknown>[] = manrope.map((w) =>
+        document.fonts.load(`${w} 12pt "Manrope"`),
       );
+      if (loadCrimson) {
+        for (const w of crimson) {
+          promises.push(document.fonts.load(`${w} 12pt "Crimson Pro"`));
+        }
+      }
+      await Promise.all(promises);
       await document.fonts.ready;
-    });
+    }, !letterhead);
 
     const headerTitle = CONTRACT_TYPE_META[type].shortName;
 
