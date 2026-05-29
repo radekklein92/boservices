@@ -145,11 +145,11 @@ export function ContractDetailClient({ initial, templateApproved }: Props) {
   }, [isBundle, html, bundleSections]);
   const has = (token: string) => usedTokens.has(token);
   const hasAny = (tokens: string[]) => tokens.some((t) => usedTokens.has(t));
-  // Editor seznamu pohledávek (Příloha č. 1) - pro postoupení pohledávek.
-  // Kromě tokenu {{claimsTable}} bereme i typy explicitně (starší smlouvy mohou
-  // mít ještě původní statický text bez tokenu).
+  // Editor seznamu pohledávek (Příloha č. 1) - POUZE pro postoupení pohledávek.
+  // Vázáno striktně na typ smlouvy, ne na přítomnost tokenu {{claimsTable}} -
+  // jiné šablony (např. provozování provozovny) mohou token obsahovat, ale
+  // panel pohledávek tam nepatří.
   const showClaims =
-    has("claimsTable") ||
     contract.type === "claim-assignment" ||
     contract.type === "claim-bundle";
 
