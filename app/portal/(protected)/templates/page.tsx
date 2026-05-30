@@ -3,7 +3,7 @@ import { PageHeader } from "@/components/portal/shell/PageHeader";
 import { cachedListContractTemplates } from "@/lib/portal/cached-db";
 import { getSession } from "@/lib/portal/get-session";
 import { isAdminRole } from "@/lib/portal/auth-guard";
-import { getTemplateApprover } from "@/lib/portal/users-db";
+import { getTemplateApprovers } from "@/lib/portal/users-db";
 import { isTemplateApproved } from "@/lib/portal/contract-templates-db";
 import { TemplatesListClient, type TemplateRow } from "@/components/portal/contracts/TemplatesListClient";
 
@@ -11,10 +11,10 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Šablony smluv" };
 
 export default async function TemplatesPage() {
-  const [session, entries, approver] = await Promise.all([
+  const [session, entries, approvers] = await Promise.all([
     getSession(),
     cachedListContractTemplates(),
-    getTemplateApprover(),
+    getTemplateApprovers(),
   ]);
   if (!session?.user?.email) redirect("/portal/login");
   if (!isAdminRole(session.user?.role)) redirect("/portal");
@@ -57,7 +57,7 @@ export default async function TemplatesPage() {
       <TemplatesListClient
         rows={rows}
         currentUserEmail={session.user.email}
-        approverEmail={approver?.email ?? null}
+        approverEmails={approvers.map((a) => a.email)}
       />
     </div>
   );

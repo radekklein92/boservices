@@ -47,16 +47,17 @@ function formatDate(iso: string | undefined): string {
 export function TemplatesListClient({
   rows,
   currentUserEmail,
-  approverEmail,
+  approverEmails,
 }: {
   rows: TemplateRow[];
   currentUserEmail: string;
-  // Email schvalovatele. Když je null, žádný uživatel nemá flag - schvalovat
-  // ani připomínat nelze.
-  approverEmail: string | null;
+  // Emaily schvalovatelů. Flag jich může mít víc. Když je pole prázdné, žádný
+  // uživatel nemá flag - schvalovat ani připomínat nelze.
+  approverEmails: string[];
 }) {
   const router = useRouter();
-  const isApprover = !!approverEmail && currentUserEmail === approverEmail;
+  const hasApprover = approverEmails.length > 0;
+  const isApprover = approverEmails.includes(currentUserEmail);
   const [busy, setBusy] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   // Která šablona má otevřený modal se změnami.
@@ -105,9 +106,12 @@ export function TemplatesListClient({
       });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || "Chyba");
+      const recipientCount = data.recipients?.length ?? 0;
       notify(
         data.sent
-          ? `Upozornění odesláno schvalovateli (${data.pendingCount} čekajících šablon).`
+          ? `Upozornění odesláno ${
+              recipientCount === 1 ? "schvalovateli" : `${recipientCount} schvalovatelům`
+            } (${data.pendingCount} čekajících šablon).`
           : "Nic neposláno - všechny šablony jsou aktuálně schválené.",
       );
     } catch (err) {
@@ -119,7 +123,7 @@ export function TemplatesListClient({
 
   return (
     <>
-      {!approverEmail && (
+      {!hasApprover && (
         <div className="mb-6 rounded-2xl border border-edge bg-paper-warm px-5 py-4 text-[12.5px] leading-relaxed text-ink-mid">
           Žádný uživatel zatím nemá zaškrtnuté „Schvalovatel šablon". Bez něj
           nelze schvalovat ani posílat připomínky. Nastavíš v Uživatelé → detail
@@ -218,11 +222,11 @@ export function TemplatesListClient({
                       <button
                         type="button"
                         onClick={remind}
-                        disabled={!approverEmail || busy === "remind"}
+                        disabled={!hasApprover || busy === "remind"}
                         className="inline-flex h-9 items-center gap-2 rounded-full border border-edge bg-paper px-3 text-[12px] font-medium text-ink-deep transition-colors hover:border-ink-base hover:text-ink-base disabled:opacity-50"
                         title={
-                          approverEmail
-                            ? `Pošle e-mail schvalovateli (${approverEmail})`
+                          hasApprover
+                            ? `Pošle e-mail schvalovatelům (${approverEmails.join(", ")})`
                             : "Schvalovatel není nastaven"
                         }
                       >

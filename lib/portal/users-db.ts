@@ -25,26 +25,26 @@ export interface User {
   // Volitelné - když není vyplněné, role text fallbackuje na "na základě
   // plné moci" (bez substituční přídavku).
   signerPoaSubstituteFor?: string;
-  // Schvalovatel šablon smluv. Přesně jeden uživatel by měl mít tento flag.
-  // V UI šablon vidí "Schválit" tlačítko, ostatní uživatelé vidí "Čeká na
-  // schválení" + "Připomenout emailem". E-mail upozornění chodí na jeho
-  // adresu (User.email).
+  // Schvalovatel šablon smluv. Flag může mít víc uživatelů - e-mail upomínka
+  // pak chodí všem a každý z nich vidí v UI tlačítko "Schválit". Ostatní
+  // uživatelé vidí "Čeká na schválení" + "Připomenout emailem".
   isTemplateApprover?: boolean;
 }
 
-// Najde uživatele, který má isTemplateApprover=true. Měl by být max 1.
-// Pokud žádný není, vrací null - UI degraduje gracefully (žádný "Schválit"
-// button se nezobrazí, reminder by neměl kam poslat).
-export async function getTemplateApprover(): Promise<User | null> {
+// Najde všechny uživatele s isTemplateApprover=true. Flag jich může mít víc -
+// e-mail upomínka chodí všem a schvalovat v UI může každý z nich.
+// Pokud žádný není, vrací [] - UI degraduje gracefully (žádný "Schválit"
+// button se nezobrazí, reminder nemá kam poslat).
+export async function getTemplateApprovers(): Promise<User[]> {
   const { getRedis: _getRedis } = await import("@/lib/redis");
   const r = _getRedis();
-  if (!r) return null;
+  if (!r) return [];
   const emails = await r.smembers("portal:users:all");
-  if (!emails.length) return null;
+  if (!emails.length) return [];
   const pipe = r.pipeline();
   emails.forEach((e) => pipe.get<User>(userKey(e)));
   const results = (await pipe.exec()) as (User | null)[];
-  return results.find((u): u is User => !!u && !!u.isTemplateApprover) ?? null;
+  return results.filter((u): u is User => !!u && !!u.isTemplateApprover);
 }
 
 // Vrací text pro {{providerStatutory1Role}} v PDF/HTML smlouvy.

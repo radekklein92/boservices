@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/portal/auth-guard";
 import {
-  getTemplateApprover,
+  getTemplateApprovers,
 } from "@/lib/portal/users-db";
 import {
   isTemplateApproved,
@@ -28,8 +28,8 @@ export async function POST() {
 }
 
 export async function sendReminderResponse(): Promise<NextResponse> {
-  const approver = await getTemplateApprover();
-  if (!approver) {
+  const approvers = await getTemplateApprovers();
+  if (approvers.length === 0) {
     return NextResponse.json(
       {
         ok: false,
@@ -70,14 +70,25 @@ export async function sendReminderResponse(): Promise<NextResponse> {
     });
   }
 
-  try {
-    await sendTemplateApprovalReminder({
-      to: approver.email,
-      approverName: approver.name,
-      pendingTemplates: pending,
-    });
-  } catch (err) {
-    console.error("[templates/remind] e-mail failed", err);
+  // Každému schvalovateli pošleme vlastní (personalizovaný) e-mail. Selhání
+  // jednoho příjemce neshodí ostatní - sbíráme úspěchy i neúspěchy zvlášť.
+  const recipients: string[] = [];
+  const failed: string[] = [];
+  for (const approver of approvers) {
+    try {
+      await sendTemplateApprovalReminder({
+        to: approver.email,
+        approverName: approver.name,
+        pendingTemplates: pending,
+      });
+      recipients.push(approver.email);
+    } catch (err) {
+      console.error(`[templates/remind] e-mail failed for ${approver.email}`, err);
+      failed.push(approver.email);
+    }
+  }
+
+  if (recipients.length === 0) {
     return NextResponse.json(
       { ok: false, error: "Odeslání e-mailu selhalo." },
       { status: 500 },
@@ -89,7 +100,8 @@ export async function sendReminderResponse(): Promise<NextResponse> {
     ok: true,
     sent: true,
     pendingCount: pending.length,
-    to: approver.email,
+    recipients,
+    ...(failed.length ? { failed } : {}),
   });
 }
 
