@@ -129,7 +129,14 @@ export async function POST(req: Request) {
     letterhead = sourceTemplates[0]?.letterhead ?? true;
   } else {
     const template = await getOrSeedContractTemplate(type, variant);
-    templateHtml = ensureClaimsToken(template.html);
+    // Token tabulky pohledávek ({{claimsTable}}) patří jen do postoupení
+    // pohledávek. ensureClaimsToken přes fallback na nadpis „Příloha č. 1..."
+    // jinak injektuje token i tam, kam nepatří (např. „Příloha č. 1 - Vybavení
+    // Provozovny" u smlouvy o provozování).
+    templateHtml =
+      type === "claim-assignment"
+        ? ensureClaimsToken(template.html)
+        : template.html;
     templateSnapshot = templateHtml;
     letterhead = template.letterhead ?? true;
   }
