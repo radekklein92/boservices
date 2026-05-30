@@ -129,14 +129,12 @@ export async function POST(req: Request) {
     letterhead = sourceTemplates[0]?.letterhead ?? true;
   } else {
     const template = await getOrSeedContractTemplate(type, variant);
-    // Token tabulky pohledávek ({{claimsTable}}) patří jen do postoupení
-    // pohledávek. ensureClaimsToken přes fallback na nadpis „Příloha č. 1..."
-    // jinak injektuje token i tam, kam nepatří (např. „Příloha č. 1 - Vybavení
-    // Provozovny" u smlouvy o provozování).
-    templateHtml =
-      type === "claim-assignment"
-        ? ensureClaimsToken(template.html)
-        : template.html;
+    // Žádná runtime injekce tokenu - šablona je zdroj pravdy. Token tabulky
+    // pohledávek ({{claimsTable}}) je natvrdo v šabloně postoupení
+    // (claim-assignment); ostatní typy ho nemají a nedostávají. Render PDF má
+    // navíc safety net (prepareClaimsAppendix), který token doplní jen u typů
+    // postoupení, kdyby ve starší smlouvě chyběl.
+    templateHtml = template.html;
     templateSnapshot = templateHtml;
     letterhead = template.letterhead ?? true;
   }

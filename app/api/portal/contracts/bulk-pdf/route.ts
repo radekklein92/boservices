@@ -95,12 +95,13 @@ export async function POST(req: Request) {
     const variables = buildClaimsVariables(baseVariables, contract.claims ?? []);
     const cover = getCoverForType(contract.type);
     const letterhead = contract.letterhead ?? true;
+    // Příloha pohledávek (token, podpis, zalomení) i strip Clamory jen u typů
+    // postoupení; ostatní typy projdou beze změny (jinak by ensureClaimsToken
+    // omylem injektoval token podle nadpisu „Příloha č. 1...").
     const isClaim =
       contract.type === "claim-assignment" || contract.type === "claim-bundle";
-    const prep = (h: string) => {
-      const x = prepareClaimsAppendix(h);
-      return isClaim ? stripClamoraDicAndBank(x) : x;
-    };
+    const prep = (h: string) =>
+      isClaim ? stripClamoraDicAndBank(prepareClaimsAppendix(h)) : h;
 
     try {
       let pdf: Buffer;

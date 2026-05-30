@@ -65,12 +65,14 @@ export async function renderAndStoreContractPdf(contract: Contract): Promise<{
 
   // Render-time příprava: příloha na novou stránku (vše), u postoupení navíc
   // odstranění DIČ Clamory a nahrazení čísla účtu linkou (i pro starší smlouvy).
+  // Příloha č. 1 s tabulkou pohledávek (token, podpis Postupitele, zalomení na
+  // novou stránku) i odstranění DIČ/účtu Clamory patří JEN typům postoupení.
+  // Ostatní typy (provozování apod.) mají vlastní Přílohu č. 1 a html projde beze
+  // změny - jinak by ensureClaimsToken injektoval token podle nadpisu omylem.
   const isClaim =
     contract.type === "claim-assignment" || contract.type === "claim-bundle";
-  const prep = (h: string) => {
-    const x = prepareClaimsAppendix(h);
-    return isClaim ? stripClamoraDicAndBank(x) : x;
-  };
+  const prep = (h: string) =>
+    isClaim ? stripClamoraDicAndBank(prepareClaimsAppendix(h)) : h;
 
   let pdf: Buffer;
   if (isBundleType(contract.type) && contract.bundleSections) {
