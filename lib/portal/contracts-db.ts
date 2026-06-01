@@ -103,15 +103,16 @@ export const CONTRACT_STATUS_LABEL: Record<ContractStatus, string> = {
   archivovano: "Archivováno",
 };
 
-// Chip tóny stavu smlouvy (border+bg+text) - každý stav má vlastní barvu pro
-// rychlé odlišení v seznamu. Stejný styl jako stavové chipy lokalit.
+// Chip tóny stavu smlouvy (border+bg+text). Barvy jsou rozprostřené po celém
+// barevném kruhu (žlutá → modrá → fialová → magenta → růžová → zelená), ať jsou
+// stavy jednoznačně odlišitelné. Stejný recept jako stavové chipy lokalit.
 export const CONTRACT_STATUS_STYLE: Record<ContractStatus, string> = {
   koncept: "border-edge bg-edge-warm text-ink-mid",
   "ke-schvaleni": "border-amber-300 bg-amber-50 text-amber-700",
   schvaleno: "border-sky-300 bg-sky-50 text-sky-700",
   "k-podpisu": "border-violet-300 bg-violet-50 text-violet-700",
-  "podepsano-bos": "border-indigo-300 bg-indigo-50 text-indigo-700",
-  "podepsano-klientem": "border-teal-300 bg-teal-50 text-teal-700",
+  "podepsano-bos": "border-fuchsia-300 bg-fuchsia-50 text-fuchsia-700",
+  "podepsano-klientem": "border-rose-300 bg-rose-50 text-rose-700",
   archivovano: "border-emerald-300 bg-emerald-50 text-emerald-700",
 };
 
