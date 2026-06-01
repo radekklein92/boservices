@@ -1,0 +1,429 @@
+"use client";
+
+import { useRef, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { upload } from "@vercel/blob/client";
+import {
+  ArrowLeft,
+  Lock,
+  Paperclip,
+  Trash2,
+  Upload,
+  FileText,
+  ExternalLink,
+  AlertTriangle,
+} from "lucide-react";
+import type { LocationView } from "@/lib/portal/locations-db";
+import {
+  CATEGORY_HINT,
+  CATEGORY_LABEL,
+  CATEGORY_STYLE,
+  CHIP_BASE,
+  CLIENT_STATUS_LABEL,
+  CONCEPT_LABEL,
+  LANDLORD_LABEL,
+  LEASE_STATUS_LABEL,
+  LOCATION_STATUS_LABEL,
+  LOCATION_STATUS_STYLE,
+  MODE_LABEL,
+  RE_AGENT_LABEL,
+  TRANSITION_STATUS_LABEL,
+  TRANSITION_STATUS_STYLE,
+  formatBytes,
+  formatDate,
+  formatDateTime,
+  formatMoney,
+} from "./locations-shared";
+
+export function LocationDetail({ location }: { location: LocationView }) {
+  const l = location;
+
+  return (
+    <div className="flex flex-col gap-6">
+      <Link
+        href="/portal/locations"
+        className="inline-flex w-fit items-center gap-2 text-[13px] font-medium text-ink-mid transition-colors hover:text-ink-base"
+      >
+        <ArrowLeft className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+        Zpět na lokality
+      </Link>
+
+      <header className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center gap-2">
+          {l.category && (
+            <span className={`${CHIP_BASE} ${CATEGORY_STYLE[l.category]}`}>
+              {CATEGORY_LABEL[l.category]}
+            </span>
+          )}
+          <span className={`${CHIP_BASE} border-edge bg-paper text-ink-deep`}>
+            {CONCEPT_LABEL[l.concept]}
+          </span>
+          {l.location_status && (
+            <span className={`${CHIP_BASE} ${LOCATION_STATUS_STYLE[l.location_status]}`}>
+              {LOCATION_STATUS_LABEL[l.location_status]}
+            </span>
+          )}
+          {l.transition_status && (
+            <span className={`${CHIP_BASE} ${TRANSITION_STATUS_STYLE[l.transition_status]}`}>
+              {TRANSITION_STATUS_LABEL[l.transition_status]}
+            </span>
+          )}
+        </div>
+        <div>
+          <h1 className="font-extrabold text-[clamp(1.6rem,3vw,2.2rem)] tracking-[-0.02em] text-ink-base">
+            {l.name}
+          </h1>
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-ink-mid">
+            {l.code && <span className="font-mono">{l.code}</span>}
+            {l.category && <span>{CATEGORY_HINT[l.category]}</span>}
+          </div>
+        </div>
+      </header>
+
+      <div className="flex items-center gap-2 rounded-2xl border border-edge bg-paper-warm px-5 py-3 text-[12.5px] text-ink-mid">
+        <Lock className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} aria-hidden="true" />
+        <span>
+          Data lokality jsou zrcadlo z Transition a needitují se zde. Upravit lze
+          jen lokální poznámku a přílohy níže.
+        </span>
+      </div>
+
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <Section title="Nájem a přepis">
+          <Row label="Aktuální stav nájmu" value={LEASE_STATUS_LABEL[l.lease_current_status]} />
+          <Row label="Cílový stav nájmu" value={LEASE_STATUS_LABEL[l.lease_target_status]} />
+          <Row label="Stav přechodu" value={TRANSITION_STATUS_LABEL[l.transition_status]} />
+          <Row label="Zodpovědná osoba" value={l.responsible} />
+          <Row label="Výjimku schválil" value={l.exception_approved_by} />
+        </Section>
+
+        <Section title="Realitní operativa">
+          <Row label="RE agent" value={l.re_agent ? RE_AGENT_LABEL[l.re_agent] : null} />
+          <Row
+            label="Dohoda s pronajímatelem"
+            value={l.landlord_agreement ? LANDLORD_LABEL[l.landlord_agreement] : l.landlord_agreement_raw}
+          />
+          <Row label="Příplatek" value={l.surcharge_amount ? formatMoney(l.surcharge_amount) : null} />
+          <Row label="IČO klienta" value={l.client_ico} mono />
+          <Row label="Hrozí výpověď" value={l.eviction_risk ? "Ano" : null} />
+          <Row label="Aktivně řešeno" value={l.re_active ? "Ano" : null} />
+          <Row label="Další krok" value={l.next_step} />
+          <Row label="Poznámka k RE" value={l.re_status_note} />
+        </Section>
+
+        <Section title="Provoz a stav">
+          <Row
+            label="Fyzický stav"
+            value={l.location_status ? LOCATION_STATUS_LABEL[l.location_status] : null}
+          />
+          <Row
+            label="Stav klienta"
+            value={l.client_status ? CLIENT_STATUS_LABEL[l.client_status] : null}
+          />
+          <Row label="Důvod stavu" value={l.client_status_reason} />
+          <Row label="Datum otevření" value={formatDate(l.opening_date)} />
+          <Row label="Datum zavření" value={formatDate(l.closing_date)} />
+          <Row label="Aktuální režim" value={l.current_mode ? MODE_LABEL[l.current_mode] : null} />
+          <Row
+            label="Nový režim"
+            value={
+              l.new_mode
+                ? `${MODE_LABEL[l.new_mode]}${l.new_mode_start_date ? ` (od ${formatDate(l.new_mode_start_date)})` : ""}`
+                : null
+            }
+          />
+          <Row label="OP 2026" value={l.op_2026 ? formatMoney(l.op_2026) : null} />
+        </Section>
+
+        <Section title="Klient a obsazení">
+          <Row label="Nový klient" value={l.new_client_name} />
+          <Row label="Cílový franšízant" value={l.target_franchisee} />
+          <Row
+            label="Zájemců ve frontě"
+            value={l.overcrowded_client_count ? String(l.overcrowded_client_count) : null}
+          />
+          <Row label="V novém TWIST" value={l.in_new_twist ? "Ano" : "Ne"} />
+        </Section>
+      </div>
+
+      {l.note && (
+        <Section title="Poznámka z Transition">
+          <p className="whitespace-pre-wrap text-[13.5px] leading-relaxed text-ink-deep">
+            {l.note}
+          </p>
+        </Section>
+      )}
+
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-[11.5px] text-ink-soft">
+        <span>Vytvořeno {formatDate(l.created_at)} · {l.created_by || "—"}</span>
+        <span>Aktualizováno {formatDate(l.updated_at)} · {l.updated_by || "—"}</span>
+      </div>
+
+      <LocalNote location={l} />
+      <Attachments location={l} />
+    </div>
+  );
+}
+
+// ── Lokální poznámka ──────────────────────────────────────────────────────────
+
+function LocalNote({ location }: { location: LocationView }) {
+  const [note, setNote] = useState(location.local?.note ?? "");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const original = location.local?.note ?? "";
+  const dirty = note !== original;
+
+  async function save() {
+    setSaving(true);
+    setError(null);
+    setSaved(false);
+    try {
+      const res = await fetch(`/api/portal/locations/${location.id}/note`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ note }),
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || "Uložení selhalo.");
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Uložení selhalo.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Section
+      title="Lokální poznámka"
+      hint="Jen v BOServices — synchronizace z Transition se jí nedotkne."
+    >
+      <textarea
+        value={note}
+        onChange={(e) => {
+          setNote(e.target.value);
+          setSaved(false);
+        }}
+        rows={5}
+        placeholder="Poznámky oblastního manažera, kontext k nájemní smlouvě, úkoly…"
+        className="w-full resize-y rounded-xl border border-edge bg-paper px-4 py-3 text-[13.5px] leading-relaxed text-ink-base outline-none transition-colors placeholder:text-ink-soft focus:border-ink-base"
+      />
+      <div className="mt-3 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={save}
+          disabled={saving || !dirty}
+          className="inline-flex h-10 items-center gap-2 rounded-full bg-ink-base px-5 text-[13px] font-semibold text-paper transition-transform active:translate-y-px disabled:opacity-40"
+        >
+          {saving ? "Ukládám…" : "Uložit poznámku"}
+        </button>
+        {saved && <span className="text-[12.5px] text-emerald-600">Uloženo.</span>}
+        {error && <span className="text-[12.5px] text-red-600">{error}</span>}
+        {location.local?.updatedAt && !dirty && !saved && (
+          <span className="text-[11.5px] text-ink-soft">
+            Naposledy {formatDateTime(location.local.updatedAt)}
+          </span>
+        )}
+      </div>
+    </Section>
+  );
+}
+
+// ── Přílohy ───────────────────────────────────────────────────────────────────
+
+function Attachments({ location }: { location: LocationView }) {
+  const router = useRouter();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const attachments = location.local?.attachments ?? [];
+
+  async function onFiles(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    setBusy(true);
+    setError(null);
+    try {
+      for (const file of Array.from(files)) {
+        const blob = await upload(
+          `portal/locations/${location.id}/files/${file.name}`,
+          file,
+          {
+            access: "public",
+            handleUploadUrl: `/api/portal/locations/${location.id}/attachments/upload`,
+            contentType: file.type || undefined,
+          },
+        );
+        const res = await fetch(`/api/portal/locations/${location.id}/attachments`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: file.name,
+            url: blob.url,
+            pathname: blob.pathname,
+            size: file.size,
+            contentType: file.type || "application/octet-stream",
+          }),
+        });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || "Evidence přílohy selhala.");
+      }
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Nahrání selhalo.");
+    } finally {
+      setBusy(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  }
+
+  async function remove(attachmentId: string, name: string) {
+    if (!window.confirm(`Smazat přílohu ${name}?`)) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/portal/locations/${location.id}/attachments?attachmentId=${attachmentId}`,
+        { method: "DELETE" },
+      );
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || "Smazání selhalo.");
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Smazání selhalo.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Section
+      title="Přílohy"
+      hint="Nájemní smlouvy, dodatky, předávací protokoly — uložené v BOServices."
+      action={
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          disabled={busy}
+          className="inline-flex h-9 items-center gap-2 rounded-full border border-edge px-4 text-[12.5px] font-medium text-ink-deep transition-colors hover:border-ink-base hover:text-ink-base disabled:opacity-50"
+        >
+          <Upload className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+          {busy ? "Nahrávám…" : "Nahrát"}
+        </button>
+      }
+    >
+      <input
+        ref={inputRef}
+        type="file"
+        multiple
+        className="hidden"
+        onChange={(e) => onFiles(e.target.files)}
+        accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx"
+      />
+
+      {error && (
+        <div className="mb-3 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[12.5px] text-red-700">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
+          {error}
+        </div>
+      )}
+
+      {attachments.length === 0 ? (
+        <div className="flex items-center gap-2.5 rounded-xl border border-dashed border-edge px-4 py-5 text-[13px] text-ink-mid">
+          <Paperclip className="h-4 w-4 shrink-0" strokeWidth={1.5} aria-hidden="true" />
+          Zatím žádné přílohy.
+        </div>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {attachments.map((a) => (
+            <li
+              key={a.id}
+              className="flex items-center gap-3 rounded-xl border border-edge bg-paper px-4 py-3"
+            >
+              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-edge-warm text-ink-deep">
+                <FileText className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <a
+                  href={a.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 truncate text-[13.5px] font-medium text-ink-base hover:underline"
+                >
+                  <span className="truncate">{a.name}</span>
+                  <ExternalLink className="h-3 w-3 shrink-0 text-ink-soft" strokeWidth={1.5} />
+                </a>
+                <div className="mt-0.5 text-[11.5px] text-ink-soft">
+                  {formatBytes(a.size)} · {formatDateTime(a.uploadedAt)}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => remove(a.id, a.name)}
+                disabled={busy}
+                aria-label={`Smazat ${a.name}`}
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-edge text-ink-mid transition-colors hover:border-ink-base hover:bg-ink-base hover:text-paper disabled:opacity-50"
+              >
+                <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Section>
+  );
+}
+
+// ── Stavební bloky ────────────────────────────────────────────────────────────
+
+function Section({
+  title,
+  hint,
+  action,
+  children,
+}: {
+  title: string;
+  hint?: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-2xl border border-edge bg-paper p-6">
+      <div className="mb-4 flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-[13px] font-bold uppercase tracking-[0.12em] text-ink-base">
+            {title}
+          </h2>
+          {hint && <p className="mt-1 text-[11.5px] text-ink-soft">{hint}</p>}
+        </div>
+        {action}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function Row({
+  label,
+  value,
+  mono,
+}: {
+  label: string;
+  value: string | null | undefined;
+  mono?: boolean;
+}) {
+  const empty = value == null || value === "" || value === "—";
+  return (
+    <div className="flex items-baseline justify-between gap-4 border-b border-edge/60 py-2 last:border-0">
+      <span className="shrink-0 text-[12.5px] text-ink-mid">{label}</span>
+      <span
+        className={`text-right text-[13px] ${empty ? "text-ink-soft" : "text-ink-base"} ${mono ? "font-mono" : ""}`}
+      >
+        {empty ? "—" : value}
+      </span>
+    </div>
+  );
+}

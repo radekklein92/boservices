@@ -5,6 +5,11 @@ import {
   listContractsByClient,
 } from "./contracts-db";
 import { getClient, listClients } from "./clients-db";
+import {
+  getLocation,
+  getLocationsSyncMeta,
+  listLocations,
+} from "./locations-db";
 import { listUsers } from "./users-db";
 import { listAllowlist } from "./allowlist-db";
 import {
@@ -64,6 +69,24 @@ export const cachedListAllowlist = unstable_cache(
   () => listAllowlist(),
   ["cached:listAllowlist"],
   { tags: [TAG.users], revalidate: ONE_HOUR },
+);
+
+export const cachedListLocations = unstable_cache(
+  () => listLocations(),
+  ["cached:listLocations"],
+  { tags: [TAG.locations], revalidate: ONE_HOUR },
+);
+
+export const cachedGetLocation = unstable_cache(
+  (id: string) => getLocation(id),
+  ["cached:getLocation"],
+  { tags: [TAG.locations], revalidate: ONE_HOUR },
+);
+
+export const cachedGetLocationsSyncMeta = unstable_cache(
+  () => getLocationsSyncMeta(),
+  ["cached:getLocationsSyncMeta"],
+  { tags: [TAG.locations], revalidate: ONE_HOUR },
 );
 
 export const cachedListContractTemplates = unstable_cache(

@@ -1,0 +1,198 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import Link from "next/link";
+import { ArrowUpRight, Search, MapPin } from "lucide-react";
+import type { LocationCategory, MirroredLocation } from "@/lib/portal/locations-db";
+import {
+  CATEGORY_LABEL,
+  CATEGORY_ORDER,
+  CATEGORY_STYLE,
+  CHIP_BASE,
+  CLIENT_STATUS_LABEL,
+  CONCEPT_LABEL,
+  LOCATION_STATUS_LABEL,
+  LOCATION_STATUS_STYLE,
+} from "./locations-shared";
+
+export function LocationsTable({ locations }: { locations: MirroredLocation[] }) {
+  const [query, setQuery] = useState("");
+  const [activeCats, setActiveCats] = useState<Set<LocationCategory>>(new Set());
+
+  const counts = useMemo(() => {
+    const map = new Map<LocationCategory, number>();
+    for (const l of locations) {
+      if (l.category) map.set(l.category, (map.get(l.category) ?? 0) + 1);
+    }
+    return map;
+  }, [locations]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return locations.filter((l) => {
+      if (activeCats.size > 0 && (!l.category || !activeCats.has(l.category))) {
+        return false;
+      }
+      if (!q) return true;
+      const haystack = [
+        l.name,
+        l.code,
+        CONCEPT_LABEL[l.concept],
+        l.new_client_name,
+        l.target_franchisee,
+        l.client_ico,
+        l.responsible,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [locations, query, activeCats]);
+
+  function toggleCat(cat: LocationCategory) {
+    setActiveCats((prev) => {
+      const next = new Set(prev);
+      if (next.has(cat)) next.delete(cat);
+      else next.add(cat);
+      return next;
+    });
+  }
+
+  if (locations.length === 0) {
+    return (
+      <div className="rounded-[24px] border border-dashed border-edge bg-paper p-12 text-center">
+        <div className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-edge-warm text-ink-mid">
+          <MapPin className="h-5 w-5" strokeWidth={1.5} />
+        </div>
+        <h3 className="mt-4 text-[1.05rem] font-bold tracking-[-0.02em] text-ink-base">
+          Zatím žádné lokality.
+        </h3>
+        <p className="mx-auto mt-2 max-w-[44ch] text-[13.5px] text-ink-mid">
+          Lokality se synchronizují z projektu Transition. Po nastavení integrace
+          a první synchronizaci se zde objeví.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="relative max-w-[400px] flex-1">
+          <Search
+            className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mid"
+            strokeWidth={1.5}
+          />
+          <input
+            type="search"
+            placeholder="Hledat podle názvu, kódu, klienta…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="h-11 w-full rounded-full border border-edge bg-paper pl-11 pr-4 text-[14px] text-ink-base outline-none transition-colors placeholder:text-ink-soft focus:border-ink-base"
+          />
+        </div>
+        <span className="font-mono text-[12px] text-ink-soft">
+          {filtered.length.toString().padStart(2, "0")} / {locations.length}
+        </span>
+      </div>
+
+      <div className="mb-5 flex flex-wrap items-center gap-1.5">
+        {CATEGORY_ORDER.map((cat) => {
+          const n = counts.get(cat) ?? 0;
+          if (n === 0) return null;
+          const active = activeCats.has(cat);
+          return (
+            <button
+              key={cat}
+              type="button"
+              onClick={() => toggleCat(cat)}
+              className={`${CHIP_BASE} transition-all ${
+                active
+                  ? CATEGORY_STYLE[cat] + " ring-2 ring-ink-base/15"
+                  : "border-edge bg-paper text-ink-mid hover:border-ink-soft"
+              }`}
+            >
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${active ? "bg-current" : "bg-ink-soft"}`}
+              />
+              {CATEGORY_LABEL[cat]}
+              <span className="font-mono text-[10.5px] opacity-70">{n}</span>
+            </button>
+          );
+        })}
+        {activeCats.size > 0 && (
+          <button
+            type="button"
+            onClick={() => setActiveCats(new Set())}
+            className="ml-1 text-[11.5px] font-medium text-ink-mid underline-offset-2 hover:text-ink-base hover:underline"
+          >
+            Zrušit filtr
+          </button>
+        )}
+      </div>
+
+      <div className="overflow-hidden rounded-[24px] border border-edge bg-paper">
+        <ul className="divide-y divide-edge">
+          {filtered.map((l) => (
+            <li
+              key={l.id}
+              className="group flex flex-col gap-4 px-5 py-5 transition-colors hover:bg-paper-warm md:flex-row md:items-center md:gap-6 md:px-7 md:py-6"
+            >
+              <div className="min-w-0 md:flex-1">
+                <Link
+                  href={`/portal/locations/${l.id}`}
+                  className="flex items-baseline gap-3"
+                >
+                  <span className="truncate text-[15.5px] font-bold tracking-[-0.01em] text-ink-base">
+                    {l.name}
+                  </span>
+                  <ArrowUpRight
+                    className="h-3.5 w-3.5 shrink-0 text-ink-soft transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+                    strokeWidth={1.5}
+                    aria-hidden="true"
+                  />
+                </Link>
+                <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12.5px] text-ink-mid">
+                  {l.code && <span className="font-mono">{l.code}</span>}
+                  <span>{CONCEPT_LABEL[l.concept]}</span>
+                  {l.new_client_name && (
+                    <span className="truncate text-ink-deep">{l.new_client_name}</span>
+                  )}
+                  {!l.new_client_name && l.target_franchisee && (
+                    <span className="truncate">{l.target_franchisee}</span>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-1.5">
+                {l.category && (
+                  <span className={`${CHIP_BASE} ${CATEGORY_STYLE[l.category]}`}>
+                    {CATEGORY_LABEL[l.category]}
+                  </span>
+                )}
+                {l.location_status && (
+                  <span className={`${CHIP_BASE} ${LOCATION_STATUS_STYLE[l.location_status]}`}>
+                    {LOCATION_STATUS_LABEL[l.location_status]}
+                  </span>
+                )}
+                {l.client_status && (
+                  <span className={`${CHIP_BASE} border-edge bg-paper text-ink-mid`}>
+                    {CLIENT_STATUS_LABEL[l.client_status]}
+                  </span>
+                )}
+              </div>
+
+              <Link
+                href={`/portal/locations/${l.id}`}
+                className="inline-flex h-9 shrink-0 items-center gap-2 rounded-full border border-edge px-3 text-[12px] font-medium text-ink-deep transition-colors hover:border-ink-base hover:text-ink-base"
+              >
+                Detail
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </>
+  );
+}
