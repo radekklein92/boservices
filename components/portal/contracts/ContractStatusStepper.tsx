@@ -86,25 +86,6 @@ export function ContractStatusStepper({
                 key={status}
                 className="relative flex flex-1 flex-col items-center text-center"
               >
-                {/* Propojovací linka mezi tečkou a další tečkou - nakreslíme ji
-                    z LEVÉ poloviny do PRAVÉ. První step nemá levou, poslední pravou. */}
-                {idx > 0 && (
-                  <span
-                    className={`absolute left-0 right-1/2 top-[18px] h-[2px] -translate-y-1/2 ${
-                      idx <= currentIdx ? "bg-ink-base" : "bg-edge"
-                    }`}
-                    aria-hidden="true"
-                  />
-                )}
-                {idx < flow.length - 1 && (
-                  <span
-                    className={`absolute left-1/2 right-0 top-[18px] h-[2px] -translate-y-1/2 ${
-                      idx < currentIdx ? "bg-ink-base" : "bg-edge"
-                    }`}
-                    aria-hidden="true"
-                  />
-                )}
-
                 {/* Číslo nad tečkou */}
                 <div
                   className={`mb-1 text-[10.5px] font-semibold tracking-wider ${
@@ -114,25 +95,47 @@ export function ContractStatusStepper({
                   {idx + 1}
                 </div>
 
-                {/* Tečka */}
-                <div
-                  className={[
-                    "relative z-10 grid h-9 w-9 place-items-center rounded-full transition-colors",
-                    isDone && "bg-ink-base text-paper",
-                    isCurrent &&
-                      "bg-ink-base text-paper ring-4 ring-ink-base/12",
-                    isFuture && "border border-edge bg-paper text-ink-soft",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
-                  aria-current={isCurrent ? "step" : undefined}
-                >
-                  {isDone && (
-                    <Check className="h-4 w-4" strokeWidth={2.5} aria-hidden="true" />
+                {/* Řádek s tečkou + propojovací linkou. Linku centrujeme vertikálně
+                    na tečku (top-1/2 vůči tomuto řádku), kreslíme z LEVÉ poloviny
+                    do PRAVÉ. První step nemá levou, poslední pravou. */}
+                <div className="relative flex w-full items-center justify-center">
+                  {idx > 0 && (
+                    <span
+                      className={`absolute left-0 right-1/2 top-1/2 h-[2px] -translate-y-1/2 ${
+                        idx <= currentIdx ? "bg-ink-base" : "bg-edge"
+                      }`}
+                      aria-hidden="true"
+                    />
                   )}
-                  {isCurrent && (
-                    <span className="h-2 w-2 rounded-full bg-paper" aria-hidden="true" />
+                  {idx < flow.length - 1 && (
+                    <span
+                      className={`absolute left-1/2 right-0 top-1/2 h-[2px] -translate-y-1/2 ${
+                        idx < currentIdx ? "bg-ink-base" : "bg-edge"
+                      }`}
+                      aria-hidden="true"
+                    />
                   )}
+
+                  {/* Tečka */}
+                  <div
+                    className={[
+                      "relative z-10 grid h-9 w-9 place-items-center rounded-full transition-colors",
+                      isDone && "bg-ink-base text-paper",
+                      isCurrent &&
+                        "bg-ink-base text-paper ring-4 ring-ink-base/12",
+                      isFuture && "border border-edge bg-paper text-ink-soft",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                    aria-current={isCurrent ? "step" : undefined}
+                  >
+                    {isDone && (
+                      <Check className="h-4 w-4" strokeWidth={2.5} aria-hidden="true" />
+                    )}
+                    {isCurrent && (
+                      <span className="h-2 w-2 rounded-full bg-paper" aria-hidden="true" />
+                    )}
+                  </div>
                 </div>
 
                 {/* Label */}
