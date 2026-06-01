@@ -31,6 +31,7 @@ import {
 import type { Client } from "@/lib/portal/clients-db";
 import dynamicImport from "next/dynamic";
 import { CONTRACT_TYPE_META, isBundleType } from "@/lib/portal/contract-types";
+import { FilterChip } from "@/components/portal/ui/FilterChip";
 
 // Stejná logika jako v ContractDetailClient.hasTemplateChanges - zda se
 // smlouva odchýlila od šablony. Pro bundle: aspoň jedna sekce má snapshot
@@ -384,7 +385,7 @@ export function ContractsList({
 
         {/* Status filter chips */}
         <div className="flex flex-wrap items-center gap-2">
-          <StatusChip
+          <FilterChip
             active={statusFilter === "all"}
             onClick={() => setStatusFilter("all")}
             label="Vše"
@@ -393,7 +394,7 @@ export function ContractsList({
           {STATUS_ORDER.map((s) => {
             const m = STATUS_META[s];
             return (
-              <StatusChip
+              <FilterChip
                 key={s}
                 active={statusFilter === s}
                 onClick={() => setStatusFilter(s)}
@@ -648,41 +649,6 @@ function BulkButton({
     >
       <Icon className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
       {pending ? "Pracuji…" : children}
-    </button>
-  );
-}
-
-function StatusChip({
-  active,
-  onClick,
-  Icon,
-  label,
-  count,
-}: {
-  active: boolean;
-  onClick: () => void;
-  Icon?: LucideIcon;
-  label: string;
-  count: number;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={[
-        "inline-flex h-9 items-center gap-2 rounded-full border px-3.5 text-[12.5px] font-medium transition-colors",
-        active
-          ? "border-ink-base bg-ink-base text-paper"
-          : "border-edge bg-paper text-ink-deep hover:border-ink-soft",
-      ].join(" ")}
-    >
-      {Icon && <Icon className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />}
-      <span>{label}</span>
-      <span
-        className={`font-mono text-[11px] ${active ? "text-paper/70" : "text-ink-soft"}`}
-      >
-        {count}
-      </span>
     </button>
   );
 }

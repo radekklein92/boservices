@@ -4,7 +4,9 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowUpRight, Search, MapPin, FileCheck, FileX } from "lucide-react";
 import type { LocationCategory, MirroredLocation } from "@/lib/portal/locations-db";
+import { FilterChip } from "@/components/portal/ui/FilterChip";
 import {
+  CATEGORY_DOT,
   CATEGORY_LABEL,
   CATEGORY_ORDER,
   CATEGORY_STYLE,
@@ -120,72 +122,53 @@ export function LocationsTable({
         </span>
       </div>
 
-      <div className="mb-5 flex flex-wrap items-center gap-1.5">
+      <div className="mb-5 flex flex-wrap items-center gap-2">
         {CATEGORY_ORDER.map((cat) => {
           const n = counts.get(cat) ?? 0;
           if (n === 0) return null;
-          const active = activeCats.has(cat);
           return (
-            <button
+            <FilterChip
               key={cat}
-              type="button"
+              active={activeCats.has(cat)}
               onClick={() => toggleCat(cat)}
-              className={`${CHIP_BASE} transition-all ${
-                active
-                  ? CATEGORY_STYLE[cat] + " ring-2 ring-ink-base/15"
-                  : "border-edge bg-paper text-ink-mid hover:border-ink-soft"
-              }`}
-            >
-              <span
-                className={`h-1.5 w-1.5 rounded-full ${active ? "bg-current" : "bg-ink-soft"}`}
-              />
-              {CATEGORY_LABEL[cat]}
-              <span className="font-mono text-[10.5px] opacity-70">{n}</span>
-            </button>
+              dotClass={CATEGORY_DOT[cat]}
+              label={CATEGORY_LABEL[cat]}
+              count={n}
+            />
           );
         })}
-        {activeCats.size > 0 && (
+
+        <span className="mx-1 h-5 w-px shrink-0 bg-edge" aria-hidden="true" />
+
+        <FilterChip
+          active={leaseFilter === "has"}
+          onClick={() => setLeaseFilter((f) => (f === "has" ? "all" : "has"))}
+          Icon={FileCheck}
+          label="Se smlouvou"
+          count={leaseCounts.has}
+          title="Lokality s nahranou nájemní smlouvou (přílohou)"
+        />
+        <FilterChip
+          active={leaseFilter === "missing"}
+          onClick={() => setLeaseFilter((f) => (f === "missing" ? "all" : "missing"))}
+          Icon={FileX}
+          label="Bez smlouvy"
+          count={leaseCounts.missing}
+          title="Lokality bez nahrané nájemní smlouvy"
+        />
+
+        {(activeCats.size > 0 || leaseFilter !== "all") && (
           <button
             type="button"
-            onClick={() => setActiveCats(new Set())}
-            className="ml-1 text-[11.5px] font-medium text-ink-mid underline-offset-2 hover:text-ink-base hover:underline"
+            onClick={() => {
+              setActiveCats(new Set());
+              setLeaseFilter("all");
+            }}
+            className="ml-1 text-[12px] font-medium text-ink-mid underline-offset-2 hover:text-ink-base hover:underline"
           >
             Zrušit filtr
           </button>
         )}
-      </div>
-
-      {/* Filtr nahrané nájemní smlouvy (= aspoň jedna příloha u lokality). */}
-      <div className="mb-5 flex flex-wrap items-center gap-1.5">
-        <span className="mr-1 text-[11px] font-medium uppercase tracking-[0.14em] text-ink-soft">
-          Nájemní smlouva
-        </span>
-        <button
-          type="button"
-          onClick={() => setLeaseFilter((f) => (f === "has" ? "all" : "has"))}
-          className={`${CHIP_BASE} transition-all ${
-            leaseFilter === "has"
-              ? "border-emerald-300 bg-emerald-50 text-emerald-700 ring-2 ring-ink-base/15"
-              : "border-edge bg-paper text-ink-mid hover:border-ink-soft"
-          }`}
-        >
-          <FileCheck className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
-          Nahraná
-          <span className="font-mono text-[10.5px] opacity-70">{leaseCounts.has}</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setLeaseFilter((f) => (f === "missing" ? "all" : "missing"))}
-          className={`${CHIP_BASE} transition-all ${
-            leaseFilter === "missing"
-              ? "border-amber-300 bg-amber-50 text-amber-700 ring-2 ring-ink-base/15"
-              : "border-edge bg-paper text-ink-mid hover:border-ink-soft"
-          }`}
-        >
-          <FileX className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
-          Chybí
-          <span className="font-mono text-[10.5px] opacity-70">{leaseCounts.missing}</span>
-        </button>
       </div>
 
       <div className="overflow-hidden rounded-[24px] border border-edge bg-paper">

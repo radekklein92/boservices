@@ -32,6 +32,16 @@ export const CATEGORY_STYLE: Record<LocationCategory, string> = {
   exit: "border-edge bg-edge-warm text-ink-mid",
 };
 
+// Sytá tečka pro filtrovací pilulky - čitelná i na světlé i na černé (aktivní)
+// pilulce, drží barevnou identitu kategorie.
+export const CATEGORY_DOT: Record<LocationCategory, string> = {
+  core: "bg-emerald-500",
+  nice: "bg-sky-500",
+  soso: "bg-amber-500",
+  trash: "bg-orange-500",
+  exit: "bg-zinc-400",
+};
+
 export const CATEGORY_HINT: Record<LocationCategory, string> = {
   core: "Výhradně na TWIST / CEIP.",
   nice: "Nižší priorita, nájem na franšízanta (jinak TWIST/CEIP).",
