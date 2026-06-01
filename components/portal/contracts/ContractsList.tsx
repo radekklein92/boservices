@@ -11,9 +11,6 @@ import {
   Search,
   Trash2,
   CheckCircle2,
-  ScanLine,
-  Circle,
-  Clock,
   PenLine,
   Package,
   Gavel,
@@ -34,6 +31,7 @@ import dynamicImport from "next/dynamic";
 import { CONTRACT_TYPE_META, isBundleType } from "@/lib/portal/contract-types";
 import { FilterChip } from "@/components/portal/ui/FilterChip";
 import { Chip } from "@/components/portal/ui/Chip";
+import { CONTRACT_STATUS_ICON } from "./contract-status-meta";
 import { BTN_ROW, BTN_ICON } from "@/components/portal/ui/buttons";
 
 // Stejná logika jako v ContractDetailClient.hasTemplateChanges - zda se
@@ -71,43 +69,6 @@ function formatDate(iso: string): string {
 }
 
 const STATUS_ORDER = ALL_CONTRACT_STATUSES;
-
-const STATUS_META: Record<
-  Contract["status"],
-  { label: string; Icon: LucideIcon; tone: "muted" | "ink" | "ok" }
-> = {
-  koncept: { label: CONTRACT_STATUS_LABEL.koncept, Icon: Circle, tone: "muted" },
-  "ke-schvaleni": {
-    label: CONTRACT_STATUS_LABEL["ke-schvaleni"],
-    Icon: Clock,
-    tone: "ink",
-  },
-  schvaleno: {
-    label: CONTRACT_STATUS_LABEL.schvaleno,
-    Icon: CheckCircle2,
-    tone: "ink",
-  },
-  "k-podpisu": {
-    label: CONTRACT_STATUS_LABEL["k-podpisu"],
-    Icon: Gavel,
-    tone: "ink",
-  },
-  "podepsano-bos": {
-    label: CONTRACT_STATUS_LABEL["podepsano-bos"],
-    Icon: Stamp,
-    tone: "ink",
-  },
-  "podepsano-klientem": {
-    label: CONTRACT_STATUS_LABEL["podepsano-klientem"],
-    Icon: PenLine,
-    tone: "ink",
-  },
-  archivovano: {
-    label: CONTRACT_STATUS_LABEL.archivovano,
-    Icon: ScanLine,
-    tone: "ok",
-  },
-};
 
 type StatusFilter = "all" | Contract["status"];
 type BulkAction =
@@ -394,19 +355,16 @@ export function ContractsList({
             label="Vše"
             count={items.length}
           />
-          {STATUS_ORDER.map((s) => {
-            const m = STATUS_META[s];
-            return (
-              <FilterChip
-                key={s}
-                active={statusFilter === s}
-                onClick={() => setStatusFilter(s)}
-                Icon={m.Icon}
-                label={m.label}
-                count={counts[s]}
-              />
-            );
-          })}
+          {STATUS_ORDER.map((s) => (
+            <FilterChip
+              key={s}
+              active={statusFilter === s}
+              onClick={() => setStatusFilter(s)}
+              Icon={CONTRACT_STATUS_ICON[s]}
+              label={CONTRACT_STATUS_LABEL[s]}
+              count={counts[s]}
+            />
+          ))}
         </div>
 
         {/* Bulk action bar */}
@@ -502,6 +460,7 @@ export function ContractsList({
           <ul className="divide-y divide-edge">
             {filtered.map((c) => {
               const meta = CONTRACT_TYPE_META[c.type];
+              const StatusIcon = CONTRACT_STATUS_ICON[c.status];
               const isSelected = selected.has(c.id);
               return (
                 <li
@@ -561,6 +520,7 @@ export function ContractsList({
                     </div>
                   </div>
                   <Chip tone={CONTRACT_STATUS_STYLE[c.status]}>
+                    <StatusIcon className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
                     {CONTRACT_STATUS_LABEL[c.status]}
                   </Chip>
                   <div className="hidden flex-col items-end gap-1 md:flex">

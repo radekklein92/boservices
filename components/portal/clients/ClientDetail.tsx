@@ -10,6 +10,7 @@ import { CONTRACT_TYPE_META } from "@/lib/portal/contract-types";
 import { Section } from "@/components/portal/ui/Section";
 import { InfoRow as Row } from "@/components/portal/ui/InfoRow";
 import { Chip } from "@/components/portal/ui/Chip";
+import { CONTRACT_STATUS_ICON } from "@/components/portal/contracts/contract-status-meta";
 
 const LEGAL_LABEL: Record<string, string> = {
   PO: "Právnická osoba",
@@ -142,6 +143,7 @@ function ContractsSection({
       <ul className="divide-y divide-edge">
         {contracts.map((c) => {
           const meta = CONTRACT_TYPE_META[c.type];
+          const StatusIcon = CONTRACT_STATUS_ICON[c.status];
           return (
             <li key={c.id}>
               <Link
@@ -163,6 +165,7 @@ function ContractsSection({
                   </div>
                 </div>
                 <Chip tone={CONTRACT_STATUS_STYLE[c.status]} className="hidden sm:inline-flex">
+                  <StatusIcon className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
                   {CONTRACT_STATUS_LABEL[c.status]}
                 </Chip>
                 <ArrowUpRight
