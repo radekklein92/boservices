@@ -110,9 +110,13 @@ type BulkAction = "approve" | "pick-signer" | "signed" | "client-signed" | "down
 export function ContractsList({
   contracts,
   clients,
+  isApprover = false,
 }: {
   contracts: Contract[];
   clients: Client[];
+  // Schvalovat smlouvy ve stavu Ke schválení smí jen schvalovatel šablon -
+  // ostatním se hromadné tlačítko „Schválit" nezobrazuje.
+  isApprover?: boolean;
 }) {
   const router = useRouter();
   const [items, setItems] = useState(contracts);
@@ -401,14 +405,16 @@ export function ContractsList({
               {selected.size === 1 ? "smlouva" : selected.size < 5 ? "smlouvy" : "smluv"}
             </span>
             <div className="flex-1" />
-            <BulkButton
-              onClick={() => bulkStatus("approve")}
-              disabled={bulkPending !== null}
-              Icon={CheckCircle2}
-              pending={bulkPending === "approve"}
-            >
-              Schválit
-            </BulkButton>
+            {isApprover && (
+              <BulkButton
+                onClick={() => bulkStatus("approve")}
+                disabled={bulkPending !== null}
+                Icon={CheckCircle2}
+                pending={bulkPending === "approve"}
+              >
+                Schválit
+              </BulkButton>
+            )}
             <BulkButton
               onClick={() => setSignerPickerOpen(true)}
               disabled={bulkPending !== null}
