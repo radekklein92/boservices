@@ -27,3 +27,7 @@ export function bustUsers(): void {
 export function bustTemplates(): void {
   revalidateTag(TAG.templates, PROFILE);
 }
+
+export function bustLocations(): void {
+  revalidateTag(TAG.locations, PROFILE);
+}

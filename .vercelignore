@@ -1,0 +1,6 @@
+# Lokální env soubory a jejich zálohy se NIKDY nenahrávají do deploy bundle.
+# Produkční secrets jdou z Vercel dashboardu (Environment Variables), ne ze souborů.
+.env
+.env.*
+*.backup
+*.backup-*
