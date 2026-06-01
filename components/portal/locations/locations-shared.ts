@@ -9,12 +9,14 @@ import type {
   ReAgent,
   TransitionStatus,
 } from "@/lib/portal/locations-db";
+import { CHIP_CLASS } from "@/components/portal/ui/Chip";
 
 // Labely + chip tóny pro zrcadlené lokality. Hodnoty odpovídají Transition
 // (lib/types.ts), tóny jsou přeloženy do BOServices palety (Tailwind utility
 // barvy, stejný styl jako stavové chipy u klientů/smluv).
 
-const CHIP = "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11.5px] font-medium";
+// CHIP_BASE je sjednocený s Chip komponentou (jeden zdroj třídy).
+const CHIP = CHIP_CLASS;
 
 export const CATEGORY_LABEL: Record<LocationCategory, string> = {
   core: "Core",

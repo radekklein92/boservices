@@ -52,7 +52,7 @@ export function ContractStatusStepper({
   const minWidth = flow.length <= 4 ? 480 : 640;
 
   return (
-    <div className="rounded-2xl border border-edge bg-paper px-6 py-7 md:px-8 md:py-8">
+    <div className="rounded-2xl border border-edge bg-paper px-6 py-6 md:px-8 md:py-7">
       <div className="mb-5 flex items-baseline justify-between gap-4">
         <div className="text-[10.5px] font-medium uppercase tracking-[0.22em] text-ink-mid">
           Stav smlouvy

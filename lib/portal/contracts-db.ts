@@ -103,6 +103,19 @@ export const CONTRACT_STATUS_LABEL: Record<ContractStatus, string> = {
   archivovano: "Archivováno",
 };
 
+// Chip tóny stavu smlouvy (border+bg+text) - po fázích: koncept = tlumený,
+// ke-schvaleni = amber (pozornost), průběh podpisu = sky, archivováno = emerald.
+// Stejná paleta jako stavové chipy lokalit (locations-shared).
+export const CONTRACT_STATUS_STYLE: Record<ContractStatus, string> = {
+  koncept: "border-edge bg-edge-warm text-ink-mid",
+  "ke-schvaleni": "border-amber-300 bg-amber-50 text-amber-700",
+  schvaleno: "border-sky-300 bg-sky-50 text-sky-700",
+  "k-podpisu": "border-sky-300 bg-sky-50 text-sky-700",
+  "podepsano-bos": "border-sky-300 bg-sky-50 text-sky-700",
+  "podepsano-klientem": "border-sky-300 bg-sky-50 text-sky-700",
+  archivovano: "border-emerald-300 bg-emerald-50 text-emerald-700",
+};
+
 export function statusOrder(status: ContractStatus): number {
   return ALL_CONTRACT_STATUSES.indexOf(status);
 }

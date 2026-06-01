@@ -21,6 +21,7 @@ import {
 } from "@/lib/portal/users-db";
 import dynamicImport from "next/dynamic";
 import { PageHeader } from "@/components/portal/shell/PageHeader";
+import { CHIP_CLASS } from "@/components/portal/ui/Chip";
 
 // Modaly se renderují conditional ({open && <Modal />}). next/dynamic je
 // code-splitne do separátního chunku, který se stáhne až při open=true.
@@ -237,7 +238,7 @@ export function UsersClient({
             {users.map((u) => (
               <li
                 key={u.email}
-                className="flex flex-col gap-4 px-5 py-5 md:flex-row md:items-center md:gap-6 md:px-7 md:py-6"
+                className="flex flex-col gap-4 px-5 py-5 transition-colors hover:bg-paper-warm md:flex-row md:items-center md:gap-6 md:px-7 md:py-6"
               >
                 <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-ink-base text-[12px] font-bold text-paper">
                   {initials(u.name, u.email)}
@@ -311,7 +312,7 @@ export function UsersClient({
             {allowlist.map((a) => (
               <li
                 key={a.email}
-                className="flex flex-col gap-4 px-5 py-5 md:flex-row md:items-center md:gap-6 md:px-7 md:py-6"
+                className="flex flex-col gap-4 px-5 py-5 transition-colors hover:bg-paper-warm md:flex-row md:items-center md:gap-6 md:px-7 md:py-6"
               >
                 <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-dashed border-ink-soft text-ink-soft">
                   <Mail className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
@@ -449,9 +450,7 @@ function Badge({
       ? "border-ink-base bg-ink-base text-paper"
       : "border-edge bg-edge-warm text-ink-mid";
   return (
-    <span
-      className={`inline-flex h-5 shrink-0 items-center whitespace-nowrap rounded-full border px-2 text-[10px] font-semibold uppercase tracking-[0.18em] ${cls}`}
-    >
+    <span className={`${CHIP_CLASS} shrink-0 whitespace-nowrap ${cls}`}>
       {children}
     </span>
   );

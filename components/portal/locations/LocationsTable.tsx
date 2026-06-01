@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowUpRight, Search, MapPin, FileCheck, FileX } from "lucide-react";
 import type { LocationCategory, MirroredLocation } from "@/lib/portal/locations-db";
 import { FilterChip } from "@/components/portal/ui/FilterChip";
+import { BTN_ROW } from "@/components/portal/ui/buttons";
 import {
   CATEGORY_DOT,
   CATEGORY_LABEL,
@@ -183,7 +184,7 @@ export function LocationsTable({
                   href={`/portal/locations/${l.id}`}
                   className="flex items-baseline gap-3"
                 >
-                  <span className="truncate text-[15.5px] font-bold tracking-[-0.01em] text-ink-base">
+                  <span className="truncate text-[15px] font-bold tracking-[-0.01em] text-ink-base">
                     {l.name}
                   </span>
                   <ArrowUpRight
@@ -224,9 +225,9 @@ export function LocationsTable({
 
               <Link
                 href={`/portal/locations/${l.id}`}
-                className="inline-flex h-9 shrink-0 items-center gap-2 rounded-full border border-edge px-3 text-[12px] font-medium text-ink-deep transition-colors hover:border-ink-base hover:text-ink-base"
+                className={`${BTN_ROW} shrink-0`}
               >
-                Detail
+                Otevřít
               </Link>
             </li>
           ))}

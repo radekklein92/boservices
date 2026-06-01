@@ -24,6 +24,7 @@ import type {
   ClientContractBadge,
   ContractTypeState,
 } from "@/lib/portal/client-contract-status";
+import { BTN_ROW, BTN_ICON } from "@/components/portal/ui/buttons";
 
 const LEGAL_LABEL: Record<string, string> = {
   PO: "Právnická osoba",
@@ -195,7 +196,7 @@ export function ClientsTable({
                   href={`/portal/clients/${c.id}`}
                   className="flex items-baseline gap-3"
                 >
-                  <span className="truncate text-[15.5px] font-bold tracking-[-0.01em] text-ink-base">
+                  <span className="truncate text-[15px] font-bold tracking-[-0.01em] text-ink-base">
                     {c.companyName}
                   </span>
                   <ArrowUpRight
@@ -249,18 +250,15 @@ export function ClientsTable({
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Link
-                  href={`/portal/clients/${c.id}`}
-                  className="inline-flex h-9 items-center gap-2 rounded-full border border-edge px-3 text-[12px] font-medium text-ink-deep transition-colors hover:border-ink-base hover:text-ink-base"
-                >
-                  Detail
+                <Link href={`/portal/clients/${c.id}`} className={BTN_ROW}>
+                  Otevřít
                 </Link>
                 <button
                   type="button"
                   onClick={() => remove(c.id, c.companyName)}
                   disabled={busyId === c.id}
                   aria-label={`Smazat ${c.companyName}`}
-                  className="grid h-9 w-9 place-items-center rounded-full border border-edge text-ink-mid transition-colors hover:border-ink-base hover:bg-ink-base hover:text-paper disabled:opacity-50"
+                  className={BTN_ICON}
                 >
                   <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
                 </button>

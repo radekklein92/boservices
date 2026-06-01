@@ -1,0 +1,38 @@
+import type { ReactNode } from "react";
+
+// Sjednocená karta sekce na detailových stránkách (Lokalita / Klient / …).
+// Karta + nadpis (volitelně hint a akce vpravo).
+export function Section({
+  title,
+  hint,
+  action,
+  className,
+  children,
+}: {
+  title?: string;
+  hint?: string;
+  action?: ReactNode;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section
+      className={`rounded-2xl border border-edge bg-paper p-6${className ? ` ${className}` : ""}`}
+    >
+      {(title || action) && (
+        <div className="mb-4 flex items-start justify-between gap-4">
+          <div>
+            {title && (
+              <h2 className="text-[13px] font-bold uppercase tracking-[0.12em] text-ink-base">
+                {title}
+              </h2>
+            )}
+            {hint && <p className="mt-1 text-[11.5px] text-ink-soft">{hint}</p>}
+          </div>
+          {action}
+        </div>
+      )}
+      {children}
+    </section>
+  );
+}

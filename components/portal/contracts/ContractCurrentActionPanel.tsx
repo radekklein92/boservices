@@ -22,6 +22,7 @@ import {
 } from "@/lib/portal/contracts-db";
 import { isApprovalGated } from "@/lib/portal/contract-types";
 import { getApprovalView } from "@/lib/portal/contract-approval";
+import { BTN_PRIMARY, BTN_SUBTLE } from "@/components/portal/ui/buttons";
 import { KEEP_ORIGINAL_SIGNER } from "./signer-keep-original";
 
 const SignerPickerModal = dynamicImport(
@@ -571,7 +572,7 @@ function PrimaryButton({
       type="button"
       onClick={onClick}
       disabled={pending || disabled}
-      className="inline-flex h-11 items-center gap-2 rounded-full bg-ink-base px-5 text-[13px] font-semibold text-paper transition-transform active:translate-y-px disabled:opacity-60"
+      className={BTN_PRIMARY}
     >
       <Icon className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden={true} />
       {pending ? "Pracuji…" : children}
@@ -595,7 +596,7 @@ function SubtleButton({
       type="button"
       onClick={onClick}
       disabled={pending}
-      className="inline-flex h-10 items-center gap-1.5 rounded-full px-3 text-[12px] font-medium text-ink-mid transition-colors hover:text-ink-base disabled:opacity-50"
+      className={BTN_SUBTLE}
     >
       <Icon className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden={true} />
       {pending ? "…" : children}

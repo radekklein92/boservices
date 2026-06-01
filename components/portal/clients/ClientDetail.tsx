@@ -1,35 +1,19 @@
 import Link from "next/link";
-import {
-  ArrowUpRight,
-  Circle,
-  Clock,
-  CheckCircle2,
-  PenLine,
-  Stamp,
-  ScanLine,
-  FileText,
-  type LucideIcon,
-} from "lucide-react";
+import { ArrowUpRight, FileText } from "lucide-react";
 import type { Client } from "@/lib/portal/clients-db";
-import type { Contract } from "@/lib/portal/contracts-db";
+import {
+  CONTRACT_STATUS_LABEL,
+  CONTRACT_STATUS_STYLE,
+  type Contract,
+} from "@/lib/portal/contracts-db";
 import { CONTRACT_TYPE_META } from "@/lib/portal/contract-types";
+import { Section } from "@/components/portal/ui/Section";
+import { InfoRow as Row } from "@/components/portal/ui/InfoRow";
+import { Chip } from "@/components/portal/ui/Chip";
 
 const LEGAL_LABEL: Record<string, string> = {
   PO: "Právnická osoba",
   FO: "Fyzická osoba",
-};
-
-const STATUS_META: Record<
-  Contract["status"],
-  { label: string; Icon: LucideIcon }
-> = {
-  koncept: { label: "Koncept", Icon: Circle },
-  "ke-schvaleni": { label: "Ke schválení", Icon: Clock },
-  schvaleno: { label: "Schváleno", Icon: CheckCircle2 },
-  "k-podpisu": { label: "K podpisu", Icon: PenLine },
-  "podepsano-bos": { label: "Podepsáno BOS", Icon: Stamp },
-  "podepsano-klientem": { label: "Podepsáno klientem", Icon: PenLine },
-  archivovano: { label: "Archivováno", Icon: ScanLine },
 };
 
 function formatDate(iso: string): string {
@@ -54,29 +38,29 @@ export function ClientDetail({
   return (
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        <Card title="Základní údaje">
+        <Section title="Základní údaje">
           <Row label="Forma" value={LEGAL_LABEL[client.legalForm] ?? client.legalForm} />
           <Row label="Obchodní jméno" value={client.companyName} />
           {client.ico && <Row label="IČO" value={client.ico} mono />}
           {client.dic && <Row label="DIČ" value={client.dic} mono />}
-        </Card>
+        </Section>
 
-        <Card title="Sídlo">
+        <Section title="Sídlo">
           <Row label="Ulice" value={client.address.street} />
           <Row label="Obec" value={client.address.city} />
           <Row label="PSČ" value={client.address.zip} mono />
           <Row label="Stát" value={client.address.country ?? "—"} />
-        </Card>
+        </Section>
 
         {client.statutory && (
-          <Card title="Statutární zástupce">
+          <Section title="Statutární zástupce">
             <Row label="Jméno" value={client.statutory.name} />
             <Row label="Funkce" value={client.statutory.role ?? "—"} />
-          </Card>
+          </Section>
         )}
 
         {client.contact && (
-          <Card title="Kontaktní osoba">
+          <Section title="Kontaktní osoba">
             {client.contact.name && <Row label="Jméno" value={client.contact.name} />}
             {client.contact.email && (
               <Row
@@ -92,13 +76,13 @@ export function ClientDetail({
               />
             )}
             {client.contact.phone && <Row label="Telefon" value={client.contact.phone} mono />}
-          </Card>
+          </Section>
         )}
 
-        <Card title="Záznam">
+        <Section title="Záznam">
           <Row label="Přidáno" value={formatDate(client.createdAt)} />
           <Row label="Naposledy upraveno" value={formatDate(client.updatedAt)} />
-        </Card>
+        </Section>
       </div>
 
       <ContractsSection clientId={client.id} contracts={contracts} />
@@ -158,8 +142,6 @@ function ContractsSection({
       <ul className="divide-y divide-edge">
         {contracts.map((c) => {
           const meta = CONTRACT_TYPE_META[c.type];
-          const statusMeta = STATUS_META[c.status];
-          const Icon = statusMeta.Icon;
           return (
             <li key={c.id}>
               <Link
@@ -180,12 +162,9 @@ function ContractsSection({
                     <span>{formatDate(c.createdAt)}</span>
                   </div>
                 </div>
-                <div className="hidden items-center gap-2 text-ink-base sm:flex">
-                  <Icon className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
-                  <span className="text-[11px] font-medium uppercase tracking-[0.12em]">
-                    {statusMeta.label}
-                  </span>
-                </div>
+                <Chip tone={CONTRACT_STATUS_STYLE[c.status]} className="hidden sm:inline-flex">
+                  {CONTRACT_STATUS_LABEL[c.status]}
+                </Chip>
                 <ArrowUpRight
                   className="h-3.5 w-3.5 shrink-0 text-ink-soft transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
                   strokeWidth={1.5}
@@ -212,43 +191,3 @@ function ContractsSection({
   );
 }
 
-function Card({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="rounded-[24px] border border-edge bg-paper p-7">
-      <h2 className="mb-5 text-[11px] font-medium uppercase tracking-[0.22em] text-ink-mid">
-        {title}
-      </h2>
-      <dl className="flex flex-col gap-4 text-[14px]">{children}</dl>
-    </section>
-  );
-}
-
-function Row({
-  label,
-  value,
-  mono,
-}: {
-  label: string;
-  value: React.ReactNode;
-  mono?: boolean;
-}) {
-  return (
-    <div className="grid grid-cols-[140px_1fr] gap-3">
-      <dt className="text-[12px] uppercase tracking-[0.12em] text-ink-mid">{label}</dt>
-      <dd
-        className={[
-          "text-ink-base",
-          mono ? "font-mono tracking-tight" : "",
-        ].join(" ")}
-      >
-        {value}
-      </dd>
-    </div>
-  );
-}

@@ -1,11 +1,9 @@
 "use client";
 
 import { useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
 import {
-  ArrowLeft,
   Lock,
   Paperclip,
   Trash2,
@@ -15,6 +13,10 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import type { LocationView } from "@/lib/portal/locations-db";
+import { Section } from "@/components/portal/ui/Section";
+import { InfoRow as Row } from "@/components/portal/ui/InfoRow";
+import { BackLink } from "@/components/portal/ui/BackLink";
+import { BTN_PRIMARY, BTN_ROW, BTN_ICON } from "@/components/portal/ui/buttons";
 import {
   CATEGORY_HINT,
   CATEGORY_LABEL,
@@ -41,13 +43,7 @@ export function LocationDetail({ location }: { location: LocationView }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <Link
-        href="/portal/locations"
-        className="inline-flex w-fit items-center gap-2 text-[13px] font-medium text-ink-mid transition-colors hover:text-ink-base"
-      >
-        <ArrowLeft className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
-        Zpět na lokality
-      </Link>
+      <BackLink href="/portal/locations">Zpět na lokality</BackLink>
 
       <header className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-2">
@@ -217,7 +213,7 @@ function LocalNote({ location }: { location: LocationView }) {
           type="button"
           onClick={save}
           disabled={saving || !dirty}
-          className="inline-flex h-10 items-center gap-2 rounded-full bg-ink-base px-5 text-[13px] font-semibold text-paper transition-transform active:translate-y-px disabled:opacity-40"
+          className={BTN_PRIMARY}
         >
           {saving ? "Ukládám…" : "Uložit poznámku"}
         </button>
@@ -308,7 +304,7 @@ function Attachments({ location }: { location: LocationView }) {
           type="button"
           onClick={() => inputRef.current?.click()}
           disabled={busy}
-          className="inline-flex h-9 items-center gap-2 rounded-full border border-edge px-4 text-[12.5px] font-medium text-ink-deep transition-colors hover:border-ink-base hover:text-ink-base disabled:opacity-50"
+          className={BTN_ROW}
         >
           <Upload className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
           {busy ? "Nahrávám…" : "Nahrát"}
@@ -365,7 +361,7 @@ function Attachments({ location }: { location: LocationView }) {
                 onClick={() => remove(a.id, a.name)}
                 disabled={busy}
                 aria-label={`Smazat ${a.name}`}
-                className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-edge text-ink-mid transition-colors hover:border-ink-base hover:bg-ink-base hover:text-paper disabled:opacity-50"
+                className={`${BTN_ICON} shrink-0`}
               >
                 <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
               </button>
@@ -374,56 +370,5 @@ function Attachments({ location }: { location: LocationView }) {
         </ul>
       )}
     </Section>
-  );
-}
-
-// ── Stavební bloky ────────────────────────────────────────────────────────────
-
-function Section({
-  title,
-  hint,
-  action,
-  children,
-}: {
-  title: string;
-  hint?: string;
-  action?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="rounded-2xl border border-edge bg-paper p-6">
-      <div className="mb-4 flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-[13px] font-bold uppercase tracking-[0.12em] text-ink-base">
-            {title}
-          </h2>
-          {hint && <p className="mt-1 text-[11.5px] text-ink-soft">{hint}</p>}
-        </div>
-        {action}
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function Row({
-  label,
-  value,
-  mono,
-}: {
-  label: string;
-  value: string | null | undefined;
-  mono?: boolean;
-}) {
-  const empty = value == null || value === "" || value === "—";
-  return (
-    <div className="flex items-baseline justify-between gap-4 border-b border-edge/60 py-2 last:border-0">
-      <span className="shrink-0 text-[12.5px] text-ink-mid">{label}</span>
-      <span
-        className={`text-right text-[13px] ${empty ? "text-ink-soft" : "text-ink-base"} ${mono ? "font-mono" : ""}`}
-      >
-        {empty ? "—" : value}
-      </span>
-    </div>
   );
 }

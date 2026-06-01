@@ -27,11 +27,14 @@ import type { Contract } from "@/lib/portal/contracts-db";
 import {
   ALL_CONTRACT_STATUSES,
   CONTRACT_STATUS_LABEL,
+  CONTRACT_STATUS_STYLE,
 } from "@/lib/portal/contracts-db";
 import type { Client } from "@/lib/portal/clients-db";
 import dynamicImport from "next/dynamic";
 import { CONTRACT_TYPE_META, isBundleType } from "@/lib/portal/contract-types";
 import { FilterChip } from "@/components/portal/ui/FilterChip";
+import { Chip } from "@/components/portal/ui/Chip";
+import { BTN_ROW, BTN_ICON } from "@/components/portal/ui/buttons";
 
 // Stejná logika jako v ContractDetailClient.hasTemplateChanges - zda se
 // smlouva odchýlila od šablony. Pro bundle: aspoň jedna sekce má snapshot
@@ -499,16 +502,12 @@ export function ContractsList({
           <ul className="divide-y divide-edge">
             {filtered.map((c) => {
               const meta = CONTRACT_TYPE_META[c.type];
-              const statusMeta = STATUS_META[c.status];
-              const Icon = statusMeta.Icon;
-              const toneClass =
-                statusMeta.tone === "muted" ? "text-ink-soft" : "text-ink-base";
               const isSelected = selected.has(c.id);
               return (
                 <li
                   key={c.id}
                   className={[
-                    "group flex flex-col gap-4 px-5 py-5 transition-colors md:flex-row md:items-center md:gap-5 md:px-7 md:py-5",
+                    "group flex flex-col gap-4 px-5 py-5 transition-colors md:flex-row md:items-center md:gap-6 md:px-7 md:py-6",
                     isSelected ? "bg-paper-warm" : "hover:bg-paper-warm",
                   ].join(" ")}
                 >
@@ -561,12 +560,9 @@ export function ContractsList({
                       )}
                     </div>
                   </div>
-                  <div className={`hidden items-center gap-2 md:flex ${toneClass}`}>
-                    <Icon className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
-                    <span className="text-[12px] font-medium uppercase tracking-[0.12em]">
-                      {statusMeta.label}
-                    </span>
-                  </div>
+                  <Chip tone={CONTRACT_STATUS_STYLE[c.status]}>
+                    {CONTRACT_STATUS_LABEL[c.status]}
+                  </Chip>
                   <div className="hidden flex-col items-end gap-1 md:flex">
                     <div className="text-[10.5px] font-medium uppercase tracking-[0.18em] text-ink-mid">
                       Vytvořeno
@@ -576,10 +572,7 @@ export function ContractsList({
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Link
-                      href={`/portal/contracts/${c.id}`}
-                      className="inline-flex h-9 items-center gap-2 rounded-full border border-edge px-3 text-[12px] font-medium text-ink-deep transition-colors hover:border-ink-base hover:text-ink-base"
-                    >
+                    <Link href={`/portal/contracts/${c.id}`} className={BTN_ROW}>
                       Otevřít
                     </Link>
                     <button
@@ -587,7 +580,7 @@ export function ContractsList({
                       onClick={() => remove(c.id, c.clientName)}
                       disabled={busy === c.id}
                       aria-label="Smazat smlouvu"
-                      className="grid h-9 w-9 place-items-center rounded-full border border-edge text-ink-mid transition-colors hover:border-ink-base hover:bg-ink-base hover:text-paper disabled:opacity-50"
+                      className={BTN_ICON}
                     >
                       <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
                     </button>

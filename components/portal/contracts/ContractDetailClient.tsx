@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   AlertTriangle,
-  ArrowLeft,
   CheckCircle2,
   Download,
   FileText,
@@ -62,6 +61,7 @@ import {
 import { ContractStatusStepper } from "./ContractStatusStepper";
 import { ContractCurrentActionPanel } from "./ContractCurrentActionPanel";
 import { ContractApprovalPanel } from "./ContractApprovalPanel";
+import { BackLink } from "@/components/portal/ui/BackLink";
 
 import { TemplateMatchBadge } from "./TemplateMatchBadge";
 import { DiffModal } from "./DiffModal";
@@ -457,13 +457,7 @@ export function ContractDetailClient({
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-4">
-        <Link
-          href="/portal/contracts"
-          className="inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.18em] text-ink-mid transition-colors hover:text-ink-base"
-        >
-          <ArrowLeft className="h-3 w-3" strokeWidth={1.5} aria-hidden="true" />
-          Smlouvy
-        </Link>
+        <BackLink href="/portal/contracts">Smlouvy</BackLink>
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
             <h1 className="font-extrabold text-ink-base text-[clamp(1.6rem,2.8vw,2rem)] leading-[1.1] tracking-[-0.025em]">

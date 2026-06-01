@@ -25,6 +25,7 @@ import {
   formatDate,
 } from "@/components/portal/locations/locations-shared";
 import { LocationCombobox } from "@/components/portal/ui/LocationCombobox";
+import { BTN_ROW } from "@/components/portal/ui/buttons";
 
 type Notify = (kind: "ok" | "error", msg: string) => void;
 
@@ -189,7 +190,7 @@ export function ContractApprovalPanel({
               type="button"
               onClick={() => setEditingLocation(true)}
               disabled={pending === "location"}
-              className="inline-flex h-9 w-fit items-center gap-2 rounded-full border border-edge px-3.5 text-[12px] font-medium text-ink-deep transition-colors hover:border-ink-base hover:text-ink-base disabled:opacity-50"
+              className={`${BTN_ROW} w-fit`}
             >
               <Pencil className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
               {contract.locationId ? "Změnit lokalitu" : "Vybrat lokalitu"}
@@ -206,7 +207,7 @@ export function ContractApprovalPanel({
                 ? `Pošle e-mail schvalovatelům (${approverEmails.join(", ")})`
                 : "Schvalovatel není nastaven"
             }
-            className="inline-flex h-9 w-fit items-center gap-2 rounded-full border border-edge px-3.5 text-[12px] font-medium text-ink-deep transition-colors hover:border-ink-base hover:text-ink-base disabled:opacity-50"
+            className={`${BTN_ROW} w-fit`}
           >
             <Mail className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
             {pending === "remind" ? "Odesílám…" : "Připomenout e-mailem"}
