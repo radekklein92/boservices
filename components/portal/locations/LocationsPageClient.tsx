@@ -12,10 +12,13 @@ export function LocationsPageClient({
   locations,
   syncMeta,
   isAdmin,
+  withContractIds,
 }: {
   locations: MirroredLocation[];
   syncMeta: LocationsSyncMeta | null;
   isAdmin: boolean;
+  // Id lokalit s nahranou přílohou (nájemní smlouvou) - pro filtr v tabulce.
+  withContractIds: string[];
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -69,7 +72,7 @@ export function LocationsPageClient({
 
       <SyncStatus meta={syncMeta} error={error} />
 
-      <LocationsTable locations={locations} />
+      <LocationsTable locations={locations} withContractIds={withContractIds} />
     </div>
   );
 }

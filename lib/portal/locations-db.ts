@@ -209,6 +209,26 @@ export async function getLocationLocal(id: string): Promise<LocationLocal | null
   return r.get<LocationLocal>(localKey(id));
 }
 
+// Vrátí id lokalit, které mají nahranou aspoň jednu přílohu (nájemní smlouvu,
+// dodatek, předávací protokol…). Slouží jako signál „má nahranou nájemní
+// smlouvu" pro filtr v seznamu lokalit.
+export async function listLocationIdsWithAttachments(): Promise<string[]> {
+  const r = getRedis();
+  if (!r) return [];
+  const ids = (await r.smembers(ALL_KEY)) as string[];
+  if (!ids.length) return [];
+  const pipe = r.pipeline();
+  ids.forEach((id) => pipe.get<LocationLocal>(localKey(id)));
+  const results = (await pipe.exec()) as (LocationLocal | null)[];
+  const out: string[] = [];
+  results.forEach((local, i) => {
+    if (local && local.attachments && local.attachments.length > 0) {
+      out.push(ids[i]!);
+    }
+  });
+  return out;
+}
+
 export async function saveLocationLocal(local: LocationLocal): Promise<void> {
   const r = getRedis();
   if (!r) throw new Error("Redis not configured");

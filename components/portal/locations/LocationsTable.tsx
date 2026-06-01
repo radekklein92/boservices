@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowUpRight, Search, MapPin } from "lucide-react";
+import { ArrowUpRight, Search, MapPin, FileCheck, FileX } from "lucide-react";
 import type { LocationCategory, MirroredLocation } from "@/lib/portal/locations-db";
 import {
   CATEGORY_LABEL,
@@ -15,9 +15,24 @@ import {
   LOCATION_STATUS_STYLE,
 } from "./locations-shared";
 
-export function LocationsTable({ locations }: { locations: MirroredLocation[] }) {
+type LeaseFilter = "all" | "has" | "missing";
+
+export function LocationsTable({
+  locations,
+  withContractIds = [],
+}: {
+  locations: MirroredLocation[];
+  // Id lokalit s nahranou přílohou (nájemní smlouvou).
+  withContractIds?: string[];
+}) {
   const [query, setQuery] = useState("");
   const [activeCats, setActiveCats] = useState<Set<LocationCategory>>(new Set());
+  const [leaseFilter, setLeaseFilter] = useState<LeaseFilter>("all");
+
+  const withContract = useMemo(
+    () => new Set(withContractIds),
+    [withContractIds],
+  );
 
   const counts = useMemo(() => {
     const map = new Map<LocationCategory, number>();
@@ -27,12 +42,20 @@ export function LocationsTable({ locations }: { locations: MirroredLocation[] })
     return map;
   }, [locations]);
 
+  const leaseCounts = useMemo(() => {
+    let has = 0;
+    for (const l of locations) if (withContract.has(l.id)) has++;
+    return { has, missing: locations.length - has };
+  }, [locations, withContract]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return locations.filter((l) => {
       if (activeCats.size > 0 && (!l.category || !activeCats.has(l.category))) {
         return false;
       }
+      if (leaseFilter === "has" && !withContract.has(l.id)) return false;
+      if (leaseFilter === "missing" && withContract.has(l.id)) return false;
       if (!q) return true;
       const haystack = [
         l.name,
@@ -48,7 +71,7 @@ export function LocationsTable({ locations }: { locations: MirroredLocation[] })
         .toLowerCase();
       return haystack.includes(q);
     });
-  }, [locations, query, activeCats]);
+  }, [locations, query, activeCats, leaseFilter, withContract]);
 
   function toggleCat(cat: LocationCategory) {
     setActiveCats((prev) => {
@@ -130,6 +153,39 @@ export function LocationsTable({ locations }: { locations: MirroredLocation[] })
             Zrušit filtr
           </button>
         )}
+      </div>
+
+      {/* Filtr nahrané nájemní smlouvy (= aspoň jedna příloha u lokality). */}
+      <div className="mb-5 flex flex-wrap items-center gap-1.5">
+        <span className="mr-1 text-[11px] font-medium uppercase tracking-[0.14em] text-ink-soft">
+          Nájemní smlouva
+        </span>
+        <button
+          type="button"
+          onClick={() => setLeaseFilter((f) => (f === "has" ? "all" : "has"))}
+          className={`${CHIP_BASE} transition-all ${
+            leaseFilter === "has"
+              ? "border-emerald-300 bg-emerald-50 text-emerald-700 ring-2 ring-ink-base/15"
+              : "border-edge bg-paper text-ink-mid hover:border-ink-soft"
+          }`}
+        >
+          <FileCheck className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+          Nahraná
+          <span className="font-mono text-[10.5px] opacity-70">{leaseCounts.has}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setLeaseFilter((f) => (f === "missing" ? "all" : "missing"))}
+          className={`${CHIP_BASE} transition-all ${
+            leaseFilter === "missing"
+              ? "border-amber-300 bg-amber-50 text-amber-700 ring-2 ring-ink-base/15"
+              : "border-edge bg-paper text-ink-mid hover:border-ink-soft"
+          }`}
+        >
+          <FileX className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+          Chybí
+          <span className="font-mono text-[10.5px] opacity-70">{leaseCounts.missing}</span>
+        </button>
       </div>
 
       <div className="overflow-hidden rounded-[24px] border border-edge bg-paper">
