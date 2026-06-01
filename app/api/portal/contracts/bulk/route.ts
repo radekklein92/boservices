@@ -8,11 +8,12 @@ import {
 } from "@/lib/portal/contracts-db";
 import { getUser } from "@/lib/portal/users-db";
 import { isApprovalGated } from "@/lib/portal/contract-types";
+import { evaluateAutoApproval } from "@/lib/portal/contract-approval";
 import { bustContracts } from "@/lib/portal/revalidate";
 
 const bulkSchema = z.object({
   ids: z.array(z.string().min(1)).min(1).max(200),
-  action: z.enum(["approve", "pick-signer", "signed", "client-signed"]),
+  action: z.enum(["submit", "approve", "pick-signer", "signed", "client-signed"]),
   // Vyžadováno jen pro action=pick-signer (pokud není keepOriginal).
   signerEmail: z.string().trim().toLowerCase().email().optional(),
   // pick-signer: „zachovat původního" - nenastaví signerEmail.
@@ -72,6 +73,40 @@ export async function POST(req: Request) {
     const contract = await getContract(id);
     if (!contract) {
       errors.push(`${id}: nenalezeno`);
+      continue;
+    }
+
+    if (action === "submit") {
+      // Odeslání z Konceptu ke schválení (jen typy posuzované podle lokality
+      // s vybranou lokalitou). Auto (pravidlo 1/2) projde rovnou do Schváleno,
+      // jinak do Ke schválení. Ostatní smlouvy se přeskočí.
+      if (
+        !isApprovalGated(contract.type) ||
+        contract.status !== "koncept" ||
+        !contract.locationId ||
+        !contract.locationSnapshot
+      ) {
+        skipped++;
+        continue;
+      }
+      const autoRule = evaluateAutoApproval(contract.locationSnapshot);
+      const updated = {
+        ...contract,
+        submittedForApprovalAt: nowIso,
+        submittedForApprovalBy: email,
+        ...(autoRule
+          ? {
+              approvalDecision: "auto" as const,
+              approvalRule: autoRule,
+              approvedAt: nowIso,
+              approvedBy: email,
+            }
+          : { approvalDecision: "manual" as const, approvalRule: 3 as const }),
+        updatedAt: nowIso,
+      };
+      updated.status = computeContractStatus(updated);
+      await upsertContract(updated);
+      changed++;
       continue;
     }
 

@@ -18,6 +18,7 @@ import {
   Package,
   Gavel,
   Stamp,
+  Send,
   Download,
   X,
   type LucideIcon,
@@ -105,7 +106,13 @@ const STATUS_META: Record<
 };
 
 type StatusFilter = "all" | Contract["status"];
-type BulkAction = "approve" | "pick-signer" | "signed" | "client-signed" | "download-zip";
+type BulkAction =
+  | "submit"
+  | "approve"
+  | "pick-signer"
+  | "signed"
+  | "client-signed"
+  | "download-zip";
 
 export function ContractsList({
   contracts,
@@ -212,7 +219,7 @@ export function ContractsList({
   }
 
   async function bulkStatus(
-    action: "approve" | "pick-signer" | "signed" | "client-signed",
+    action: "submit" | "approve" | "pick-signer" | "signed" | "client-signed",
     extra?: { signerEmail?: string; keepOriginal?: boolean },
   ) {
     const ids = Array.from(selected);
@@ -233,6 +240,7 @@ export function ContractsList({
 
       clearSelection();
       const labels: Record<typeof action, string> = {
+        submit: "Odesláno ke schválení",
         approve: "Schváleno",
         "pick-signer": "Podepisující přiřazen",
         signed: "Podepsáno BOS",
@@ -405,6 +413,14 @@ export function ContractsList({
               {selected.size === 1 ? "smlouva" : selected.size < 5 ? "smlouvy" : "smluv"}
             </span>
             <div className="flex-1" />
+            <BulkButton
+              onClick={() => bulkStatus("submit")}
+              disabled={bulkPending !== null}
+              Icon={Send}
+              pending={bulkPending === "submit"}
+            >
+              Ke schválení
+            </BulkButton>
             {isApprover && (
               <BulkButton
                 onClick={() => bulkStatus("approve")}
