@@ -138,3 +138,36 @@ export async function sendContractApprovalReminder(opts: {
     html: shell("Smlouva čeká na schválení.", "BOServices portál", body),
   });
 }
+
+// Denní souhrn pro schvalovatele - seznam všech smluv ve stavu Ke schválení.
+// Volá cron každý den v 8:00 (Prague), pokud existují čekající smlouvy.
+export async function sendContractsApprovalDigest(opts: {
+  to: string;
+  approverName?: string;
+  contracts: Array<{ label: string; deepLink: string }>;
+}): Promise<void> {
+  const resend = getResend();
+  if (!resend) {
+    console.warn("[portal email] Resend not configured");
+    return;
+  }
+  if (opts.contracts.length === 0) return;
+  const url = `${SITE_URL}/portal/contracts`;
+  const greeting = opts.approverName ? `${opts.approverName},` : "dobrý den,";
+  const list = opts.contracts
+    .map(
+      (c) =>
+        `<li style="margin:6px 0"><a href="${c.deepLink}" style="color:#0E0E0E;font-weight:600">${c.label}</a></li>`,
+    )
+    .join("");
+  const count = opts.contracts.length;
+  const word = count === 1 ? "smlouva" : count < 5 ? "smlouvy" : "smluv";
+  const verb = count === 1 ? "čeká" : "čekají";
+  const body = `<p style="font-size:15px;line-height:1.6">${greeting}</p><p style="font-size:15px;line-height:1.6">${count} ${word} ${verb} na vaše schválení. Bez schválení se nedostanou dál do podpisu.</p><ul style="font-size:14px;line-height:1.6;padding-left:20px;margin:16px 0">${list}</ul>${button(url, "Otevřít smlouvy")}${fallbackLink(url)}`;
+  await resend.emails.send({
+    from: FROM,
+    to: [opts.to],
+    subject: `Smlouvy ke schválení - ${count} ${word} ${verb}`,
+    html: shell("Smlouvy čekají na schválení.", "BOServices portál", body),
+  });
+}

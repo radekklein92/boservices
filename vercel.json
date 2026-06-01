@@ -5,6 +5,10 @@
       "schedule": "0 18 * * *"
     },
     {
+      "path": "/api/cron/contracts-approval-reminder",
+      "schedule": "0 6 * * *"
+    },
+    {
       "path": "/api/cron/blob-backup",
       "schedule": "0 2 * * *"
     },
