@@ -32,9 +32,12 @@ export function evaluateAutoApproval(loc: ApprovalLocationData): 1 | 2 | null {
   if (loc.leaseStatus === "prepis_na_fransizanta" && loc.newMode === "franchise") {
     return 1;
   }
-  // Pravidlo 2: provozní režim Full/Operations management + kategorie Core/Nice/SoSo.
+  // Pravidlo 2: nový režim Full/Operations management nebo aktivní franšíza
+  // + kategorie Core/Nice/SoSo.
   if (
-    (loc.newMode === "full" || loc.newMode === "operations") &&
+    (loc.newMode === "full" ||
+      loc.newMode === "operations" ||
+      loc.newMode === "franchise") &&
     (loc.category === "core" || loc.category === "nice" || loc.category === "soso")
   ) {
     return 2;
@@ -69,7 +72,7 @@ export const APPROVAL_KEY: Array<{ rule: 1 | 2 | 3; text: string }> = [
   },
   {
     rule: 2,
-    text: "Nový režim je Full management nebo Operations management a prodejna je v kategorii Core, Nice nebo SoSo → automaticky schváleno.",
+    text: "Nový režim je Full management, Operations management nebo aktivní franšíza a prodejna je v kategorii Core, Nice nebo SoSo → automaticky schváleno.",
   },
   {
     rule: 3,
