@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { X } from "lucide-react";
+import { ChevronDown, X } from "lucide-react";
 import type { Client } from "@/lib/portal/clients-db";
 import {
   CONTRACT_TYPES_PICKABLE,
@@ -19,6 +19,7 @@ import {
   type LocationPickItem,
 } from "@/components/portal/ui/LocationCombobox";
 import {
+  APPROVAL_KEY,
   evaluateAutoApproval,
   LEASE_HOLDER_LABEL,
   NEW_MODE_LABEL,
@@ -55,6 +56,7 @@ export function ContractCreateModal({
   // Lokalita - povinná u typů posuzovaných podle lokality (isApprovalGated).
   const [locationId, setLocationId] = useState("");
   const [locationItem, setLocationItem] = useState<LocationPickItem | null>(null);
+  const [showRules, setShowRules] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -344,6 +346,45 @@ export function ContractCreateModal({
                         Po odeslání bude <strong>vyžadovat schválení</strong>{" "}
                         schvalovatelů (pravidlo 3).
                       </span>
+                    )}
+                  </div>
+
+                  {/* Rozbalovací klíč - jak se o schválení rozhoduje. */}
+                  <div className="border-t border-edge pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowRules((v) => !v)}
+                      aria-expanded={showRules}
+                      className="inline-flex items-center gap-1 text-[11.5px] font-medium text-ink-mid transition-colors hover:text-ink-base"
+                    >
+                      <ChevronDown
+                        className={`h-3.5 w-3.5 transition-transform ${showRules ? "rotate-180" : ""}`}
+                        strokeWidth={1.5}
+                        aria-hidden="true"
+                      />
+                      {showRules ? "Skrýt pravidla" : "Jak se o schválení rozhoduje?"}
+                    </button>
+                    {showRules && (
+                      <ol className="mt-2 flex flex-col gap-1.5">
+                        {APPROVAL_KEY.map((k) => {
+                          const active = (previewAutoRule ?? 3) === k.rule;
+                          return (
+                            <li
+                              key={k.rule}
+                              className={`flex gap-2 rounded-md px-2 py-1.5 text-[11.5px] leading-snug ${
+                                active
+                                  ? "bg-paper text-ink-base ring-1 ring-ink-base/15"
+                                  : "text-ink-mid"
+                              }`}
+                            >
+                              <span className={active ? "font-bold" : "font-semibold"}>
+                                {k.rule})
+                              </span>
+                              <span>{k.text}</span>
+                            </li>
+                          );
+                        })}
+                      </ol>
                     )}
                   </div>
                 </div>
