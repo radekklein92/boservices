@@ -10,6 +10,8 @@ import {
   Trash2,
   Gavel,
   Stamp,
+  Send,
+  ShieldCheck,
 } from "lucide-react";
 import dynamicImport from "next/dynamic";
 import { upload } from "@vercel/blob/client";
@@ -18,6 +20,8 @@ import {
   type Contract,
   type ContractStatus,
 } from "@/lib/portal/contracts-db";
+import { isApprovalGated } from "@/lib/portal/contract-types";
+import { getApprovalView } from "@/lib/portal/contract-approval";
 import { KEEP_ORIGINAL_SIGNER } from "./signer-keep-original";
 
 const SignerPickerModal = dynamicImport(
@@ -44,10 +48,14 @@ export function ContractCurrentActionPanel({
   contract,
   onChanged,
   notify,
+  isApprover = false,
 }: {
   contract: Contract;
   onChanged: (next: Contract) => void;
   notify: Notify;
+  // Aktuální uživatel je schvalovatel šablon - vidí tlačítko „Schválit" u typů
+  // posuzovaných podle lokality ve stavu Ke schválení.
+  isApprover?: boolean;
 }) {
   const [pending, setPending] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -96,6 +104,37 @@ export function ContractCurrentActionPanel({
     if (!window.confirm("Zrušit schválení? Tím se zruší i případné navazující kroky."))
       return;
     await callMilestone("DELETE", "approve", "Schválení zrušeno.");
+  }
+
+  // Typy posuzované podle lokality: odeslání z Konceptu vyhodnotí klíč
+  // (auto → rovnou Schváleno, jinak → Ke schválení).
+  async function submitForApproval() {
+    setPending("POST:submit");
+    try {
+      const res = await fetch(`/api/portal/contracts/${contract.id}/submit`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || "Chyba");
+      const next = await reload();
+      if (next) onChanged(next);
+      notify(
+        "ok",
+        data.auto
+          ? `Automaticky schváleno (pravidlo ${data.rule}).`
+          : "Odesláno ke schválení schvalovatelům.",
+      );
+    } catch (err) {
+      notify("error", err instanceof Error ? err.message : "Chyba");
+    } finally {
+      setPending(null);
+    }
+  }
+
+  async function returnToDraft() {
+    if (!window.confirm("Vrátit smlouvu do konceptu? Zruší se odeslání i případné schválení."))
+      return;
+    await callMilestone("DELETE", "submit", "Vráceno do konceptu.");
   }
 
   async function pickSigner(email: string) {
@@ -199,6 +238,12 @@ export function ContractCurrentActionPanel({
     idx >= 0 && idx < flow.length - 1 ? flow[idx + 1]! : null;
   const isWithdrawalLike =
     contract.type === "withdrawal" || contract.type === "assignment-notice";
+  const isGated = isApprovalGated(contract.type);
+  const approvalView = getApprovalView(contract);
+  // V Konceptu (gated) předpovíme, zda po odeslání půjde auto, nebo ke schvalovatelům.
+  const draftAutoRule =
+    approvalView.kind === "draft" ? approvalView.autoRule : null;
+  const hasLocation = !!contract.locationId && !!contract.locationSnapshot;
 
   const downloadFinal = contract.generatedPdfUrl ? (
     <a
@@ -260,7 +305,7 @@ export function ContractCurrentActionPanel({
         </div>
       </div>
 
-      {status === "koncept" && (
+      {status === "koncept" && !isGated && (
         <ActionRow
           headline="Smlouva je v konceptu"
           description={`Dokud nezkontroluješ obsah a neschválíš ji, generuje se PDF s vodoznakem „NÁVRH".`}
@@ -268,6 +313,56 @@ export function ContractCurrentActionPanel({
             <PrimaryButton onClick={approve} pending={pending === "POST:approve"} Icon={CheckCircle2}>
               Schválit smlouvu
             </PrimaryButton>
+          }
+        />
+      )}
+
+      {status === "koncept" && isGated && (
+        <ActionRow
+          headline={hasLocation ? "Koncept - odešli ke schválení" : "Smlouva je v konceptu"}
+          description={
+            !hasLocation
+              ? "Nejdřív vyber lokalitu v panelu „Lokalita a schválení“ níže. Podle ní se rozhodne o schválení."
+              : draftAutoRule
+                ? `Splňuje podmínky pro automatické schválení (pravidlo ${draftAutoRule}). Po odeslání bude rovnou schválena.`
+                : "Nesplňuje podmínky pro automatické schválení (pravidlo 3). Po odeslání ji musí schválit schvalovatelé šablon."
+          }
+          primary={
+            <PrimaryButton
+              onClick={submitForApproval}
+              pending={pending === "POST:submit"}
+              Icon={Send}
+              disabled={!hasLocation}
+            >
+              {draftAutoRule ? "Schválit smlouvu" : "Odeslat ke schválení"}
+            </PrimaryButton>
+          }
+        />
+      )}
+
+      {status === "ke-schvaleni" && (
+        <ActionRow
+          headline={isApprover ? "Ke schválení - posuď a schval" : "Čeká na schválení schvalovatelů"}
+          description={
+            isApprover
+              ? "Smlouva nesplnila podmínky automatického schválení (pravidlo 3). Zkontroluj ji a schval, nebo vrať do konceptu."
+              : "Smlouva čeká na schválení schvalovatelů šablon. Připomenout e-mailem můžeš v panelu „Lokalita a schválení“ níže."
+          }
+          primary={
+            isApprover ? (
+              <PrimaryButton onClick={approve} pending={pending === "POST:approve"} Icon={ShieldCheck}>
+                Schválit
+              </PrimaryButton>
+            ) : undefined
+          }
+          rollback={
+            <SubtleButton
+              onClick={returnToDraft}
+              pending={pending === "DELETE:submit"}
+              Icon={Undo2}
+            >
+              Vrátit do konceptu
+            </SubtleButton>
           }
         />
       )}
@@ -302,9 +397,21 @@ export function ContractCurrentActionPanel({
               </PrimaryButton>
             }
             rollback={
-              <SubtleButton onClick={unapprove} pending={pending === "DELETE:approve"} Icon={Undo2}>
-                Zrušit schválení
-              </SubtleButton>
+              isGated && contract.approvalDecision === "auto" ? (
+                // Auto-schválené nemají krok schvalovatele - rollback vede rovnou
+                // do konceptu (ne do Ke schválení).
+                <SubtleButton
+                  onClick={returnToDraft}
+                  pending={pending === "DELETE:submit"}
+                  Icon={Undo2}
+                >
+                  Vrátit do konceptu
+                </SubtleButton>
+              ) : (
+                <SubtleButton onClick={unapprove} pending={pending === "DELETE:approve"} Icon={Undo2}>
+                  Zrušit schválení
+                </SubtleButton>
+              )
             }
           />
         ))}
@@ -449,11 +556,13 @@ function ActionRow({
 function PrimaryButton({
   onClick,
   pending,
+  disabled,
   Icon,
   children,
 }: {
   onClick: () => void;
   pending?: boolean;
+  disabled?: boolean;
   Icon: React.ComponentType<{ className?: string; strokeWidth?: number; "aria-hidden"?: boolean }>;
   children: React.ReactNode;
 }) {
@@ -461,7 +570,7 @@ function PrimaryButton({
     <button
       type="button"
       onClick={onClick}
-      disabled={pending}
+      disabled={pending || disabled}
       className="inline-flex h-11 items-center gap-2 rounded-full bg-ink-base px-5 text-[13px] font-semibold text-paper transition-transform active:translate-y-px disabled:opacity-60"
     >
       <Icon className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden={true} />

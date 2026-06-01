@@ -13,6 +13,7 @@ import {
 // Pro `koncept` čteme z createdAt - to je moment vzniku.
 const STATUS_TIMESTAMP_FIELD: Record<ContractStatus, keyof Contract> = {
   koncept: "createdAt",
+  "ke-schvaleni": "submittedForApprovalAt",
   schvaleno: "approvedAt",
   "k-podpisu": "signerPickedAt",
   "podepsano-bos": "signedAt",

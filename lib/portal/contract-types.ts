@@ -148,6 +148,19 @@ export function isBundleType(type: ContractType): type is "claim-bundle" {
   return type === "claim-bundle";
 }
 
+// Typy, které se před podpisem posuzují podle lokality (kategorie + nájem +
+// nový režim) a procházejí stavem „Ke schválení". Klíč k automatickému
+// schválení i samotný gate řeší lib/portal/contract-approval.ts.
+export const APPROVAL_GATED_TYPES: ReadonlySet<ContractType> = new Set([
+  "franchise",
+  "cooperation",
+  "operation",
+]);
+
+export function isApprovalGated(type: ContractType): boolean {
+  return APPROVAL_GATED_TYPES.has(type);
+}
+
 // Jednostranné smlouvy/prohlášení - BOS na nich nepodepisuje, šablona má
 // jen podpis klienta. Flow se proto zkracuje: Koncept → Schváleno →
 // Podepsáno klientem → Archivováno (skipuje se "K podpisu" a "Podepsáno BOS",

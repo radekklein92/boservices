@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   ScanLine,
   Circle,
+  Clock,
   PenLine,
   Package,
   Gavel,
@@ -23,7 +24,7 @@ import {
 } from "lucide-react";
 import type { Contract } from "@/lib/portal/contracts-db";
 import {
-  CONTRACT_STATUSES,
+  ALL_CONTRACT_STATUSES,
   CONTRACT_STATUS_LABEL,
 } from "@/lib/portal/contracts-db";
 import type { Client } from "@/lib/portal/clients-db";
@@ -64,13 +65,18 @@ function formatDate(iso: string): string {
   }
 }
 
-const STATUS_ORDER = CONTRACT_STATUSES;
+const STATUS_ORDER = ALL_CONTRACT_STATUSES;
 
 const STATUS_META: Record<
   Contract["status"],
   { label: string; Icon: LucideIcon; tone: "muted" | "ink" | "ok" }
 > = {
   koncept: { label: CONTRACT_STATUS_LABEL.koncept, Icon: Circle, tone: "muted" },
+  "ke-schvaleni": {
+    label: CONTRACT_STATUS_LABEL["ke-schvaleni"],
+    Icon: Clock,
+    tone: "ink",
+  },
   schvaleno: {
     label: CONTRACT_STATUS_LABEL.schvaleno,
     Icon: CheckCircle2,
@@ -122,6 +128,7 @@ export function ContractsList({
   const counts = useMemo(() => {
     const m: Record<Contract["status"], number> = {
       koncept: 0,
+      "ke-schvaleni": 0,
       schvaleno: 0,
       "k-podpisu": 0,
       "podepsano-bos": 0,

@@ -10,9 +10,29 @@ import {
   getVariantMeta,
   getDefaultVariantForType,
   hasVariants,
+  isApprovalGated,
   type ContractType,
 } from "@/lib/portal/contract-types";
 import { ClientCombobox } from "@/components/portal/ui/ClientCombobox";
+import {
+  LocationCombobox,
+  type LocationPickItem,
+} from "@/components/portal/ui/LocationCombobox";
+import {
+  evaluateAutoApproval,
+  LEASE_HOLDER_LABEL,
+  NEW_MODE_LABEL,
+} from "@/lib/portal/contract-approval";
+import {
+  CATEGORY_LABEL,
+  CATEGORY_STYLE,
+  CHIP_BASE,
+} from "@/components/portal/locations/locations-shared";
+import type {
+  LeaseStatus,
+  LocationCategory,
+  LocationMode,
+} from "@/lib/portal/locations-db";
 
 export function ContractCreateModal({
   clients,
@@ -32,11 +52,25 @@ export function ContractCreateModal({
   );
   // Franšízový poplatek (%) - AB: volitelné 0-8 (default 8), B: pevně 8
   const [franchiseFeePercent, setFranchiseFeePercent] = useState<number>(8);
+  // Lokalita - povinná u typů posuzovaných podle lokality (isApprovalGated).
+  const [locationId, setLocationId] = useState("");
+  const [locationItem, setLocationItem] = useState<LocationPickItem | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const effectiveFeePercent = variant === "B" ? 8 : franchiseFeePercent;
   const availableVariants = getVariantsForType(type);
+  const gated = isApprovalGated(type);
+
+  // Náhled rozhodnutí podle klíče (jen orientačně - závazně se vyhodnotí až
+  // při „Odeslat ke schválení").
+  const previewAutoRule = locationItem
+    ? evaluateAutoApproval({
+        category: locationItem.category as LocationCategory | null,
+        leaseStatus: locationItem.leaseStatus as LeaseStatus,
+        newMode: locationItem.newMode as LocationMode | null,
+      })
+    : null;
 
   function changeType(next: ContractType) {
     setType(next);
@@ -73,6 +107,7 @@ export function ContractCreateModal({
           ...(type === "franchise"
             ? { franchiseFeePercent: effectiveFeePercent }
             : {}),
+          ...(gated ? { locationId } : {}),
         }),
       });
       const data = await res.json();
@@ -261,6 +296,66 @@ export function ContractCreateModal({
             </div>
           )}
 
+          {gated && (
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[10px] font-medium uppercase tracking-[0.16em] text-ink-mid">
+                Lokalita
+              </span>
+              <LocationCombobox
+                value={locationId}
+                onChange={(id, item) => {
+                  setLocationId(id);
+                  setLocationItem(item);
+                }}
+              />
+              {locationItem ? (
+                <div className="mt-1 flex flex-col gap-2 rounded-lg border border-edge bg-paper-warm px-3.5 py-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {locationItem.category && (
+                      <span
+                        className={`${CHIP_BASE} ${CATEGORY_STYLE[locationItem.category as LocationCategory]}`}
+                      >
+                        {CATEGORY_LABEL[locationItem.category as LocationCategory]}
+                      </span>
+                    )}
+                    <span className="text-[12px] text-ink-mid">
+                      Nájem{" "}
+                      <span className="font-medium text-ink-base">
+                        {LEASE_HOLDER_LABEL[locationItem.leaseStatus as LeaseStatus]}
+                      </span>
+                    </span>
+                    <span className="text-[12px] text-ink-mid">
+                      · Nový režim{" "}
+                      <span className="font-medium text-ink-base">
+                        {locationItem.newMode
+                          ? NEW_MODE_LABEL[locationItem.newMode as LocationMode]
+                          : "neuvedeno"}
+                      </span>
+                    </span>
+                  </div>
+                  <div className="text-[12px] leading-snug">
+                    {previewAutoRule ? (
+                      <span className="text-emerald-700">
+                        Po odeslání bude <strong>automaticky schváleno</strong>{" "}
+                        (pravidlo {previewAutoRule}).
+                      </span>
+                    ) : (
+                      <span className="text-amber-700">
+                        Po odeslání bude <strong>vyžadovat schválení</strong>{" "}
+                        schvalovatelů (pravidlo 3).
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <span className="mt-0.5 text-[11px] text-ink-mid">
+                  Vyberte lokalitu, které se smlouva týká. Podle její kategorie,
+                  nájmu a nového režimu se rozhodne o schválení.
+                </span>
+              )}
+            </div>
+          )}
+
           {error && (
             <div role="alert" className="text-[12.5px] text-ink-deep">
               {error}
@@ -277,7 +372,7 @@ export function ContractCreateModal({
             </button>
             <button
               type="submit"
-              disabled={pending || !clientId}
+              disabled={pending || !clientId || (gated && !locationId)}
               className="inline-flex h-10 items-center gap-2 rounded-full bg-ink-base px-5 text-[13px] font-semibold text-paper transition-transform active:translate-y-px disabled:opacity-60"
             >
               {pending ? "Vytvářím…" : "Vytvořit smlouvu"}

@@ -61,15 +61,21 @@ import {
 } from "./CompanyChipPicker";
 import { ContractStatusStepper } from "./ContractStatusStepper";
 import { ContractCurrentActionPanel } from "./ContractCurrentActionPanel";
+import { ContractApprovalPanel } from "./ContractApprovalPanel";
 
 import { TemplateMatchBadge } from "./TemplateMatchBadge";
 import { DiffModal } from "./DiffModal";
+import { isApprovalGated } from "@/lib/portal/contract-types";
 
 type Props = {
   initial: Contract;
   // Server-snapshot: je aktuálně šablona / všechny sub-šablony schválené?
   // Pokud ne → červený badge "Šablona neschválená" v hlavičce.
   templateApproved: boolean;
+  // Aktuální uživatel je schvalovatel šablon (vidí "Schválit" u Ke schválení).
+  isApprover: boolean;
+  // E-maily všech schvalovatelů (tooltip u "Připomenout e-mailem").
+  approverEmails: string[];
 };
 
 function formatDateTime(iso: string): string {
@@ -88,7 +94,12 @@ function formatDateTime(iso: string): string {
 
 type SaveState = "idle" | "pending" | "saving" | "saved" | "error";
 
-export function ContractDetailClient({ initial, templateApproved }: Props) {
+export function ContractDetailClient({
+  initial,
+  templateApproved,
+  isApprover,
+  approverEmails,
+}: Props) {
   const router = useRouter();
   const [contract, setContract] = useState(initial);
   const [html, setHtml] = useState(initial.html);
@@ -540,7 +551,19 @@ export function ContractDetailClient({ initial, templateApproved }: Props) {
         contract={contract}
         onChanged={(next) => setContract(next)}
         notify={notify}
+        isApprover={isApprover}
       />
+
+      {/* Lokalita a schválení (jen typy posuzované podle lokality) */}
+      {isApprovalGated(contract.type) && (
+        <ContractApprovalPanel
+          contract={contract}
+          isApprover={isApprover}
+          approverEmails={approverEmails}
+          onChanged={(next) => setContract(next)}
+          notify={notify}
+        />
+      )}
 
       {/* Variant switcher (jen pro typy s variantami, např. franšíza) */}
       {hasVariants(contract.type) && (

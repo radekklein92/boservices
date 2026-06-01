@@ -2,6 +2,7 @@ import Link from "next/link";
 import {
   ArrowUpRight,
   Circle,
+  Clock,
   CheckCircle2,
   PenLine,
   Stamp,
@@ -23,6 +24,7 @@ const STATUS_META: Record<
   { label: string; Icon: LucideIcon }
 > = {
   koncept: { label: "Koncept", Icon: Circle },
+  "ke-schvaleni": { label: "Ke schválení", Icon: Clock },
   schvaleno: { label: "Schváleno", Icon: CheckCircle2 },
   "k-podpisu": { label: "K podpisu", Icon: PenLine },
   "podepsano-bos": { label: "Podepsáno BOS", Icon: Stamp },

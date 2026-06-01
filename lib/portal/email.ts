@@ -113,3 +113,28 @@ export async function sendTemplateApprovalReminder(opts: {
     ),
   });
 }
+
+// E-mail upozornění schvalovateli, že konkrétní smlouva čeká na schválení
+// (typy posuzované podle lokality, pravidlo 3). Spouští se ručně tlačítkem
+// „Připomenout e-mailem" na detailu / v seznamu smluv.
+export async function sendContractApprovalReminder(opts: {
+  to: string;
+  approverName?: string;
+  contractLabel: string;
+  reason: string;
+  deepLink: string;
+}): Promise<void> {
+  const resend = getResend();
+  if (!resend) {
+    console.warn("[portal email] Resend not configured");
+    return;
+  }
+  const greeting = opts.approverName ? `${opts.approverName},` : "dobrý den,";
+  const body = `<p style="font-size:15px;line-height:1.6">${greeting}</p><p style="font-size:15px;line-height:1.6">Smlouva <strong>${opts.contractLabel}</strong> čeká na vaše schválení.</p><p style="font-size:14px;line-height:1.6;color:#6F7672">${opts.reason}</p>${button(opts.deepLink, "Otevřít smlouvu")}${fallbackLink(opts.deepLink)}`;
+  await resend.emails.send({
+    from: FROM,
+    to: [opts.to],
+    subject: `Smlouva čeká na schválení - ${opts.contractLabel}`,
+    html: shell("Smlouva čeká na schválení.", "BOServices portál", body),
+  });
+}

@@ -7,12 +7,15 @@ import {
   isContractType,
   hasVariants,
   isBundleType,
+  isApprovalGated,
   isValidVariantForType,
   getDefaultVariantForType,
   CONTRACT_TYPE_META,
   CLAIM_BUNDLE_SECTIONS,
   type ContractVariant,
 } from "@/lib/portal/contract-types";
+import { getLocation } from "@/lib/portal/locations-db";
+import type { Contract } from "@/lib/portal/contracts-db";
 import { WITHDRAWAL_KS_TEXTS } from "@/lib/portal/contract-render";
 import { ensureClaimsToken } from "@/lib/portal/claims";
 import { getOrSeedContractTemplate } from "@/lib/portal/contract-templates-db";
@@ -35,6 +38,8 @@ const createSchema = z.object({
   type: z.string().trim().min(1),
   variant: z.string().trim().optional(),
   franchiseFeePercent: z.number().int().min(0).max(8).optional(),
+  // Povinné jen pro typy posuzované podle lokality (isApprovalGated).
+  locationId: z.string().trim().optional(),
 });
 
 export async function GET(req: Request) {
@@ -80,6 +85,7 @@ export async function POST(req: Request) {
     type,
     variant: rawVariant,
     franchiseFeePercent: rawFeePercent,
+    locationId,
   } = parsed.data;
 
   const client = await getClient(clientId);
@@ -88,6 +94,32 @@ export async function POST(req: Request) {
       { ok: false, error: "Klient nenalezen." },
       { status: 404 },
     );
+  }
+
+  // Typy posuzované podle lokality vyžadují výběr lokality - nasnapshotujeme
+  // její stav (kategorie, nájem, nový režim) pro pozdější vyhodnocení klíče.
+  let locationSnapshot: Contract["locationSnapshot"];
+  if (isApprovalGated(type)) {
+    if (!locationId) {
+      return NextResponse.json(
+        { ok: false, error: "Vyberte lokalitu." },
+        { status: 400 },
+      );
+    }
+    const location = await getLocation(locationId);
+    if (!location) {
+      return NextResponse.json(
+        { ok: false, error: "Lokalita nenalezena." },
+        { status: 404 },
+      );
+    }
+    locationSnapshot = {
+      name: location.name,
+      category: location.category,
+      leaseStatus: location.lease_current_status,
+      newMode: location.new_mode,
+      capturedAt: new Date().toISOString(),
+    };
   }
 
   let variant: ContractVariant | undefined;
@@ -187,6 +219,7 @@ export async function POST(req: Request) {
     bundleSections,
     variant,
     letterhead,
+    ...(isApprovalGated(type) ? { locationId, locationSnapshot } : {}),
     variables,
     number,
     createdBy: g.session.user!.email!,

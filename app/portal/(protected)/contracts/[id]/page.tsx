@@ -9,6 +9,8 @@ import {
   getOrSeedContractTemplate,
   isTemplateApproved,
 } from "@/lib/portal/contract-templates-db";
+import { getSession } from "@/lib/portal/get-session";
+import { getTemplateApprovers } from "@/lib/portal/users-db";
 import { ContractDetailClient } from "@/components/portal/contracts/ContractDetailClient";
 
 export const dynamic = "force-dynamic";
@@ -64,7 +66,21 @@ export default async function ContractDetailPage({
     templateApproved = isTemplateApproved(tpl);
   }
 
+  // Schvalovatelé šablon - smí schválit smlouvu ve stavu Ke schválení.
+  const [session, approvers] = await Promise.all([
+    getSession(),
+    getTemplateApprovers(),
+  ]);
+  const approverEmails = approvers.map((a) => a.email);
+  const isApprover = !!session?.user?.email
+    && approverEmails.includes(session.user.email);
+
   return (
-    <ContractDetailClient initial={contract} templateApproved={templateApproved} />
+    <ContractDetailClient
+      initial={contract}
+      templateApproved={templateApproved}
+      isApprover={isApprover}
+      approverEmails={approverEmails}
+    />
   );
 }

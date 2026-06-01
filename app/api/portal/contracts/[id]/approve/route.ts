@@ -5,6 +5,8 @@ import {
   getContract,
   upsertContract,
 } from "@/lib/portal/contracts-db";
+import { isApprovalGated } from "@/lib/portal/contract-types";
+import { getUser } from "@/lib/portal/users-db";
 import { bustContracts } from "@/lib/portal/revalidate";
 
 export async function POST(
@@ -20,13 +22,37 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
   }
 
+  const email = g.session.user!.email!;
   const now = new Date().toISOString();
+
+  // Typy posuzované podle lokality: ze stavu Ke schválení (pravidlo 3) může
+  // schválit jen schvalovatel šablon. Auto-schválené sem nechodí (projdou rovnou
+  // do Schváleno v kroku „Odeslat ke schválení").
+  let extra: Partial<typeof contract> = {};
+  if (isApprovalGated(contract.type)) {
+    if (contract.status !== "ke-schvaleni") {
+      return NextResponse.json(
+        { ok: false, error: "Smlouva není ve stavu Ke schválení." },
+        { status: 409 },
+      );
+    }
+    const me = await getUser(email);
+    if (!me?.isTemplateApprover) {
+      return NextResponse.json(
+        { ok: false, error: "Schválit může pouze schvalovatel šablon." },
+        { status: 403 },
+      );
+    }
+    extra = { approvalDecision: "manual", approvalRule: 3 };
+  }
+
   // Finální PDF (bez watermarku) se generuje až v kroku „K podpisu" / „Připravit
   // k podpisu" (pick-signer) pro všechny typy - při schválení tedy negenerujeme.
   const updated = {
     ...contract,
+    ...extra,
     approvedAt: now,
-    approvedBy: g.session.user!.email!,
+    approvedBy: email,
     updatedAt: now,
   };
   updated.status = computeContractStatus(updated);

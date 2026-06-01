@@ -7,6 +7,7 @@ import {
   upsertContract,
 } from "@/lib/portal/contracts-db";
 import { getUser } from "@/lib/portal/users-db";
+import { isApprovalGated } from "@/lib/portal/contract-types";
 import { bustContracts } from "@/lib/portal/revalidate";
 
 const bulkSchema = z.object({
@@ -39,6 +40,10 @@ export async function POST(req: Request) {
   const { ids, action, signerEmail, keepOriginal } = parsed.data;
   const email = g.session.user!.email!;
   const nowIso = new Date().toISOString();
+
+  // Pro action=approve si načteme aktuálního uživatele - u typů posuzovaných
+  // podle lokality smí hromadně schvalovat jen schvalovatel šablon.
+  const me = action === "approve" ? await getUser(email) : null;
 
   // Pro pick-signer si načteme usera předem (jeden lookup pro všech N smluv).
   // U „zachovat původního" (keepOriginal) žádného signera nehledáme.
@@ -75,8 +80,16 @@ export async function POST(req: Request) {
         skipped++;
         continue;
       }
+      // Typy posuzované podle lokality: hromadně schválit lze jen smlouvu ve
+      // stavu Ke schválení a jen schvalovatelem šablon (pravidlo 3).
+      const gated = isApprovalGated(contract.type);
+      if (gated && (contract.status !== "ke-schvaleni" || !me?.isTemplateApprover)) {
+        skipped++;
+        continue;
+      }
       const updated = {
         ...contract,
+        ...(gated ? { approvalDecision: "manual" as const, approvalRule: 3 as const } : {}),
         approvedAt: nowIso,
         approvedBy: email,
         updatedAt: nowIso,

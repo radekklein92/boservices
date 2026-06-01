@@ -1,18 +1,26 @@
 import { getRedis } from "@/lib/redis";
-import type {
-  ClaimBundleSectionType,
-  ContractType,
-  ContractVariant,
+import {
+  isApprovalGated,
+  type ClaimBundleSectionType,
+  type ContractType,
+  type ContractVariant,
 } from "./contract-types";
+import type {
+  LeaseStatus,
+  LocationCategory,
+  LocationMode,
+} from "./locations-db";
 import type { ClaimItem } from "./claims";
 
 // Status flow:
-//   koncept → schvaleno → k-podpisu → podepsano-bos → podepsano-klientem → archivovano
-// Status je computed z timestampů jednotlivých milestones (viz computeContractStatus).
-// Každý milestone má samostatný POST/DELETE endpoint pro rollback (smazání timestampu
-// vrátí smlouvu o status zpět).
+//   koncept → [ke-schvaleni] → schvaleno → k-podpisu → podepsano-bos → podepsano-klientem → archivovano
+// „ke-schvaleni" je mezikrok jen pro typy posuzované podle lokality (viz
+// isApprovalGated). Status je computed z timestampů jednotlivých milestones
+// (viz computeContractStatus). Každý milestone má samostatný POST/DELETE
+// endpoint pro rollback (smazání timestampu vrátí smlouvu o status zpět).
 export type ContractStatus =
   | "koncept"
+  | "ke-schvaleni"
   | "schvaleno"
   | "k-podpisu"
   | "podepsano-bos"
@@ -50,6 +58,24 @@ export const WITHDRAWAL_CONTRACT_STATUSES: ContractStatus[] = [
   "archivovano",
 ];
 
+// Typy posuzované podle lokality (franšíza, spolupráce, provozování) - mezi
+// Koncept a Schváleno mají krok „Ke schválení". Operátor smlouvu z Konceptu
+// „Odešle ke schválení": při auto-schválení (klíč) projde rovnou do Schváleno,
+// jinak zůstane v Ke schválení, dokud ji neschválí schvalovatel.
+export const APPROVAL_CONTRACT_STATUSES: ContractStatus[] = [
+  "koncept",
+  "ke-schvaleni",
+  "schvaleno",
+  "k-podpisu",
+  "podepsano-bos",
+  "podepsano-klientem",
+  "archivovano",
+];
+
+// Sjednocené pořadí všech statusů (nadmnožina všech flows) - pro UI chips,
+// labely a statusOrder. APPROVAL flow je nejdelší a obsahuje všechny.
+export const ALL_CONTRACT_STATUSES: ContractStatus[] = APPROVAL_CONTRACT_STATUSES;
+
 export function getStatusFlowForType(type: ContractType): ContractStatus[] {
   if (type === "withdrawal" || type === "assignment-notice") {
     return WITHDRAWAL_CONTRACT_STATUSES;
@@ -61,11 +87,15 @@ export function getStatusFlowForType(type: ContractType): ContractStatus[] {
   ) {
     return CLAIM_CONTRACT_STATUSES;
   }
+  if (isApprovalGated(type)) {
+    return APPROVAL_CONTRACT_STATUSES;
+  }
   return CONTRACT_STATUSES;
 }
 
 export const CONTRACT_STATUS_LABEL: Record<ContractStatus, string> = {
   koncept: "Koncept",
+  "ke-schvaleni": "Ke schválení",
   schvaleno: "Schváleno",
   "k-podpisu": "K podpisu",
   "podepsano-bos": "Podepsáno BOS",
@@ -74,7 +104,7 @@ export const CONTRACT_STATUS_LABEL: Record<ContractStatus, string> = {
 };
 
 export function statusOrder(status: ContractStatus): number {
-  return CONTRACT_STATUSES.indexOf(status);
+  return ALL_CONTRACT_STATUSES.indexOf(status);
 }
 
 export interface BundleSection {
@@ -105,6 +135,25 @@ export interface Contract {
   // PDF s logem v záhlaví a textem v patičce (true, default) nebo bez nich.
   // Snapshot z template.letterhead při vytvoření smlouvy.
   letterhead?: boolean;
+  // Lokalita, ke které se smlouva vztahuje - jen typy posuzované podle lokality
+  // (isApprovalGated). Vybírá se povinně při vytvoření a lze ji změnit ve stavu
+  // Koncept. locationSnapshot je zmrazený stav z Transition v okamžiku výběru
+  // (zrcadlo se dál mění nezávisle), z něj se počítá auto-schválení.
+  locationId?: string;
+  locationSnapshot?: {
+    name: string;
+    category: LocationCategory | null;
+    leaseStatus: LeaseStatus;
+    newMode: LocationMode | null;
+    capturedAt: string;
+  };
+  // Odesláno ke schválení (vstup do statusu "ke-schvaleni"). approvalDecision
+  // určuje, zda klíč rozhodl automaticky ("auto", pravidlo 1/2 - smlouva projde
+  // rovnou do "schvaleno") nebo vyžaduje schvalovatele ("manual", pravidlo 3).
+  submittedForApprovalAt?: string;
+  submittedForApprovalBy?: string;
+  approvalDecision?: "auto" | "manual";
+  approvalRule?: 1 | 2 | 3;
   variables: Record<string, string>;
   // PDF vygenerováno (preview nebo finální - rozhoduje status v okamžiku generace).
   generatedPdfUrl?: string;
@@ -140,9 +189,15 @@ export interface Contract {
 const STATUS_DONE_FIELD: Partial<
   Record<
     ContractStatus,
-    "approvedAt" | "signerPickedAt" | "signedAt" | "clientSignedAt" | "scanUploadedAt"
+    | "submittedForApprovalAt"
+    | "approvedAt"
+    | "signerPickedAt"
+    | "signedAt"
+    | "clientSignedAt"
+    | "scanUploadedAt"
   >
 > = {
+  "ke-schvaleni": "submittedForApprovalAt",
   schvaleno: "approvedAt",
   "k-podpisu": "signerPickedAt",
   "podepsano-bos": "signedAt",
@@ -157,6 +212,7 @@ export function computeContractStatus(
   c: Pick<
     Contract,
     | "type"
+    | "submittedForApprovalAt"
     | "approvedAt"
     | "signerPickedAt"
     | "signedAt"
