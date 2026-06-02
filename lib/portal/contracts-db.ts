@@ -167,6 +167,9 @@ export interface Contract {
   submittedForApprovalBy?: string;
   approvalDecision?: "auto" | "manual";
   approvalRule?: 1 | 2 | 3;
+  // Volitelná poznámka schvalovatele (např. „schváleno telefonicky …").
+  // Zobrazuje se v panelu Lokalita a schválení na detailu.
+  approvalNote?: string;
   variables: Record<string, string>;
   // PDF vygenerováno (preview nebo finální - rozhoduje status v okamžiku generace).
   generatedPdfUrl?: string;

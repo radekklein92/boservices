@@ -10,7 +10,7 @@ import { getUser } from "@/lib/portal/users-db";
 import { bustContracts } from "@/lib/portal/revalidate";
 
 export async function POST(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const g = await requireSession();
@@ -20,6 +20,17 @@ export async function POST(
   const contract = await getContract(id);
   if (!contract) {
     return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
+  }
+
+  // Volitelná poznámka schvalovatele (např. „schváleno telefonicky …").
+  let note: string | undefined;
+  try {
+    const body = (await req.json()) as { note?: unknown };
+    if (typeof body?.note === "string" && body.note.trim()) {
+      note = body.note.trim().slice(0, 500);
+    }
+  } catch {
+    // bez těla - poznámka prostě není
   }
 
   const email = g.session.user!.email!;
@@ -53,6 +64,7 @@ export async function POST(
     ...extra,
     approvedAt: now,
     approvedBy: email,
+    ...(note ? { approvalNote: note } : {}),
     updatedAt: now,
   };
   updated.status = computeContractStatus(updated);

@@ -162,7 +162,14 @@ export function ContractApprovalPanel({
       )}
 
       {/* Rozhodnutí */}
-      <ApprovalBadge contract={contract} />
+      <div className="flex flex-col gap-2">
+        <ApprovalBadge contract={contract} />
+        {contract.approvalNote && (
+          <p className="text-[12.5px] italic leading-snug text-ink-mid">
+            „{contract.approvalNote}"
+          </p>
+        )}
+      </div>
 
       {/* Akce: změna lokality (koncept) / připomenutí (ke-schvaleni, non-approver) */}
       <div className="flex flex-col gap-3">
