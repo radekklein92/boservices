@@ -44,7 +44,7 @@ export function LocationCombobox({
     let active = true;
     (async () => {
       try {
-        const res = await fetch("/api/portal/locations");
+        const res = await fetch("/api/portal/locations", { cache: "no-store" });
         const data = await res.json();
         if (active && data.ok) setItems(data.locations as LocationPickItem[]);
       } catch {
