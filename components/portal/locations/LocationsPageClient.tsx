@@ -11,12 +11,10 @@ import { formatDateTime } from "./locations-shared";
 export function LocationsPageClient({
   locations,
   syncMeta,
-  isAdmin,
   withContractIds,
 }: {
   locations: MirroredLocation[];
   syncMeta: LocationsSyncMeta | null;
-  isAdmin: boolean;
   // Id lokalit s nahranou přílohou (nájemní smlouvou) - pro filtr v tabulce.
   withContractIds: string[];
 }) {
@@ -52,21 +50,19 @@ export function LocationsPageClient({
         title="Lokality"
         lede="Read-only zrcadlo lokalit z projektu Transition. Spravují se výhradně v Transition; tady je vidíte i s kategorií a můžete k nim přidávat poznámky a přílohy."
         actions={
-          isAdmin ? (
-            <button
-              type="button"
-              onClick={syncNow}
-              disabled={busy}
-              className="inline-flex h-11 items-center gap-2 rounded-full border border-edge bg-paper px-5 text-[13.5px] font-semibold text-ink-base transition-colors hover:border-ink-base disabled:opacity-50"
-            >
-              <RefreshCw
-                className={`h-4 w-4 ${busy ? "animate-spin" : ""}`}
-                strokeWidth={1.5}
-                aria-hidden="true"
-              />
-              {busy ? "Synchronizuji…" : "Synchronizovat teď"}
-            </button>
-          ) : undefined
+          <button
+            type="button"
+            onClick={syncNow}
+            disabled={busy}
+            className="inline-flex h-11 items-center gap-2 rounded-full border border-edge bg-paper px-5 text-[13.5px] font-semibold text-ink-base transition-colors hover:border-ink-base disabled:opacity-50"
+          >
+            <RefreshCw
+              className={`h-4 w-4 ${busy ? "animate-spin" : ""}`}
+              strokeWidth={1.5}
+              aria-hidden="true"
+            />
+            {busy ? "Synchronizuji…" : "Synchronizovat teď"}
+          </button>
         }
       />
 
