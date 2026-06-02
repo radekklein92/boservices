@@ -245,6 +245,44 @@ export function computeContractStatus(
   return "koncept";
 }
 
+// Pole timestampu + „kdo" pro každý milník - pro hromadné dorovnání předchozích
+// kroků.
+const STATUS_MILESTONE_FIELDS: Partial<
+  Record<ContractStatus, { at: keyof Contract; by: keyof Contract }>
+> = {
+  "ke-schvaleni": { at: "submittedForApprovalAt", by: "submittedForApprovalBy" },
+  schvaleno: { at: "approvedAt", by: "approvedBy" },
+  "k-podpisu": { at: "signerPickedAt", by: "signerPickedBy" },
+  "podepsano-bos": { at: "signedAt", by: "signedBy" },
+  "podepsano-klientem": { at: "clientSignedAt", by: "clientSignedBy" },
+  archivovano: { at: "scanUploadedAt", by: "scanUploadedBy" },
+};
+
+// Dorovná všechny milníky FLOW daného typu až po cílový status (včetně), které
+// ještě nejsou vyplněné. Respektuje pořadí flow - u postoupení (klient→BOS
+// otočeně) tedy při akci „Podepsáno klientem" NEdoplní „Podepsáno BOS", protože
+// ten v jeho flow leží AŽ ZA klientským podpisem. Vrací patch k aplikaci.
+export function backfillToStatus(
+  contract: Contract,
+  targetStatus: ContractStatus,
+  nowIso: string,
+  email: string,
+): Partial<Contract> {
+  const flow = getStatusFlowForType(contract.type);
+  const targetIdx = flow.indexOf(targetStatus);
+  if (targetIdx < 1) return {};
+  const patch: Record<string, string> = {};
+  for (let i = 1; i <= targetIdx; i++) {
+    const m = STATUS_MILESTONE_FIELDS[flow[i]!];
+    if (!m) continue;
+    if (!contract[m.at]) {
+      patch[m.at as string] = nowIso;
+      patch[m.by as string] = email;
+    }
+  }
+  return patch as Partial<Contract>;
+}
+
 const INDEX = "portal:contracts:index";
 const contractKey = (id: string) => `portal:contract:${id}`;
 const byClientKey = (clientId: string) =>

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireSession } from "@/lib/portal/auth-guard";
 import {
+  backfillToStatus,
   computeContractStatus,
   getContract,
   upsertContract,
@@ -159,15 +160,11 @@ export async function POST(req: Request) {
         skipped++;
         continue;
       }
-      // Doplníme i předchozí milestones, pokud chybí.
+      // Dorovná předchozí milníky podle FLOW daného typu (postoupení má pořadí
+      // podpisů otočené - klient→BOS), takže se doplní jen kroky před BOS podpisem.
       const updated = {
         ...contract,
-        approvedAt: contract.approvedAt ?? nowIso,
-        approvedBy: contract.approvedBy ?? email,
-        signerPickedAt: contract.signerPickedAt ?? nowIso,
-        signerPickedBy: contract.signerPickedBy ?? email,
-        signedAt: nowIso,
-        signedBy: email,
+        ...backfillToStatus(contract, "podepsano-bos", nowIso, email),
         updatedAt: nowIso,
       };
       updated.status = computeContractStatus(updated);
@@ -181,16 +178,12 @@ export async function POST(req: Request) {
         skipped++;
         continue;
       }
+      // Dorovná předchozí milníky podle FLOW. U postoupení leží „Podepsáno BOS"
+      // AŽ ZA klientským podpisem, takže se signedAt NEdoplní (jinak by status
+      // omylem spadl na Podepsáno BOS).
       const updated = {
         ...contract,
-        approvedAt: contract.approvedAt ?? nowIso,
-        approvedBy: contract.approvedBy ?? email,
-        signerPickedAt: contract.signerPickedAt ?? nowIso,
-        signerPickedBy: contract.signerPickedBy ?? email,
-        signedAt: contract.signedAt ?? nowIso,
-        signedBy: contract.signedBy ?? email,
-        clientSignedAt: nowIso,
-        clientSignedBy: email,
+        ...backfillToStatus(contract, "podepsano-klientem", nowIso, email),
         updatedAt: nowIso,
       };
       updated.status = computeContractStatus(updated);
