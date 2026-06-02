@@ -32,12 +32,14 @@ type Notify = (kind: "ok" | "error", msg: string) => void;
 export function ContractApprovalPanel({
   contract,
   isApprover,
+  isSuperadmin = false,
   approverEmails,
   onChanged,
   notify,
 }: {
   contract: Contract;
   isApprover: boolean;
+  isSuperadmin?: boolean;
   approverEmails: string[];
   onChanged: (next: Contract) => void;
   notify: Notify;
@@ -204,7 +206,7 @@ export function ContractApprovalPanel({
             </button>
           ))}
 
-        {contract.status === "ke-schvaleni" && !isApprover && (
+        {contract.status === "ke-schvaleni" && !isApprover && !isSuperadmin && (
           <button
             type="button"
             onClick={remind}

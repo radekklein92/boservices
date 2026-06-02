@@ -74,12 +74,14 @@ export default async function ContractDetailPage({
   const approverEmails = approvers.map((a) => a.email);
   const isApprover = !!session?.user?.email
     && approverEmails.includes(session.user.email);
+  const isSuperadmin = session?.user?.role === "superadmin";
 
   return (
     <ContractDetailClient
       initial={contract}
       templateApproved={templateApproved}
       isApprover={isApprover}
+      isSuperadmin={isSuperadmin}
       approverEmails={approverEmails}
     />
   );

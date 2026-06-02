@@ -29,6 +29,10 @@ const SignerPickerModal = dynamicImport(
   () => import("./SignerPickerModal").then((m) => m.SignerPickerModal),
   { ssr: false },
 );
+const ApprovalNoteModal = dynamicImport(
+  () => import("./ApprovalNoteModal").then((m) => m.ApprovalNoteModal),
+  { ssr: false },
+);
 
 type Notify = (kind: "ok" | "error", msg: string) => void;
 
@@ -50,16 +54,19 @@ export function ContractCurrentActionPanel({
   onChanged,
   notify,
   isApprover = false,
+  isSuperadmin = false,
 }: {
   contract: Contract;
   onChanged: (next: Contract) => void;
   notify: Notify;
-  // Aktuální uživatel je schvalovatel šablon - vidí tlačítko „Schválit" u typů
-  // posuzovaných podle lokality ve stavu Ke schválení.
+  // Aktuální uživatel je schvalovatel šablon - vidí „Schválit" bez poznámky.
   isApprover?: boolean;
+  // Superadmin smí schválit i bez role schvalovatele, ale musí uvést poznámku.
+  isSuperadmin?: boolean;
 }) {
   const [pending, setPending] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [noteModalOpen, setNoteModalOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function reload(): Promise<Contract | null> {
@@ -97,8 +104,13 @@ export function ContractCurrentActionPanel({
     }
   }
 
-  async function approve() {
-    await callMilestone("POST", "approve", "Smlouva schválena.");
+  async function approve(note?: string) {
+    await callMilestone(
+      "POST",
+      "approve",
+      "Smlouva schválena.",
+      note ? { note } : undefined,
+    );
   }
 
   async function unapprove() {
@@ -311,7 +323,7 @@ export function ContractCurrentActionPanel({
           headline="Smlouva je v konceptu"
           description={`Dokud nezkontroluješ obsah a neschválíš ji, generuje se PDF s vodoznakem „NÁVRH".`}
           primary={
-            <PrimaryButton onClick={approve} pending={pending === "POST:approve"} Icon={CheckCircle2}>
+            <PrimaryButton onClick={() => approve()} pending={pending === "POST:approve"} Icon={CheckCircle2}>
               Schválit smlouvu
             </PrimaryButton>
           }
@@ -343,16 +355,30 @@ export function ContractCurrentActionPanel({
 
       {status === "ke-schvaleni" && (
         <ActionRow
-          headline={isApprover ? "Ke schválení - posuď a schval" : "Čeká na schválení schvalovatelů"}
+          headline={
+            isApprover || isSuperadmin
+              ? "Ke schválení - posuď a schval"
+              : "Čeká na schválení schvalovatelů"
+          }
           description={
             isApprover
               ? "Smlouva nesplnila podmínky automatického schválení (pravidlo 3). Zkontroluj ji a schval, nebo vrať do konceptu."
-              : "Smlouva čeká na schválení schvalovatelů šablon. Připomenout e-mailem můžeš v panelu „Lokalita a schválení“ níže."
+              : isSuperadmin
+                ? "Jako superadmin můžeš smlouvu schválit i mimo standardní proces - s povinnou poznámkou (proč, kdy a kým byla schválena)."
+                : "Smlouva čeká na schválení schvalovatelů šablon. Připomenout e-mailem můžeš v panelu „Lokalita a schválení“ níže."
           }
           primary={
             isApprover ? (
-              <PrimaryButton onClick={approve} pending={pending === "POST:approve"} Icon={ShieldCheck}>
+              <PrimaryButton onClick={() => approve()} pending={pending === "POST:approve"} Icon={ShieldCheck}>
                 Schválit
+              </PrimaryButton>
+            ) : isSuperadmin ? (
+              <PrimaryButton
+                onClick={() => setNoteModalOpen(true)}
+                pending={pending === "POST:approve"}
+                Icon={ShieldCheck}
+              >
+                Schválit s poznámkou
               </PrimaryButton>
             ) : undefined
           }
@@ -519,6 +545,17 @@ export function ContractCurrentActionPanel({
           currentSignerEmail={contract.signerEmail}
           onClose={() => setPickerOpen(false)}
           onPicked={pickSigner}
+        />
+      )}
+
+      {noteModalOpen && (
+        <ApprovalNoteModal
+          pending={pending === "POST:approve"}
+          onClose={() => setNoteModalOpen(false)}
+          onConfirm={async (note) => {
+            await approve(note);
+            setNoteModalOpen(false);
+          }}
         />
       )}
     </div>

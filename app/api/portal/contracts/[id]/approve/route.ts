@@ -37,8 +37,9 @@ export async function POST(
   const now = new Date().toISOString();
 
   // Typy posuzované podle lokality: ze stavu Ke schválení (pravidlo 3) může
-  // schválit jen schvalovatel šablon. Auto-schválené sem nechodí (projdou rovnou
-  // do Schváleno v kroku „Odeslat ke schválení").
+  // schválit schvalovatel šablon, nebo superadmin. Schvalovatel poznámku psát
+  // nemusí; superadmin (mimo standardní proces) musí uvést podrobnou poznámku
+  // (proč, kdy a kým byla smlouva schválena). Auto-schválené sem nechodí.
   let extra: Partial<typeof contract> = {};
   if (isApprovalGated(contract.type)) {
     if (contract.status !== "ke-schvaleni") {
@@ -48,10 +49,22 @@ export async function POST(
       );
     }
     const me = await getUser(email);
-    if (!me?.isTemplateApprover) {
+    const isApprover = !!me?.isTemplateApprover;
+    const isSuperadmin = me?.role === "superadmin";
+    if (!isApprover && !isSuperadmin) {
       return NextResponse.json(
-        { ok: false, error: "Schválit může pouze schvalovatel šablon." },
+        { ok: false, error: "Schválit může schvalovatel šablon nebo superadmin." },
         { status: 403 },
+      );
+    }
+    if (!isApprover && !note) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Jako superadmin uveďte poznámku (proč, kdy a kým byla smlouva schválena).",
+        },
+        { status: 400 },
       );
     }
     extra = { approvalDecision: "manual", approvalRule: 3 };

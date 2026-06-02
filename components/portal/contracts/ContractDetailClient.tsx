@@ -74,6 +74,8 @@ type Props = {
   templateApproved: boolean;
   // Aktuální uživatel je schvalovatel šablon (vidí "Schválit" u Ke schválení).
   isApprover: boolean;
+  // Superadmin smí schválit i bez role schvalovatele - ale s povinnou poznámkou.
+  isSuperadmin: boolean;
   // E-maily všech schvalovatelů (tooltip u "Připomenout e-mailem").
   approverEmails: string[];
 };
@@ -98,6 +100,7 @@ export function ContractDetailClient({
   initial,
   templateApproved,
   isApprover,
+  isSuperadmin,
   approverEmails,
 }: Props) {
   const router = useRouter();
@@ -546,6 +549,7 @@ export function ContractDetailClient({
         onChanged={(next) => setContract(next)}
         notify={notify}
         isApprover={isApprover}
+        isSuperadmin={isSuperadmin}
       />
 
       {/* Lokalita a schválení (jen typy posuzované podle lokality) */}
@@ -553,6 +557,7 @@ export function ContractDetailClient({
         <ContractApprovalPanel
           contract={contract}
           isApprover={isApprover}
+          isSuperadmin={isSuperadmin}
           approverEmails={approverEmails}
           onChanged={(next) => setContract(next)}
           notify={notify}
