@@ -166,7 +166,7 @@ export interface Contract {
   submittedForApprovalAt?: string;
   submittedForApprovalBy?: string;
   approvalDecision?: "auto" | "manual";
-  approvalRule?: 1 | 2 | 3;
+  approvalRule?: 1 | 2 | 3 | 4;
   // Volitelná poznámka schvalovatele (např. „schváleno telefonicky …").
   // Zobrazuje se v panelu Lokalita a schválení na detailu.
   approvalNote?: string;

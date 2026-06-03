@@ -16,6 +16,7 @@ import {
   APPROVAL_KEY,
   getApprovalView,
   LEASE_HOLDER_LABEL,
+  MANUAL_APPROVAL_RULE,
   NEW_MODE_LABEL,
 } from "@/lib/portal/contract-approval";
 import {
@@ -263,7 +264,7 @@ function ApprovalBadge({ contract }: { contract: Contract }) {
     case "pending":
       return (
         <Badge tone="wait" Icon={Clock}>
-          Čeká na schválení schvalovatelů (pravidlo 3)
+          Čeká na schválení schvalovatelů (pravidlo {MANUAL_APPROVAL_RULE})
         </Badge>
       );
     case "grandfathered":
@@ -279,7 +280,7 @@ function ApprovalBadge({ contract }: { contract: Contract }) {
         </Badge>
       ) : (
         <Badge tone="wait" Icon={Clock}>
-          Po odeslání: bude vyžadovat schválení schvalovatelů (pravidlo 3)
+          Po odeslání: bude vyžadovat schválení schvalovatelů (pravidlo {MANUAL_APPROVAL_RULE})
         </Badge>
       );
     case "needs-location":

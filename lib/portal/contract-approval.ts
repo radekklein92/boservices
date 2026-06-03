@@ -25,9 +25,12 @@ export type ApprovalLocationData = {
   newMode: LocationMode | null;
 };
 
-// Vrátí číslo auto-pravidla (1 nebo 2), které smlouvu schvaluje automaticky,
-// nebo null = žádné auto-pravidlo neplatí (pravidlo 3, vyžaduje schvalovatele).
-export function evaluateAutoApproval(loc: ApprovalLocationData): 1 | 2 | null {
+// Číslo pravidla, které vyžaduje schválení schvalovatelů (poslední položka klíče).
+export const MANUAL_APPROVAL_RULE = 4 as const;
+
+// Vrátí číslo auto-pravidla (1-3), které smlouvu schvaluje automaticky, nebo
+// null = žádné auto-pravidlo neplatí → vyžaduje schvalovatele (pravidlo 4).
+export function evaluateAutoApproval(loc: ApprovalLocationData): 1 | 2 | 3 | null {
   // Pravidlo 1: nájem na franšízanta + nový režim aktivní franšíza.
   if (loc.leaseStatus === "prepis_na_fransizanta" && loc.newMode === "franchise") {
     return 1;
@@ -41,6 +44,11 @@ export function evaluateAutoApproval(loc: ApprovalLocationData): 1 | 2 | null {
     (loc.category === "core" || loc.category === "nice" || loc.category === "soso")
   ) {
     return 2;
+  }
+  // Pravidlo 3: nájem na franšízanta + nový režim Operations management
+  // (bez ohledu na kategorii).
+  if (loc.leaseStatus === "prepis_na_fransizanta" && loc.newMode === "operations") {
+    return 3;
   }
   return null;
 }
@@ -65,7 +73,7 @@ export const NEW_MODE_LABEL: Record<LocationMode, string> = {
 };
 
 // Klíč k automatickému schválení - text k vypsání na detailu smlouvy.
-export const APPROVAL_KEY: Array<{ rule: 1 | 2 | 3; text: string }> = [
+export const APPROVAL_KEY: Array<{ rule: 1 | 2 | 3 | 4; text: string }> = [
   {
     rule: 1,
     text: "Nájemní smlouva je na franšízanta a nový režim je aktivní franšíza → automaticky schváleno.",
@@ -76,6 +84,10 @@ export const APPROVAL_KEY: Array<{ rule: 1 | 2 | 3; text: string }> = [
   },
   {
     rule: 3,
+    text: "Nájemní smlouva je na franšízanta a nový režim je Operations management → automaticky schváleno.",
+  },
+  {
+    rule: MANUAL_APPROVAL_RULE,
     text: "Vše ostatní vyžaduje schválení schvalovatelů šablon.",
   },
 ];
@@ -84,8 +96,8 @@ export const APPROVAL_KEY: Array<{ rule: 1 | 2 | 3; text: string }> = [
 export type ApprovalView =
   | { kind: "not-applicable" }
   | { kind: "needs-location" }
-  | { kind: "draft"; autoRule: 1 | 2 | null }
-  | { kind: "auto-approved"; rule: 1 | 2 }
+  | { kind: "draft"; autoRule: 1 | 2 | 3 | null }
+  | { kind: "auto-approved"; rule: 1 | 2 | 3 }
   | { kind: "pending" }
   | { kind: "approved-by-approver"; by?: string; at?: string }
   | { kind: "grandfathered" };
@@ -125,7 +137,9 @@ export function getApprovalView(
   // schvaleno a dál:
   if (
     contract.approvalDecision === "auto" &&
-    (contract.approvalRule === 1 || contract.approvalRule === 2)
+    (contract.approvalRule === 1 ||
+      contract.approvalRule === 2 ||
+      contract.approvalRule === 3)
   ) {
     return { kind: "auto-approved", rule: contract.approvalRule };
   }

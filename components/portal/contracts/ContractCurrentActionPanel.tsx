@@ -21,7 +21,7 @@ import {
   type ContractStatus,
 } from "@/lib/portal/contracts-db";
 import { isApprovalGated } from "@/lib/portal/contract-types";
-import { getApprovalView } from "@/lib/portal/contract-approval";
+import { getApprovalView, MANUAL_APPROVAL_RULE } from "@/lib/portal/contract-approval";
 import { BTN_PRIMARY, BTN_SUBTLE } from "@/components/portal/ui/buttons";
 import { KEEP_ORIGINAL_SIGNER } from "./signer-keep-original";
 
@@ -338,7 +338,7 @@ export function ContractCurrentActionPanel({
               ? "Nejdřív vyber lokalitu v panelu „Lokalita a schválení“ níže. Podle ní se rozhodne o schválení."
               : draftAutoRule
                 ? `Splňuje podmínky pro automatické schválení (pravidlo ${draftAutoRule}). Po odeslání bude rovnou schválena.`
-                : "Nesplňuje podmínky pro automatické schválení (pravidlo 3). Po odeslání ji musí schválit schvalovatelé šablon."
+                : `Nesplňuje podmínky pro automatické schválení (pravidlo ${MANUAL_APPROVAL_RULE}). Po odeslání ji musí schválit schvalovatelé šablon.`
           }
           primary={
             <PrimaryButton
@@ -362,7 +362,7 @@ export function ContractCurrentActionPanel({
           }
           description={
             isApprover
-              ? "Smlouva nesplnila podmínky automatického schválení (pravidlo 3). Zkontroluj ji a schval, nebo vrať do konceptu."
+              ? `Smlouva nesplnila podmínky automatického schválení (pravidlo ${MANUAL_APPROVAL_RULE}). Zkontroluj ji a schval, nebo vrať do konceptu.`
               : isSuperadmin
                 ? "Jako superadmin můžeš smlouvu schválit i mimo standardní proces - s povinnou poznámkou (proč, kdy a kým byla schválena)."
                 : "Smlouva čeká na schválení schvalovatelů šablon. Připomenout e-mailem můžeš v panelu „Lokalita a schválení“ níže."

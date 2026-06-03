@@ -6,7 +6,10 @@ import {
   upsertContract,
 } from "@/lib/portal/contracts-db";
 import { isApprovalGated } from "@/lib/portal/contract-types";
-import { evaluateAutoApproval } from "@/lib/portal/contract-approval";
+import {
+  evaluateAutoApproval,
+  MANUAL_APPROVAL_RULE,
+} from "@/lib/portal/contract-approval";
 import { bustContracts } from "@/lib/portal/revalidate";
 
 // Odeslání smlouvy ke schválení (Koncept → Ke schválení / Schváleno). Vyhodnotí
@@ -51,7 +54,7 @@ export async function POST(
     ...contract,
     submittedForApprovalAt: now,
     submittedForApprovalBy: email,
-    // Auto (pravidlo 1/2): projde stavem Ke schválení rovnou do Schváleno.
+    // Auto (pravidlo 1-3): projde stavem Ke schválení rovnou do Schváleno.
     ...(autoRule
       ? {
           approvalDecision: "auto" as const,
@@ -61,7 +64,7 @@ export async function POST(
         }
       : {
           approvalDecision: "manual" as const,
-          approvalRule: 3 as const,
+          approvalRule: MANUAL_APPROVAL_RULE,
         }),
     updatedAt: now,
   };
@@ -72,7 +75,7 @@ export async function POST(
   return NextResponse.json({
     ok: true,
     auto: autoRule !== null,
-    rule: autoRule ?? 3,
+    rule: autoRule ?? MANUAL_APPROVAL_RULE,
     status: updated.status,
   });
 }

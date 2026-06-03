@@ -37,7 +37,7 @@ const createSchema = z.object({
   clientId: z.string().trim().min(1),
   type: z.string().trim().min(1),
   variant: z.string().trim().optional(),
-  franchiseFeePercent: z.number().int().min(0).max(8).optional(),
+  franchiseFeePercent: z.number().int().min(3).max(8).optional(),
   // Povinné jen pro typy posuzované podle lokality (isApprovalGated).
   locationId: z.string().trim().optional(),
 });

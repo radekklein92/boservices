@@ -9,7 +9,10 @@ import {
 } from "@/lib/portal/contracts-db";
 import { getUser } from "@/lib/portal/users-db";
 import { isApprovalGated } from "@/lib/portal/contract-types";
-import { evaluateAutoApproval } from "@/lib/portal/contract-approval";
+import {
+  evaluateAutoApproval,
+  MANUAL_APPROVAL_RULE,
+} from "@/lib/portal/contract-approval";
 import { bustContracts } from "@/lib/portal/revalidate";
 
 const bulkSchema = z.object({
@@ -102,7 +105,7 @@ export async function POST(req: Request) {
               approvedAt: nowIso,
               approvedBy: email,
             }
-          : { approvalDecision: "manual" as const, approvalRule: 3 as const }),
+          : { approvalDecision: "manual" as const, approvalRule: MANUAL_APPROVAL_RULE }),
         updatedAt: nowIso,
       };
       updated.status = computeContractStatus(updated);
@@ -125,7 +128,7 @@ export async function POST(req: Request) {
       }
       const updated = {
         ...contract,
-        ...(gated ? { approvalDecision: "manual" as const, approvalRule: 3 as const } : {}),
+        ...(gated ? { approvalDecision: "manual" as const, approvalRule: MANUAL_APPROVAL_RULE } : {}),
         approvedAt: nowIso,
         approvedBy: email,
         updatedAt: nowIso,

@@ -5,6 +5,7 @@ import { getTemplateApprovers } from "@/lib/portal/users-db";
 import { CONTRACT_TYPE_META } from "@/lib/portal/contract-types";
 import {
   LEASE_HOLDER_LABEL,
+  MANUAL_APPROVAL_RULE,
   NEW_MODE_LABEL,
 } from "@/lib/portal/contract-approval";
 import { CATEGORY_LABEL } from "@/components/portal/locations/locations-shared";
@@ -51,8 +52,8 @@ export async function POST(
         snap.category ? ` (${CATEGORY_LABEL[snap.category]})` : ""
       }, nájem ${LEASE_HOLDER_LABEL[snap.leaseStatus]}, nový režim ${
         snap.newMode ? NEW_MODE_LABEL[snap.newMode] : "neuvedeno"
-      }. Nesplňuje podmínky automatického schválení (pravidlo 3).`
-    : "Smlouva vyžaduje schválení schvalovatelů (pravidlo 3).";
+      }. Nesplňuje podmínky automatického schválení (pravidlo ${MANUAL_APPROVAL_RULE}).`
+    : `Smlouva vyžaduje schválení schvalovatelů (pravidlo ${MANUAL_APPROVAL_RULE}).`;
   const deepLink = `${SITE_URL}/portal/contracts/${contract.id}`;
 
   const recipients: string[] = [];

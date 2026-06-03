@@ -22,6 +22,7 @@ import {
   APPROVAL_KEY,
   evaluateAutoApproval,
   LEASE_HOLDER_LABEL,
+  MANUAL_APPROVAL_RULE,
   NEW_MODE_LABEL,
 } from "@/lib/portal/contract-approval";
 import {
@@ -261,7 +262,7 @@ export function ContractCreateModal({
               {variant === "AB" ? (
                 <>
                   <div className="flex flex-wrap items-center gap-1.5">
-                    {Array.from({ length: 9 }, (_, i) => i).map((pct) => {
+                    {Array.from({ length: 6 }, (_, i) => i + 3).map((pct) => {
                       const active = pct === franchiseFeePercent;
                       return (
                         <button
@@ -282,7 +283,7 @@ export function ContractCreateModal({
                     })}
                   </div>
                   <span className="mt-0.5 text-[11px] text-ink-mid">
-                    Zvolte celé procento 0–8. Hodnota se vloží do čl. VI odst. 2.
+                    Zvolte celé procento 3–8. Hodnota se vloží do čl. VI odst. 2.
                   </span>
                 </>
               ) : (
@@ -344,7 +345,7 @@ export function ContractCreateModal({
                     ) : (
                       <span className="text-amber-700">
                         Po odeslání bude <strong>vyžadovat schválení</strong>{" "}
-                        schvalovatelů (pravidlo 3).
+                        schvalovatelů (pravidlo {MANUAL_APPROVAL_RULE}).
                       </span>
                     )}
                   </div>
@@ -367,7 +368,7 @@ export function ContractCreateModal({
                     {showRules && (
                       <ol className="mt-2 flex flex-col gap-1.5">
                         {APPROVAL_KEY.map((k) => {
-                          const active = (previewAutoRule ?? 3) === k.rule;
+                          const active = (previewAutoRule ?? MANUAL_APPROVAL_RULE) === k.rule;
                           return (
                             <li
                               key={k.rule}

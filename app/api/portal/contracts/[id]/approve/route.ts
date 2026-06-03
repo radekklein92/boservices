@@ -6,6 +6,7 @@ import {
   upsertContract,
 } from "@/lib/portal/contracts-db";
 import { isApprovalGated } from "@/lib/portal/contract-types";
+import { MANUAL_APPROVAL_RULE } from "@/lib/portal/contract-approval";
 import { getUser } from "@/lib/portal/users-db";
 import { bustContracts } from "@/lib/portal/revalidate";
 
@@ -67,7 +68,7 @@ export async function POST(
         { status: 400 },
       );
     }
-    extra = { approvalDecision: "manual", approvalRule: 3 };
+    extra = { approvalDecision: "manual", approvalRule: MANUAL_APPROVAL_RULE };
   }
 
   // Finální PDF (bez watermarku) se generuje až v kroku „K podpisu" / „Připravit
