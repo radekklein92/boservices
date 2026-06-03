@@ -227,14 +227,20 @@ export function ensureClaimsToken(html: string): string {
 // Obalí nadpis Přílohy č. 1 + tabulku do bloku, který v PDF začne na nové
 // stránce a tabulku nezalomí přes konec stránky (CSS .claims-appendix).
 // Idempotentní. Aplikuje se jen při renderu do PDF - uložené HTML zůstává čisté.
-// Podpis Postupitele s datem pod Přílohou č. 1. Doplňuje se při renderu hned za
-// tabulku pohledávek; placeholdery se resolvnou v renderTemplate. Není v uloženém
-// HTML (čistý editor), přidává se jen pro PDF.
+// Podpisy Postupitele i Postupníka s datem pod Přílohou č. 1 (stejně jako v
+// samotné smlouvě o postoupení). Doplňuje se při renderu hned za tabulku
+// pohledávek; placeholdery se resolvnou v renderTemplate. Není v uloženém HTML
+// (čistý editor), přidává se jen pro PDF.
 const APPENDIX_SIGN_BLOCK =
   `<div class="claims-appendix-sign"><p>V {{place}} dne {{contractDate}}.</p>` +
   `<p>&nbsp;</p>` +
   `<p>__________________________<br><strong>{{clientSignerName}}</strong>` +
-  `<br>{{clientSignerRole}}<br>za Postupitele: {{clientName}}</p></div>`;
+  `<br>{{clientSignerRole}}<br>za Postupitele: {{clientName}}</p>` +
+  `<p>&nbsp;</p>` +
+  `<p>V _________ dne ______________ .</p>` +
+  `<p>&nbsp;</p>` +
+  `<p>__________________________<br><strong>{{providerStatutory1Name}}</strong>` +
+  `<br>{{providerStatutory1Role}}<br>za Postupníka: {{providerName}}</p></div>`;
 
 export function ensureAppendixSignature(html: string): string {
   if (html.includes('class="claims-appendix-sign"')) return html;

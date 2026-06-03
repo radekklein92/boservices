@@ -1,7 +1,11 @@
 import { put } from "@vercel/blob";
 import type { Contract } from "./contracts-db";
 import { CONTRACT_TYPE_META, isBundleType } from "./contract-types";
-import { applySignerOverride, renderTemplate } from "./contract-render";
+import {
+  applySignerOverride,
+  renderTemplate,
+  wrapSignatures,
+} from "./contract-render";
 import { bundleHtmlToPdfBuffer, htmlToPdfBuffer } from "./pdf-generator";
 import { getCoverForType } from "./pdf-styles";
 import { getUser } from "./users-db";
@@ -71,8 +75,13 @@ export async function renderAndStoreContractPdf(contract: Contract): Promise<{
   // změny - jinak by ensureClaimsToken injektoval token podle nadpisu omylem.
   const isClaim =
     contract.type === "claim-assignment" || contract.type === "claim-bundle";
-  const prep = (h: string) =>
-    isClaim ? stripClamoraDicAndBank(prepareClaimsAppendix(h)) : h;
+  // Letterhead smlouvy (franšíza/spolupráce/provozování): obal podpisovou sekci
+  // do .signatures, ať se datum neoddělí od podpisů přes konec stránky. Serifové
+  // dokumenty (no-letterhead) nech být (mají vlastní ozdobné oddělovače sekcí).
+  const prep = (h: string) => {
+    const h1 = letterhead ? wrapSignatures(h) : h;
+    return isClaim ? stripClamoraDicAndBank(prepareClaimsAppendix(h1)) : h1;
+  };
 
   let pdf: Buffer;
   if (isBundleType(contract.type) && contract.bundleSections) {

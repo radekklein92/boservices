@@ -269,3 +269,14 @@ function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 }
+
+// Obalí podpisovou sekci („Podpisy" h2 + datum + podpisové bloky) do .signatures
+// (page-break-inside: avoid), aby se datum podpisu neoddělilo od podpisů přes
+// konec stránky. Obalí od <h2>Podpisy</h2> po další <h2> (nebo konec dokumentu).
+// Idempotentní; aplikuje se jen při renderu PDF, ne na uložené HTML.
+const SIGNATURES_RE = /(<h2[^>]*>\s*Podpisy\s*<\/h2>)([\s\S]*?)(?=<h2[^>]*>|$)/i;
+
+export function wrapSignatures(html: string): string {
+  if (html.includes('class="signatures"')) return html;
+  return html.replace(SIGNATURES_RE, '<div class="signatures">$1$2</div>');
+}
