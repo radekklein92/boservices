@@ -35,7 +35,12 @@ export function evaluateAutoApproval(loc: ApprovalLocationData): 1 | 2 | 3 | nul
   if (loc.leaseStatus === "prepis_na_fransizanta" && loc.newMode === "franchise") {
     return 1;
   }
-  // Pravidlo 2: nový režim Full/Operations management nebo aktivní franšíza
+  // Pravidlo 2: nájem na franšízanta + nový režim Operations management
+  // (bez ohledu na kategorii).
+  if (loc.leaseStatus === "prepis_na_fransizanta" && loc.newMode === "operations") {
+    return 2;
+  }
+  // Pravidlo 3: nový režim Full/Operations management nebo aktivní franšíza
   // + kategorie Core/Nice/SoSo.
   if (
     (loc.newMode === "full" ||
@@ -43,11 +48,6 @@ export function evaluateAutoApproval(loc: ApprovalLocationData): 1 | 2 | 3 | nul
       loc.newMode === "franchise") &&
     (loc.category === "core" || loc.category === "nice" || loc.category === "soso")
   ) {
-    return 2;
-  }
-  // Pravidlo 3: nájem na franšízanta + nový režim Operations management
-  // (bez ohledu na kategorii).
-  if (loc.leaseStatus === "prepis_na_fransizanta" && loc.newMode === "operations") {
     return 3;
   }
   return null;
@@ -80,11 +80,11 @@ export const APPROVAL_KEY: Array<{ rule: 1 | 2 | 3 | 4; text: string }> = [
   },
   {
     rule: 2,
-    text: "Nový režim je Full management, Operations management nebo aktivní franšíza a prodejna je v kategorii Core, Nice nebo SoSo → automaticky schváleno.",
+    text: "Nájemní smlouva je na franšízanta a nový režim je Operations management → automaticky schváleno.",
   },
   {
     rule: 3,
-    text: "Nájemní smlouva je na franšízanta a nový režim je Operations management → automaticky schváleno.",
+    text: "Nový režim je Full management, Operations management nebo aktivní franšíza a prodejna je v kategorii Core, Nice nebo SoSo → automaticky schváleno.",
   },
   {
     rule: MANUAL_APPROVAL_RULE,
