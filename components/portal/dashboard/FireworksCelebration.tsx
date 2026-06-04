@@ -36,7 +36,9 @@ export function FireworksCelebration({
   useEffect(() => setMounted(true), []);
 
   useEffect(() => {
-    if (!mounted) return;
+    // Instance žije jen dokud je overlay otevřený - při zavření (open=false)
+    // se cleanup postará o zastavení ohňostroje i zvuku.
+    if (!mounted || !open) return;
     let disposed = false;
     let instance: FireworksType | null = null;
     const el = containerRef.current;
@@ -77,7 +79,7 @@ export function FireworksCelebration({
       instance?.stop(true);
       fwRef.current = null;
     };
-  }, [mounted]);
+  }, [mounted, open]);
 
   useEffect(() => {
     fwRef.current?.updateOptions({ sound: { ...SOUND, enabled: soundOn } });
