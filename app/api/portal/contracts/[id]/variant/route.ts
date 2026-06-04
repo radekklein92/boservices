@@ -5,6 +5,7 @@ import { requireSession } from "@/lib/portal/auth-guard";
 import {
   computeContractStatus,
   getContract,
+  isContractEditable,
   upsertContract,
 } from "@/lib/portal/contracts-db";
 import { getOrSeedContractTemplate } from "@/lib/portal/contract-templates-db";
@@ -35,6 +36,12 @@ export async function POST(
     return NextResponse.json(
       { ok: false, error: "Tento typ smlouvy nemá varianty." },
       { status: 400 },
+    );
+  }
+  if (!isContractEditable(contract.status)) {
+    return NextResponse.json(
+      { ok: false, error: "Schválenou smlouvu už nelze upravovat." },
+      { status: 409 },
     );
   }
 

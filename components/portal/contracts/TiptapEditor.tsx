@@ -29,12 +29,16 @@ export function TiptapEditor({
   value,
   onChange,
   editorRef,
+  editable = true,
 }: {
   value: string;
   onChange: (html: string) => void;
   editorRef?: (editor: Editor | null) => void;
+  // false = jen pro čtení (smlouva uzamčená proti úpravám).
+  editable?: boolean;
 }) {
   const editor = useEditor({
+    editable,
     extensions: [
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
@@ -69,6 +73,10 @@ export function TiptapEditor({
   }, [editor, editorRef]);
 
   useEffect(() => {
+    if (editor) editor.setEditable(editable);
+  }, [editor, editable]);
+
+  useEffect(() => {
     if (!editor) return;
     const current = editor.getHTML();
     if (current !== value) {
@@ -80,7 +88,7 @@ export function TiptapEditor({
   if (!editor) {
     return (
       <div className="rounded-2xl border border-edge bg-paper">
-        <Toolbar editor={null} />
+        {editable && <Toolbar editor={null} />}
         <div className="min-h-[480px] px-6 py-7 text-[13.5px] text-ink-mid">
           Načítám editor…
         </div>
@@ -90,7 +98,7 @@ export function TiptapEditor({
 
   return (
     <div className="rounded-2xl border border-edge bg-paper">
-      <Toolbar editor={editor} />
+      {editable && <Toolbar editor={editor} />}
       <EditorContent editor={editor} />
     </div>
   );

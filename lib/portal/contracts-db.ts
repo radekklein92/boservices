@@ -120,6 +120,12 @@ export function statusOrder(status: ContractStatus): number {
   return ALL_CONTRACT_STATUSES.indexOf(status);
 }
 
+// Obsah smlouvy lze upravovat jen do schválení - od stavu „schváleno" dál
+// (k-podpisu, podepsáno…, archivováno) je smlouva uzamčená proti editaci.
+export function isContractEditable(status: ContractStatus): boolean {
+  return statusOrder(status) < statusOrder("schvaleno");
+}
+
 export interface BundleSection {
   type: ClaimBundleSectionType;
   html: string;

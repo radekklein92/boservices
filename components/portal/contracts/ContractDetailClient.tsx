@@ -9,13 +9,18 @@ import {
   CheckCircle2,
   Download,
   FileText,
+  Lock,
   RefreshCw,
   Save,
   Trash2,
   type LucideIcon,
 } from "lucide-react";
 import type { Editor } from "@tiptap/react";
-import type { BundleSection, Contract } from "@/lib/portal/contracts-db";
+import {
+  isContractEditable,
+  type BundleSection,
+  type Contract,
+} from "@/lib/portal/contracts-db";
 import {
   CONTRACT_TYPE_META,
   getVariantsForType,
@@ -133,6 +138,8 @@ export function ContractDetailClient({
   const isMountedRef = useRef(false);
 
   const isBundle = isBundleType(contract.type);
+  // Od stavu „schváleno" dál je smlouva uzamčená proti úpravám obsahu.
+  const locked = !isContractEditable(contract.status);
   const dirty = saveState === "pending" || saveState === "saving";
 
   // Template changes detection - pro bundle agreguje napříč sekcemi.
@@ -189,6 +196,9 @@ export function ContractDetailClient({
   }
 
   function markDirty() {
+    // Uzamčená smlouva (schváleno a dál) se neukládá - editace je vypnutá,
+    // tohle je jen pojistka, kdyby přesto přišel update.
+    if (locked) return;
     setSaveState("pending");
     setSaveError(null);
   }
@@ -564,6 +574,19 @@ export function ContractDetailClient({
         />
       )}
 
+      {locked && (
+        <div className="flex items-start gap-3 rounded-2xl border border-edge bg-paper-warm px-5 py-4 text-[13px] text-ink-mid">
+          <Lock className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.5} aria-hidden="true" />
+          <span>
+            Smlouva je schválená a <strong className="text-ink-deep">uzamčená proti úpravám</strong>{" "}
+            obsahu. Pro úpravy nejdřív zrušte schválení v panelu „Co teď" výše.
+          </span>
+        </div>
+      )}
+
+      {/* Editovatelná oblast - od stavu „schváleno" dál uzamčená (fieldset
+          disabled vypne všechna pole/tlačítka, editor je read-only). */}
+      <fieldset disabled={locked} className="contents">
       {/* Variant switcher (jen pro typy s variantami, např. franšíza) */}
       {hasVariants(contract.type) && (
         <VariantSection
@@ -985,6 +1008,7 @@ export function ContractDetailClient({
                   editorRef={(e) => {
                     bundleEditorRefs.current[idx] = e;
                   }}
+                  editable={!locked}
                 />
               ))
             ) : (
@@ -992,6 +1016,7 @@ export function ContractDetailClient({
                 value={html}
                 onChange={updateHtml}
                 editorRef={(e) => (editorRef.current = e)}
+                editable={!locked}
               />
             )}
           </div>
@@ -1014,6 +1039,7 @@ export function ContractDetailClient({
           </aside>
         </div>
       </section>
+      </fieldset>
 
       {toast && (
         <div
@@ -1078,6 +1104,7 @@ function BundleSectionEditor({
   onChange,
   onFocus,
   editorRef,
+  editable = true,
 }: {
   index: number;
   total: number;
@@ -1086,6 +1113,7 @@ function BundleSectionEditor({
   onChange: (next: string) => void;
   onFocus: () => void;
   editorRef: (e: Editor | null) => void;
+  editable?: boolean;
 }) {
   const sectionMeta = CONTRACT_TYPE_META[section.type];
   const changed = section.templateSnapshot !== section.html;
@@ -1127,6 +1155,7 @@ function BundleSectionEditor({
         value={section.html}
         onChange={onChange}
         editorRef={editorRef}
+        editable={editable}
       />
     </div>
   );

@@ -6,6 +6,7 @@ import {
   computeContractStatus,
   deleteContract,
   getContract,
+  isContractEditable,
   upsertContract,
   type BundleSection,
 } from "@/lib/portal/contracts-db";
@@ -70,6 +71,18 @@ export async function PUT(
   const existing = await getContract(id);
   if (!existing) {
     return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
+  }
+
+  // Od stavu „schváleno" dál je smlouva uzamčená proti úpravám obsahu.
+  if (!isContractEditable(existing.status)) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          "Schválenou smlouvu už nelze upravovat. Pro úpravy nejdřív zrušte schválení.",
+      },
+      { status: 409 },
+    );
   }
 
   let body: unknown;
