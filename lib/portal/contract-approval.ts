@@ -215,7 +215,8 @@ export type ApprovalView =
   | { kind: "needs-location" }
   | { kind: "draft"; auto: boolean; reasons: ApprovalReason[] }
   | { kind: "auto-approved" }
-  | { kind: "pending"; reasons: ApprovalReason[] }
+  // auto = po opravě dat by smlouva nově prošla automaticky (nemá blokující důvody).
+  | { kind: "pending"; reasons: ApprovalReason[]; auto: boolean }
   | { kind: "approved-by-approver"; by?: string; at?: string }
   | { kind: "grandfathered" };
 
@@ -254,15 +255,19 @@ export function getApprovalView(
     return { kind: "draft", auto: res.auto, reasons: res.reasons };
   }
   if (contract.status === "ke-schvaleni") {
-    // Důvody z okamžiku odeslání (uložené), fallback živý přepočet.
-    const stored = contract.approvalReasons;
-    const reasons =
-      stored && stored.length
-        ? stored.map((label) => ({ code: "stored", label }))
-        : snap
-          ? evaluateApprovalForContract(contract, newco).reasons
-          : [];
-    return { kind: "pending", reasons };
+    // Smlouva ještě není schválená → přepočítáme živě (snapshot lokality je na
+    // detailu držený čerstvý vůči Transition). Když po opravě dat nově nemá
+    // blokující důvody, auto = true a panel poradí, jak ji dotáhnout.
+    if (snap) {
+      const res = evaluateApprovalForContract(contract, newco);
+      return { kind: "pending", reasons: res.reasons, auto: res.auto };
+    }
+    const stored = contract.approvalReasons ?? [];
+    return {
+      kind: "pending",
+      reasons: stored.map((label) => ({ code: "stored", label })),
+      auto: stored.length === 0,
+    };
   }
 
   // schvaleno a dál:

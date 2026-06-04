@@ -10,7 +10,7 @@ import {
 import { getUser } from "@/lib/portal/users-db";
 import { isApprovalGated } from "@/lib/portal/contract-types";
 import { evaluateApprovalForContract } from "@/lib/portal/contract-approval";
-import { getLocation } from "@/lib/portal/locations-db";
+import { getLocation, toLocationSnapshot } from "@/lib/portal/locations-db";
 import { bustContracts } from "@/lib/portal/revalidate";
 
 const bulkSchema = z.object({
@@ -91,14 +91,19 @@ export async function POST(req: Request) {
         skipped++;
         continue;
       }
+      // Vyhodnocení proti aktuálním datům z Transition (smlouva je v konceptu):
+      // čerstvě obnovíme snapshot lokality z živého zrcadla.
       const loc = await getLocation(contract.locationId);
+      const base = loc
+        ? { ...contract, locationSnapshot: toLocationSnapshot(loc, nowIso) }
+        : contract;
       const nc = loc?.local?.newco;
       const newco = nc
         ? { inFile: true, entitaCeip1: nc.entitaCeip1, operationalType: nc.operationalType }
         : null;
-      const { auto, reasons } = evaluateApprovalForContract(contract, newco);
+      const { auto, reasons } = evaluateApprovalForContract(base, newco);
       const updated = {
-        ...contract,
+        ...base,
         submittedForApprovalAt: nowIso,
         submittedForApprovalBy: email,
         ...(auto

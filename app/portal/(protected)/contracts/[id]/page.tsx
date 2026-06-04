@@ -1,5 +1,9 @@
 import { notFound } from "next/navigation";
-import { getContract, upsertContract } from "@/lib/portal/contracts-db";
+import {
+  getContract,
+  statusOrder,
+  upsertContract,
+} from "@/lib/portal/contracts-db";
 import {
   CLAIM_BUNDLE_SECTIONS,
   CONTRACT_TYPE_META,
@@ -11,7 +15,7 @@ import {
   isTemplateApproved,
 } from "@/lib/portal/contract-templates-db";
 import { extractOdmenaAmount } from "@/lib/portal/contract-fees";
-import { getLocation } from "@/lib/portal/locations-db";
+import { getLocation, toLocationSnapshot } from "@/lib/portal/locations-db";
 import { getSession } from "@/lib/portal/get-session";
 import { getTemplateApprovers } from "@/lib/portal/users-db";
 import { ContractDetailClient } from "@/components/portal/contracts/ContractDetailClient";
@@ -79,6 +83,25 @@ export default async function ContractDetailPage({
   if (isApprovalGated(contract.type)) {
     if (contract.locationId) {
       const loc = await getLocation(contract.locationId);
+
+      // Dokud smlouva není schválená, drž snapshot lokality živý vůči Transition
+      // - oprava dat v Transition + sync se tak promítne do vyhodnocení klíče.
+      // Po schválení (schvaleno+) zůstává zmrazený (rozhodnutí je závazné).
+      if (loc && statusOrder(contract.status) < statusOrder("schvaleno")) {
+        const fresh = toLocationSnapshot(loc, new Date().toISOString());
+        const prev = contract.locationSnapshot;
+        const changed =
+          !prev ||
+          prev.name !== fresh.name ||
+          prev.category !== fresh.category ||
+          prev.leaseStatus !== fresh.leaseStatus ||
+          prev.newMode !== fresh.newMode;
+        if (changed) {
+          contract = { ...contract, locationSnapshot: fresh };
+          await upsertContract(contract);
+        }
+      }
+
       const nc = loc?.local?.newco;
       locationNewco = {
         inFile: !!nc,

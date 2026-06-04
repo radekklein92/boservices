@@ -7,7 +7,7 @@ import {
 } from "@/lib/portal/contracts-db";
 import { isApprovalGated } from "@/lib/portal/contract-types";
 import { evaluateApprovalForContract } from "@/lib/portal/contract-approval";
-import { getLocation } from "@/lib/portal/locations-db";
+import { getLocation, toLocationSnapshot } from "@/lib/portal/locations-db";
 import { bustContracts } from "@/lib/portal/revalidate";
 
 // Odeslání smlouvy ke schválení (Koncept → Ke schválení / Schváleno). Vyhodnotí
@@ -47,17 +47,22 @@ export async function POST(
   const now = new Date().toISOString();
   const email = g.session.user!.email!;
 
-  // NewCo souhrn lokality (přítomnost v souboru + Entita CEIP #1 + Operational type).
+  // Vyhodnocení proti AKTUÁLNÍM datům z Transition: smlouva je v konceptu (není
+  // schválená), takže snapshot lokality čerstvě obnovíme z živého zrcadla. Tím
+  // se promítne případná oprava dat v Transition + synchronizace.
   const loc = await getLocation(contract.locationId);
+  const base = loc
+    ? { ...contract, locationSnapshot: toLocationSnapshot(loc, now) }
+    : contract;
   const nc = loc?.local?.newco;
   const newco = nc
     ? { inFile: true, entitaCeip1: nc.entitaCeip1, operationalType: nc.operationalType }
     : null;
 
-  const { auto, reasons } = evaluateApprovalForContract(contract, newco);
+  const { auto, reasons } = evaluateApprovalForContract(base, newco);
 
   const updated = {
-    ...contract,
+    ...base,
     submittedForApprovalAt: now,
     submittedForApprovalBy: email,
     // Splňuje vše → projde stavem Ke schválení rovnou do Schváleno.

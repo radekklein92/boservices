@@ -7,7 +7,7 @@ import {
   upsertContract,
 } from "@/lib/portal/contracts-db";
 import { isApprovalGated } from "@/lib/portal/contract-types";
-import { getLocation } from "@/lib/portal/locations-db";
+import { getLocation, toLocationSnapshot } from "@/lib/portal/locations-db";
 import { bustContracts } from "@/lib/portal/revalidate";
 
 const bodySchema = z.object({ locationId: z.string().trim().min(1) });
@@ -63,13 +63,7 @@ export async function POST(
   const updated = {
     ...contract,
     locationId: location.id,
-    locationSnapshot: {
-      name: location.name,
-      category: location.category,
-      leaseStatus: location.lease_current_status,
-      newMode: location.new_mode,
-      capturedAt: now,
-    },
+    locationSnapshot: toLocationSnapshot(location, now),
     updatedAt: now,
   };
   updated.status = computeContractStatus(updated);

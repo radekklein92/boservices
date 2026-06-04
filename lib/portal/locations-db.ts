@@ -185,6 +185,25 @@ export async function getLocation(id: string): Promise<LocationView | null> {
   return { ...loc, local: local ?? null };
 }
 
+// Snapshot lokality pro smlouvu - zmrazený stav z Transition (kategorie, nájem,
+// nový režim). Sdílené mezi výběrem lokality, odesláním ke schválení a self-heal
+// refreshem na detailu (dokud smlouva není schválená, drží se živý vůči zrcadlu).
+export function toLocationSnapshot(
+  loc: Pick<
+    MirroredLocation,
+    "name" | "category" | "lease_current_status" | "new_mode"
+  >,
+  capturedAt: string,
+) {
+  return {
+    name: loc.name,
+    category: loc.category,
+    leaseStatus: loc.lease_current_status,
+    newMode: loc.new_mode,
+    capturedAt,
+  };
+}
+
 // Full-replace sync: uloží všechny příchozí lokality a smaže ty, které už
 // v Transition nejsou. Lokální data (poznámky/přílohy) zůstávají nedotčená —
 // klíčujeme je per location id, takže přežijí i odebrání lokality ze zrcadla

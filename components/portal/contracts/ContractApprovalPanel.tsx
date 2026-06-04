@@ -360,7 +360,15 @@ function ApprovalBadge({ view }: { view: ApprovalView }) {
           <Badge tone="wait" Icon={Clock}>
             Čeká na schválení schvalovatelů
           </Badge>
-          <ReasonsList reasons={view.reasons} />
+          {view.auto ? (
+            <p className="text-[12px] leading-snug text-emerald-700">
+              Podle aktuálních dat už smlouva splňuje podmínky automatického
+              schválení. Pro automatické schválení ji vrať do konceptu a odešli
+              znovu - nebo ji schvalovatel rovnou schválí.
+            </p>
+          ) : (
+            <ReasonsList reasons={view.reasons} />
+          )}
         </div>
       );
     case "grandfathered":
