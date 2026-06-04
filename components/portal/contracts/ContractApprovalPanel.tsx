@@ -4,7 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   ArrowUpRight,
-  AlertTriangle,
   CheckCircle2,
   ChevronDown,
   Clock,
@@ -25,7 +24,7 @@ import {
   type ApprovalView,
   type NewcoSummary,
 } from "@/lib/portal/contract-approval";
-import { computeContractFee, type ContractFee } from "@/lib/portal/contract-fees";
+import { computeContractFee } from "@/lib/portal/contract-fees";
 import {
   CATEGORY_LABEL,
   CATEGORY_STYLE,
@@ -129,6 +128,66 @@ export function ContractApprovalPanel({
 
   const canEditLocation = contract.status === "koncept";
 
+  // Fakta lokality + poplatek do jedné přehledné mřížky (štítek/hodnota).
+  // Blokující hodnoty (důvod ručního schválení) se vyznačí červeně s křížkem.
+  type Fact = {
+    label: string;
+    value: string;
+    blocked?: boolean;
+    tone?: "default" | "warn";
+    note?: string;
+  };
+  const facts: Fact[] = [];
+  if (snap) {
+    facts.push({
+      label: "Nájemní smlouva",
+      value: LEASE_HOLDER_LABEL[snap.leaseStatus],
+      blocked: blocks("lease-not-fr-bos", "lease-not-bos"),
+    });
+    facts.push({
+      label: "Nový režim",
+      value: snap.newMode ? NEW_MODE_LABEL[snap.newMode] : "neuvedeno",
+      blocked: blocks("unknown-mode"),
+    });
+    if (locationNewco) {
+      facts.push({
+        label: "V souboru NEWCO",
+        value: locationNewco.inFile ? "Ano" : "Ne",
+        tone: locationNewco.inFile ? "default" : "warn",
+        blocked: blocks("not-in-newco"),
+      });
+    }
+    if (locationNewco?.entitaCeip1) {
+      facts.push({
+        label: "Entita CEIP #1",
+        value: locationNewco.entitaCeip1,
+        blocked: blocks("entita-tbe"),
+      });
+    }
+    if (locationNewco?.operationalType) {
+      facts.push({
+        label: "Operational type",
+        value: locationNewco.operationalType,
+        blocked: blocks("optype-own"),
+      });
+    }
+  }
+  if (fee) {
+    facts.push({
+      label: fee.label,
+      value: fee.value,
+      blocked: blocks(
+        "franchise-fee-low",
+        "support-fee-low",
+        "operating-fee-low",
+        "fee-unknown",
+      ),
+      note: fee.changed
+        ? `Liší se od standardu${fee.standard ? ` (standardně ${fee.standard})` : ""}`
+        : undefined,
+    });
+  }
+
   return (
     <div className="flex flex-col gap-5 rounded-2xl border border-edge bg-paper px-6 py-6 md:px-8 md:py-7">
       <div className="flex items-center justify-between gap-4">
@@ -140,7 +199,7 @@ export function ContractApprovalPanel({
             type="button"
             onClick={() => setEditingLocation(true)}
             disabled={pending === "location"}
-            className={BTN_ROW}
+            className={`${BTN_ROW} shrink-0 whitespace-nowrap`}
           >
             <Pencil className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
             {contract.locationId ? "Změnit lokalitu" : "Vybrat lokalitu"}
@@ -148,69 +207,33 @@ export function ContractApprovalPanel({
         )}
       </div>
 
-      {/* Lokalita */}
+      {/* Název lokality */}
       {snap ? (
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-wrap items-center gap-2.5">
-            {contract.locationId ? (
-              <Link
-                href={`/portal/locations/${contract.locationId}`}
-                className="group inline-flex items-center gap-1.5 text-[15px] font-bold tracking-[-0.01em] text-ink-base"
-              >
-                <MapPin className="h-4 w-4 text-ink-mid" strokeWidth={1.5} aria-hidden="true" />
-                {snap.name}
-                <ArrowUpRight
-                  className="h-3.5 w-3.5 text-ink-soft transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
-                  strokeWidth={1.5}
-                  aria-hidden="true"
-                />
-              </Link>
-            ) : (
-              <span className="inline-flex items-center gap-1.5 text-[15px] font-bold text-ink-base">
-                <MapPin className="h-4 w-4 text-ink-mid" strokeWidth={1.5} aria-hidden="true" />
-                {snap.name}
-              </span>
-            )}
-            {snap.category && (
-              <span className={`${CHIP_BASE} ${CATEGORY_STYLE[snap.category]}`}>
-                {CATEGORY_LABEL[snap.category]}
-              </span>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-x-6 gap-y-1.5 text-[12.5px] text-ink-mid">
-            <DetailItem
-              label="Nájemní smlouva"
-              value={LEASE_HOLDER_LABEL[snap.leaseStatus]}
-              blocked={blocks("lease-not-fr-bos", "lease-not-bos")}
-            />
-            <DetailItem
-              label="Nový režim"
-              value={snap.newMode ? NEW_MODE_LABEL[snap.newMode] : "neuvedeno"}
-              blocked={blocks("unknown-mode")}
-            />
-            {locationNewco && (
-              <DetailItem
-                label="V souboru NEWCO"
-                value={locationNewco.inFile ? "Ano" : "Ne"}
-                tone={locationNewco.inFile ? "default" : "warn"}
-                blocked={blocks("not-in-newco")}
+        <div className="flex flex-wrap items-center gap-2.5">
+          {contract.locationId ? (
+            <Link
+              href={`/portal/locations/${contract.locationId}`}
+              className="group inline-flex items-center gap-1.5 text-[15px] font-bold tracking-[-0.01em] text-ink-base"
+            >
+              <MapPin className="h-4 w-4 text-ink-mid" strokeWidth={1.5} aria-hidden="true" />
+              {snap.name}
+              <ArrowUpRight
+                className="h-3.5 w-3.5 text-ink-soft transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+                strokeWidth={1.5}
+                aria-hidden="true"
               />
-            )}
-            {locationNewco?.entitaCeip1 && (
-              <DetailItem
-                label="Entita CEIP #1"
-                value={locationNewco.entitaCeip1}
-                blocked={blocks("entita-tbe")}
-              />
-            )}
-            {locationNewco?.operationalType && (
-              <DetailItem
-                label="Operational type"
-                value={locationNewco.operationalType}
-                blocked={blocks("optype-own")}
-              />
-            )}
-          </div>
+            </Link>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 text-[15px] font-bold text-ink-base">
+              <MapPin className="h-4 w-4 text-ink-mid" strokeWidth={1.5} aria-hidden="true" />
+              {snap.name}
+            </span>
+          )}
+          {snap.category && (
+            <span className={`${CHIP_BASE} ${CATEGORY_STYLE[snap.category]}`}>
+              {CATEGORY_LABEL[snap.category]}
+            </span>
+          )}
         </div>
       ) : view.kind === "grandfathered" ? null : (
         <p className="text-[13px] text-ink-mid">
@@ -218,20 +241,16 @@ export function ContractApprovalPanel({
         </p>
       )}
 
-      {/* Poplatek / odměna z textu smlouvy (s detekcí ruční úpravy) */}
-      {fee && (
-        <FeeRow
-          fee={fee}
-          blocked={blocks(
-            "franchise-fee-low",
-            "support-fee-low",
-            "operating-fee-low",
-            "fee-unknown",
-          )}
-        />
+      {/* Fakta lokality + poplatek - přehledná mřížka štítek/hodnota */}
+      {facts.length > 0 && (
+        <div className="grid grid-cols-2 gap-x-5 gap-y-4 rounded-xl border border-edge bg-paper-warm px-4 py-4 sm:grid-cols-3">
+          {facts.map((f) => (
+            <FactCell key={f.label} {...f} />
+          ))}
+        </div>
       )}
 
-      {/* Rozhodnutí */}
+      {/* Stav schválení */}
       <div className="flex flex-col gap-2">
         <ApprovalBadge view={view} />
         {contract.approvalNote && (
@@ -319,17 +338,20 @@ export function ContractApprovalPanel({
   );
 }
 
-// Hodnota v panelu s volitelným křížkem, když je důvodem ručního schválení.
-function DetailItem({
+// Buňka mřížky faktů: štítek nad hodnotou. Blokující (důvod ručního schválení)
+// = červeně s křížkem; tone „warn" = jantarová; volitelná poznámka pod hodnotou.
+function FactCell({
   label,
   value,
   blocked = false,
   tone = "default",
+  note,
 }: {
   label: string;
   value: React.ReactNode;
   blocked?: boolean;
   tone?: "default" | "warn";
+  note?: string;
 }) {
   const valueClass = blocked
     ? "text-rose-600"
@@ -337,42 +359,26 @@ function DetailItem({
       ? "text-amber-700"
       : "text-ink-base";
   return (
-    <span className="inline-flex items-center gap-1">
-      <span>{label}</span>
-      {blocked && (
-        <X
-          className="h-3.5 w-3.5 shrink-0 text-rose-600"
-          strokeWidth={2.5}
-          aria-label="Blokuje automatické schválení"
-        />
-      )}
-      <span className={`font-medium ${valueClass}`}>{value}</span>
-    </span>
-  );
-}
-
-function FeeRow({ fee, blocked = false }: { fee: ContractFee; blocked?: boolean }) {
-  return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12.5px] text-ink-mid">
-      <span className="inline-flex items-center gap-1">
-        <span>{fee.label}</span>
+    <div className="min-w-0">
+      <div
+        className={`flex items-start gap-1 text-[10px] font-medium uppercase leading-tight tracking-[0.13em] ${
+          blocked ? "text-rose-500" : "text-ink-soft"
+        }`}
+      >
         {blocked && (
           <X
-            className="h-3.5 w-3.5 shrink-0 text-rose-600"
-            strokeWidth={2.5}
+            className="mt-[1px] h-3 w-3 shrink-0"
+            strokeWidth={3}
             aria-label="Blokuje automatické schválení"
           />
         )}
-        <span className={`font-semibold ${blocked ? "text-rose-600" : "text-ink-base"}`}>
-          {fee.value}
-        </span>
-      </span>
-      {fee.changed && (
-        <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 text-[11px] font-medium text-amber-700">
-          <AlertTriangle className="h-3 w-3" strokeWidth={2} aria-hidden="true" />
-          Liší se od standardu
-          {fee.standard ? ` · standardně ${fee.standard}` : ""}
-        </span>
+        <span>{label}</span>
+      </div>
+      <div className={`mt-1 text-[13.5px] font-semibold leading-snug ${valueClass}`}>
+        {value}
+      </div>
+      {note && (
+        <div className="mt-1 text-[11px] leading-snug text-amber-700">{note}</div>
       )}
     </div>
   );
