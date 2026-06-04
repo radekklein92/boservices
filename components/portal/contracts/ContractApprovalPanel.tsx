@@ -47,7 +47,11 @@ export function ContractApprovalPanel({
   isApprover: boolean;
   isSuperadmin?: boolean;
   approverEmails: string[];
-  locationNewco?: { entitaCeip1: string; operationalType: string } | null;
+  locationNewco?: {
+    inFile: boolean;
+    entitaCeip1: string;
+    operationalType: string;
+  } | null;
   standardOperatingFee?: string | null;
   onChanged: (next: Contract) => void;
   notify: Notify;
@@ -166,6 +170,16 @@ export function ContractApprovalPanel({
                 {snap.newMode ? NEW_MODE_LABEL[snap.newMode] : "neuvedeno"}
               </span>
             </span>
+            {locationNewco && (
+              <span>
+                V souboru NEWCO{" "}
+                <span
+                  className={`font-medium ${locationNewco.inFile ? "text-ink-base" : "text-amber-700"}`}
+                >
+                  {locationNewco.inFile ? "Ano" : "Ne"}
+                </span>
+              </span>
+            )}
             {locationNewco?.entitaCeip1 && (
               <span>
                 Entita CEIP #1{" "}

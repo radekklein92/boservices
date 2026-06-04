@@ -83,9 +83,13 @@ type Props = {
   isSuperadmin: boolean;
   // E-maily všech schvalovatelů (tooltip u "Připomenout e-mailem").
   approverEmails: string[];
-  // NewCo údaje napárované lokality (Entita CEIP #1, Operational type) - panel
-  // schválení; null když lokalita nemá importovaná NewCo data.
-  locationNewco?: { entitaCeip1: string; operationalType: string } | null;
+  // NewCo údaje vybrané lokality pro panel schválení. null = smlouva nemá
+  // vybranou lokalitu. inFile = lokalita se vůbec nachází v importovaném NEWCO.
+  locationNewco?: {
+    inFile: boolean;
+    entitaCeip1: string;
+    operationalType: string;
+  } | null;
   // Standardní odměna z aktivní šablony (raw částka) - baseline pro detekci
   // ruční změny u cooperation/operation. Franšíza ji nepoužívá.
   standardOperatingFee?: string | null;

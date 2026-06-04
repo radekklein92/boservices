@@ -72,18 +72,19 @@ export default async function ContractDetailPage({
   // NewCo údaje lokality (Entita CEIP #1, Operational type) + baseline odměny
   // ze šablony - pro panel „Lokalita a schválení" (jen typy posuzované podle
   // lokality). Franšíza řeší poplatek přes placeholder, baseline nepotřebuje.
-  let locationNewco: { entitaCeip1: string; operationalType: string } | null = null;
+  let locationNewco:
+    | { inFile: boolean; entitaCeip1: string; operationalType: string }
+    | null = null;
   let standardOperatingFee: string | null = null;
   if (isApprovalGated(contract.type)) {
     if (contract.locationId) {
       const loc = await getLocation(contract.locationId);
       const nc = loc?.local?.newco;
-      if (nc) {
-        locationNewco = {
-          entitaCeip1: nc.entitaCeip1,
-          operationalType: nc.operationalType,
-        };
-      }
+      locationNewco = {
+        inFile: !!nc,
+        entitaCeip1: nc?.entitaCeip1 ?? "",
+        operationalType: nc?.operationalType ?? "",
+      };
     }
     if (contract.type === "cooperation" || contract.type === "operation") {
       const tpl = await getOrSeedContractTemplate(contract.type, contract.variant);
