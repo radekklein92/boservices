@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { ChevronDown, X } from "lucide-react";
+import { AlertTriangle, ChevronDown, X } from "lucide-react";
 import type { Client } from "@/lib/portal/clients-db";
 import {
   CONTRACT_TYPES_PICKABLE,
@@ -25,6 +25,10 @@ import {
   LEASE_HOLDER_LABEL,
   NEW_MODE_LABEL,
 } from "@/lib/portal/contract-approval";
+import {
+  checkContractEligibility,
+  requiredFranchiseVariant,
+} from "@/lib/portal/contract-eligibility";
 import {
   CATEGORY_LABEL,
   CATEGORY_STYLE,
@@ -80,6 +84,28 @@ export function ContractCreateModal({
             type === "cooperation" ? 15000 : type === "operation" ? 30000 : null,
         })
       : null;
+
+  // Soulad typu/varianty se stavem lokality (nájem + nový režim).
+  const eligibility =
+    gated && locationItem
+      ? checkContractEligibility({
+          type,
+          leaseStatus: (locationItem.leaseStatus as LeaseStatus) ?? null,
+          newMode: (locationItem.newMode as LocationMode | null) ?? null,
+        })
+      : null;
+  // Franšíza: správná varianta podle nájmu (na franšízanta = A/„AB", jinak B).
+  const requiredVariant =
+    type === "franchise" && locationItem
+      ? requiredFranchiseVariant((locationItem.leaseStatus as LeaseStatus) ?? null)
+      : null;
+
+  // Po výběru lokality u franšízy automaticky nastavit správnou variantu.
+  useEffect(() => {
+    if (requiredVariant && variant !== requiredVariant) {
+      setVariant(requiredVariant);
+    }
+  }, [requiredVariant, variant]);
 
   function changeType(next: ContractType) {
     setType(next);
@@ -231,16 +257,20 @@ export function ContractCreateModal({
                   const meta = getVariantMeta(type, v);
                   if (!meta) return null;
                   const active = v === variant;
+                  // U franšízy se varianta řídí nájmem - nesprávnou zamkneme.
+                  const locked = !!requiredVariant && v !== requiredVariant;
                   return (
                     <button
                       key={v}
                       type="button"
-                      onClick={() => setVariant(v)}
+                      onClick={() => !locked && setVariant(v)}
+                      disabled={locked}
                       className={[
                         "flex flex-col gap-1 rounded-lg border px-3 py-2.5 text-left transition-all",
                         active
                           ? "border-ink-base bg-ink-base text-paper"
                           : "border-edge bg-paper text-ink-deep hover:border-ink-soft",
+                        locked ? "cursor-not-allowed opacity-40 hover:border-edge" : "",
                       ].join(" ")}
                     >
                       <span className="text-[12.5px] font-semibold tracking-[-0.01em]">
@@ -257,6 +287,13 @@ export function ContractCreateModal({
                   );
                 })}
               </div>
+              {requiredVariant && (
+                <span className="mt-0.5 text-[11px] text-ink-mid">
+                  {requiredVariant === "AB"
+                    ? "Nájem je na franšízanta → automaticky varianta A."
+                    : "Nájem není na franšízanta → automaticky varianta B."}
+                </span>
+              )}
             </div>
           )}
 
@@ -342,33 +379,53 @@ export function ContractCreateModal({
                       </span>
                     </span>
                   </div>
-                  <div className="flex flex-col gap-1.5 text-[12px] leading-snug">
-                    {preview?.auto ? (
-                      <span className="text-emerald-700">
-                        Po odeslání bude <strong>automaticky schváleno</strong>.
+                  {eligibility && !eligibility.ok ? (
+                    <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2.5 text-[12px] leading-snug text-amber-800">
+                      <AlertTriangle
+                        className="mt-0.5 h-3.5 w-3.5 shrink-0"
+                        strokeWidth={1.5}
+                        aria-hidden="true"
+                      />
+                      <span>
+                        {eligibility.reason} Lokalita má nový režim{" "}
+                        <strong>
+                          {locationItem.newMode
+                            ? NEW_MODE_LABEL[locationItem.newMode as LocationMode]
+                            : "neuvedeno"}
+                        </strong>
+                        . Nejdřív upravte hodnoty v aplikaci Transition a
+                        synchronizujte data.
                       </span>
-                    ) : (
-                      <>
-                        <span className="text-amber-700">
-                          Po odeslání <strong>půjde ke schvalovatelům</strong>:
-                        </span>
-                        <ul className="flex flex-col gap-1">
-                          {preview?.reasons.map((r, i) => (
-                            <li
-                              key={`${r.code}-${i}`}
-                              className="flex gap-2 text-amber-700"
-                            >
-                              <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-amber-500" aria-hidden="true" />
-                              <span>{r.label}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </>
-                    )}
-                  </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex flex-col gap-1.5 text-[12px] leading-snug">
+                        {preview?.auto ? (
+                          <span className="text-emerald-700">
+                            Po odeslání bude <strong>automaticky schváleno</strong>.
+                          </span>
+                        ) : (
+                          <>
+                            <span className="text-amber-700">
+                              Po odeslání <strong>půjde ke schvalovatelům</strong>:
+                            </span>
+                            <ul className="flex flex-col gap-1">
+                              {preview?.reasons.map((r, i) => (
+                                <li
+                                  key={`${r.code}-${i}`}
+                                  className="flex gap-2 text-amber-700"
+                                >
+                                  <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-amber-500" aria-hidden="true" />
+                                  <span>{r.label}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </>
+                        )}
+                      </div>
 
-                  {/* Rozbalovací klíč - jak se o schválení rozhoduje. */}
-                  <div className="border-t border-edge pt-2">
+                      {/* Rozbalovací klíč - jak se o schválení rozhoduje. */}
+                      <div className="border-t border-edge pt-2">
                     <button
                       type="button"
                       onClick={() => setShowRules((v) => !v)}
@@ -400,7 +457,9 @@ export function ContractCreateModal({
                         </ul>
                       </div>
                     )}
-                  </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               ) : (
                 <span className="mt-0.5 text-[11px] text-ink-mid">
@@ -427,7 +486,12 @@ export function ContractCreateModal({
             </button>
             <button
               type="submit"
-              disabled={pending || !clientId || (gated && !locationId)}
+              disabled={
+                pending ||
+                !clientId ||
+                (gated && !locationId) ||
+                (eligibility !== null && !eligibility.ok)
+              }
               className="inline-flex h-10 items-center gap-2 rounded-full bg-ink-base px-5 text-[13px] font-semibold text-paper transition-transform active:translate-y-px disabled:opacity-60"
             >
               {pending ? "Vytvářím…" : "Vytvořit smlouvu"}

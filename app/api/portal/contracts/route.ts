@@ -15,6 +15,10 @@ import {
   type ContractVariant,
 } from "@/lib/portal/contract-types";
 import { getLocation } from "@/lib/portal/locations-db";
+import {
+  checkContractEligibility,
+  requiredFranchiseVariant,
+} from "@/lib/portal/contract-eligibility";
 import type { Contract } from "@/lib/portal/contracts-db";
 import { WITHDRAWAL_KS_TEXTS, resolveForEditing } from "@/lib/portal/contract-render";
 import { ensureClaimsToken } from "@/lib/portal/claims";
@@ -120,6 +124,24 @@ export async function POST(req: Request) {
       newMode: location.new_mode,
       capturedAt: new Date().toISOString(),
     };
+
+    // Soulad typu/varianty se stavem lokality (spolupráce=Operations,
+    // provozování=Full; franšíza variantou dle nájmu). Při nesouladu nelze
+    // smlouvu vytvořit - je nutné upravit data v Transition a synchronizovat.
+    const elig = checkContractEligibility({
+      type,
+      leaseStatus: location.lease_current_status,
+      newMode: location.new_mode,
+    });
+    if (!elig.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: `${elig.reason} Nejdřív upravte hodnoty v aplikaci Transition a synchronizujte data.`,
+        },
+        { status: 400 },
+      );
+    }
   }
 
   let variant: ContractVariant | undefined;
@@ -129,6 +151,11 @@ export async function POST(req: Request) {
     } else {
       variant = getDefaultVariantForType(type) as ContractVariant | undefined;
     }
+  }
+  // Franšíza: varianta je dána nájmem (na franšízanta = A/„AB", jinak B) -
+  // přepíšeme bez ohledu na to, co poslal klient (bezpečnostní síť).
+  if (type === "franchise" && locationSnapshot) {
+    variant = requiredFranchiseVariant(locationSnapshot.leaseStatus) as ContractVariant;
   }
 
   // Bundle: load 3 source templates (claim-assignment, side-fee, assignment-notice).
