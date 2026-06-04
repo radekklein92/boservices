@@ -8,6 +8,11 @@ import {
   type ClaimBundleSectionType,
 } from "@/lib/portal/contract-types";
 import { htmlDiff } from "@/lib/portal/contract-diff";
+import {
+  resolveForEditing,
+  extractPlaceholderTokens,
+  KEEP_DYNAMIC_TOKENS,
+} from "@/lib/portal/contract-render";
 
 export async function GET(
   _req: Request,
@@ -61,13 +66,22 @@ export async function GET(
     snapshot = template.html;
   }
 
-  const result = htmlDiff(snapshot, contract.html);
+  // Když je znění zapečené (vyplněné hodnoty), zapečeme stejnými proměnnými
+  // i šablonu pro porovnání - diff pak ukáže jen uživatelské úpravy, ne rozdíl
+  // token vs. hodnota. Staré nezapečené smlouvy (html ještě s tokeny) porovnáme
+  // surově proti surové šabloně jako dosud.
+  const tokens = extractPlaceholderTokens(contract.html);
+  const isBaked = ![...tokens].some((t) => !KEEP_DYNAMIC_TOKENS.has(t));
+  const snapshotForDiff = isBaked
+    ? resolveForEditing(snapshot, contract.variables)
+    : snapshot;
+  const result = htmlDiff(snapshotForDiff, contract.html);
   return NextResponse.json({
     ok: true,
     hasChanges: result.hasChanges,
     changeCount: result.changeCount,
     diffHtml: result.diffHtml,
-    snapshotHtml: snapshot,
+    snapshotHtml: snapshotForDiff,
     currentHtml: contract.html,
   });
 }

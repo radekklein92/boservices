@@ -7,6 +7,11 @@ import {
   upsertContract,
 } from "@/lib/portal/contracts-db";
 import { getUser } from "@/lib/portal/users-db";
+import {
+  applyProviderSignerToHtml,
+  applySignerOverride,
+  getProviderDefaults,
+} from "@/lib/portal/contract-render";
 import { renderAndStoreContractPdf } from "@/lib/portal/pdf-flow";
 import { bustContracts } from "@/lib/portal/revalidate";
 
@@ -56,8 +61,9 @@ export async function POST(
   }
 
   // Buď konkrétní Podepisující (override zástupce v PDF), nebo „zachovat
-  // původního" - pak se signerEmail nenastaví a zástupce ze smlouvy zůstane.
+  // původního" - pak se signerEmail nenastaví a vrátí se výchozí zástupce.
   let signerEmail: string | undefined;
+  let signer: Awaited<ReturnType<typeof getUser>> | null = null;
   if (!keepOriginal) {
     if (!parsed.data.email) {
       return NextResponse.json(
@@ -65,7 +71,7 @@ export async function POST(
         { status: 400 },
       );
     }
-    const signer = await getUser(parsed.data.email);
+    signer = await getUser(parsed.data.email);
     if (!signer) {
       return NextResponse.json(
         { ok: false, error: "Podepisující nenalezen." },
@@ -82,8 +88,43 @@ export async function POST(
   }
 
   const now = new Date().toISOString();
+
+  // Zapečené znění má jméno/funkci zástupce poskytovatele přímo v textu. Při
+  // výběru jiného podepisujícího ho v textu přepíšeme; „zachovat původního"
+  // vrátí výchozího zástupce poskytovatele. variables držíme v souladu.
+  const oldName = contract.variables.providerStatutory1Name ?? "";
+  const oldRole = contract.variables.providerStatutory1Role ?? "";
+  let newName = oldName;
+  let newRole = oldRole;
+  if (signer) {
+    const ov = applySignerOverride(contract.variables, signer);
+    newName = ov.providerStatutory1Name ?? oldName;
+    newRole = ov.providerStatutory1Role ?? oldRole;
+  } else {
+    const defaults = getProviderDefaults(contract.type);
+    newName = defaults.providerStatutory1Name ?? oldName;
+    newRole = defaults.providerStatutory1Role ?? oldRole;
+  }
+  const nextVariables =
+    newName !== oldName || newRole !== oldRole
+      ? {
+          ...contract.variables,
+          providerStatutory1Name: newName,
+          providerStatutory1Role: newRole,
+        }
+      : contract.variables;
+  const nextHtml = applyProviderSignerToHtml(
+    contract.html,
+    oldName,
+    oldRole,
+    newName,
+    newRole,
+  );
+
   const withSigner = {
     ...contract,
+    variables: nextVariables,
+    html: nextHtml,
     // U „zachovat původního" explicitně vyčistíme signerEmail (undefined se
     // při uložení do Redisu zahodí) - render pak nepřepíše zástupce.
     signerEmail,
@@ -149,8 +190,26 @@ export async function DELETE(
   } = contract;
   void _se; void _sp; void _spb;
   void _sa; void _sb; void _cs; void _csb;
+
+  // Vrátit zástupce poskytovatele v zapečeném textu na výchozího (po výběru
+  // podepisujícího tam zůstalo jeho jméno).
+  const defaults = getProviderDefaults(contract.type);
+  const oldName = contract.variables.providerStatutory1Name ?? "";
+  const oldRole = contract.variables.providerStatutory1Role ?? "";
+  const newName = defaults.providerStatutory1Name ?? oldName;
+  const newRole = defaults.providerStatutory1Role ?? oldRole;
+
   const updated = {
     ...rest,
+    variables:
+      newName !== oldName || newRole !== oldRole
+        ? {
+            ...rest.variables,
+            providerStatutory1Name: newName,
+            providerStatutory1Role: newRole,
+          }
+        : rest.variables,
+    html: applyProviderSignerToHtml(rest.html, oldName, oldRole, newName, newRole),
     updatedAt: new Date().toISOString(),
   };
   updated.status = computeContractStatus(updated);

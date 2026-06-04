@@ -32,7 +32,10 @@ import {
   type ContractVariant,
 } from "@/lib/portal/contract-types";
 import { WITHDRAWAL_KS_TEXTS } from "@/lib/portal/contract-render";
-import { extractPlaceholderTokens } from "@/lib/portal/contract-render";
+import {
+  extractPlaceholderTokens,
+  resolvePlaceholderValue,
+} from "@/lib/portal/contract-render";
 import {
   computeClaimsTotal,
   formatClaimsTotalAmount,
@@ -316,7 +319,12 @@ export function ContractDetailClient({
     }
     const editor = editorRef.current;
     if (!editor) return;
-    editor.chain().focus().insertContent(token).run();
+    // Znění je zapečené (vyplněné hodnoty) - vkládáme rovnou hodnotu, ne token.
+    editor
+      .chain()
+      .focus()
+      .insertContent(resolvePlaceholderValue(token, variables))
+      .run();
   }
 
   async function performSave(
@@ -1039,7 +1047,14 @@ export function ContractDetailClient({
           </div>
           <aside className="flex h-full min-h-[480px] flex-col overflow-hidden rounded-2xl border border-edge bg-paper-warm lg:sticky lg:top-6">
             <div className="flex-1 overflow-y-auto p-4">
-              <PlaceholderPalette onInsert={handleInsert} />
+              <PlaceholderPalette
+                onInsert={handleInsert}
+                resolveValue={
+                  isBundle
+                    ? undefined
+                    : (t) => resolvePlaceholderValue(t, variables)
+                }
+              />
               {isBundle && (
                 <div className="mt-4 rounded-lg border border-edge bg-paper p-3 text-[11px] leading-relaxed text-ink-mid">
                   Aktivní editor:{" "}

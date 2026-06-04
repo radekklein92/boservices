@@ -16,7 +16,7 @@ import {
 } from "@/lib/portal/contract-types";
 import { getLocation } from "@/lib/portal/locations-db";
 import type { Contract } from "@/lib/portal/contracts-db";
-import { WITHDRAWAL_KS_TEXTS } from "@/lib/portal/contract-render";
+import { WITHDRAWAL_KS_TEXTS, resolveForEditing } from "@/lib/portal/contract-render";
 import { ensureClaimsToken } from "@/lib/portal/claims";
 import { getOrSeedContractTemplate } from "@/lib/portal/contract-templates-db";
 import { bustContracts } from "@/lib/portal/revalidate";
@@ -208,13 +208,19 @@ export async function POST(req: Request) {
   const nowIso = now.toISOString();
   const id = nanoid(12);
 
+  // Zapéct placeholdery do editovatelného znění (NE-bundle); templateSnapshot
+  // zůstává surová šablona pro diff. Bundle zůstává na tokenech.
+  const html = isBundleType(type)
+    ? templateHtml
+    : resolveForEditing(templateHtml, variables);
+
   await upsertContract({
     id,
     type,
     clientId: client.id,
     clientName: client.companyName,
     status: "koncept",
-    html: templateHtml,
+    html,
     templateSnapshot: templateSnapshot || undefined,
     bundleSections,
     variant,

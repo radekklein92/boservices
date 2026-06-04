@@ -1,5 +1,6 @@
 import type { Client } from "./clients-db";
 import { signerRoleText, type User } from "./users-db";
+import { findPlaceholderLabel } from "./placeholders";
 
 export type ContractVariables = Record<string, string>;
 
@@ -67,6 +68,31 @@ export function applySignerOverride(
       signer.signerDisplayName?.trim() || signer.name || variables.providerStatutory1Name,
     providerStatutory1Role: signerRoleText(signer),
   };
+}
+
+// Přepíše jméno/funkci zástupce poskytovatele v ZAPEČENÉM znění (vyplněné
+// hodnoty, ne tokeny). Jméno globálně (celé jméno je unikátní), funkci jen
+// v provider-kotvách (za jménem ve stranách a v podpisovém bloku), ať nezasáhne
+// roli klienta. U nezapečených (tokenových) smluv je to no-op.
+export function applyProviderSignerToHtml(
+  html: string,
+  oldName: string,
+  oldRole: string,
+  newName: string,
+  newRole: string,
+): string {
+  let out = html;
+  if (oldName && newName !== oldName) {
+    out = out.split(oldName).join(newName);
+  }
+  if (oldRole && newRole !== oldRole) {
+    out = out
+      .split(`${newName}, ${oldRole}`)
+      .join(`${newName}, ${newRole}`)
+      .split(`<strong>${newName}</strong><br>${oldRole}`)
+      .join(`<strong>${newName}</strong><br>${newRole}`);
+  }
+  return out;
 }
 
 export function buildClientVariables(client: Client): ContractVariables {
@@ -228,6 +254,54 @@ export function renderTemplate(
     if (RAW_HTML_PLACEHOLDERS.has(key)) return value;
     return escapeHtml(value);
   });
+}
+
+// Tokeny, které se NEzapékají do editovatelného textu - dosadí se až při
+// generování PDF, protože jsou řízené strukturou (tabulka pohledávek) nebo
+// přepínačem (nakládání s KS u odstoupení).
+export const KEEP_DYNAMIC_TOKENS = new Set([
+  "claimsTable",
+  "totalClaimsAmount",
+  "ksIntroClause",
+  "ksPreservedClause",
+  "ksDropClause",
+  "ksIntroLineSeparator",
+]);
+
+// „Zapeče" placeholdery do HTML pro přímou editaci ve znění smlouvy: hodnoty
+// dosadí natvrdo, prázdné/chybějící nahradí prostým markerem [Label] k vyplnění
+// a dynamické tokeny (KEEP_DYNAMIC_TOKENS) nechá být (dořeší se až v PDF).
+export function resolveForEditing(
+  html: string,
+  variables: ContractVariables,
+): string {
+  return html.replace(TOKEN_RE, (whole, key: string) => {
+    if (KEEP_DYNAMIC_TOKENS.has(key)) return whole;
+    const value = variables[key];
+    if (value === undefined || value === null || value === "") {
+      if (ALLOW_EMPTY.has(key)) return "";
+      const label = findPlaceholderLabel(`{{${key}}}`) ?? key;
+      return `[${label}]`;
+    }
+    if (RAW_HTML_PLACEHOLDERS.has(key)) return value;
+    return escapeHtml(value);
+  });
+}
+
+// Hodnota tokenu pro vkládání z palety placeholderů do už zapečeného textu
+// (vrací hodnotu, nebo [Label] když je prázdná).
+export function resolvePlaceholderValue(
+  token: string,
+  variables: ContractVariables,
+): string {
+  const m = token.match(/\{\{(\w+)\}\}/);
+  const key = m ? m[1]! : token;
+  const value = variables[key];
+  if (value === undefined || value === null || value === "") {
+    const label = findPlaceholderLabel(token) ?? key;
+    return `[${label}]`;
+  }
+  return value;
 }
 
 export function listUnresolvedPlaceholders(

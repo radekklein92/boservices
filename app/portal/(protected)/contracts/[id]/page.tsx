@@ -15,6 +15,11 @@ import {
   isTemplateApproved,
 } from "@/lib/portal/contract-templates-db";
 import { extractOdmenaAmount } from "@/lib/portal/contract-fees";
+import {
+  resolveForEditing,
+  KEEP_DYNAMIC_TOKENS,
+  extractPlaceholderTokens,
+} from "@/lib/portal/contract-render";
 import { getLocation, toLocationSnapshot } from "@/lib/portal/locations-db";
 import { getSession } from "@/lib/portal/get-session";
 import { getTemplateApprovers } from "@/lib/portal/users-db";
@@ -58,6 +63,23 @@ export default async function ContractDetailPage({
     const template = await getOrSeedContractTemplate(contract.type);
     contract = { ...contract, templateSnapshot: template.html };
     await upsertContract(contract);
+  }
+
+  // Líné zapečení placeholderů do editovatelného znění (NE-bundle, dokud není
+  // smlouva schválená). Stávající koncepty s tokeny se tak při otevření vyplní.
+  if (
+    !isBundleType(contract.type) &&
+    statusOrder(contract.status) < statusOrder("schvaleno")
+  ) {
+    const tokens = extractPlaceholderTokens(contract.html);
+    const hasBakeable = [...tokens].some((t) => !KEEP_DYNAMIC_TOKENS.has(t));
+    if (hasBakeable) {
+      contract = {
+        ...contract,
+        html: resolveForEditing(contract.html, contract.variables),
+      };
+      await upsertContract(contract);
+    }
   }
 
   // Aktuální stav schválení šablony - pro červený badge "Šablona neschválená".

@@ -6,10 +6,15 @@ import { PLACEHOLDER_GROUPS } from "@/lib/portal/placeholders";
 
 export function PlaceholderPalette({
   onInsert,
+  resolveValue,
 }: {
   onInsert: (token: string) => void;
+  // Když je zadáno, znění je zapečené (vyplněné) - u položky ukážeme aktuální
+  // hodnotu místo tokenu a kliknutím se vloží přímo hodnota.
+  resolveValue?: (token: string) => string;
 }) {
   const [query, setQuery] = useState("");
+  const filled = !!resolveValue;
 
   const groups = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -29,8 +34,9 @@ export function PlaceholderPalette({
           Placeholdery
         </div>
         <p className="mt-1 text-[11.5px] leading-snug text-ink-mid">
-          Kliknutím vložíte token do textu. Při generování smlouvy se nahradí
-          daty klienta.
+          {filled
+            ? "Kliknutím vložíte aktuální hodnotu přímo do textu."
+            : "Kliknutím vložíte token do textu. Při generování smlouvy se nahradí daty klienta."}
         </p>
       </div>
 
@@ -68,9 +74,15 @@ export function PlaceholderPalette({
                       <span className="text-[12.5px] font-medium text-ink-base">
                         {item.label}
                       </span>
-                      <code className="mt-0.5 font-mono text-[10.5px] text-ink-mid group-hover:text-ink-deep">
-                        {item.token}
-                      </code>
+                      {filled ? (
+                        <span className="mt-0.5 truncate text-[11px] text-ink-mid group-hover:text-ink-deep">
+                          {resolveValue!(item.token)}
+                        </span>
+                      ) : (
+                        <code className="mt-0.5 font-mono text-[10.5px] text-ink-mid group-hover:text-ink-deep">
+                          {item.token}
+                        </code>
+                      )}
                     </button>
                   </li>
                 ))}

@@ -35,6 +35,15 @@ function normNum(s: string): string {
   return s.replace(/[\s .]/g, "");
 }
 
+// Porovná dvě procenta tolerantně (čárka i tečka jako desetinný oddělovač).
+function samePercent(a: string, b: string): boolean {
+  const na = parseFloat(a.replace(",", "."));
+  const nb = parseFloat(b.replace(",", "."));
+  return Number.isFinite(na) && Number.isFinite(nb)
+    ? na === nb
+    : a.trim() === b.trim();
+}
+
 // Vytáhne částku odměny (raw, např. „30 000") z HTML šablony nebo smlouvy.
 export function extractOdmenaAmount(html: string): string | null {
   const m = html.match(ODMENA_KC_RE);
@@ -58,21 +67,22 @@ export function computeContractFee(
 ): ContractFee | null {
   if (contract.type === "franchise") {
     const expected = (contract.variables.franchiseFeePercent ?? "").trim();
+    // Hodnota v textu: z placeholderu (nezapečeno), jinak vyčtená z klauzule
+    // (zapečeno nebo ručně upraveno). „changed" = liší se od zamýšlené hodnoty
+    // ve variables, ne podle přítomnosti tokenu (po zapečení token nikdy není).
+    let inText: string | null;
     if (contract.html.includes(FRANCHISE_FEE_TOKEN)) {
-      return {
-        label: "Franšízový a marketingový poplatek",
-        value: expected ? `${expected} %` : "neuvedeno",
-        changed: false,
-      };
+      inText = expected || null;
+    } else {
+      const m = contract.html.match(FRANCHISE_FEE_TEXT_RE);
+      inText = m ? m[1]!.trim() : null;
     }
-    // Placeholder z textu zmizel → klauzule byla upravena ručně.
-    const m = contract.html.match(FRANCHISE_FEE_TEXT_RE);
-    const inText = m ? m[1]!.trim() : null;
+    const changed = !!expected && inText !== null && !samePercent(inText, expected);
     return {
       label: "Franšízový a marketingový poplatek",
-      value: inText ? `${inText} %` : "upraveno v textu",
-      changed: true,
-      standard: expected ? `${expected} %` : undefined,
+      value: inText ? `${inText} %` : expected ? `${expected} %` : "neuvedeno",
+      changed,
+      standard: changed ? `${expected} %` : undefined,
     };
   }
 
