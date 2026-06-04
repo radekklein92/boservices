@@ -16,6 +16,7 @@ import type { LocationView } from "@/lib/portal/locations-db";
 import { Section } from "@/components/portal/ui/Section";
 import { InfoRow as Row } from "@/components/portal/ui/InfoRow";
 import { BackLink } from "@/components/portal/ui/BackLink";
+import { Chip } from "@/components/portal/ui/Chip";
 import { BTN_PRIMARY, BTN_ROW, BTN_ICON } from "@/components/portal/ui/buttons";
 import {
   CATEGORY_HINT,
@@ -141,6 +142,32 @@ export function LocationDetail({ location }: { location: LocationView }) {
           />
           <Row label="V novém TWIST" value={l.in_new_twist ? "Ano" : "Ne"} />
         </Section>
+
+        {l.local?.newco && (
+          <Section title="NewCo">
+            <Row label="Entita CEIP #1" value={l.local.newco.entitaCeip1} />
+            <Row label="Entita CEIP #2" value={l.local.newco.entitaCeip2} />
+            <Row label="103" value={l.local.newco.field103} />
+            <Row label="V business plánu (Y/N)" value={l.local.newco.includeInBusinessPlan} />
+            <Row label="Operational type" value={l.local.newco.operationalType} />
+            <Row label="Category" value={l.local.newco.category} />
+            <div className="flex items-baseline justify-between gap-4 border-b border-edge/60 py-2 last:border-0">
+              <span className="shrink-0 text-[12.5px] text-ink-mid">Označeno červeně</span>
+              <Chip
+                tone={
+                  l.local.newco.flaggedRed
+                    ? "border-red-300 bg-red-50 text-red-700"
+                    : "border-edge bg-edge-warm text-ink-mid"
+                }
+              >
+                {l.local.newco.flaggedRed ? "Ano" : "Ne"}
+              </Chip>
+            </div>
+            <p className="mt-3 text-[11.5px] text-ink-soft">
+              Importováno {formatDate(l.local.newco.importedAt)} · {l.local.newco.importedBy}
+            </p>
+          </Section>
+        )}
       </div>
 
       {l.note && (

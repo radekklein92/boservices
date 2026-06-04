@@ -1,4 +1,5 @@
 import { getRedis } from "@/lib/redis";
+import type { NewCoMapping } from "./newco-fields";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Lokality = read-only zrcadlo z projektu Transition (zdroj pravdy). Synchronizuje
@@ -115,10 +116,25 @@ export interface LocationAttachment {
   uploadedAt: string;
 }
 
+// Data importovaná z NewCo XLSX (per lokalita, párováno přes kód). Hodnoty
+// jako string (obsah buněk). flaggedRed = řádek měl >= 5 červených buněk.
+export interface LocationNewCo {
+  entitaCeip1: string;
+  entitaCeip2: string;
+  field103: string;
+  includeInBusinessPlan: string;
+  operationalType: string;
+  category: string;
+  flaggedRed: boolean;
+  importedBy: string;
+  importedAt: string;
+}
+
 export interface LocationLocal {
   locationId: string;
   note: string;
   attachments: LocationAttachment[];
+  newco?: LocationNewCo;
   updatedBy: string;
   updatedAt: string;
 }
@@ -233,6 +249,43 @@ export async function saveLocationLocal(local: LocationLocal): Promise<void> {
   const r = getRedis();
   if (!r) throw new Error("Redis not configured");
   await r.set(localKey(local.locationId), local);
+}
+
+// Uloží NewCo data k lokalitě (zachová note/přílohy). Vrací false, pokud Redis
+// není dostupný.
+export async function setLocationNewCo(
+  locationId: string,
+  newco: LocationNewCo,
+): Promise<void> {
+  const r = getRedis();
+  if (!r) throw new Error("Redis not configured");
+  const existing = await r.get<LocationLocal>(localKey(locationId));
+  const local: LocationLocal = existing
+    ? { ...existing, newco, updatedBy: newco.importedBy, updatedAt: newco.importedAt }
+    : {
+        locationId,
+        note: "",
+        attachments: [],
+        newco,
+        updatedBy: newco.importedBy,
+        updatedAt: newco.importedAt,
+      };
+  await r.set(localKey(locationId), local);
+}
+
+// Uložené mapování sloupců NewCo importu (předvyplnění editoru příště).
+const NEWCO_MAPPING_KEY = "portal:locations:newco-mapping";
+
+export async function getNewCoMapping(): Promise<NewCoMapping | null> {
+  const r = getRedis();
+  if (!r) return null;
+  return r.get<NewCoMapping>(NEWCO_MAPPING_KEY);
+}
+
+export async function saveNewCoMapping(mapping: NewCoMapping): Promise<void> {
+  const r = getRedis();
+  if (!r) return;
+  await r.set(NEWCO_MAPPING_KEY, mapping);
 }
 
 // ── Sync meta ───────────────────────────────────────────────────────────────

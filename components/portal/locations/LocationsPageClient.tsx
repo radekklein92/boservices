@@ -2,11 +2,17 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { RefreshCw, CheckCircle2, AlertTriangle, CircleDashed } from "lucide-react";
+import dynamicImport from "next/dynamic";
+import { RefreshCw, CheckCircle2, AlertTriangle, CircleDashed, FileSpreadsheet } from "lucide-react";
 import { PageHeader } from "@/components/portal/shell/PageHeader";
 import type { LocationsSyncMeta, MirroredLocation } from "@/lib/portal/locations-db";
 import { LocationsTable } from "./LocationsTable";
 import { formatDateTime } from "./locations-shared";
+
+const NewCoImportModal = dynamicImport(
+  () => import("./NewCoImportModal").then((m) => m.NewCoImportModal),
+  { ssr: false },
+);
 
 export function LocationsPageClient({
   locations,
@@ -21,6 +27,7 @@ export function LocationsPageClient({
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   async function syncNow() {
     setBusy(true);
@@ -50,25 +57,42 @@ export function LocationsPageClient({
         title="Lokality"
         lede="Read-only zrcadlo lokalit z projektu Transition. Spravují se výhradně v Transition; tady je vidíte i s kategorií a můžete k nim přidávat poznámky a přílohy."
         actions={
-          <button
-            type="button"
-            onClick={syncNow}
-            disabled={busy}
-            className="inline-flex h-11 items-center gap-2 rounded-full border border-edge bg-paper px-5 text-[13.5px] font-semibold text-ink-base transition-colors hover:border-ink-base disabled:opacity-50"
-          >
-            <RefreshCw
-              className={`h-4 w-4 ${busy ? "animate-spin" : ""}`}
-              strokeWidth={1.5}
-              aria-hidden="true"
-            />
-            {busy ? "Synchronizuji…" : "Synchronizovat teď"}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setImportOpen(true)}
+              className="inline-flex h-11 items-center gap-2 rounded-full border border-edge bg-paper px-5 text-[13.5px] font-semibold text-ink-base transition-colors hover:border-ink-base"
+            >
+              <FileSpreadsheet className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+              Import NewCo
+            </button>
+            <button
+              type="button"
+              onClick={syncNow}
+              disabled={busy}
+              className="inline-flex h-11 items-center gap-2 rounded-full border border-edge bg-paper px-5 text-[13.5px] font-semibold text-ink-base transition-colors hover:border-ink-base disabled:opacity-50"
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${busy ? "animate-spin" : ""}`}
+                strokeWidth={1.5}
+                aria-hidden="true"
+              />
+              {busy ? "Synchronizuji…" : "Synchronizovat teď"}
+            </button>
+          </div>
         }
       />
 
       <SyncStatus meta={syncMeta} error={error} />
 
       <LocationsTable locations={locations} withContractIds={withContractIds} />
+
+      {importOpen && (
+        <NewCoImportModal
+          onClose={() => setImportOpen(false)}
+          onImported={() => router.refresh()}
+        />
+      )}
     </div>
   );
 }
