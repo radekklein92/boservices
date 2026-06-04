@@ -15,6 +15,7 @@ import { isAdminRole } from "@/lib/portal/auth-guard";
 import { getSession } from "@/lib/portal/get-session";
 import { cachedListContracts } from "@/lib/portal/cached-db";
 import { parseClaimAmount } from "@/lib/portal/claims";
+import { FireworksCelebration } from "@/components/portal/dashboard/FireworksCelebration";
 
 // Dashboard - jediný story: postup k cíli 100 franšízových lokalit.
 //
@@ -33,10 +34,46 @@ export const dynamic = "force-dynamic";
 const MILESTONES = [15, 30, 50, 75, 100] as const;
 const TARGET = 100;
 
-export default async function PortalDashboardPage() {
-  const [session, contracts] = await Promise.all([
+// Den (Europe/Prague) jako YYYY-MM-DD pro porovnání „stalo se dnes".
+function pragueDayKey(d: Date): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Prague",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+}
+
+// Vrátí nejvyšší milník, který byl dosažen DNES - tj. den, kdy N-tá podepsaná
+// franšízová smlouva (seřazeno dle clientSignedAt) překročila daný milník je
+// dnešní. null = dnes žádný milník nepadl.
+function milestoneReachedToday(
+  contracts: Awaited<ReturnType<typeof cachedListContracts>>,
+): number | null {
+  const dates = contracts
+    .filter((c) => c.type === "franchise" && !!c.clientSignedAt)
+    .map((c) => c.clientSignedAt as string)
+    .sort();
+  if (!dates.length) return null;
+  const todayKey = pragueDayKey(new Date());
+  let hit: number | null = null;
+  for (const m of MILESTONES) {
+    if (dates.length >= m && pragueDayKey(new Date(dates[m - 1]!)) === todayKey) {
+      hit = m;
+    }
+  }
+  return hit;
+}
+
+export default async function PortalDashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ celebrate?: string }>;
+}) {
+  const [session, contracts, sp] = await Promise.all([
     getSession(),
     cachedListContracts(),
+    searchParams,
   ]);
   const isAdmin = isAdminRole(session?.user?.role);
 
@@ -46,6 +83,14 @@ export default async function PortalDashboardPage() {
   const franchiseLocationsCount = contracts.filter(
     (c) => c.type === "franchise" && !!c.clientSignedAt,
   ).length;
+
+  // Oslavný ohňostroj: dnes padlý milník (pro všechny), nebo náhled přes
+  // ?celebrate=N (jen admin - ať si to lze prohlédnout, jak to vypadá).
+  const previewCelebrate = isAdmin && sp?.celebrate ? Number(sp.celebrate) : null;
+  const celebrate =
+    previewCelebrate && Number.isFinite(previewCelebrate) && previewCelebrate > 0
+      ? previewCelebrate
+      : milestoneReachedToday(contracts);
 
   // Postoupené pohledávky: suma claim.amount ze všech claim-bundle smluv, které
   // už jsou alespoň „podepsáno klientem" (= máme aspoň jeden z timestamps
@@ -73,6 +118,12 @@ export default async function PortalDashboardPage() {
 
   return (
     <div className="flex flex-col gap-10">
+      {celebrate != null && (
+        <FireworksCelebration
+          milestone={celebrate}
+          isGoal={celebrate >= TARGET}
+        />
+      )}
       <PageHeader
         eyebrow="Dashboard"
         title={`Vítejte, ${displayName}.`}
