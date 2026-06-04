@@ -1,4 +1,4 @@
-import { diffWords } from "diff";
+import { diffWords, diffArrays } from "diff";
 
 export interface DiffResult {
   hasChanges: boolean;
@@ -12,9 +12,15 @@ export interface DiffResult {
  *
  * Použito v "Přehled změn" modalu a v "PDF s úpravami" generování.
  *
- * HTML obou stran se před diffem normalizuje, jinak by Tiptap normalization
- * (např. wrapování <li>content</li> → <li><p>content</p></li>) dělal masivní
- * falešné rozdíly i u drobných editů.
+ * Dvoufázový diff:
+ *  1) HTML se rozdělí na bloky (odstavce, položky seznamu, nadpisy) a porovná
+ *     se po blocích (diffArrays). Tím se zarovnají nezměněné klauzule a změna
+ *     zůstane lokální - neproplétají se shodná slova napříč různými větami.
+ *  2) Uvnitř změněného bloku (přepis) se udělá ještě slovní diff (diffWords),
+ *     takže přepis se ukáže jako přeškrtnutý starý + podtržený nový text.
+ *
+ * HTML se nejdřív normalizuje (Tiptap re-serializace by jinak dělala falešné
+ * rozdíly i u drobných editů).
  */
 export function htmlDiff(
   original: string,
@@ -27,31 +33,81 @@ export function htmlDiff(
     return { hasChanges: false, changeCount: 0, diffHtml: current };
   }
 
-  const parts = diffWords(normalizedOriginal, normalizedCurrent);
+  const origBlocks = segmentBlocks(normalizedOriginal);
+  const currBlocks = segmentBlocks(normalizedCurrent);
+  const parts = diffArrays(origBlocks, currBlocks);
+
   let diffHtml = "";
   let changeCount = 0;
+  // Počítáme souvislé úseky změn (jeden zásah = 1), ne jednotlivé bloky -
+  // přidání 10-položkového seznamu najednou je „1 změna", ne 10.
   let inChangeRun = false;
 
-  for (const part of parts) {
-    if (part.added) {
-      diffHtml += `<ins>${part.value}</ins>`;
-      if (!inChangeRun) {
-        changeCount++;
-        inChangeRun = true;
-      }
-    } else if (part.removed) {
-      diffHtml += `<del>${part.value}</del>`;
-      if (!inChangeRun) {
-        changeCount++;
-        inChangeRun = true;
-      }
-    } else {
-      diffHtml += part.value;
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i]!;
+
+    if (!part.added && !part.removed) {
+      diffHtml += part.value.join("");
       inChangeRun = false;
+      continue;
+    }
+
+    if (!inChangeRun) {
+      changeCount++;
+      inChangeRun = true;
+    }
+
+    // Přepis: odebraný běh bloků následovaný přidaným = páruj 1:1 a uvnitř
+    // každého páru udělej slovní diff. Přebytky vykresli jako čisté del/ins.
+    if (part.removed && parts[i + 1]?.added) {
+      const removedBlocks = part.value;
+      const addedBlocks = parts[i + 1]!.value;
+      const pairs = Math.min(removedBlocks.length, addedBlocks.length);
+      for (let j = 0; j < pairs; j++) {
+        diffHtml += intraBlockDiff(removedBlocks[j]!, addedBlocks[j]!);
+      }
+      for (let j = pairs; j < removedBlocks.length; j++) {
+        diffHtml += `<del>${removedBlocks[j]}</del>`;
+      }
+      for (let j = pairs; j < addedBlocks.length; j++) {
+        diffHtml += `<ins>${addedBlocks[j]}</ins>`;
+      }
+      i++; // přidaný běh jsme už zpracovali (zůstáváme v change-runu)
+      continue;
+    }
+
+    // Čistě odebrané nebo čistě přidané bloky.
+    const tag = part.removed ? "del" : "ins";
+    for (const block of part.value) {
+      diffHtml += `<${tag}>${block}</${tag}>`;
     }
   }
 
   return { hasChanges: true, changeCount, diffHtml };
+}
+
+// Rozdělí normalizované HTML na bloky (jeden blok = jedna klauzule/řádek).
+// Dělí za blokovými uzavíracími tagy. Konkatenace bloků zpět dá původní HTML.
+const BLOCK_CLOSE_RE = /(<\/(?:p|li|h1|h2|h3|blockquote|td|th|tr)>)/gi;
+
+function segmentBlocks(html: string): string[] {
+  const SEP = "";
+  return html
+    .replace(BLOCK_CLOSE_RE, `$1${SEP}`)
+    .split(SEP)
+    .filter((s) => s.length > 0);
+}
+
+// Slovní diff uvnitř jednoho (zarovnaného) bloku.
+function intraBlockDiff(a: string, b: string): string {
+  if (a === b) return a;
+  let out = "";
+  for (const part of diffWords(a, b)) {
+    if (part.added) out += `<ins>${part.value}</ins>`;
+    else if (part.removed) out += `<del>${part.value}</del>`;
+    else out += part.value;
+  }
+  return out;
 }
 
 // Normalizuje HTML do tvaru, ve kterém můžeme dva dokumenty smysluplně diff-ovat.
