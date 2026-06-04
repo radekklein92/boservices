@@ -988,9 +988,11 @@ export function ContractDetailClient({
           </h2>
           <span className="text-[11.5px] text-ink-mid">
             ·{" "}
-            {isBundle
-              ? "Tři dokumenty pod sebou. Placeholdery se vyplňují společně nahoře. Vložení placeholderu z palety jde do naposledy zaměřeného editoru."
-              : "Editujte text. Placeholdery se nahradí hodnotami nahoře."}
+            {locked
+              ? "Jen pro čtení — smlouva je uzamčená. Placeholdery se nahrazují hodnotami nahoře."
+              : isBundle
+                ? "Tři dokumenty pod sebou. Placeholdery se vyplňují společně nahoře. Vložení placeholderu z palety jde do naposledy zaměřeného editoru."
+                : "Editujte text. Placeholdery se nahradí hodnotami nahoře."}
           </span>
         </div>
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_300px]">

@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   ArrowUpRight,
   CheckCircle2,
+  ChevronDown,
   Clock,
   MapPin,
   Mail,
@@ -46,6 +47,7 @@ export function ContractApprovalPanel({
   notify: Notify;
 }) {
   const [editingLocation, setEditingLocation] = useState(false);
+  const [showKey, setShowKey] = useState(false);
   const [pending, setPending] = useState<string | null>(null);
 
   const view = getApprovalView(contract);
@@ -225,19 +227,33 @@ export function ContractApprovalPanel({
         )}
       </div>
 
-      {/* Klíč k automatickému schválení */}
-      <div className="rounded-xl border border-edge bg-paper-warm px-4 py-3.5">
-        <div className="text-[10.5px] font-medium uppercase tracking-[0.16em] text-ink-mid">
-          Klíč k automatickému schválení
-        </div>
-        <ol className="mt-2 flex flex-col gap-1.5">
-          {APPROVAL_KEY.map((k) => (
-            <li key={k.rule} className="flex gap-2 text-[12px] leading-snug text-ink-deep">
-              <span className="font-semibold text-ink-base">{k.rule})</span>
-              <span>{k.text}</span>
-            </li>
-          ))}
-        </ol>
+      {/* Klíč k automatickému schválení - sbalený, na rozkliknutí. */}
+      <div className="rounded-xl border border-edge bg-paper-warm px-4 py-3">
+        <button
+          type="button"
+          onClick={() => setShowKey((v) => !v)}
+          aria-expanded={showKey}
+          className="flex w-full items-center justify-between gap-2 text-left"
+        >
+          <span className="text-[10.5px] font-medium uppercase tracking-[0.16em] text-ink-mid">
+            Klíč k automatickému schválení
+          </span>
+          <ChevronDown
+            className={`h-3.5 w-3.5 shrink-0 text-ink-mid transition-transform ${showKey ? "rotate-180" : ""}`}
+            strokeWidth={1.5}
+            aria-hidden="true"
+          />
+        </button>
+        {showKey && (
+          <ol className="mt-2.5 flex flex-col gap-1.5">
+            {APPROVAL_KEY.map((k) => (
+              <li key={k.rule} className="flex gap-2 text-[12px] leading-snug text-ink-deep">
+                <span className="font-semibold text-ink-base">{k.rule})</span>
+                <span>{k.text}</span>
+              </li>
+            ))}
+          </ol>
+        )}
       </div>
     </div>
   );
