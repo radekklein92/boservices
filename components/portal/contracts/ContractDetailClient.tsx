@@ -83,6 +83,12 @@ type Props = {
   isSuperadmin: boolean;
   // E-maily všech schvalovatelů (tooltip u "Připomenout e-mailem").
   approverEmails: string[];
+  // NewCo údaje napárované lokality (Entita CEIP #1, Operational type) - panel
+  // schválení; null když lokalita nemá importovaná NewCo data.
+  locationNewco?: { entitaCeip1: string; operationalType: string } | null;
+  // Standardní odměna z aktivní šablony (raw částka) - baseline pro detekci
+  // ruční změny u cooperation/operation. Franšíza ji nepoužívá.
+  standardOperatingFee?: string | null;
 };
 
 function formatDateTime(iso: string): string {
@@ -107,6 +113,8 @@ export function ContractDetailClient({
   isApprover,
   isSuperadmin,
   approverEmails,
+  locationNewco = null,
+  standardOperatingFee = null,
 }: Props) {
   const router = useRouter();
   const [contract, setContract] = useState(initial);
@@ -569,6 +577,8 @@ export function ContractDetailClient({
           isApprover={isApprover}
           isSuperadmin={isSuperadmin}
           approverEmails={approverEmails}
+          locationNewco={locationNewco}
+          standardOperatingFee={standardOperatingFee}
           onChanged={(next) => setContract(next)}
           notify={notify}
         />

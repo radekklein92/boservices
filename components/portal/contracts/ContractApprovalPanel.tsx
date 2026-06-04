@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   ArrowUpRight,
+  AlertTriangle,
   CheckCircle2,
   ChevronDown,
   Clock,
@@ -20,6 +21,7 @@ import {
   MANUAL_APPROVAL_RULE,
   NEW_MODE_LABEL,
 } from "@/lib/portal/contract-approval";
+import { computeContractFee, type ContractFee } from "@/lib/portal/contract-fees";
 import {
   CATEGORY_LABEL,
   CATEGORY_STYLE,
@@ -36,6 +38,8 @@ export function ContractApprovalPanel({
   isApprover,
   isSuperadmin = false,
   approverEmails,
+  locationNewco = null,
+  standardOperatingFee = null,
   onChanged,
   notify,
 }: {
@@ -43,6 +47,8 @@ export function ContractApprovalPanel({
   isApprover: boolean;
   isSuperadmin?: boolean;
   approverEmails: string[];
+  locationNewco?: { entitaCeip1: string; operationalType: string } | null;
+  standardOperatingFee?: string | null;
   onChanged: (next: Contract) => void;
   notify: Notify;
 }) {
@@ -53,6 +59,8 @@ export function ContractApprovalPanel({
   const view = getApprovalView(contract);
   const snap = contract.locationSnapshot ?? null;
   const hasApprover = approverEmails.length > 0;
+  // Poplatek/odměna z textu smlouvy (živě z aktuálního stavu, reflektuje editace).
+  const fee = computeContractFee(contract, standardOperatingFee);
 
   async function reload(): Promise<Contract | null> {
     try {
@@ -158,6 +166,22 @@ export function ContractApprovalPanel({
                 {snap.newMode ? NEW_MODE_LABEL[snap.newMode] : "neuvedeno"}
               </span>
             </span>
+            {locationNewco?.entitaCeip1 && (
+              <span>
+                Entita CEIP #1{" "}
+                <span className="font-medium text-ink-base">
+                  {locationNewco.entitaCeip1}
+                </span>
+              </span>
+            )}
+            {locationNewco?.operationalType && (
+              <span>
+                Operational type{" "}
+                <span className="font-medium text-ink-base">
+                  {locationNewco.operationalType}
+                </span>
+              </span>
+            )}
           </div>
         </div>
       ) : view.kind === "grandfathered" ? null : (
@@ -165,6 +189,9 @@ export function ContractApprovalPanel({
           Smlouva zatím nemá vybranou lokalitu.
         </p>
       )}
+
+      {/* Poplatek / odměna z textu smlouvy (s detekcí ruční úpravy) */}
+      {fee && <FeeRow fee={fee} />}
 
       {/* Rozhodnutí */}
       <div className="flex flex-col gap-2">
@@ -255,6 +282,24 @@ export function ContractApprovalPanel({
           </ol>
         )}
       </div>
+    </div>
+  );
+}
+
+function FeeRow({ fee }: { fee: ContractFee }) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12.5px] text-ink-mid">
+      <span>
+        {fee.label}{" "}
+        <span className="font-semibold text-ink-base">{fee.value}</span>
+      </span>
+      {fee.changed && (
+        <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 text-[11px] font-medium text-amber-700">
+          <AlertTriangle className="h-3 w-3" strokeWidth={2} aria-hidden="true" />
+          Liší se od standardu
+          {fee.standard ? ` · standardně ${fee.standard}` : ""}
+        </span>
+      )}
     </div>
   );
 }
