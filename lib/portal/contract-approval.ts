@@ -1,56 +1,177 @@
-import { isApprovalGated } from "./contract-types";
+import { isApprovalGated, type ContractType } from "./contract-types";
 import { statusOrder, type Contract } from "./contracts-db";
-import type {
-  LeaseStatus,
-  LocationCategory,
-  LocationMode,
-} from "./locations-db";
+import {
+  franchiseFeePercentValue,
+  operatingFeeAmountValue,
+} from "./contract-fees";
+import type { LeaseStatus, LocationMode } from "./locations-db";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Schvalování smluv podle lokality. Týká se typů isApprovalGated (franšíza,
-// spolupráce, provozování). Klíč k automatickému schválení:
+// Schvalování smluv posuzovaných podle lokality (franšíza, spolupráce,
+// provozování). Smlouva projde AUTOMATICKY, pokud neplatí žádná z podmínek
+// klíče; jakmile platí aspoň jedna, posoudí ji schvalovatelé šablon.
 //
-//   1) Nájem na franšízanta + nový režim Aktivní franšíza        → auto
-//   2) Nový režim Full/Operations management + kategorie         → auto
-//      Core / Nice / SoSo
-//   3) Vše ostatní                                               → schvalovatelé
+// Vstupy:
+//  - „nový režim" lokality (newMode: aktivní franšíza / Operations / Full mgmt)
+//    a „na koho je nájem" (leaseStatus) - ze zmrazeného locationSnapshot smlouvy,
+//  - NewCo data lokality (Entita CEIP #1, Operational type, přítomnost v souboru),
+//  - částky z textu smlouvy (franšízový poplatek %, odměna Kč) - dle typu smlouvy.
 //
-// Hodnoty lokality bere z locationSnapshot smlouvy (zmrazený stav z Transition
-// v okamžiku výběru), aby se rozhodnutí nerozpadlo při pozdější změně zrcadla.
+// Při chybějících datech (nevyplněný režim, nelze určit částku) se rozhoduje
+// konzervativně: vyžaduje ruční schválení.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type ApprovalLocationData = {
-  category: LocationCategory | null;
-  leaseStatus: LeaseStatus;
-  newMode: LocationMode | null;
+// NewCo souhrn lokality potřebný pro vyhodnocení klíče.
+export type NewcoSummary = {
+  inFile: boolean;
+  entitaCeip1: string;
+  operationalType: string;
 };
 
-// Číslo pravidla, které vyžaduje schválení schvalovatelů (poslední položka klíče).
-export const MANUAL_APPROVAL_RULE = 4 as const;
+// Jeden důvod, proč smlouva míří ke schvalovatelům (code = stabilní klíč,
+// label = lidský text do panelu).
+export type ApprovalReason = { code: string; label: string };
 
-// Vrátí číslo auto-pravidla (1-3), které smlouvu schvaluje automaticky, nebo
-// null = žádné auto-pravidlo neplatí → vyžaduje schvalovatele (pravidlo 4).
-export function evaluateAutoApproval(loc: ApprovalLocationData): 1 | 2 | 3 | null {
-  // Pravidlo 1: nájem na franšízanta + nový režim aktivní franšíza.
-  if (loc.leaseStatus === "prepis_na_fransizanta" && loc.newMode === "franchise") {
-    return 1;
+export type ApprovalInput = {
+  contractType: ContractType;
+  newMode: LocationMode | null;
+  leaseStatus: LeaseStatus;
+  newco: NewcoSummary | null;
+  // Franšízový poplatek (%) - jen u franšízingové smlouvy. null = nelze určit.
+  franchiseFeePercent: number | null;
+  // Odměna (Kč) - u spolupráce / provozování. null = nelze určit.
+  operatingFeeAmount: number | null;
+};
+
+export type ApprovalResult = { auto: boolean; reasons: ApprovalReason[] };
+
+const FRANCHISE_FEE_MIN_DEFAULT = 3;
+const FRANCHISE_FEE_MIN_FULL = 5;
+const SUPPORT_FEE_MIN = 15000;
+const OPERATING_FEE_MIN = 30000;
+
+const eq = (value: string, target: string) =>
+  value.trim().toUpperCase() === target;
+
+// Vyhodnotí klíč nad připraveným vstupem. Vrací auto = true (žádná podmínka
+// neplatí → automaticky schváleno), jinak seznam důvodů pro schvalovatele.
+export function evaluateApproval(input: ApprovalInput): ApprovalResult {
+  const { contractType, newMode, leaseStatus, newco } = input;
+  const reasons: ApprovalReason[] = [];
+
+  // a) Entita CEIP #1 = TBE
+  if (newco && eq(newco.entitaCeip1, "TBE")) {
+    reasons.push({ code: "entita-tbe", label: "Entita CEIP #1 je „TBE“" });
   }
-  // Pravidlo 2: nájem na franšízanta + nový režim Operations management
-  // (bez ohledu na kategorii).
-  if (loc.leaseStatus === "prepis_na_fransizanta" && loc.newMode === "operations") {
-    return 2;
+  // b) Operational type = OWN
+  if (newco && eq(newco.operationalType, "OWN")) {
+    reasons.push({ code: "optype-own", label: "Operational type je „OWN“" });
   }
-  // Pravidlo 3: nový režim Full/Operations management nebo aktivní franšíza
-  // + kategorie Core/Nice/SoSo.
-  if (
-    (loc.newMode === "full" ||
-      loc.newMode === "operations" ||
-      loc.newMode === "franchise") &&
-    (loc.category === "core" || loc.category === "nice" || loc.category === "soso")
-  ) {
-    return 3;
+
+  // Bez nového režimu nelze posoudit zbytek klíče → konzervativně ke schvalovatelům.
+  if (!newMode) {
+    reasons.push({
+      code: "unknown-mode",
+      label: "Lokalita nemá vyplněný nový režim",
+    });
+    return { auto: reasons.length === 0, reasons };
   }
-  return null;
+
+  const isFull = newMode === "full";
+  const isFranchiseOrOps = newMode === "franchise" || newMode === "operations";
+
+  // c) Full management a lokalita není v souboru NEWCO
+  if (isFull && (!newco || !newco.inFile)) {
+    reasons.push({
+      code: "not-in-newco",
+      label: "Full management, ale lokalita není v souboru NEWCO",
+    });
+  }
+
+  // h/i) nájem
+  if (isFranchiseOrOps) {
+    if (
+      leaseStatus !== "prepis_na_fransizanta" &&
+      leaseStatus !== "prepis_na_ceip"
+    ) {
+      reasons.push({
+        code: "lease-not-fr-bos",
+        label: "Nájem není na franšízanta ani na BOS",
+      });
+    }
+  } else if (isFull) {
+    if (leaseStatus !== "prepis_na_ceip") {
+      reasons.push({
+        code: "lease-not-bos",
+        label: "Full management, ale nájem není na BOS",
+      });
+    }
+  }
+
+  // d-g) poplatky/odměny dle typu smlouvy
+  if (contractType === "franchise") {
+    const threshold = isFull ? FRANCHISE_FEE_MIN_FULL : FRANCHISE_FEE_MIN_DEFAULT;
+    const fee = input.franchiseFeePercent;
+    if (fee === null) {
+      reasons.push({
+        code: "fee-unknown",
+        label: "Z textu nelze určit franšízový poplatek",
+      });
+    } else if (fee < threshold) {
+      reasons.push({
+        code: "franchise-fee-low",
+        label: `Franšízový poplatek je pod ${threshold} %`,
+      });
+    }
+  } else if (contractType === "cooperation") {
+    const fee = input.operatingFeeAmount;
+    if (fee === null) {
+      reasons.push({
+        code: "fee-unknown",
+        label: "Z textu nelze určit odměnu za podporu",
+      });
+    } else if (fee < SUPPORT_FEE_MIN) {
+      reasons.push({
+        code: "support-fee-low",
+        label: "Odměna za podporu je pod 15 000 Kč",
+      });
+    }
+  } else if (contractType === "operation") {
+    const fee = input.operatingFeeAmount;
+    if (fee === null) {
+      reasons.push({
+        code: "fee-unknown",
+        label: "Z textu nelze určit odměnu za provozování",
+      });
+    } else if (fee < OPERATING_FEE_MIN) {
+      reasons.push({
+        code: "operating-fee-low",
+        label: "Odměna za provozování je pod 30 000 Kč",
+      });
+    }
+  }
+
+  return { auto: reasons.length === 0, reasons };
+}
+
+// Poskládá vstup klíče z konkrétní smlouvy (snapshot lokality + částky z textu)
+// a NewCo souhrnu, a vyhodnotí ho. Použitelné na serveru i v klientu (pure).
+export function evaluateApprovalForContract(
+  contract: Pick<
+    Contract,
+    "type" | "html" | "variables" | "locationSnapshot"
+  >,
+  newco: NewcoSummary | null,
+): ApprovalResult {
+  const snap = contract.locationSnapshot ?? null;
+  return evaluateApproval({
+    contractType: contract.type,
+    newMode: snap?.newMode ?? null,
+    leaseStatus: snap?.leaseStatus ?? "neznamy",
+    newco,
+    franchiseFeePercent: franchiseFeePercentValue(contract),
+    operatingFeeAmount: operatingFeeAmountValue(contract),
+  });
 }
 
 // „Na koho je nájemní smlouva" - lehce pozměněné labely oproti Transition
@@ -72,33 +193,29 @@ export const NEW_MODE_LABEL: Record<LocationMode, string> = {
   franchise: "Aktivní franšíza",
 };
 
-// Klíč k automatickému schválení - text k vypsání na detailu smlouvy.
-export const APPROVAL_KEY: Array<{ rule: 1 | 2 | 3 | 4; text: string }> = [
-  {
-    rule: 1,
-    text: "Nájemní smlouva je na franšízanta a nový režim je aktivní franšíza → automaticky schváleno.",
-  },
-  {
-    rule: 2,
-    text: "Nájemní smlouva je na franšízanta a nový režim je Operations management → automaticky schváleno.",
-  },
-  {
-    rule: 3,
-    text: "Nový režim je Full management, Operations management nebo aktivní franšíza a prodejna je v kategorii Core, Nice nebo SoSo → automaticky schváleno.",
-  },
-  {
-    rule: MANUAL_APPROVAL_RULE,
-    text: "Vše ostatní vyžaduje schválení schvalovatelů šablon.",
-  },
+// Klíč k automatickému schválení - srozumitelný popis do panelu. Smlouva projde
+// automaticky, pokud neplatí žádná z těchto podmínek.
+export const APPROVAL_KEY_INTRO =
+  "Smlouva se schválí automaticky, pokud neplatí žádná z podmínek níže. Jakmile platí aspoň jedna, posoudí ji schvalovatelé šablon.";
+
+export const APPROVAL_KEY: string[] = [
+  "Entita CEIP #1 je „TBE“.",
+  "Operational type je „OWN“.",
+  "Full management a lokalita chybí v souboru NEWCO.",
+  "Nájem není na franšízanta ani na BOS (u aktivní franšízy nebo Operations managementu).",
+  "Nájem není na BOS (u Full managementu).",
+  "Franšízový poplatek pod 3 % (aktivní franšíza / Operations management), resp. pod 5 % (Full management).",
+  "Odměna za podporu pod 15 000 Kč (Operations management).",
+  "Odměna za provozování pod 30 000 Kč (Full management).",
 ];
 
 // Odvozený stav schválení pro panel/odznak na detailu i v predikci.
 export type ApprovalView =
   | { kind: "not-applicable" }
   | { kind: "needs-location" }
-  | { kind: "draft"; autoRule: 1 | 2 | 3 | null }
-  | { kind: "auto-approved"; rule: 1 | 2 | 3 }
-  | { kind: "pending" }
+  | { kind: "draft"; auto: boolean; reasons: ApprovalReason[] }
+  | { kind: "auto-approved" }
+  | { kind: "pending"; reasons: ApprovalReason[] }
   | { kind: "approved-by-approver"; by?: string; at?: string }
   | { kind: "grandfathered" };
 
@@ -111,9 +228,13 @@ export function getApprovalView(
     | "locationSnapshot"
     | "approvalDecision"
     | "approvalRule"
+    | "approvalReasons"
     | "approvedBy"
     | "approvedAt"
+    | "html"
+    | "variables"
   >,
+  newco: NewcoSummary | null = null,
 ): ApprovalView {
   if (!isApprovalGated(contract.type)) return { kind: "not-applicable" };
 
@@ -122,26 +243,36 @@ export function getApprovalView(
 
   // Lokalita ještě nevybraná.
   if (!contract.locationId && !snap) {
-    // Stará smlouva už za schvalováním, bez záznamu pravidla = historicky.
+    // Stará smlouva už za schvalováním, bez záznamu rozhodnutí = historicky.
     if (isAdvanced && !contract.approvalDecision) return { kind: "grandfathered" };
     return { kind: "needs-location" };
   }
 
   if (contract.status === "koncept") {
-    return { kind: "draft", autoRule: snap ? evaluateAutoApproval(snap) : null };
+    if (!snap) return { kind: "draft", auto: false, reasons: [] };
+    const res = evaluateApprovalForContract(contract, newco);
+    return { kind: "draft", auto: res.auto, reasons: res.reasons };
   }
   if (contract.status === "ke-schvaleni") {
-    return { kind: "pending" };
+    // Důvody z okamžiku odeslání (uložené), fallback živý přepočet.
+    const stored = contract.approvalReasons;
+    const reasons =
+      stored && stored.length
+        ? stored.map((label) => ({ code: "stored", label }))
+        : snap
+          ? evaluateApprovalForContract(contract, newco).reasons
+          : [];
+    return { kind: "pending", reasons };
   }
 
   // schvaleno a dál:
   if (
-    contract.approvalDecision === "auto" &&
-    (contract.approvalRule === 1 ||
-      contract.approvalRule === 2 ||
-      contract.approvalRule === 3)
+    contract.approvalDecision === "auto" ||
+    contract.approvalRule === 1 ||
+    contract.approvalRule === 2 ||
+    contract.approvalRule === 3
   ) {
-    return { kind: "auto-approved", rule: contract.approvalRule };
+    return { kind: "auto-approved" };
   }
   if (contract.approvalDecision === "manual") {
     return {

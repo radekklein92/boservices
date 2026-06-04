@@ -20,9 +20,9 @@ import {
 } from "@/components/portal/ui/LocationCombobox";
 import {
   APPROVAL_KEY,
-  evaluateAutoApproval,
+  APPROVAL_KEY_INTRO,
+  evaluateApproval,
   LEASE_HOLDER_LABEL,
-  MANUAL_APPROVAL_RULE,
   NEW_MODE_LABEL,
 } from "@/lib/portal/contract-approval";
 import {
@@ -66,14 +66,20 @@ export function ContractCreateModal({
   const gated = isApprovalGated(type);
 
   // Náhled rozhodnutí podle klíče (jen orientačně - závazně se vyhodnotí až
-  // při „Odeslat ke schválení").
-  const previewAutoRule = locationItem
-    ? evaluateAutoApproval({
-        category: locationItem.category as LocationCategory | null,
-        leaseStatus: locationItem.leaseStatus as LeaseStatus,
-        newMode: locationItem.newMode as LocationMode | null,
-      })
-    : null;
+  // při „Odeslat ke schválení"). Čerstvá smlouva má default šablonu, takže
+  // odměnu bereme jako standardní (15 000 / 30 000) a poplatek dle volby.
+  const preview =
+    gated && locationItem
+      ? evaluateApproval({
+          contractType: type,
+          newMode: locationItem.newMode as LocationMode | null,
+          leaseStatus: locationItem.leaseStatus as LeaseStatus,
+          newco: locationItem.newco,
+          franchiseFeePercent: type === "franchise" ? effectiveFeePercent : null,
+          operatingFeeAmount:
+            type === "cooperation" ? 15000 : type === "operation" ? 30000 : null,
+        })
+      : null;
 
   function changeType(next: ContractType) {
     setType(next);
@@ -336,17 +342,28 @@ export function ContractCreateModal({
                       </span>
                     </span>
                   </div>
-                  <div className="text-[12px] leading-snug">
-                    {previewAutoRule ? (
+                  <div className="flex flex-col gap-1.5 text-[12px] leading-snug">
+                    {preview?.auto ? (
                       <span className="text-emerald-700">
-                        Po odeslání bude <strong>automaticky schváleno</strong>{" "}
-                        (pravidlo {previewAutoRule}).
+                        Po odeslání bude <strong>automaticky schváleno</strong>.
                       </span>
                     ) : (
-                      <span className="text-amber-700">
-                        Po odeslání bude <strong>vyžadovat schválení</strong>{" "}
-                        schvalovatelů (pravidlo {MANUAL_APPROVAL_RULE}).
-                      </span>
+                      <>
+                        <span className="text-amber-700">
+                          Po odeslání <strong>půjde ke schvalovatelům</strong>:
+                        </span>
+                        <ul className="flex flex-col gap-1">
+                          {preview?.reasons.map((r, i) => (
+                            <li
+                              key={`${r.code}-${i}`}
+                              className="flex gap-2 text-amber-700"
+                            >
+                              <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-amber-500" aria-hidden="true" />
+                              <span>{r.label}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </>
                     )}
                   </div>
 
@@ -366,26 +383,22 @@ export function ContractCreateModal({
                       {showRules ? "Skrýt pravidla" : "Jak se o schválení rozhoduje?"}
                     </button>
                     {showRules && (
-                      <ol className="mt-2 flex flex-col gap-1.5">
-                        {APPROVAL_KEY.map((k) => {
-                          const active = (previewAutoRule ?? MANUAL_APPROVAL_RULE) === k.rule;
-                          return (
+                      <div className="mt-2 flex flex-col gap-2">
+                        <p className="text-[11.5px] leading-snug text-ink-mid">
+                          {APPROVAL_KEY_INTRO}
+                        </p>
+                        <ul className="flex flex-col gap-1.5">
+                          {APPROVAL_KEY.map((text) => (
                             <li
-                              key={k.rule}
-                              className={`flex gap-2 rounded-md px-2 py-1.5 text-[11.5px] leading-snug ${
-                                active
-                                  ? "bg-paper text-ink-base ring-1 ring-ink-base/15"
-                                  : "text-ink-mid"
-                              }`}
+                              key={text}
+                              className="flex gap-2 text-[11.5px] leading-snug text-ink-deep"
                             >
-                              <span className={active ? "font-bold" : "font-semibold"}>
-                                {k.rule})
-                              </span>
-                              <span>{k.text}</span>
+                              <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-ink-soft" aria-hidden="true" />
+                              <span>{text}</span>
                             </li>
-                          );
-                        })}
-                      </ol>
+                          ))}
+                        </ul>
+                      </div>
                     )}
                   </div>
                 </div>

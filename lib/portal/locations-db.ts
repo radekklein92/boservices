@@ -245,6 +245,35 @@ export async function listLocationIdsWithAttachments(): Promise<string[]> {
   return out;
 }
 
+// Mapa id lokality → NewCo souhrn (přítomnost v souboru + Entita CEIP #1 +
+// Operational type). Pro picker lokalit a náhled klíče schválení v create modalu.
+export async function listLocationNewcoMap(): Promise<
+  Map<string, { inFile: boolean; entitaCeip1: string; operationalType: string }>
+> {
+  const out = new Map<
+    string,
+    { inFile: boolean; entitaCeip1: string; operationalType: string }
+  >();
+  const r = getRedis();
+  if (!r) return out;
+  const ids = (await r.smembers(ALL_KEY)) as string[];
+  if (!ids.length) return out;
+  const pipe = r.pipeline();
+  ids.forEach((id) => pipe.get<LocationLocal>(localKey(id)));
+  const results = (await pipe.exec()) as (LocationLocal | null)[];
+  results.forEach((local, i) => {
+    const nc = local?.newco;
+    if (nc) {
+      out.set(ids[i]!, {
+        inFile: true,
+        entitaCeip1: nc.entitaCeip1,
+        operationalType: nc.operationalType,
+      });
+    }
+  });
+  return out;
+}
+
 export async function saveLocationLocal(local: LocationLocal): Promise<void> {
   const r = getRedis();
   if (!r) throw new Error("Redis not configured");

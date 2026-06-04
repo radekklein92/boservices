@@ -98,3 +98,34 @@ export function computeContractFee(
 
   return null;
 }
+
+// Numerická hodnota franšízového poplatku (%) pro vyhodnocení klíče schválení.
+// Bere se z {{franchiseFeePercent}} (variables), a pokud byl placeholder z textu
+// odstraněn, zkusí číslo vyčíst z upravené klauzule. null = nelze určit.
+export function franchiseFeePercentValue(
+  contract: Pick<Contract, "type" | "html" | "variables">,
+): number | null {
+  if (contract.type !== "franchise") return null;
+  if (contract.html.includes(FRANCHISE_FEE_TOKEN)) {
+    const v = parseInt((contract.variables.franchiseFeePercent ?? "").trim(), 10);
+    return Number.isFinite(v) ? v : null;
+  }
+  const m = contract.html.match(FRANCHISE_FEE_TEXT_RE);
+  if (!m) return null;
+  const v = parseFloat(m[1]!.replace(",", "."));
+  return Number.isFinite(v) ? v : null;
+}
+
+// Numerická výše odměny (Kč) pro vyhodnocení klíče schválení (cooperation /
+// operation). null = z textu nelze určit.
+export function operatingFeeAmountValue(
+  contract: Pick<Contract, "type" | "html">,
+): number | null {
+  if (contract.type !== "cooperation" && contract.type !== "operation") {
+    return null;
+  }
+  const raw = extractOdmenaAmount(contract.html);
+  if (!raw) return null;
+  const v = parseInt(normNum(raw), 10);
+  return Number.isFinite(v) ? v : null;
+}

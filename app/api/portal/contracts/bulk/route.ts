@@ -9,10 +9,8 @@ import {
 } from "@/lib/portal/contracts-db";
 import { getUser } from "@/lib/portal/users-db";
 import { isApprovalGated } from "@/lib/portal/contract-types";
-import {
-  evaluateAutoApproval,
-  MANUAL_APPROVAL_RULE,
-} from "@/lib/portal/contract-approval";
+import { evaluateApprovalForContract } from "@/lib/portal/contract-approval";
+import { getLocation } from "@/lib/portal/locations-db";
 import { bustContracts } from "@/lib/portal/revalidate";
 
 const bulkSchema = z.object({
@@ -82,8 +80,8 @@ export async function POST(req: Request) {
 
     if (action === "submit") {
       // Odeslání z Konceptu ke schválení (jen typy posuzované podle lokality
-      // s vybranou lokalitou). Auto (pravidlo 1/2) projde rovnou do Schváleno,
-      // jinak do Ke schválení. Ostatní smlouvy se přeskočí.
+      // s vybranou lokalitou). Splní-li klíč vše, projde rovnou do Schváleno,
+      // jinak do Ke schválení (s důvody). Ostatní smlouvy se přeskočí.
       if (
         !isApprovalGated(contract.type) ||
         contract.status !== "koncept" ||
@@ -93,19 +91,26 @@ export async function POST(req: Request) {
         skipped++;
         continue;
       }
-      const autoRule = evaluateAutoApproval(contract.locationSnapshot);
+      const loc = await getLocation(contract.locationId);
+      const nc = loc?.local?.newco;
+      const newco = nc
+        ? { inFile: true, entitaCeip1: nc.entitaCeip1, operationalType: nc.operationalType }
+        : null;
+      const { auto, reasons } = evaluateApprovalForContract(contract, newco);
       const updated = {
         ...contract,
         submittedForApprovalAt: nowIso,
         submittedForApprovalBy: email,
-        ...(autoRule
+        ...(auto
           ? {
               approvalDecision: "auto" as const,
-              approvalRule: autoRule,
               approvedAt: nowIso,
               approvedBy: email,
             }
-          : { approvalDecision: "manual" as const, approvalRule: MANUAL_APPROVAL_RULE }),
+          : {
+              approvalDecision: "manual" as const,
+              approvalReasons: reasons.map((r) => r.label),
+            }),
         updatedAt: nowIso,
       };
       updated.status = computeContractStatus(updated);
@@ -120,7 +125,7 @@ export async function POST(req: Request) {
         continue;
       }
       // Typy posuzované podle lokality: hromadně schválit lze jen smlouvu ve
-      // stavu Ke schválení a jen schvalovatelem šablon (pravidlo 3).
+      // stavu Ke schválení a jen schvalovatelem šablon.
       const gated = isApprovalGated(contract.type);
       if (gated && (contract.status !== "ke-schvaleni" || !me?.isTemplateApprover)) {
         skipped++;
@@ -128,7 +133,7 @@ export async function POST(req: Request) {
       }
       const updated = {
         ...contract,
-        ...(gated ? { approvalDecision: "manual" as const, approvalRule: MANUAL_APPROVAL_RULE } : {}),
+        ...(gated ? { approvalDecision: "manual" as const } : {}),
         approvedAt: nowIso,
         approvedBy: email,
         updatedAt: nowIso,

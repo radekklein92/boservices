@@ -572,6 +572,7 @@ export function ContractDetailClient({
         notify={notify}
         isApprover={isApprover}
         isSuperadmin={isSuperadmin}
+        locationNewco={locationNewco}
       />
 
       {/* Lokalita a schválení (jen typy posuzované podle lokality) */}

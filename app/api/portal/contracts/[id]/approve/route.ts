@@ -6,7 +6,6 @@ import {
   upsertContract,
 } from "@/lib/portal/contracts-db";
 import { isApprovalGated } from "@/lib/portal/contract-types";
-import { MANUAL_APPROVAL_RULE } from "@/lib/portal/contract-approval";
 import { getUser } from "@/lib/portal/users-db";
 import { bustContracts } from "@/lib/portal/revalidate";
 
@@ -37,10 +36,10 @@ export async function POST(
   const email = g.session.user!.email!;
   const now = new Date().toISOString();
 
-  // Typy posuzované podle lokality: ze stavu Ke schválení (pravidlo 3) může
-  // schválit schvalovatel šablon, nebo superadmin. Schvalovatel poznámku psát
-  // nemusí; superadmin (mimo standardní proces) musí uvést podrobnou poznámku
-  // (proč, kdy a kým byla smlouva schválena). Auto-schválené sem nechodí.
+  // Typy posuzované podle lokality: ze stavu Ke schválení může schválit
+  // schvalovatel šablon, nebo superadmin. Schvalovatel poznámku psát nemusí;
+  // superadmin (mimo standardní proces) musí uvést podrobnou poznámku (proč,
+  // kdy a kým byla smlouva schválena). Auto-schválené sem nechodí.
   let extra: Partial<typeof contract> = {};
   if (isApprovalGated(contract.type)) {
     if (contract.status !== "ke-schvaleni") {
@@ -68,7 +67,7 @@ export async function POST(
         { status: 400 },
       );
     }
-    extra = { approvalDecision: "manual", approvalRule: MANUAL_APPROVAL_RULE };
+    extra = { approvalDecision: "manual" };
   }
 
   // Finální PDF (bez watermarku) se generuje až v kroku „K podpisu" / „Připravit

@@ -115,7 +115,7 @@ export async function sendTemplateApprovalReminder(opts: {
 }
 
 // E-mail upozornění schvalovateli, že konkrétní smlouva čeká na schválení
-// (typy posuzované podle lokality, pravidlo 3). Spouští se ručně tlačítkem
+// (typy posuzované podle lokality). Spouští se ručně tlačítkem
 // „Připomenout e-mailem" na detailu / v seznamu smluv.
 export async function sendContractApprovalReminder(opts: {
   to: string;

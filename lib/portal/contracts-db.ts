@@ -167,12 +167,17 @@ export interface Contract {
     capturedAt: string;
   };
   // Odesláno ke schválení (vstup do statusu "ke-schvaleni"). approvalDecision
-  // určuje, zda klíč rozhodl automaticky ("auto", pravidlo 1/2 - smlouva projde
-  // rovnou do "schvaleno") nebo vyžaduje schvalovatele ("manual", pravidlo 3).
+  // určuje, zda klíč rozhodl automaticky ("auto" - smlouva projde rovnou do
+  // "schvaleno") nebo vyžaduje schvalovatele ("manual", důvody v approvalReasons).
   submittedForApprovalAt?: string;
   submittedForApprovalBy?: string;
   approvalDecision?: "auto" | "manual";
+  // Historicky: číslo pravidla 1-4. Ponecháno kvůli starým záznamům (nové
+  // smlouvy ho už nezapisují - rozhoduje se přes approvalReasons).
   approvalRule?: 1 | 2 | 3 | 4;
+  // Důvody, proč smlouva míří ke schvalovatelům (zachycené při odeslání).
+  // Lidsky čitelné labely z klíče schválení; prázdné/undefined = bez důvodů.
+  approvalReasons?: string[];
   // Volitelná poznámka schvalovatele (např. „schváleno telefonicky …").
   // Zobrazuje se v panelu Lokalita a schválení na detailu.
   approvalNote?: string;

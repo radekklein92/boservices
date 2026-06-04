@@ -6,15 +6,13 @@ import {
   upsertContract,
 } from "@/lib/portal/contracts-db";
 import { isApprovalGated } from "@/lib/portal/contract-types";
-import {
-  evaluateAutoApproval,
-  MANUAL_APPROVAL_RULE,
-} from "@/lib/portal/contract-approval";
+import { evaluateApprovalForContract } from "@/lib/portal/contract-approval";
+import { getLocation } from "@/lib/portal/locations-db";
 import { bustContracts } from "@/lib/portal/revalidate";
 
 // Odeslání smlouvy ke schválení (Koncept → Ke schválení / Schváleno). Vyhodnotí
-// klíč nad locationSnapshot: auto (pravidlo 1/2) → rovnou Schváleno, jinak
-// (pravidlo 3) → Ke schválení a čeká na schvalovatele.
+// klíč nad lokalitou (snapshot + NewCo) a částkami z textu: splňuje vše →
+// rovnou Schváleno (auto), jinak → Ke schválení s uloženými důvody.
 export async function POST(
   _req: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -48,23 +46,30 @@ export async function POST(
 
   const now = new Date().toISOString();
   const email = g.session.user!.email!;
-  const autoRule = evaluateAutoApproval(contract.locationSnapshot);
+
+  // NewCo souhrn lokality (přítomnost v souboru + Entita CEIP #1 + Operational type).
+  const loc = await getLocation(contract.locationId);
+  const nc = loc?.local?.newco;
+  const newco = nc
+    ? { inFile: true, entitaCeip1: nc.entitaCeip1, operationalType: nc.operationalType }
+    : null;
+
+  const { auto, reasons } = evaluateApprovalForContract(contract, newco);
 
   const updated = {
     ...contract,
     submittedForApprovalAt: now,
     submittedForApprovalBy: email,
-    // Auto (pravidlo 1-3): projde stavem Ke schválení rovnou do Schváleno.
-    ...(autoRule
+    // Splňuje vše → projde stavem Ke schválení rovnou do Schváleno.
+    ...(auto
       ? {
           approvalDecision: "auto" as const,
-          approvalRule: autoRule,
           approvedAt: now,
           approvedBy: email,
         }
       : {
           approvalDecision: "manual" as const,
-          approvalRule: MANUAL_APPROVAL_RULE,
+          approvalReasons: reasons.map((r) => r.label),
         }),
     updatedAt: now,
   };
@@ -74,8 +79,7 @@ export async function POST(
   bustContracts();
   return NextResponse.json({
     ok: true,
-    auto: autoRule !== null,
-    rule: autoRule ?? MANUAL_APPROVAL_RULE,
+    auto,
     status: updated.status,
   });
 }
@@ -99,6 +103,7 @@ export async function DELETE(
     submittedForApprovalBy: _subBy,
     approvalDecision: _dec,
     approvalRule: _rule,
+    approvalReasons: _reasons,
     approvedAt: _a,
     approvedBy: _ab,
     signerEmail: _se,
@@ -110,7 +115,7 @@ export async function DELETE(
     clientSignedBy: _csb,
     ...rest
   } = contract;
-  void _sub; void _subBy; void _dec; void _rule; void _a; void _ab;
+  void _sub; void _subBy; void _dec; void _rule; void _reasons; void _a; void _ab;
   void _se; void _sp; void _spb; void _sa; void _sb; void _cs; void _csb;
 
   const updated = { ...rest, updatedAt: new Date().toISOString() };

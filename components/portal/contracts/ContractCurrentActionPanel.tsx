@@ -21,7 +21,7 @@ import {
   type ContractStatus,
 } from "@/lib/portal/contracts-db";
 import { isApprovalGated } from "@/lib/portal/contract-types";
-import { getApprovalView, MANUAL_APPROVAL_RULE } from "@/lib/portal/contract-approval";
+import { getApprovalView, type NewcoSummary } from "@/lib/portal/contract-approval";
 import { BTN_PRIMARY, BTN_SUBTLE } from "@/components/portal/ui/buttons";
 import { KEEP_ORIGINAL_SIGNER } from "./signer-keep-original";
 
@@ -55,6 +55,7 @@ export function ContractCurrentActionPanel({
   notify,
   isApprover = false,
   isSuperadmin = false,
+  locationNewco = null,
 }: {
   contract: Contract;
   onChanged: (next: Contract) => void;
@@ -63,6 +64,8 @@ export function ContractCurrentActionPanel({
   isApprover?: boolean;
   // Superadmin smí schválit i bez role schvalovatele, ale musí uvést poznámku.
   isSuperadmin?: boolean;
+  // NewCo souhrn lokality - pro přesnou predikci klíče v Konceptu.
+  locationNewco?: NewcoSummary | null;
 }) {
   const [pending, setPending] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -134,7 +137,7 @@ export function ContractCurrentActionPanel({
       notify(
         "ok",
         data.auto
-          ? `Automaticky schváleno (pravidlo ${data.rule}).`
+          ? "Automaticky schváleno."
           : "Odesláno ke schválení schvalovatelům.",
       );
     } catch (err) {
@@ -252,10 +255,9 @@ export function ContractCurrentActionPanel({
   const isWithdrawalLike =
     contract.type === "withdrawal" || contract.type === "assignment-notice";
   const isGated = isApprovalGated(contract.type);
-  const approvalView = getApprovalView(contract);
+  const approvalView = getApprovalView(contract, locationNewco);
   // V Konceptu (gated) předpovíme, zda po odeslání půjde auto, nebo ke schvalovatelům.
-  const draftAutoRule =
-    approvalView.kind === "draft" ? approvalView.autoRule : null;
+  const draftAuto = approvalView.kind === "draft" && approvalView.auto;
   const hasLocation = !!contract.locationId && !!contract.locationSnapshot;
 
   const downloadFinal = contract.generatedPdfUrl ? (
@@ -336,9 +338,9 @@ export function ContractCurrentActionPanel({
           description={
             !hasLocation
               ? "Nejdřív vyber lokalitu v panelu „Lokalita a schválení“ níže. Podle ní se rozhodne o schválení."
-              : draftAutoRule
-                ? `Splňuje podmínky pro automatické schválení (pravidlo ${draftAutoRule}). Po odeslání bude rovnou schválena.`
-                : `Nesplňuje podmínky pro automatické schválení (pravidlo ${MANUAL_APPROVAL_RULE}). Po odeslání ji musí schválit schvalovatelé šablon.`
+              : draftAuto
+                ? "Splňuje podmínky pro automatické schválení. Po odeslání bude rovnou schválena."
+                : "Nesplňuje podmínky pro automatické schválení (důvody jsou v panelu „Lokalita a schválení“ níže). Po odeslání ji musí schválit schvalovatelé šablon."
           }
           primary={
             <PrimaryButton
@@ -347,7 +349,7 @@ export function ContractCurrentActionPanel({
               Icon={Send}
               disabled={!hasLocation}
             >
-              {draftAutoRule ? "Schválit smlouvu" : "Odeslat ke schválení"}
+              {draftAuto ? "Schválit smlouvu" : "Odeslat ke schválení"}
             </PrimaryButton>
           }
         />
@@ -362,7 +364,7 @@ export function ContractCurrentActionPanel({
           }
           description={
             isApprover
-              ? `Smlouva nesplnila podmínky automatického schválení (pravidlo ${MANUAL_APPROVAL_RULE}). Zkontroluj ji a schval, nebo vrať do konceptu.`
+              ? "Smlouva nesplnila podmínky automatického schválení (důvody jsou v panelu „Lokalita a schválení“ níže). Zkontroluj ji a schval, nebo vrať do konceptu."
               : isSuperadmin
                 ? "Jako superadmin můžeš smlouvu schválit i mimo standardní proces - s povinnou poznámkou (proč, kdy a kým byla schválena)."
                 : "Smlouva čeká na schválení schvalovatelů šablon. Připomenout e-mailem můžeš v panelu „Lokalita a schválení“ níže."

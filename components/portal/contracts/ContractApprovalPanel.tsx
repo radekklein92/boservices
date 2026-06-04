@@ -16,10 +16,13 @@ import {
 import type { Contract } from "@/lib/portal/contracts-db";
 import {
   APPROVAL_KEY,
+  APPROVAL_KEY_INTRO,
   getApprovalView,
   LEASE_HOLDER_LABEL,
-  MANUAL_APPROVAL_RULE,
   NEW_MODE_LABEL,
+  type ApprovalReason,
+  type ApprovalView,
+  type NewcoSummary,
 } from "@/lib/portal/contract-approval";
 import { computeContractFee, type ContractFee } from "@/lib/portal/contract-fees";
 import {
@@ -47,11 +50,7 @@ export function ContractApprovalPanel({
   isApprover: boolean;
   isSuperadmin?: boolean;
   approverEmails: string[];
-  locationNewco?: {
-    inFile: boolean;
-    entitaCeip1: string;
-    operationalType: string;
-  } | null;
+  locationNewco?: NewcoSummary | null;
   standardOperatingFee?: string | null;
   onChanged: (next: Contract) => void;
   notify: Notify;
@@ -60,7 +59,7 @@ export function ContractApprovalPanel({
   const [showKey, setShowKey] = useState(false);
   const [pending, setPending] = useState<string | null>(null);
 
-  const view = getApprovalView(contract);
+  const view = getApprovalView(contract, locationNewco);
   const snap = contract.locationSnapshot ?? null;
   const hasApprover = approverEmails.length > 0;
   // Poplatek/odměna z textu smlouvy (živě z aktuálního stavu, reflektuje editace).
@@ -209,7 +208,7 @@ export function ContractApprovalPanel({
 
       {/* Rozhodnutí */}
       <div className="flex flex-col gap-2">
-        <ApprovalBadge contract={contract} />
+        <ApprovalBadge view={view} />
         {contract.approvalNote && (
           <p className="text-[12.5px] italic leading-snug text-ink-mid">
             „{contract.approvalNote}"
@@ -286,14 +285,17 @@ export function ContractApprovalPanel({
           />
         </button>
         {showKey && (
-          <ol className="mt-2.5 flex flex-col gap-1.5">
-            {APPROVAL_KEY.map((k) => (
-              <li key={k.rule} className="flex gap-2 text-[12px] leading-snug text-ink-deep">
-                <span className="font-semibold text-ink-base">{k.rule})</span>
-                <span>{k.text}</span>
-              </li>
-            ))}
-          </ol>
+          <div className="mt-2.5 flex flex-col gap-2">
+            <p className="text-[12px] leading-snug text-ink-mid">{APPROVAL_KEY_INTRO}</p>
+            <ul className="flex flex-col gap-1.5">
+              {APPROVAL_KEY.map((text) => (
+                <li key={text} className="flex gap-2 text-[12px] leading-snug text-ink-deep">
+                  <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-ink-soft" aria-hidden="true" />
+                  <span>{text}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </div>
     </div>
@@ -318,14 +320,30 @@ function FeeRow({ fee }: { fee: ContractFee }) {
   );
 }
 
-function ApprovalBadge({ contract }: { contract: Contract }) {
-  const view = getApprovalView(contract);
+// Výpis důvodů, proč smlouva míří ke schvalovatelům.
+function ReasonsList({ reasons }: { reasons: ApprovalReason[] }) {
+  if (reasons.length === 0) return null;
+  return (
+    <ul className="flex flex-col gap-1">
+      {reasons.map((r, i) => (
+        <li
+          key={`${r.code}-${i}`}
+          className="flex gap-2 text-[12px] leading-snug text-amber-700"
+        >
+          <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-amber-500" aria-hidden="true" />
+          <span>{r.label}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
+function ApprovalBadge({ view }: { view: ApprovalView }) {
   switch (view.kind) {
     case "auto-approved":
       return (
         <Badge tone="ok" Icon={CheckCircle2}>
-          Automaticky schváleno (pravidlo {view.rule})
+          Automaticky schváleno
         </Badge>
       );
     case "approved-by-approver":
@@ -338,9 +356,12 @@ function ApprovalBadge({ contract }: { contract: Contract }) {
       );
     case "pending":
       return (
-        <Badge tone="wait" Icon={Clock}>
-          Čeká na schválení schvalovatelů (pravidlo {MANUAL_APPROVAL_RULE})
-        </Badge>
+        <div className="flex flex-col gap-2">
+          <Badge tone="wait" Icon={Clock}>
+            Čeká na schválení schvalovatelů
+          </Badge>
+          <ReasonsList reasons={view.reasons} />
+        </div>
       );
     case "grandfathered":
       return (
@@ -349,14 +370,17 @@ function ApprovalBadge({ contract }: { contract: Contract }) {
         </Badge>
       );
     case "draft":
-      return view.autoRule ? (
+      return view.auto ? (
         <Badge tone="ok" Icon={CheckCircle2}>
-          Po odeslání: automaticky schváleno (pravidlo {view.autoRule})
+          Po odeslání: automaticky schváleno
         </Badge>
       ) : (
-        <Badge tone="wait" Icon={Clock}>
-          Po odeslání: bude vyžadovat schválení schvalovatelů (pravidlo {MANUAL_APPROVAL_RULE})
-        </Badge>
+        <div className="flex flex-col gap-2">
+          <Badge tone="wait" Icon={Clock}>
+            Po odeslání: půjde ke schvalovatelům
+          </Badge>
+          <ReasonsList reasons={view.reasons} />
+        </div>
       );
     case "needs-location":
       return (
