@@ -119,11 +119,12 @@ export default async function PortalDashboardPage({
         />
       )}
 
-      {/* Festivní režim (24 h od milníku / náhled): barevný nádech celé stránky. */}
+      {/* Festivní režim (24 h od milníku / náhled): barevný nádech celého
+          pravého obsahového panelu (fixní, od menu doprava - bez „rámu"). */}
       {festive && (
         <div
           aria-hidden="true"
-          className="festive-bg pointer-events-none absolute -inset-x-6 -inset-y-8 -z-10"
+          className="festive-bg pointer-events-none fixed inset-0 -z-10 md:left-64"
         />
       )}
 
@@ -187,11 +188,11 @@ export default async function PortalDashboardPage({
         <style>{`
           .festive-bg {
             background:
-              radial-gradient(38% 46% at 12% 8%, rgba(244,63,94,0.13), transparent 70%),
-              radial-gradient(40% 48% at 88% 4%, rgba(245,158,11,0.13), transparent 70%),
-              radial-gradient(50% 58% at 82% 92%, rgba(16,185,129,0.13), transparent 72%),
-              radial-gradient(46% 54% at 8% 96%, rgba(99,102,241,0.13), transparent 72%),
-              radial-gradient(60% 60% at 50% 40%, rgba(236,72,153,0.05), transparent 75%);
+              radial-gradient(40% 48% at 10% 6%, rgba(244,63,94,0.20), transparent 70%),
+              radial-gradient(44% 52% at 90% 3%, rgba(245,158,11,0.20), transparent 70%),
+              radial-gradient(54% 62% at 86% 94%, rgba(16,185,129,0.20), transparent 72%),
+              radial-gradient(50% 58% at 5% 97%, rgba(99,102,241,0.18), transparent 72%),
+              radial-gradient(70% 70% at 50% 45%, rgba(236,72,153,0.07), transparent 78%);
           }
         `}</style>
       )}
