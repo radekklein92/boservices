@@ -27,7 +27,9 @@ export function FireworksCelebration({
   const containerRef = useRef<HTMLDivElement>(null);
   const fwRef = useRef<FireworksType | null>(null);
   const [open, setOpen] = useState(true);
-  const [soundOn, setSoundOn] = useState(false);
+  // Zvuk defaultně zapnutý. Pozn.: prohlížeče blokují autoplay se zvukem bez
+  // interakce - fakticky se rozezní až po prvním kliknutí/klávese na stránce.
+  const [soundOn, setSoundOn] = useState(true);
   // Portál na document.body - aby overlay unikl stacking contextu Dashboardu
   // a pokryl celou obrazovku včetně levého menu (Sidebar je fixed z-30).
   const [mounted, setMounted] = useState(false);
@@ -65,7 +67,7 @@ export function FireworksCelebration({
         brightness: { min: 55, max: 85 },
         decay: { min: 0.012, max: 0.028 },
         mouse: { click: false, move: false, max: 0 },
-        sound: SOUND,
+        sound: { ...SOUND, enabled: true },
       });
       fwRef.current = instance;
       instance.start();
