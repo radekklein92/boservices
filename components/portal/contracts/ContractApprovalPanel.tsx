@@ -26,6 +26,7 @@ import {
   type NewcoSummary,
 } from "@/lib/portal/contract-approval";
 import { computeContractFee, type ContractFee } from "@/lib/portal/contract-fees";
+import { LEASE_HOLDERS, type LeaseHolderKey } from "@/lib/portal/lease-holders";
 import {
   CATEGORY_LABEL,
   CATEGORY_STYLE,
@@ -74,6 +75,35 @@ export function ContractApprovalPanel({
       : [],
   );
   const blocks = (...codes: string[]) => codes.some((c) => blockingCodes.has(c));
+
+  // Výběr firmy držící nájem - jen franšíza varianta B + nájem na třetí stranu.
+  const showLeaseHolder =
+    contract.type === "franchise" &&
+    contract.variant === "B" &&
+    snap?.leaseStatus === "prepis_jinam";
+  const currentLeaseHolder = contract.variables.leaseHolderCompany ?? "";
+  const canPickLeaseHolder =
+    contract.status === "koncept" || contract.status === "ke-schvaleni";
+
+  async function pickLeaseHolder(company: string) {
+    setPending("lease-holder");
+    try {
+      const res = await fetch(`/api/portal/contracts/${contract.id}/lease-holder`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ company: company || null }),
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || "Chyba");
+      const next = await reload();
+      if (next) onChanged(next);
+      notify("ok", "Nájemce uložen.");
+    } catch (err) {
+      notify("error", err instanceof Error ? err.message : "Chyba");
+    } finally {
+      setPending(null);
+    }
+  }
 
   async function reload(): Promise<Contract | null> {
     try {
@@ -218,6 +248,38 @@ export function ContractApprovalPanel({
             "fee-unknown",
           )}
         />
+      )}
+
+      {/* Firma držící nájem (franšíza B + nájem na třetí stranu) - přepíše
+          čl. III odst. 1 (podnájem) v textu smlouvy. */}
+      {showLeaseHolder && (
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[12.5px] text-ink-mid">
+            Nájem drží{" "}
+            <span className="text-ink-soft">(přepíše čl. III odst. 1)</span>
+          </span>
+          {canPickLeaseHolder ? (
+            <select
+              value={currentLeaseHolder}
+              onChange={(e) => pickLeaseHolder(e.target.value)}
+              disabled={pending === "lease-holder"}
+              className="h-10 w-full max-w-sm rounded-lg border border-edge bg-paper px-2.5 text-[13px] text-ink-base outline-none transition-colors focus:border-ink-base disabled:opacity-50"
+            >
+              <option value="">— Poskytovatel (základní znění) —</option>
+              {Object.values(LEASE_HOLDERS).map((c) => (
+                <option key={c.key} value={c.key}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span className="text-[13px] font-medium text-ink-base">
+              {currentLeaseHolder
+                ? LEASE_HOLDERS[currentLeaseHolder as LeaseHolderKey]?.name
+                : "Poskytovatel (základní znění)"}
+            </span>
+          )}
+        </div>
       )}
 
       {/* Rozhodnutí */}

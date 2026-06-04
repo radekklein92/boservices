@@ -592,7 +592,13 @@ export function ContractDetailClient({
           approverEmails={approverEmails}
           locationNewco={locationNewco}
           standardOperatingFee={standardOperatingFee}
-          onChanged={(next) => setContract(next)}
+          onChanged={(next) => {
+            // Akce panelu (např. výběr firmy u nájmu) mohou přepsat znění
+            // smlouvy - srovnáme i stav editoru.
+            setContract(next);
+            setHtml(next.html);
+            setVariables(next.variables);
+          }}
           notify={notify}
         />
       )}

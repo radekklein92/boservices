@@ -9,6 +9,11 @@ import {
   upsertContract,
 } from "@/lib/portal/contracts-db";
 import { getOrSeedContractTemplate } from "@/lib/portal/contract-templates-db";
+import { resolveForEditing } from "@/lib/portal/contract-render";
+import {
+  applySubleaseClause,
+  isLeaseHolderKey,
+} from "@/lib/portal/lease-holders";
 import { bustContracts } from "@/lib/portal/revalidate";
 import {
   hasVariants,
@@ -89,10 +94,26 @@ export async function POST(
       nextVariables.franchiseFeePercent = "8";
     }
   }
+
+  // Reseed znění z nové varianty + zapéct hodnoty (vyplněný editovatelný text).
+  // U franšízy varianty B s vybranou firmou (nájem na třetí stranu) znovu
+  // aplikovat čl. III odst. 1.
+  let html = resolveForEditing(template.html, nextVariables);
+  if (contract.type === "franchise" && variant === "B") {
+    const company = nextVariables.leaseHolderCompany;
+    if (
+      company &&
+      isLeaseHolderKey(company) &&
+      contract.locationSnapshot?.leaseStatus === "prepis_jinam"
+    ) {
+      html = applySubleaseClause(html, company);
+    }
+  }
+
   const updated = {
     ...contract,
     variant,
-    html: template.html,
+    html,
     templateSnapshot: template.html,
     variables: nextVariables,
     generatedPdfUrl: undefined,
