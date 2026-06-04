@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Volume2, VolumeX, X } from "lucide-react";
 import type { Fireworks as FireworksType } from "fireworks-js";
 
@@ -27,8 +28,13 @@ export function FireworksCelebration({
   const fwRef = useRef<FireworksType | null>(null);
   const [open, setOpen] = useState(true);
   const [soundOn, setSoundOn] = useState(false);
+  // Portál na document.body - aby overlay unikl stacking contextu Dashboardu
+  // a pokryl celou obrazovku včetně levého menu (Sidebar je fixed z-30).
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
+    if (!mounted) return;
     let disposed = false;
     let instance: FireworksType | null = null;
     const el = containerRef.current;
@@ -69,7 +75,7 @@ export function FireworksCelebration({
       instance?.stop(true);
       fwRef.current = null;
     };
-  }, []);
+  }, [mounted]);
 
   useEffect(() => {
     fwRef.current?.updateOptions({ sound: { ...SOUND, enabled: soundOn } });
@@ -83,11 +89,11 @@ export function FireworksCelebration({
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
-  return (
+  return createPortal(
     <div
-      className="fw-overlay fixed inset-0 z-[120] cursor-pointer overflow-hidden"
+      className="fw-overlay fixed inset-0 z-[200] cursor-pointer overflow-hidden"
       role="dialog"
       aria-label={`Milník ${milestone} dosažen`}
       onClick={() => setOpen(false)}
@@ -164,6 +170,7 @@ export function FireworksCelebration({
         }
         .fw-card { animation: fwRise 0.7s cubic-bezier(0.22,1,0.36,1) 0.15s both }
       `}</style>
-    </div>
+    </div>,
+    document.body,
   );
 }
