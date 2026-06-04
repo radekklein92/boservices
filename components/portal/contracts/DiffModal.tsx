@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X } from "lucide-react";
+import { Download, X } from "lucide-react";
 import {
   CONTRACT_TYPE_META,
   type ContractType,
 } from "@/lib/portal/contract-types";
+import { BTN_ROW } from "@/components/portal/ui/buttons";
 
 // Diff modal mezi aktuálním zněním smlouvy a původní šablonou (Word-style
 // track changes - <ins> = aktuální text, <del> = původní). Pro bundle
@@ -112,14 +113,27 @@ export function DiffModal({
               </p>
             )}
           </div>
-          <button
-            type="button"
-            aria-label="Zavřít"
-            onClick={onClose}
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-ink-mid transition-colors hover:bg-edge-warm hover:text-ink-base focus:outline-none focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2"
-          >
-            <X className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            {state.kind === "ok" && state.count > 0 && (
+              <a
+                href={`/api/portal/contracts/${contractId}/diff-pdf`}
+                target="_blank"
+                rel="noreferrer noopener"
+                className={BTN_ROW}
+              >
+                <Download className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+                Export do PDF
+              </a>
+            )}
+            <button
+              type="button"
+              aria-label="Zavřít"
+              onClick={onClose}
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-ink-mid transition-colors hover:bg-edge-warm hover:text-ink-base focus:outline-none focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2"
+            >
+              <X className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+            </button>
+          </div>
         </div>
 
         {state.kind === "ok" && state.sections && state.sections.length > 0 && (
