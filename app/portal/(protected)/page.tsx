@@ -4,6 +4,7 @@ import {
   Check,
   Coins,
   FileSignature,
+  PartyPopper,
   Plus,
   Sparkle,
   Star,
@@ -34,20 +35,12 @@ export const dynamic = "force-dynamic";
 const MILESTONES = [15, 30, 50, 75, 100] as const;
 const TARGET = 100;
 
-// Den (Europe/Prague) jako YYYY-MM-DD pro porovnání „stalo se dnes".
-function pragueDayKey(d: Date): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Prague",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(d);
-}
+const CELEBRATION_WINDOW_MS = 24 * 60 * 60 * 1000;
 
-// Vrátí nejvyšší milník, který byl dosažen DNES - tj. den, kdy N-tá podepsaná
-// franšízová smlouva (seřazeno dle clientSignedAt) překročila daný milník je
-// dnešní. null = dnes žádný milník nepadl.
-function milestoneReachedToday(
+// Vrátí nejvyšší milník dosažený v posledních 24 hodinách - tj. okamžik, kdy
+// N-tá podepsaná franšízová smlouva (seřazeno dle clientSignedAt) překročila
+// daný milník, je méně než 24 h zpět. null = za posledních 24 h žádný milník.
+function milestoneReachedRecently(
   contracts: Awaited<ReturnType<typeof cachedListContracts>>,
 ): number | null {
   const dates = contracts
@@ -55,10 +48,10 @@ function milestoneReachedToday(
     .map((c) => c.clientSignedAt as string)
     .sort();
   if (!dates.length) return null;
-  const todayKey = pragueDayKey(new Date());
+  const cutoff = Date.now() - CELEBRATION_WINDOW_MS;
   let hit: number | null = null;
   for (const m of MILESTONES) {
-    if (dates.length >= m && pragueDayKey(new Date(dates[m - 1]!)) === todayKey) {
+    if (dates.length >= m && new Date(dates[m - 1]!).getTime() >= cutoff) {
       hit = m;
     }
   }
@@ -90,7 +83,8 @@ export default async function PortalDashboardPage({
   const celebrate =
     previewCelebrate && Number.isFinite(previewCelebrate) && previewCelebrate > 0
       ? previewCelebrate
-      : milestoneReachedToday(contracts);
+      : milestoneReachedRecently(contracts);
+  const festive = celebrate != null;
 
   // Postoupené pohledávky: suma claim.amount ze všech claim-bundle smluv, které
   // už jsou alespoň „podepsáno klientem" (= máme aspoň jeden z timestamps
@@ -117,21 +111,34 @@ export default async function PortalDashboardPage({
   });
 
   return (
-    <div className="flex flex-col gap-10">
+    <div className="relative isolate flex flex-col gap-10">
       {celebrate != null && (
         <FireworksCelebration
           milestone={celebrate}
           isGoal={celebrate >= TARGET}
         />
       )}
+
+      {/* Festivní režim (24 h od milníku / náhled): barevný nádech celé stránky. */}
+      {festive && (
+        <div
+          aria-hidden="true"
+          className="festive-bg pointer-events-none absolute -inset-x-6 -inset-y-8 -z-10"
+        />
+      )}
+
       <PageHeader
         eyebrow="Dashboard"
         title={`Vítejte, ${displayName}.`}
         lede={today}
       />
 
+      {festive && celebrate != null && (
+        <FestiveBanner milestone={celebrate} isGoal={celebrate >= TARGET} />
+      )}
+
       {/* HERO - milestone progress karta. Dominantní, hned nad foldem. */}
-      <MilestoneHero count={franchiseLocationsCount} />
+      <MilestoneHero count={franchiseLocationsCount} festive={festive} />
 
       {/* Sekundární stat: podepsané smlouvy celkem. */}
       <section className="grid grid-cols-1 gap-5 md:grid-cols-2">
@@ -175,6 +182,110 @@ export default async function PortalDashboardPage({
           </div>
         </section>
       )}
+
+      {festive && (
+        <style>{`
+          .festive-bg {
+            background:
+              radial-gradient(38% 46% at 12% 8%, rgba(244,63,94,0.13), transparent 70%),
+              radial-gradient(40% 48% at 88% 4%, rgba(245,158,11,0.13), transparent 70%),
+              radial-gradient(50% 58% at 82% 92%, rgba(16,185,129,0.13), transparent 72%),
+              radial-gradient(46% 54% at 8% 96%, rgba(99,102,241,0.13), transparent 72%),
+              radial-gradient(60% 60% at 50% 40%, rgba(236,72,153,0.05), transparent 75%);
+          }
+        `}</style>
+      )}
+    </div>
+  );
+}
+
+// Vibrant celebratory gradient (sdílené pro hero číslo, lištu, banner).
+const FESTIVE_GRADIENT =
+  "linear-gradient(120deg, #f43f5e 0%, #f59e0b 32%, #10b981 64%, #6366f1 100%)";
+
+// ─────────────────────────────────────────────────────────────────────
+// FESTIVNÍ BANNER - oslavný pruh v den (24 h) milníku
+// ─────────────────────────────────────────────────────────────────────
+
+function FestiveBanner({
+  milestone,
+  isGoal,
+}: {
+  milestone: number;
+  isGoal: boolean;
+}) {
+  return (
+    <div
+      className="relative overflow-hidden rounded-2xl px-6 py-4 text-paper shadow-[0_20px_50px_-24px_rgba(244,63,94,0.5)]"
+      style={{ backgroundImage: FESTIVE_GRADIENT }}
+    >
+      <Star
+        className="absolute -right-6 -top-6 h-28 w-28 text-white/15"
+        strokeWidth={1}
+        aria-hidden="true"
+      />
+      <div className="relative flex items-center gap-3.5">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/20 backdrop-blur-sm">
+          <PartyPopper className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
+        </span>
+        <div>
+          <div className="text-[10px] font-semibold uppercase tracking-[0.28em] text-white/80">
+            Oslava
+          </div>
+          <div className="mt-0.5 text-[1.05rem] font-bold tracking-[-0.01em] sm:text-[1.2rem]">
+            {isGoal
+              ? `Cíl ${milestone} lokalit s franšízou je splněn!`
+              : `Dosáhli jsme milníku ${milestone} lokalit s franšízou!`}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Statické festivní konfety - decentní barevné tečky/čtverečky rozeseté v hero
+// kartě. Bez animace (elegantní), pointer-events-none.
+function FestiveSprinkles() {
+  const dots: Array<{
+    top: string;
+    left: string;
+    c: string;
+    s: number;
+    sq?: boolean;
+    r?: number;
+  }> = [
+    { top: "13%", left: "5%", c: "#f43f5e", s: 8, sq: true, r: 18 },
+    { top: "22%", left: "93%", c: "#6366f1", s: 7 },
+    { top: "70%", left: "3.5%", c: "#10b981", s: 6, sq: true, r: -20 },
+    { top: "9%", left: "58%", c: "#f59e0b", s: 5 },
+    { top: "84%", left: "68%", c: "#ec4899", s: 7, sq: true, r: 35 },
+    { top: "42%", left: "96%", c: "#f59e0b", s: 6 },
+    { top: "90%", left: "28%", c: "#6366f1", s: 5, sq: true, r: -12 },
+    { top: "32%", left: "1.5%", c: "#10b981", s: 5 },
+    { top: "60%", left: "94%", c: "#f43f5e", s: 6, sq: true, r: 25 },
+    { top: "6%", left: "40%", c: "#10b981", s: 4 },
+  ];
+  return (
+    <div
+      className="pointer-events-none absolute inset-0 overflow-hidden"
+      aria-hidden="true"
+    >
+      {dots.map((d, i) => (
+        <span
+          key={i}
+          style={{
+            position: "absolute",
+            top: d.top,
+            left: d.left,
+            width: d.s,
+            height: d.s,
+            background: d.c,
+            borderRadius: d.sq ? 1 : 9999,
+            transform: d.sq && d.r ? `rotate(${d.r}deg)` : undefined,
+            opacity: 0.85,
+          }}
+        />
+      ))}
     </div>
   );
 }
@@ -183,7 +294,7 @@ export default async function PortalDashboardPage({
 // HERO MILESTONE - dominantní karta s velkým číslem a barem
 // ─────────────────────────────────────────────────────────────────────
 
-function MilestoneHero({ count }: { count: number }) {
+function MilestoneHero({ count, festive = false }: { count: number; festive?: boolean }) {
   const goalReached = count >= TARGET;
   const progressPct = Math.min((count / TARGET) * 100, 100);
   const nextMilestone = MILESTONES.find((m) => count < m);
@@ -195,7 +306,9 @@ function MilestoneHero({ count }: { count: number }) {
         "relative overflow-hidden rounded-[28px] border bg-paper p-6 sm:rounded-[32px] sm:p-8 md:p-12",
         goalReached
           ? "border-emerald-600 shadow-[0_30px_60px_-30px_rgba(5,150,105,0.35)]"
-          : "border-edge shadow-[0_20px_60px_-30px_rgba(14,14,14,0.12)]",
+          : festive
+            ? "border-edge shadow-[0_30px_90px_-40px_rgba(244,63,94,0.4)]"
+            : "border-edge shadow-[0_20px_60px_-30px_rgba(14,14,14,0.12)]",
       ].join(" ")}
     >
       {/* Decorative background star - very subtle */}
@@ -209,6 +322,9 @@ function MilestoneHero({ count }: { count: number }) {
         strokeWidth={0.5}
         aria-hidden="true"
       />
+
+      {/* Festivní konfety - dekorace karty (statické, decentní). */}
+      {festive && <FestiveSprinkles />}
 
       {/* Top row: eyebrow + Cíl badge */}
       <div className="relative flex flex-wrap items-center justify-between gap-3">
@@ -241,7 +357,13 @@ function MilestoneHero({ count }: { count: number }) {
       <div className="relative mt-10 flex flex-wrap items-end justify-between gap-8">
         <div>
           <div className="flex items-end gap-3 leading-none tracking-[-0.05em]">
-            <div className="font-extrabold text-ink-base text-[clamp(5rem,14vw,9rem)] leading-[0.85]">
+            <div
+              className={[
+                "font-extrabold text-[clamp(5rem,14vw,9rem)] leading-[0.85]",
+                festive ? "bg-clip-text text-transparent" : "text-ink-base",
+              ].join(" ")}
+              style={festive ? { backgroundImage: FESTIVE_GRADIENT } : undefined}
+            >
               {count.toLocaleString("cs-CZ")}
             </div>
             <div className="flex items-end gap-1 pb-3 text-[clamp(1.25rem,2.4vw,1.75rem)] font-bold text-ink-soft">
@@ -327,9 +449,16 @@ function MilestoneHero({ count }: { count: number }) {
                   "absolute left-0 top-1/2 h-[4px] -translate-y-1/2 rounded-full transition-all duration-1000 ease-out sm:h-[5px]",
                   goalReached
                     ? "bg-emerald-600 shadow-[0_0_28px_rgba(5,150,105,0.45)]"
-                    : "bg-ink-base",
+                    : festive
+                      ? "shadow-[0_0_24px_rgba(245,158,11,0.55)]"
+                      : "bg-ink-base",
                 ].join(" ")}
-                style={{ width: `${Math.min(progressPct, 100)}%` }}
+                style={{
+                  width: `${Math.min(progressPct, 100)}%`,
+                  ...(festive && !goalReached
+                    ? { backgroundImage: FESTIVE_GRADIENT }
+                    : {}),
+                }}
               />
 
               {/* Milestone dots */}
