@@ -20,6 +20,7 @@ import {
   KEEP_DYNAMIC_TOKENS,
   extractPlaceholderTokens,
 } from "@/lib/portal/contract-render";
+import { normalizeHtmlForDiff } from "@/lib/portal/contract-diff";
 import { getLocation, toLocationSnapshot } from "@/lib/portal/locations-db";
 import { getSession } from "@/lib/portal/get-session";
 import { getTemplateApprovers } from "@/lib/portal/users-db";
@@ -66,19 +67,29 @@ export default async function ContractDetailPage({
   }
 
   // Líné zapečení placeholderů do editovatelného znění (NE-bundle, dokud není
-  // smlouva schválená). Stávající koncepty s tokeny se tak při otevření vyplní.
+  // smlouva schválená). Stávající koncepty s tokeny se vyplní; dříve zapečené
+  // bez značek data-ph se dospanují (jen pokud nebyl text ručně upraven).
   if (
     !isBundleType(contract.type) &&
     statusOrder(contract.status) < statusOrder("schvaleno")
   ) {
     const tokens = extractPlaceholderTokens(contract.html);
     const hasBakeable = [...tokens].some((t) => !KEEP_DYNAMIC_TOKENS.has(t));
+    const hasSpans = contract.html.includes("data-ph=");
     if (hasBakeable) {
       contract = {
         ...contract,
         html: resolveForEditing(contract.html, contract.variables),
       };
       await upsertContract(contract);
+    } else if (!hasSpans && contract.templateSnapshot) {
+      // Plain-zapečené (z první verze D) → dospanovat, jen když se text shoduje
+      // s čerstvým zapečením šablony (tj. nebyl ručně upraven).
+      const resolved = resolveForEditing(contract.templateSnapshot, contract.variables);
+      if (normalizeHtmlForDiff(contract.html) === normalizeHtmlForDiff(resolved)) {
+        contract = { ...contract, html: resolved };
+        await upsertContract(contract);
+      }
     }
   }
 

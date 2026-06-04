@@ -35,6 +35,7 @@ import { WITHDRAWAL_KS_TEXTS } from "@/lib/portal/contract-render";
 import {
   extractPlaceholderTokens,
   resolvePlaceholderValue,
+  setBakedValue,
 } from "@/lib/portal/contract-render";
 import {
   computeClaimsTotal,
@@ -74,6 +75,7 @@ import { BackLink } from "@/components/portal/ui/BackLink";
 import { TemplateMatchBadge } from "./TemplateMatchBadge";
 import { DiffModal } from "./DiffModal";
 import { isApprovalGated } from "@/lib/portal/contract-types";
+import { LEASE_HOLDERS } from "@/lib/portal/lease-holders";
 
 type Props = {
   initial: Contract;
@@ -135,6 +137,7 @@ export function ContractDetailClient({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [genPending, setGenPending] = useState(false);
   const [uploadPending, setUploadPending] = useState(false);
+  const [leaseHolderPending, setLeaseHolderPending] = useState(false);
   const [toast, setToast] = useState<{ kind: "ok" | "error"; msg: string } | null>(null);
   const [diffOpen, setDiffOpen] = useState(false);
   // Kontrola úpadku dlužníka: klíč naposledy ignorovaného upozornění (rule|datum).
@@ -167,19 +170,28 @@ export function ContractDetailClient({
   const meta = CONTRACT_TYPE_META[contract.type as ContractType];
 
   // Placeholder tokens - pro bundle scanuje všechny sekce, jinak single html.
+  // Pole hodnot gateujeme podle tokenů v ŠABLONĚ (templateSnapshot) - stabilní
+  // i po zapečení placeholderů do textu (kde už tokeny nejsou).
   const usedTokens = useMemo(() => {
     if (isBundle) {
       const set = new Set<string>();
       for (const section of bundleSections) {
-        for (const token of extractPlaceholderTokens(section.html)) {
+        for (const token of extractPlaceholderTokens(
+          section.templateSnapshot ?? section.html,
+        )) {
           set.add(token);
         }
       }
       return set;
     }
-    return extractPlaceholderTokens(html);
-  }, [isBundle, html, bundleSections]);
+    return extractPlaceholderTokens(contract.templateSnapshot ?? html);
+  }, [isBundle, contract.templateSnapshot, html, bundleSections]);
   const has = (token: string) => usedTokens.has(token);
+  // Výběr firmy držící nájem - jen franšíza varianty B + nájem na třetí stranu.
+  const showLeaseHolder =
+    contract.type === "franchise" &&
+    contract.variant === "B" &&
+    contract.locationSnapshot?.leaseStatus === "prepis_jinam";
   const hasAny = (tokens: string[]) => tokens.some((t) => usedTokens.has(t));
   // Editor seznamu pohledávek (Příloha č. 1) - POUZE pro postoupení pohledávek.
   // Vázáno striktně na typ smlouvy, ne na přítomnost tokenu {{claimsTable}} -
@@ -230,9 +242,55 @@ export function ContractDetailClient({
     });
     markDirty();
   }
+  // Promítne změny hodnot do zapečeného textu (značky data-ph). U bundle se
+  // nezapéká, takže no-op. KEEP_DYNAMIC tokeny (ks*, claimsTable) nemají span.
+  function applyBakedValues(changes: Record<string, string>) {
+    if (isBundle) return;
+    setHtml((prev) => {
+      let out = prev;
+      for (const [k, v] of Object.entries(changes)) {
+        out = setBakedValue(out, k, v);
+      }
+      return out;
+    });
+  }
   function updateVar(key: string, value: string) {
-    setVariables((prev) => ({ ...prev, [key]: value }));
+    const changes: Record<string, string> =
+      key === "contractDate"
+        ? { contractDate: value, effectiveDate: value }
+        : { [key]: value };
+    setVariables((prev) => ({ ...prev, ...changes }));
+    applyBakedValues(changes);
     markDirty();
+  }
+  // Firma držící nájem (franšíza B + nájem na třetí stranu) - přepíše čl. III
+  // odst. 1 v textu na serveru a srovná editor.
+  async function pickLeaseHolder(company: string) {
+    setLeaseHolderPending(true);
+    try {
+      const res = await fetch(
+        `/api/portal/contracts/${contract.id}/lease-holder`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ company: company || null }),
+        },
+      );
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || "Chyba");
+      const r = await fetch(`/api/portal/contracts/${contract.id}`);
+      const j = await r.json();
+      if (j.ok) {
+        setContract(j.contract);
+        setHtml(j.contract.html);
+        setVariables(j.contract.variables);
+      }
+      notify("ok", "Nájemce uložen.");
+    } catch (err) {
+      notify("error", err instanceof Error ? err.message : "Chyba");
+    } finally {
+      setLeaseHolderPending(false);
+    }
   }
   function updateClaims(next: ClaimItem[]) {
     setClaims(next);
@@ -245,29 +303,27 @@ export function ContractDetailClient({
   }
   function fillDebtor(payload: DebtorFillPayload) {
     setVariables((prev) => ({ ...prev, ...payload }));
+    applyBakedValues(payload as unknown as Record<string, string>);
     markDirty();
     notify("ok", `Dlužník vyplněn: ${payload.debtorName || payload.debtorIco}.`);
   }
   function fillManager(p: CompanyFillPayload) {
-    let datedToSafe: string | null = null;
-    setVariables((prev) => {
-      const next: Record<string, string> = {
-        ...prev,
-        managerName: p.name,
-        managerIco: p.ico,
-        managerStreet: p.street,
-        managerCity: p.city,
-        managerZip: p.zip,
-      };
-      // Manažer v úpadku -> Datum uzavření defaultně 3 dny před úpadkem (bezpečné).
-      const safe = safeContractDate([p.name]);
-      if (safe) {
-        next.contractDate = safe;
-        next.effectiveDate = safe;
-        datedToSafe = safe;
-      }
-      return next;
-    });
+    const changes: Record<string, string> = {
+      managerName: p.name,
+      managerIco: p.ico,
+      managerStreet: p.street,
+      managerCity: p.city,
+      managerZip: p.zip,
+    };
+    // Manažer v úpadku -> Datum uzavření defaultně 3 dny před úpadkem (bezpečné).
+    const safe = safeContractDate([p.name]);
+    const datedToSafe: string | null = safe ?? null;
+    if (safe) {
+      changes.contractDate = safe;
+      changes.effectiveDate = safe;
+    }
+    setVariables((prev) => ({ ...prev, ...changes }));
+    applyBakedValues(changes);
     markDirty();
     notify(
       "ok",
@@ -278,14 +334,15 @@ export function ContractDetailClient({
   }
   function fillWithdrawalProvider(p: CompanyFillPayload) {
     // Validace ani úprava data se Poskytovatele netýká - jen vyplníme pole.
-    setVariables((prev) => ({
-      ...prev,
+    const changes: Record<string, string> = {
       providerName: p.name,
       providerIco: p.ico,
       providerStreet: p.street,
       providerCity: p.city,
       providerZip: p.zip,
-    }));
+    };
+    setVariables((prev) => ({ ...prev, ...changes }));
+    applyBakedValues(changes);
     markDirty();
     notify("ok", `Poskytovatel vyplněn: ${p.name || p.ico}.`);
   }
@@ -851,6 +908,30 @@ export function ContractDetailClient({
                   onChange={(v) => updateVar("franchiseFeePercent", v)}
                 />
               )}
+            </div>
+          </FieldGroup>
+        )}
+
+        {showLeaseHolder && (
+          <FieldGroup label="Nájem provozovny">
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[11.5px] leading-snug text-ink-mid">
+                Nájem je „na třetí stranu" - vyberte firmu, která drží nájem
+                (přepíše čl. III odst. 1 o podnájmu).
+              </span>
+              <select
+                value={variables.leaseHolderCompany ?? ""}
+                onChange={(e) => pickLeaseHolder(e.target.value)}
+                disabled={leaseHolderPending}
+                className="h-10 w-full max-w-sm rounded-lg border border-edge bg-paper px-2.5 text-[13px] text-ink-base outline-none transition-colors focus:border-ink-base disabled:opacity-50"
+              >
+                <option value="">— Poskytovatel (základní znění) —</option>
+                {Object.values(LEASE_HOLDERS).map((c) => (
+                  <option key={c.key} value={c.key}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
             </div>
           </FieldGroup>
         )}

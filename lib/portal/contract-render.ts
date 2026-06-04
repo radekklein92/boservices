@@ -70,31 +70,6 @@ export function applySignerOverride(
   };
 }
 
-// Přepíše jméno/funkci zástupce poskytovatele v ZAPEČENÉM znění (vyplněné
-// hodnoty, ne tokeny). Jméno globálně (celé jméno je unikátní), funkci jen
-// v provider-kotvách (za jménem ve stranách a v podpisovém bloku), ať nezasáhne
-// roli klienta. U nezapečených (tokenových) smluv je to no-op.
-export function applyProviderSignerToHtml(
-  html: string,
-  oldName: string,
-  oldRole: string,
-  newName: string,
-  newRole: string,
-): string {
-  let out = html;
-  if (oldName && newName !== oldName) {
-    out = out.split(oldName).join(newName);
-  }
-  if (oldRole && newRole !== oldRole) {
-    out = out
-      .split(`${newName}, ${oldRole}`)
-      .join(`${newName}, ${newRole}`)
-      .split(`<strong>${newName}</strong><br>${oldRole}`)
-      .join(`<strong>${newName}</strong><br>${newRole}`);
-  }
-  return out;
-}
-
 export function buildClientVariables(client: Client): ContractVariables {
   const isPO = client.legalForm === "PO";
   const statutoryName = client.statutory?.name ?? "";
@@ -268,9 +243,19 @@ export const KEEP_DYNAMIC_TOKENS = new Set([
   "ksIntroLineSeparator",
 ]);
 
+// Obal zapečené hodnoty - neviditelná značka s klíčem (Tiptap mark
+// placeholderValue), aby šlo hodnotu z pole spolehlivě přepsat v textu.
+function phSpan(key: string, innerHtml: string): string {
+  return `<span data-ph="${key}">${innerHtml}</span>`;
+}
+
+function emptyMarker(key: string): string {
+  return escapeHtml(`[${findPlaceholderLabel(`{{${key}}}`) ?? key}]`);
+}
+
 // „Zapeče" placeholdery do HTML pro přímou editaci ve znění smlouvy: hodnoty
-// dosadí natvrdo, prázdné/chybějící nahradí prostým markerem [Label] k vyplnění
-// a dynamické tokeny (KEEP_DYNAMIC_TOKENS) nechá být (dořeší se až v PDF).
+// dosadí natvrdo (obalené značkou data-ph), prázdné/chybějící nahradí markerem
+// [Label] k vyplnění a dynamické tokeny (KEEP_DYNAMIC_TOKENS) nechá být.
 export function resolveForEditing(
   html: string,
   variables: ContractVariables,
@@ -280,12 +265,39 @@ export function resolveForEditing(
     const value = variables[key];
     if (value === undefined || value === null || value === "") {
       if (ALLOW_EMPTY.has(key)) return "";
-      const label = findPlaceholderLabel(`{{${key}}}`) ?? key;
-      return `[${label}]`;
+      return phSpan(key, emptyMarker(key));
     }
     if (RAW_HTML_PLACEHOLDERS.has(key)) return value;
-    return escapeHtml(value);
+    return phSpan(key, escapeHtml(value));
   });
+}
+
+// Přepíše obsah všech značek data-ph daného klíče v zapečeném HTML novou
+// hodnotou (escaped); prázdná hodnota → marker [Label]. Klíčované = bez kolizí.
+// Tolerantní k pořadí atributů (Tiptap může span přerenderovat).
+export function setBakedValue(
+  html: string,
+  key: string,
+  value: string,
+): string {
+  const inner =
+    value && value.trim() !== "" ? escapeHtml(value) : emptyMarker(key);
+  const re = new RegExp(
+    `(<span[^>]*\\bdata-ph="${key}"[^>]*>)([\\s\\S]*?)(<\\/span>)`,
+    "g",
+  );
+  return html.replace(re, (_m, open: string, _content: string, close: string) =>
+    `${open}${inner}${close}`,
+  );
+}
+
+// Odstraní obal značek data-ph (ponechá obsah) - pro PDF a diff, ať tam
+// nezůstávají pomocné spany.
+export function stripPlaceholderSpans(html: string): string {
+  return html.replace(
+    /<span[^>]*\bdata-ph="[^"]*"[^>]*>([\s\S]*?)<\/span>/g,
+    "$1",
+  );
 }
 
 // Hodnota tokenu pro vkládání z palety placeholderů do už zapečeného textu

@@ -4,6 +4,7 @@ import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
+import { PlaceholderValue } from "./placeholder-value-mark";
 import {
   Bold,
   Italic,
@@ -52,6 +53,8 @@ export function TiptapEditor({
       Placeholder.configure({
         placeholder: "Začněte psát znění smlouvy nebo si vyberte placeholder z palety vpravo…",
       }),
+      // Poslední - vykreslí se nejvíc uvnitř (zachová <strong>/<em> kolem hodnoty).
+      PlaceholderValue,
     ],
     content: value,
     onUpdate({ editor }) {

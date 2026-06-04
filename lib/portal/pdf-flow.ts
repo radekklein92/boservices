@@ -4,6 +4,7 @@ import { CONTRACT_TYPE_META, isBundleType } from "./contract-types";
 import {
   applySignerOverride,
   renderTemplate,
+  stripPlaceholderSpans,
   wrapSignatures,
 } from "./contract-render";
 import { bundleHtmlToPdfBuffer, htmlToPdfBuffer } from "./pdf-generator";
@@ -79,7 +80,9 @@ export async function renderAndStoreContractPdf(contract: Contract): Promise<{
   // do .signatures, ať se datum neoddělí od podpisů přes konec stránky. Serifové
   // dokumenty (no-letterhead) nech být (mají vlastní ozdobné oddělovače sekcí).
   const prep = (h: string) => {
-    const h1 = letterhead ? wrapSignatures(h) : h;
+    // Odstranit pomocné značky zapečených hodnot (data-ph) - do PDF čistý text.
+    const base = stripPlaceholderSpans(h);
+    const h1 = letterhead ? wrapSignatures(base) : base;
     return isClaim ? stripClamoraDicAndBank(prepareClaimsAppendix(h1)) : h1;
   };
 

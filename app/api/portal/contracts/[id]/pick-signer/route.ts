@@ -8,9 +8,9 @@ import {
 } from "@/lib/portal/contracts-db";
 import { getUser } from "@/lib/portal/users-db";
 import {
-  applyProviderSignerToHtml,
   applySignerOverride,
   getProviderDefaults,
+  setBakedValue,
 } from "@/lib/portal/contract-render";
 import { renderAndStoreContractPdf } from "@/lib/portal/pdf-flow";
 import { bustContracts } from "@/lib/portal/revalidate";
@@ -113,13 +113,9 @@ export async function POST(
           providerStatutory1Role: newRole,
         }
       : contract.variables;
-  const nextHtml = applyProviderSignerToHtml(
-    contract.html,
-    oldName,
-    oldRole,
-    newName,
-    newRole,
-  );
+  // Klíčovaný přepis hodnoty v zapečeném textu (značky data-ph).
+  let nextHtml = setBakedValue(contract.html, "providerStatutory1Name", newName);
+  nextHtml = setBakedValue(nextHtml, "providerStatutory1Role", newRole);
 
   const withSigner = {
     ...contract,
@@ -198,6 +194,8 @@ export async function DELETE(
   const oldRole = contract.variables.providerStatutory1Role ?? "";
   const newName = defaults.providerStatutory1Name ?? oldName;
   const newRole = defaults.providerStatutory1Role ?? oldRole;
+  let revertedHtml = setBakedValue(rest.html, "providerStatutory1Name", newName);
+  revertedHtml = setBakedValue(revertedHtml, "providerStatutory1Role", newRole);
 
   const updated = {
     ...rest,
@@ -209,7 +207,7 @@ export async function DELETE(
             providerStatutory1Role: newRole,
           }
         : rest.variables,
-    html: applyProviderSignerToHtml(rest.html, oldName, oldRole, newName, newRole),
+    html: revertedHtml,
     updatedAt: new Date().toISOString(),
   };
   updated.status = computeContractStatus(updated);

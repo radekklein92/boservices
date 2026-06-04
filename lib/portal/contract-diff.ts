@@ -117,6 +117,8 @@ function intraBlockDiff(a: string, b: string): string {
 export function normalizeHtmlForDiff(html: string): string {
   return (
     html
+      // 0. Odstranit pomocné značky zapečených hodnot (data-ph) - porovnáváme text.
+      .replace(/<span[^>]*\bdata-ph="[^"]*"[^>]*>([\s\S]*?)<\/span>/g, "$1")
       // 1. Sjednotit whitespace - newlines, taby na mezery
       .replace(/[\t\n\r]+/g, " ")
       // 2. Strip whitespace mezi tagy (`>   <` → `><`)
