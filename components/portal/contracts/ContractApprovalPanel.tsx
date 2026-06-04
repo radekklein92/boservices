@@ -12,6 +12,7 @@ import {
   Mail,
   ShieldCheck,
   Pencil,
+  X,
 } from "lucide-react";
 import type { Contract } from "@/lib/portal/contracts-db";
 import {
@@ -64,6 +65,15 @@ export function ContractApprovalPanel({
   const hasApprover = approverEmails.length > 0;
   // Poplatek/odměna z textu smlouvy (živě z aktuálního stavu, reflektuje editace).
   const fee = computeContractFee(contract, standardOperatingFee);
+
+  // Kódy důvodů, které brání automatickému schválení - u dotčené hodnoty
+  // vykreslíme křížek. Důvody nese view jen u draft/pending.
+  const blockingCodes = new Set<string>(
+    view.kind === "draft" || view.kind === "pending"
+      ? view.reasons.map((r) => r.code)
+      : [],
+  );
+  const blocks = (...codes: string[]) => codes.some((c) => blockingCodes.has(c));
 
   async function reload(): Promise<Contract | null> {
     try {
@@ -157,43 +167,37 @@ export function ContractApprovalPanel({
             )}
           </div>
           <div className="flex flex-wrap gap-x-6 gap-y-1.5 text-[12.5px] text-ink-mid">
-            <span>
-              Nájemní smlouva{" "}
-              <span className="font-medium text-ink-base">
-                {LEASE_HOLDER_LABEL[snap.leaseStatus]}
-              </span>
-            </span>
-            <span>
-              Nový režim{" "}
-              <span className="font-medium text-ink-base">
-                {snap.newMode ? NEW_MODE_LABEL[snap.newMode] : "neuvedeno"}
-              </span>
-            </span>
+            <DetailItem
+              label="Nájemní smlouva"
+              value={LEASE_HOLDER_LABEL[snap.leaseStatus]}
+              blocked={blocks("lease-not-fr-bos", "lease-not-bos")}
+            />
+            <DetailItem
+              label="Nový režim"
+              value={snap.newMode ? NEW_MODE_LABEL[snap.newMode] : "neuvedeno"}
+              blocked={blocks("unknown-mode")}
+            />
             {locationNewco && (
-              <span>
-                V souboru NEWCO{" "}
-                <span
-                  className={`font-medium ${locationNewco.inFile ? "text-ink-base" : "text-amber-700"}`}
-                >
-                  {locationNewco.inFile ? "Ano" : "Ne"}
-                </span>
-              </span>
+              <DetailItem
+                label="V souboru NEWCO"
+                value={locationNewco.inFile ? "Ano" : "Ne"}
+                tone={locationNewco.inFile ? "default" : "warn"}
+                blocked={blocks("not-in-newco")}
+              />
             )}
             {locationNewco?.entitaCeip1 && (
-              <span>
-                Entita CEIP #1{" "}
-                <span className="font-medium text-ink-base">
-                  {locationNewco.entitaCeip1}
-                </span>
-              </span>
+              <DetailItem
+                label="Entita CEIP #1"
+                value={locationNewco.entitaCeip1}
+                blocked={blocks("entita-tbe")}
+              />
             )}
             {locationNewco?.operationalType && (
-              <span>
-                Operational type{" "}
-                <span className="font-medium text-ink-base">
-                  {locationNewco.operationalType}
-                </span>
-              </span>
+              <DetailItem
+                label="Operational type"
+                value={locationNewco.operationalType}
+                blocked={blocks("optype-own")}
+              />
             )}
           </div>
         </div>
@@ -204,7 +208,17 @@ export function ContractApprovalPanel({
       )}
 
       {/* Poplatek / odměna z textu smlouvy (s detekcí ruční úpravy) */}
-      {fee && <FeeRow fee={fee} />}
+      {fee && (
+        <FeeRow
+          fee={fee}
+          blocked={blocks(
+            "franchise-fee-low",
+            "support-fee-low",
+            "operating-fee-low",
+            "fee-unknown",
+          )}
+        />
+      )}
 
       {/* Rozhodnutí */}
       <div className="flex flex-col gap-2">
@@ -302,12 +316,53 @@ export function ContractApprovalPanel({
   );
 }
 
-function FeeRow({ fee }: { fee: ContractFee }) {
+// Hodnota v panelu s volitelným křížkem, když je důvodem ručního schválení.
+function DetailItem({
+  label,
+  value,
+  blocked = false,
+  tone = "default",
+}: {
+  label: string;
+  value: React.ReactNode;
+  blocked?: boolean;
+  tone?: "default" | "warn";
+}) {
+  const valueClass = blocked
+    ? "text-rose-600"
+    : tone === "warn"
+      ? "text-amber-700"
+      : "text-ink-base";
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span>{label}</span>
+      {blocked && (
+        <X
+          className="h-3.5 w-3.5 shrink-0 text-rose-600"
+          strokeWidth={2.5}
+          aria-label="Blokuje automatické schválení"
+        />
+      )}
+      <span className={`font-medium ${valueClass}`}>{value}</span>
+    </span>
+  );
+}
+
+function FeeRow({ fee, blocked = false }: { fee: ContractFee; blocked?: boolean }) {
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12.5px] text-ink-mid">
-      <span>
-        {fee.label}{" "}
-        <span className="font-semibold text-ink-base">{fee.value}</span>
+      <span className="inline-flex items-center gap-1">
+        <span>{fee.label}</span>
+        {blocked && (
+          <X
+            className="h-3.5 w-3.5 shrink-0 text-rose-600"
+            strokeWidth={2.5}
+            aria-label="Blokuje automatické schválení"
+          />
+        )}
+        <span className={`font-semibold ${blocked ? "text-rose-600" : "text-ink-base"}`}>
+          {fee.value}
+        </span>
       </span>
       {fee.changed && (
         <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 text-[11px] font-medium text-amber-700">
