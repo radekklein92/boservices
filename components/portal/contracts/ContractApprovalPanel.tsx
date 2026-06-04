@@ -131,10 +131,21 @@ export function ContractApprovalPanel({
 
   return (
     <div className="flex flex-col gap-5 rounded-2xl border border-edge bg-paper px-6 py-6 md:px-8 md:py-7">
-      <div className="flex items-baseline justify-between gap-4">
+      <div className="flex items-center justify-between gap-4">
         <div className="text-[10.5px] font-medium uppercase tracking-[0.22em] text-ink-mid">
           Lokalita a schválení
         </div>
+        {canEditLocation && !editingLocation && (
+          <button
+            type="button"
+            onClick={() => setEditingLocation(true)}
+            disabled={pending === "location"}
+            className={BTN_ROW}
+          >
+            <Pencil className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+            {contract.locationId ? "Změnit lokalitu" : "Vybrat lokalitu"}
+          </button>
+        )}
       </div>
 
       {/* Lokalita */}
@@ -230,10 +241,11 @@ export function ContractApprovalPanel({
         )}
       </div>
 
-      {/* Akce: změna lokality (koncept) / připomenutí (ke-schvaleni, non-approver) */}
-      <div className="flex flex-col gap-3">
-        {canEditLocation &&
-          (editingLocation ? (
+      {/* Akce: výběr lokality (editace) / připomenutí (ke-schvaleni, non-approver) */}
+      {((canEditLocation && editingLocation) ||
+        (contract.status === "ke-schvaleni" && !isApprover && !isSuperadmin)) && (
+        <div className="flex flex-col gap-3">
+          {canEditLocation && editingLocation && (
             <div className="flex flex-col gap-2">
               <LocationCombobox
                 value={contract.locationId ?? ""}
@@ -251,35 +263,26 @@ export function ContractApprovalPanel({
                 Zrušit
               </button>
             </div>
-          ) : (
+          )}
+
+          {contract.status === "ke-schvaleni" && !isApprover && !isSuperadmin && (
             <button
               type="button"
-              onClick={() => setEditingLocation(true)}
-              disabled={pending === "location"}
+              onClick={remind}
+              disabled={!hasApprover || pending === "remind"}
+              title={
+                hasApprover
+                  ? `Pošle e-mail schvalovatelům (${approverEmails.join(", ")})`
+                  : "Schvalovatel není nastaven"
+              }
               className={`${BTN_ROW} w-fit`}
             >
-              <Pencil className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
-              {contract.locationId ? "Změnit lokalitu" : "Vybrat lokalitu"}
+              <Mail className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+              {pending === "remind" ? "Odesílám…" : "Připomenout e-mailem"}
             </button>
-          ))}
-
-        {contract.status === "ke-schvaleni" && !isApprover && !isSuperadmin && (
-          <button
-            type="button"
-            onClick={remind}
-            disabled={!hasApprover || pending === "remind"}
-            title={
-              hasApprover
-                ? `Pošle e-mail schvalovatelům (${approverEmails.join(", ")})`
-                : "Schvalovatel není nastaven"
-            }
-            className={`${BTN_ROW} w-fit`}
-          >
-            <Mail className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
-            {pending === "remind" ? "Odesílám…" : "Připomenout e-mailem"}
-          </button>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {/* Klíč k automatickému schválení - sbalený, na rozkliknutí. */}
       <div className="rounded-xl border border-edge bg-paper-warm px-4 py-3">
