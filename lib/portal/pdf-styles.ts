@@ -202,8 +202,11 @@ export const PDF_PAGE_STYLES = `
     margin: 12pt 0;
   }
 
-  /* Signature blocks (typický pattern dvou podpisových rámců) */
+  /* Signature blocks (typický pattern dvou podpisových rámců) - celá sekce
+   * pohromadě, a navíc každý odstavec (jeden podepisující) jako celek, ať se
+   * podpis nerozlomí přes konec stránky ani když je sekce vysoká. */
   .signatures { margin-top: 26pt; page-break-inside: avoid; }
+  .signatures p { page-break-inside: avoid; break-inside: avoid; }
 
   /* Příloha č. 1 (seznam pohledávek) - vždy začíná na samostatné stránce,
    * tabulka se pokud možno nezalomí přes konec stránky. */
@@ -276,8 +279,12 @@ export const PDF_PAGE_STYLES = `
     text-transform: uppercase;
     letter-spacing: 0.12em;
   }
-  /* Centrovaná ozdoba mezi sekcemi (před každým h2 kromě prvního v jeho rodiči). */
-  body.no-letterhead h2:not(:first-of-type)::before {
+  /* Centrovaná ozdoba mezi sekcemi (před každým h2 kromě prvního v jeho rodiči).
+   * Podpisová sekce je obalená v .signatures, takže její „Podpisy" h2 je
+   * first-of-type ve svém rodiči - ozdobu mu doplníme explicitně (sekce je vždy
+   * až za jinými, divider tam patří vždy). */
+  body.no-letterhead h2:not(:first-of-type)::before,
+  body.no-letterhead .signatures > h2::before {
     content: "§ § §";
     display: block;
     text-align: center;

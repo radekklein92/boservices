@@ -76,13 +76,15 @@ export async function renderAndStoreContractPdf(contract: Contract): Promise<{
   // změny - jinak by ensureClaimsToken injektoval token podle nadpisu omylem.
   const isClaim =
     contract.type === "claim-assignment" || contract.type === "claim-bundle";
-  // Letterhead smlouvy (franšíza/spolupráce/provozování): obal podpisovou sekci
-  // do .signatures, ať se datum neoddělí od podpisů přes konec stránky. Serifové
-  // dokumenty (no-letterhead) nech být (mají vlastní ozdobné oddělovače sekcí).
+  // Obal podpisovou sekci do .signatures (page-break-inside: avoid), ať se oba
+  // podepisující ani datum neoddělí přes konec stránky - platí i pro serif
+  // (no-letterhead) dokumenty. No-op u typů bez „Podpisy" h2 (odstoupení,
+  // bundle), takže je bezpečné aplikovat plošně. Serif divider §§§ nad „Podpisy"
+  // je zachovaný přes pravidlo .signatures > h2 v pdf-styles.
   const prep = (h: string) => {
     // Odstranit pomocné značky zapečených hodnot (data-ph) - do PDF čistý text.
     const base = stripPlaceholderSpans(h);
-    const h1 = letterhead ? wrapSignatures(base) : base;
+    const h1 = wrapSignatures(base);
     return isClaim ? stripClamoraDicAndBank(prepareClaimsAppendix(h1)) : h1;
   };
 
