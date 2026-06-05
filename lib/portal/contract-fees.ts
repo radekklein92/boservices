@@ -23,8 +23,37 @@ export type ContractFee = {
 
 const FRANCHISE_FEE_TOKEN = "{{franchiseFeePercent}}";
 
+// Zapečená editorová značka placeholderu: po otevření v editoru se z tokenu
+// {{franchiseFeePercent}} stane <span data-ph="franchiseFeePercent">5</span>
+// (viz resolveForEditing / placeholderValue mark). Tolerantní k pořadí atributů.
+const FRANCHISE_FEE_PH_RE =
+  /<span[^>]*\bdata-ph="franchiseFeePercent"[^>]*>([\s\S]*?)<\/span>/i;
+
 // Procento v editované franšízové klauzuli: „...poplatek ve výši <strong>10 %</strong>".
 const FRANCHISE_FEE_TEXT_RE = /poplatek ve výši\s*<strong>\s*([\d.,]+)\s*%/i;
+
+// Procento franšízového poplatku tak, jak je fakticky v textu smlouvy. Pokrývá
+// tři podoby klauzule podle stavu zpracování:
+//  1) zapečená editorová značka <span data-ph="franchiseFeePercent">5</span>
+//     (koncept otevřený v editoru) - hodnota je obsah značky,
+//  2) živý token {{franchiseFeePercent}} (čerstvě vyrenderovaná šablona) -
+//     hodnota z variables.franchiseFeePercent,
+//  3) ručně upravená klauzule bez placeholderu - vyčteme z „<strong>…%“.
+// Vrací řetězec procenta (např. „5"), nebo null když z textu nelze určit.
+function franchiseFeeInText(
+  contract: Pick<Contract, "html" | "variables">,
+): string | null {
+  const span = contract.html.match(FRANCHISE_FEE_PH_RE);
+  if (span) {
+    const m = span[1]!.replace(/<[^>]*>/g, "").match(/[\d.,]+/);
+    return m ? m[0] : null;
+  }
+  if (contract.html.includes(FRANCHISE_FEE_TOKEN)) {
+    return (contract.variables.franchiseFeePercent ?? "").trim() || null;
+  }
+  const m = contract.html.match(FRANCHISE_FEE_TEXT_RE);
+  return m ? m[1]!.trim() : null;
+}
 
 // Částka odměny v Kč: „...odměna ve výši <strong>30 000 Kč</strong>". [^<]{0,40}
 // pokryje vmezeřená slova („paušální odměnu ve výši") bez přeskočení do tagu.
@@ -67,16 +96,10 @@ export function computeContractFee(
 ): ContractFee | null {
   if (contract.type === "franchise") {
     const expected = (contract.variables.franchiseFeePercent ?? "").trim();
-    // Hodnota v textu: z placeholderu (nezapečeno), jinak vyčtená z klauzule
-    // (zapečeno nebo ručně upraveno). „changed" = liší se od zamýšlené hodnoty
-    // ve variables, ne podle přítomnosti tokenu (po zapečení token nikdy není).
-    let inText: string | null;
-    if (contract.html.includes(FRANCHISE_FEE_TOKEN)) {
-      inText = expected || null;
-    } else {
-      const m = contract.html.match(FRANCHISE_FEE_TEXT_RE);
-      inText = m ? m[1]!.trim() : null;
-    }
+    // Hodnota v textu: z placeholderu / zapečené značky (nezapečeno i zapečeno),
+    // jinak vyčtená z ručně upravené klauzule. „changed" = liší se od zamýšlené
+    // hodnoty ve variables, ne podle přítomnosti tokenu (po zapečení token není).
+    const inText = franchiseFeeInText(contract);
     const changed = !!expected && inText !== null && !samePercent(inText, expected);
     return {
       label: "Franšízový a marketingový poplatek",
@@ -110,19 +133,15 @@ export function computeContractFee(
 }
 
 // Numerická hodnota franšízového poplatku (%) pro vyhodnocení klíče schválení.
-// Bere se z {{franchiseFeePercent}} (variables), a pokud byl placeholder z textu
-// odstraněn, zkusí číslo vyčíst z upravené klauzule. null = nelze určit.
+// Stejný zdroj jako panel (franchiseFeeInText): zapečená značka data-ph, živý
+// token {{franchiseFeePercent}} nebo ručně upravená klauzule. null = nelze určit.
 export function franchiseFeePercentValue(
   contract: Pick<Contract, "type" | "html" | "variables">,
 ): number | null {
   if (contract.type !== "franchise") return null;
-  if (contract.html.includes(FRANCHISE_FEE_TOKEN)) {
-    const v = parseInt((contract.variables.franchiseFeePercent ?? "").trim(), 10);
-    return Number.isFinite(v) ? v : null;
-  }
-  const m = contract.html.match(FRANCHISE_FEE_TEXT_RE);
-  if (!m) return null;
-  const v = parseFloat(m[1]!.replace(",", "."));
+  const inText = franchiseFeeInText(contract);
+  if (inText === null) return null;
+  const v = parseFloat(inText.replace(",", "."));
   return Number.isFinite(v) ? v : null;
 }
 
