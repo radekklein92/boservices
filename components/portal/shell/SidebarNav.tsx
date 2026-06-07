@@ -141,12 +141,13 @@ function NavItem({
       <span className="flex-1 truncate">{label}</span>
       {badge > 0 && (
         <span
-          className={`grid h-5 min-w-[20px] place-items-center rounded-full px-1.5 text-[10.5px] font-bold ${
-            active ? "bg-paper text-ink-base" : "bg-ink-base text-paper"
+          role="status"
+          aria-label="Nové úkoly"
+          title="Nové úkoly"
+          className={`h-2 w-2 shrink-0 rounded-full bg-rose-500 ${
+            active ? "ring-2 ring-ink-base" : ""
           }`}
-        >
-          {badge > 99 ? "99+" : badge}
-        </span>
+        />
       )}
     </Link>
   );

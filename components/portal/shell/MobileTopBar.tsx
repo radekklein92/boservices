@@ -65,12 +65,18 @@ export function MobileTopBar({
           aria-label={open ? "Zavřít menu" : "Otevřít menu"}
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
-          className="grid h-10 w-10 place-items-center rounded-full border border-edge bg-paper text-ink-deep transition-colors hover:border-ink-base hover:bg-ink-base hover:text-paper focus:outline-none focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2"
+          className="relative grid h-10 w-10 place-items-center rounded-full border border-edge bg-paper text-ink-deep transition-colors hover:border-ink-base hover:bg-ink-base hover:text-paper focus:outline-none focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2"
         >
           {open ? (
             <X className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
           ) : (
             <Menu className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+          )}
+          {!open && tasksBadge > 0 && (
+            <span
+              className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-paper"
+              aria-label="Nové úkoly"
+            />
           )}
         </button>
       </div>
