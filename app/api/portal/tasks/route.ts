@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server";
 import { nanoid } from "nanoid";
 import { requireSession } from "@/lib/portal/auth-guard";
-import { getAllTasks, markTaskSeen, resolveLinkLabels, upsertTask } from "@/lib/portal/tasks-db";
+import {
+  getAllTasks,
+  listTasksByClient,
+  listTasksByLocation,
+  markTaskSeen,
+  resolveLinkLabels,
+  upsertTask,
+} from "@/lib/portal/tasks-db";
 import { taskInputSchema } from "@/lib/portal/tasks-schema";
 import { bustTasks } from "@/lib/portal/revalidate";
 import type { Task } from "@/lib/portal/tasks-shared";
@@ -9,9 +16,20 @@ import type { Task } from "@/lib/portal/tasks-shared";
 export const dynamic = "force-dynamic";
 
 // GET - seznam úkolů (kdokoli přihlášený). Drag pořadí respektuje getAllTasks.
-export async function GET() {
+// S ?clientId= nebo ?locationId= vrátí jen úkoly navázané na danou entitu
+// (pro nápovědu „nehotové úkoly" v modálu vytváření smlouvy).
+export async function GET(req: Request) {
   const g = await requireSession();
   if (!g.ok) return g.response;
+  const url = new URL(req.url);
+  const clientId = url.searchParams.get("clientId");
+  const locationId = url.searchParams.get("locationId");
+  if (clientId) {
+    return NextResponse.json({ ok: true, tasks: await listTasksByClient(clientId) });
+  }
+  if (locationId) {
+    return NextResponse.json({ ok: true, tasks: await listTasksByLocation(locationId) });
+  }
   const tasks = await getAllTasks();
   return NextResponse.json({ ok: true, tasks });
 }

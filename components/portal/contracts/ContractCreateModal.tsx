@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { AlertTriangle, ChevronDown, X } from "lucide-react";
+import Link from "next/link";
+import { AlertTriangle, ArrowUpRight, CalendarDays, ChevronDown, ListChecks, X } from "lucide-react";
 import type { Client } from "@/lib/portal/clients-db";
+import { formatDeadline, STATUS_META, type Task } from "@/lib/portal/tasks-shared";
 import {
   CONTRACT_TYPES_PICKABLE,
   CONTRACT_TYPE_META,
@@ -64,6 +66,43 @@ export function ContractCreateModal({
   const [showRules, setShowRules] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Nehotové úkoly navázané na vybraného klienta / lokalitu (nápověda v modálu).
+  const [clientTasks, setClientTasks] = useState<Task[]>([]);
+  const [locationTasks, setLocationTasks] = useState<Task[]>([]);
+
+  useEffect(() => {
+    if (!clientId) {
+      setClientTasks([]);
+      return;
+    }
+    let live = true;
+    fetch(`/api/portal/tasks?clientId=${encodeURIComponent(clientId)}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (live && d.ok) setClientTasks(openTasks(d.tasks as Task[]));
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [clientId]);
+
+  useEffect(() => {
+    if (!locationId) {
+      setLocationTasks([]);
+      return;
+    }
+    let live = true;
+    fetch(`/api/portal/tasks?locationId=${encodeURIComponent(locationId)}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (live && d.ok) setLocationTasks(openTasks(d.tasks as Task[]));
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [locationId]);
 
   const effectiveFeePercent = variant === "B" ? 8 : franchiseFeePercent;
   const availableVariants = getVariantsForType(type);
@@ -195,6 +234,7 @@ export function ContractCreateModal({
             <span className="mt-0.5 text-[11px] text-ink-mid">
               Hledejte podle obchodního jména, IČO, města nebo zástupce.
             </span>
+            <TaskHints tasks={clientTasks} label="Nehotové úkoly klienta" />
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -354,6 +394,7 @@ export function ContractCreateModal({
                   setLocationItem(item);
                 }}
               />
+              <TaskHints tasks={locationTasks} label="Nehotové úkoly lokality" />
               {locationItem ? (
                 <div className="mt-1 flex flex-col gap-2 rounded-lg border border-edge bg-paper-warm px-3.5 py-3">
                   <div className="flex flex-wrap items-center gap-2">
@@ -499,6 +540,70 @@ export function ContractCreateModal({
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+// Nehotové úkoly (status != done) seřazené podle termínu; bez termínu dolů.
+function openTasks(tasks: Task[]): Task[] {
+  return tasks
+    .filter((t) => t.status !== "done")
+    .sort((a, b) => {
+      if (!a.deadline) return 1;
+      if (!b.deadline) return -1;
+      return a.deadline.localeCompare(b.deadline);
+    });
+}
+
+// Kompaktní nápověda: nehotové úkoly navázané na vybraného klienta / lokalitu.
+// Každý řádek odkazuje do Úkolů s otevřeným detailem (nová záložka, ať se modal
+// vytváření smlouvy neztratí). Nic se nevykreslí, když žádné nehotové úkoly nejsou.
+function TaskHints({ tasks, label }: { tasks: Task[]; label: string }) {
+  if (tasks.length === 0) return null;
+  return (
+    <div className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-3.5 py-3">
+      <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-700">
+        <ListChecks className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+        {label} · {tasks.length}
+      </div>
+      <div className="mt-2 flex flex-col divide-y divide-amber-200">
+        {tasks.map((t) => {
+          const dl = formatDeadline(t.deadline);
+          return (
+            <Link
+              key={t.id}
+              href={`/portal/tasks?task=${t.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group flex items-center gap-2.5 py-2 first:pt-0 last:pb-0"
+            >
+              <span
+                className="h-2 w-2 shrink-0 rounded-full"
+                style={{ background: STATUS_META[t.status].dot }}
+                aria-hidden="true"
+              />
+              <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink-base group-hover:text-ink-deep">
+                {t.title}
+              </span>
+              {t.deadline && (
+                <span
+                  className={`inline-flex shrink-0 items-center gap-1 text-[11.5px] ${
+                    dl.overdue ? "text-rose-600" : dl.soon ? "text-amber-700" : "text-ink-mid"
+                  }`}
+                >
+                  <CalendarDays className="h-3 w-3" strokeWidth={1.75} aria-hidden="true" />
+                  {dl.text}
+                </span>
+              )}
+              <ArrowUpRight
+                className="h-3.5 w-3.5 shrink-0 text-amber-600 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+                strokeWidth={1.75}
+                aria-hidden="true"
+              />
+            </Link>
+          );
+        })}
       </div>
     </div>
   );
