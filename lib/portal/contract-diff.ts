@@ -1,4 +1,4 @@
-import { diffWords, diffArrays } from "diff";
+import { diffArrays } from "diff";
 
 export interface DiffResult {
   hasChanges: boolean;
@@ -98,14 +98,43 @@ function segmentBlocks(html: string): string[] {
     .filter((s) => s.length > 0);
 }
 
-// Slovní diff uvnitř jednoho (zarovnaného) bloku.
+// Tokenizace HTML na atomické značky + slova + mezery. Diff pak běží nad
+// tokeny, takže nikdy nerozsekne tag a <ins>/<del> se nezanoří skrz <strong>.
+const HTML_WORD_RE = /<[^>]+>|[^<\s]+|\s+/g;
+function tokenizeHtmlWords(s: string): string[] {
+  return s.match(HTML_WORD_RE) ?? [];
+}
+const isTag = (t: string) => t.charCodeAt(0) === 60; // '<'
+
+// Slovní diff uvnitř jednoho (zarovnaného) bloku. Značky zůstávají strukturální
+// (mimo ins/del), ins/del obaluje JEN text - výsledek je vždy validně zanořený
+// (např. <strong><ins>Twistcafe</ins></strong>), ne mis-nested přes tagy.
 function intraBlockDiff(a: string, b: string): string {
   if (a === b) return a;
   let out = "";
-  for (const part of diffWords(a, b)) {
-    if (part.added) out += `<ins>${part.value}</ins>`;
-    else if (part.removed) out += `<del>${part.value}</del>`;
-    else out += part.value;
+  for (const part of diffArrays(tokenizeHtmlWords(a), tokenizeHtmlWords(b))) {
+    if (!part.added && !part.removed) {
+      out += part.value.join("");
+      continue;
+    }
+    const tag = part.added ? "ins" : "del";
+    let open = false;
+    for (const tok of part.value) {
+      if (isTag(tok)) {
+        if (open) {
+          out += `</${tag}>`;
+          open = false;
+        }
+        out += tok;
+      } else {
+        if (!open) {
+          out += `<${tag}>`;
+          open = true;
+        }
+        out += tok;
+      }
+    }
+    if (open) out += `</${tag}>`;
   }
   return out;
 }

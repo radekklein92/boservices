@@ -33,10 +33,12 @@ import {
 } from "@/lib/portal/contract-types";
 import { WITHDRAWAL_KS_TEXTS } from "@/lib/portal/contract-render";
 import {
+  bakeSnapshotForDiff,
   extractPlaceholderTokens,
   resolvePlaceholderValue,
   setBakedValue,
 } from "@/lib/portal/contract-render";
+import { htmlDiff } from "@/lib/portal/contract-diff";
 import {
   computeClaimsTotal,
   formatClaimsTotalAmount,
@@ -160,12 +162,24 @@ export function ContractDetailClient({
   const locked = !isContractEditable(contract.status);
   const dirty = saveState === "pending" || saveState === "saving";
 
-  // Template changes detection - pro bundle agreguje napříč sekcemi.
-  const hasTemplateChanges = isBundle
-    ? bundleSections.some(
-        (s) => s.templateSnapshot && s.templateSnapshot !== s.html,
-      )
-    : !!contract.templateSnapshot && contract.templateSnapshot !== html;
+  // Template changes detection - musí použít STEJNOU logiku jako Přehled změn
+  // (DiffModal) a PDF s úpravami: u zapečených smluv zapéct i šablonu, jinak by
+  // se „{{token}} vs hodnota" hlásilo jako změna i bez úprav. Naivní
+  // templateSnapshot !== html dřív falešně hlásilo „Pozor, změny". Bundle (na
+  // tokenech) porovnává surově. Memoizováno - htmlDiff není triviální.
+  const hasTemplateChanges = useMemo(
+    () =>
+      isBundle
+        ? bundleSections.some(
+            (s) => !!s.templateSnapshot && htmlDiff(s.templateSnapshot, s.html).hasChanges,
+          )
+        : !!contract.templateSnapshot &&
+          htmlDiff(
+            bakeSnapshotForDiff(contract.templateSnapshot, html, contract.variables),
+            html,
+          ).hasChanges,
+    [isBundle, bundleSections, contract.templateSnapshot, contract.variables, html],
+  );
 
   const meta = CONTRACT_TYPE_META[contract.type as ContractType];
 
@@ -1235,7 +1249,9 @@ function BundleSectionEditor({
   editable?: boolean;
 }) {
   const sectionMeta = CONTRACT_TYPE_META[section.type];
-  const changed = section.templateSnapshot !== section.html;
+  // Stejná diff logika jako jinde (ne naivní !==), ať „Upraveno proti šabloně"
+  // nehlásí falešně změnu jen kvůli Tiptap re-serializaci / data-ph značkám.
+  const changed = htmlDiff(section.templateSnapshot, section.html).hasChanges;
   return (
     <div
       onFocusCapture={onFocus}
