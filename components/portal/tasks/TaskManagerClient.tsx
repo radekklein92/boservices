@@ -248,66 +248,78 @@ export function TaskManagerClient({
       </div>
 
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-[180px]">
-          <Search
-            className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-mid"
-            strokeWidth={1.5}
-          />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Hledat úkol…"
-            className="h-9 w-full rounded-full border border-edge bg-paper pl-9 pr-3 text-[13px] outline-none transition-colors focus:border-ink-base"
-          />
+      <div className="flex flex-col gap-3">
+        {/* Řádek 1: hledání + nový úkol (kanonický vzor portálu) */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative max-w-[400px] flex-1">
+            <Search
+              className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mid"
+              strokeWidth={1.5}
+            />
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Hledat úkol…"
+              className="h-11 w-full rounded-full border border-edge bg-paper pl-11 pr-4 text-[14px] text-ink-base outline-none transition-colors placeholder:text-ink-soft focus:border-ink-base"
+            />
+          </div>
+          <span className="font-mono text-[12px] text-ink-soft">
+            {filtered.length.toString().padStart(2, "0")} / {tasks.length.toString().padStart(2, "0")}
+          </span>
+          <div className="flex-1" />
+          <button type="button" onClick={() => setPanel(null)} className={BTN_PRIMARY}>
+            <Plus className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+            Nový úkol
+          </button>
         </div>
 
-        <select
-          value={filterAssignee}
-          onChange={(e) => setFilterAssignee(e.target.value)}
-          className="h-9 rounded-full border border-edge bg-paper px-3 text-[12.5px] text-ink-deep outline-none focus:border-ink-base"
-        >
-          <option value="">Všichni řešitelé</option>
-          {assigneeOptions.map((a) => (
-            <option key={a} value={a}>
-              {a}
-            </option>
-          ))}
-        </select>
+        {/* Řádek 2: pohled + sekundární filtry */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex h-9 overflow-hidden rounded-full border border-edge">
+            <ViewBtn active={view === "list"} onClick={() => setView("list")} Icon={Rows3} />
+            <ViewBtn active={view === "kanban"} onClick={() => setView("kanban")} Icon={KanbanSquare} />
+          </div>
 
-        <button
-          type="button"
-          onClick={() =>
-            setSortDeadline((s) => (s === "asc" ? "desc" : s === "desc" ? null : "asc"))
-          }
-          className={`inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-[12.5px] font-medium transition-colors ${
-            sortDeadline ? "border-ink-base text-ink-base" : "border-edge text-ink-mid hover:text-ink-base"
-          }`}
-          title="Řadit podle termínu"
-        >
-          <ArrowDownUp className="h-3.5 w-3.5" strokeWidth={1.5} />
-          Termín {sortDeadline === "asc" ? "↑" : sortDeadline === "desc" ? "↓" : ""}
-        </button>
+          <select
+            value={filterAssignee}
+            onChange={(e) => setFilterAssignee(e.target.value)}
+            className="h-9 rounded-full border border-edge bg-paper px-3 text-[12.5px] text-ink-deep outline-none transition-colors hover:border-ink-base focus:border-ink-base"
+          >
+            <option value="">Všichni řešitelé</option>
+            {assigneeOptions.map((a) => (
+              <option key={a} value={a}>
+                {a}
+              </option>
+            ))}
+          </select>
 
-        <div className="inline-flex overflow-hidden rounded-full border border-edge">
-          <ViewBtn active={view === "list"} onClick={() => setView("list")} Icon={Rows3} />
-          <ViewBtn active={view === "kanban"} onClick={() => setView("kanban")} Icon={KanbanSquare} />
+          <button
+            type="button"
+            onClick={() =>
+              setSortDeadline((s) => (s === "asc" ? "desc" : s === "desc" ? null : "asc"))
+            }
+            className={`inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-[12.5px] font-medium transition-colors ${
+              sortDeadline
+                ? "border-ink-base text-ink-base"
+                : "border-edge text-ink-mid hover:border-ink-base hover:text-ink-base"
+            }`}
+            title="Řadit podle termínu"
+          >
+            <ArrowDownUp className="h-3.5 w-3.5" strokeWidth={1.5} />
+            Termín {sortDeadline === "asc" ? "↑" : sortDeadline === "desc" ? "↓" : ""}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setPalette(true)}
+            className="inline-flex h-9 items-center gap-1.5 rounded-full border border-edge px-3 text-[12.5px] font-medium text-ink-mid transition-colors hover:border-ink-base hover:text-ink-base"
+            title="Rychlé přidání (Cmd+K)"
+          >
+            <Zap className="h-3.5 w-3.5" strokeWidth={1.5} />
+            Rychle
+          </button>
         </div>
-
-        <button
-          type="button"
-          onClick={() => setPalette(true)}
-          className="inline-flex h-9 items-center gap-1.5 rounded-full border border-edge px-3 text-[12.5px] font-medium text-ink-mid transition-colors hover:text-ink-base"
-          title="Rychlé přidání (Cmd+K)"
-        >
-          <Zap className="h-3.5 w-3.5" strokeWidth={1.5} />
-          Rychle
-        </button>
-
-        <button type="button" onClick={() => setPanel(null)} className={`${BTN_PRIMARY} h-9`}>
-          <Plus className="h-4 w-4" strokeWidth={2} />
-          Nový úkol
-        </button>
       </div>
 
       {/* Obsah */}
@@ -318,6 +330,7 @@ export function TaskManagerClient({
           tasks={filtered}
           onOpen={(t) => setPanel(t)}
           onMove={changeStatus}
+          onToggleSubtask={toggleSubtask}
           isUnseen={isUnseen}
         />
       ) : (
@@ -444,8 +457,8 @@ function EmptyState({ onNew, hasTasks }: { onNew: () => void; hasTasks: boolean 
         {hasTasks ? "Žádný úkol neodpovídá filtru." : "Zatím žádné úkoly."}
       </p>
       {!hasTasks && (
-        <button type="button" onClick={onNew} className={`${BTN_PRIMARY} h-9`}>
-          <Plus className="h-4 w-4" strokeWidth={2} /> Vytvořit první úkol
+        <button type="button" onClick={onNew} className={BTN_PRIMARY}>
+          <Plus className="h-4 w-4" strokeWidth={1.5} /> Vytvořit první úkol
         </button>
       )}
     </div>

@@ -9,7 +9,7 @@ import {
   useSensors,
   type DragEndEvent,
 } from "@dnd-kit/core";
-import { Building2, CalendarDays, FileText, MapPin } from "lucide-react";
+import { Building2, CalendarDays, Check, FileText, MapPin } from "lucide-react";
 import {
   formatDeadline,
   STATUS_META,
@@ -35,11 +35,13 @@ export function KanbanBoard({
   tasks,
   onOpen,
   onMove,
+  onToggleSubtask,
   isUnseen,
 }: {
   tasks: Task[];
   onOpen: (t: Task) => void;
   onMove: (t: Task, status: TaskStatus) => void;
+  onToggleSubtask: (t: Task, subtaskId: string) => void;
   isUnseen: (t: Task) => boolean;
 }) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
@@ -61,6 +63,7 @@ export function KanbanBoard({
             status={status}
             tasks={tasks.filter((t) => t.status === status)}
             onOpen={onOpen}
+            onToggleSubtask={onToggleSubtask}
             isUnseen={isUnseen}
           />
         ))}
@@ -73,11 +76,13 @@ function Column({
   status,
   tasks,
   onOpen,
+  onToggleSubtask,
   isUnseen,
 }: {
   status: TaskStatus;
   tasks: Task[];
   onOpen: (t: Task) => void;
+  onToggleSubtask: (t: Task, subtaskId: string) => void;
   isUnseen: (t: Task) => boolean;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
@@ -115,6 +120,7 @@ function Column({
               task={t}
               accent={col.accent}
               onOpen={onOpen}
+              onToggleSubtask={onToggleSubtask}
               unseen={isUnseen(t)}
             />
           ))
@@ -128,11 +134,13 @@ function Card({
   task,
   accent,
   onOpen,
+  onToggleSubtask,
   unseen,
 }: {
   task: Task;
   accent: string;
   onOpen: (t: Task) => void;
+  onToggleSubtask: (t: Task, subtaskId: string) => void;
   unseen: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -213,18 +221,49 @@ function Card({
       )}
 
       {subTotal > 0 && (
-        <div className="mt-2.5 flex items-center gap-2">
-          <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-edge">
-            <span
-              className={`block h-full rounded-full transition-all ${
-                subDone === subTotal ? "bg-emerald-500" : "bg-ink-base/70"
-              }`}
-              style={{ width: `${pct}%` }}
-            />
-          </span>
-          <span className="shrink-0 text-[10.5px] tabular-nums text-ink-mid">
-            {subDone}/{subTotal}
-          </span>
+        <div className="mt-2.5">
+          <div className="flex items-center gap-2">
+            <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-edge">
+              <span
+                className={`block h-full rounded-full transition-all ${
+                  subDone === subTotal ? "bg-emerald-500" : "bg-ink-base/70"
+                }`}
+                style={{ width: `${pct}%` }}
+              />
+            </span>
+            <span className="shrink-0 text-[10.5px] tabular-nums text-ink-mid">
+              {subDone}/{subTotal}
+            </span>
+          </div>
+          <ul className="mt-2 flex flex-col gap-0.5">
+            {task.subtasks.map((s) => (
+              <li key={s.id}>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleSubtask(task, s.id);
+                  }}
+                  className="flex w-full items-center gap-1.5 rounded-md py-0.5 text-left transition-colors hover:bg-edge-warm"
+                >
+                  <span
+                    className={`grid h-3.5 w-3.5 shrink-0 place-items-center rounded border transition-colors ${
+                      s.done ? "border-emerald-500 bg-emerald-500 text-white" : "border-ink-soft"
+                    }`}
+                  >
+                    {s.done && <Check className="h-2.5 w-2.5" strokeWidth={3} />}
+                  </span>
+                  <span
+                    className={`truncate text-[11.5px] ${
+                      s.done ? "text-ink-soft line-through" : "text-ink-deep"
+                    }`}
+                  >
+                    {s.title}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
