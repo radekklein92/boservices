@@ -318,6 +318,9 @@ export function TaskManagerClient({
           >
             <Zap className="h-3.5 w-3.5" strokeWidth={1.5} />
             Rychle
+            <kbd className="ml-0.5 rounded border border-edge bg-paper-warm px-1.5 py-0.5 font-mono text-[10px] font-semibold text-ink-mid">
+              ⌘K
+            </kbd>
           </button>
         </div>
       </div>

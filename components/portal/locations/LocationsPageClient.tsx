@@ -53,7 +53,7 @@ export function LocationsPageClient({
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        eyebrow="Provoz"
+        eyebrow="Franšízing"
         title="Lokality"
         lede="Read-only zrcadlo lokalit z projektu Transition. Spravují se výhradně v Transition; tady je vidíte i s kategorií a můžete k nim přidávat poznámky a přílohy."
         actions={

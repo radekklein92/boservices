@@ -60,7 +60,7 @@ export function SidebarNav({
         ))}
       </NavSection>
 
-      <NavSection label="Provoz">
+      <NavSection label="Franšízing">
         {provoz.map((item) => (
           <NavItem
             key={item.href}
