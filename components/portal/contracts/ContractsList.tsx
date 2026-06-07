@@ -8,6 +8,7 @@ import {
   ArrowUpRight,
   FileText,
   Lock,
+  LockOpen,
   Plus,
   Search,
   Trash2,
@@ -25,9 +26,12 @@ import type { Contract } from "@/lib/portal/contracts-db";
 import {
   ALL_CONTRACT_STATUSES,
   canEditContractLock,
+  canManageContractLock,
   CONTRACT_STATUS_LABEL,
   CONTRACT_STATUS_STYLE,
+  isContractEditable,
 } from "@/lib/portal/contracts-db";
+import { LockUsersModal } from "./LockUsersModal";
 import type { Client } from "@/lib/portal/clients-db";
 import dynamicImport from "next/dynamic";
 import { CONTRACT_TYPE_META, isBundleType } from "@/lib/portal/contract-types";
@@ -87,15 +91,17 @@ export function ContractsList({
   isApprover = false,
   currentUserEmail = "",
   isSuperadmin = false,
+  userOptions = [],
 }: {
   contracts: Contract[];
   clients: Client[];
   // Schvalovat smlouvy ve stavu Ke schválení smí jen schvalovatel šablon -
   // ostatním se hromadné tlačítko „Schválit" nezobrazuje.
   isApprover?: boolean;
-  // Pro indikaci uživatelského zámku v seznamu (kdo smí editovat).
+  // Pro indikaci a správu uživatelského zámku v seznamu.
   currentUserEmail?: string;
   isSuperadmin?: boolean;
+  userOptions?: { email: string; name: string }[];
 }) {
   const router = useRouter();
   const [items, setItems] = useState(contracts);
@@ -107,6 +113,32 @@ export function ContractsList({
   const [bulkPending, setBulkPending] = useState<BulkAction | null>(null);
   const [bulkToast, setBulkToast] = useState<string | null>(null);
   const [signerPickerOpen, setSignerPickerOpen] = useState(false);
+  // Zámek úprav přímo z přehledu: id smlouvy s otevřeným modálem + probíhající uložení.
+  const [lockForId, setLockForId] = useState<string | null>(null);
+  const [lockBusy, setLockBusy] = useState(false);
+
+  async function setLock(id: string, lock: boolean, allowed: string[]) {
+    setLockBusy(true);
+    try {
+      const res = await fetch(`/api/portal/contracts/${id}/lock`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lock, allowed }),
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || "Chyba");
+      setItems((prev) =>
+        prev.map((c) =>
+          c.id === id ? { ...c, editLock: (data.contract as Contract).editLock } : c,
+        ),
+      );
+      setLockForId(null);
+    } catch (err) {
+      setBulkToast(err instanceof Error ? err.message : "Chyba");
+    } finally {
+      setLockBusy(false);
+    }
+  }
 
   const counts = useMemo(() => {
     const m: Record<Contract["status"], number> = {
@@ -473,6 +505,21 @@ export function ContractsList({
               const lockedForMe =
                 !!c.editLock &&
                 !canEditContractLock(c.editLock, currentUserEmail, isSuperadmin);
+              // Zámek lze nastavovat jen do schválení; spravovat smí zamykatel/superadmin.
+              const lockEditable = isContractEditable(c.status);
+              const canManageLock = canManageContractLock(
+                c.editLock,
+                currentUserEmail,
+                isSuperadmin,
+              );
+              const lockByLabel = c.editLock?.byName ?? c.editLock?.by ?? "";
+              const lockTitle = !c.editLock
+                ? "Uzamknout úpravy"
+                : lockedForMe
+                  ? `Uzamčeno: ${lockByLabel} - jen pro čtení`
+                  : canManageLock
+                    ? "Uzamčeno - spravovat nebo odemknout"
+                    : `Uzamčeno: ${lockByLabel} - smíte upravovat`;
               return (
                 <li
                   key={c.id}
@@ -517,27 +564,6 @@ export function ContractsList({
                           Změny
                         </span>
                       )}
-                      {c.editLock && (
-                        <span
-                          className={[
-                            "inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-[10.5px] font-semibold uppercase tracking-[0.12em]",
-                            lockedForMe
-                              ? "bg-amber-100 text-amber-700"
-                              : "border border-ink-base text-ink-base",
-                          ].join(" ")}
-                          title={
-                            lockedForMe
-                              ? `Uzamčeno: ${c.editLock.byName ?? c.editLock.by} - jen pro čtení`
-                              : `Uzamčeno: ${c.editLock.byName ?? c.editLock.by}`
-                          }
-                          aria-label={
-                            lockedForMe ? "Uzamčeno, jen pro čtení" : "Uzamčeno"
-                          }
-                        >
-                          <Lock className="h-3 w-3" strokeWidth={2.25} aria-hidden="true" />
-                          Zámek
-                        </span>
-                      )}
                       <ArrowUpRight
                         className="h-3.5 w-3.5 shrink-0 text-ink-soft transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
                         strokeWidth={1.5}
@@ -567,6 +593,30 @@ export function ContractsList({
                     <Link href={`/portal/contracts/${c.id}`} className={BTN_ROW}>
                       Otevřít
                     </Link>
+                    {lockEditable && (
+                      <button
+                        type="button"
+                        onClick={canManageLock ? () => setLockForId(c.id) : undefined}
+                        disabled={!canManageLock || lockBusy}
+                        aria-label={lockTitle}
+                        title={lockTitle}
+                        className={[
+                          "grid h-9 w-9 shrink-0 place-items-center rounded-full border transition-colors",
+                          lockedForMe
+                            ? "border-amber-400 bg-amber-50 text-amber-600"
+                            : c.editLock
+                              ? "border-ink-base bg-ink-base text-paper"
+                              : "border-edge text-ink-mid hover:border-ink-base hover:bg-ink-base hover:text-paper",
+                          canManageLock ? "" : "cursor-default",
+                        ].join(" ")}
+                      >
+                        {c.editLock ? (
+                          <Lock className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+                        ) : (
+                          <LockOpen className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+                        )}
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => remove(c.id, c.clientName)}
@@ -608,6 +658,23 @@ export function ContractsList({
           onPicked={pickSignerForBulk}
         />
       )}
+
+      {lockForId &&
+        (() => {
+          const c = items.find((x) => x.id === lockForId);
+          if (!c) return null;
+          return (
+            <LockUsersModal
+              editLock={c.editLock}
+              currentUserEmail={currentUserEmail}
+              userOptions={userOptions}
+              busy={lockBusy}
+              onConfirm={(allowed) => setLock(c.id, true, allowed)}
+              onUnlock={() => setLock(c.id, false, [])}
+              onClose={() => setLockForId(null)}
+            />
+          );
+        })()}
     </>
   );
 }

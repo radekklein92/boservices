@@ -5,17 +5,18 @@ import {
   cachedListContracts,
 } from "@/lib/portal/cached-db";
 import { getSession } from "@/lib/portal/get-session";
-import { getTemplateApprovers } from "@/lib/portal/users-db";
+import { getTemplateApprovers, listUsers } from "@/lib/portal/users-db";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Smlouvy" };
 
 export default async function ContractsPage() {
-  const [contracts, clients, session, approvers] = await Promise.all([
+  const [contracts, clients, session, approvers, users] = await Promise.all([
     cachedListContracts(),
     cachedListClients(),
     getSession(),
     getTemplateApprovers(),
+    listUsers(),
   ]);
 
   const isApprover =
@@ -23,6 +24,7 @@ export default async function ContractsPage() {
     approvers.some((a) => a.email === session.user!.email);
   const currentUserEmail = session?.user?.email ?? "";
   const isSuperadmin = session?.user?.role === "superadmin";
+  const userOptions = users.map((u) => ({ email: u.email, name: u.name }));
 
   return (
     <div className="flex flex-col gap-10">
@@ -37,6 +39,7 @@ export default async function ContractsPage() {
         isApprover={isApprover}
         currentUserEmail={currentUserEmail}
         isSuperadmin={isSuperadmin}
+        userOptions={userOptions}
       />
     </div>
   );
