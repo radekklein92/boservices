@@ -1296,7 +1296,7 @@ export function ContractDetailClient({
             <span className="text-[11.5px] text-ink-mid">
               ·{" "}
               {placeholderView
-                ? "Náhled placeholderů (jen pro čtení). Přepni na Hodnoty pro úpravy."
+                ? "Režim placeholderů ({{tokeny}}) - lze upravovat i kopírovat mezi smlouvami. Přepnutím na Hodnoty se dosadí podle této smlouvy."
                 : locked
                   ? "Jen pro čtení — smlouva je uzamčená. Placeholdery se nahrazují hodnotami nahoře."
                   : isBundle
@@ -1347,6 +1347,7 @@ export function ContractDetailClient({
                   }}
                   editable={!locked}
                   showPlaceholders={placeholderView}
+                  variables={variables}
                 />
               ))
             ) : (
@@ -1357,6 +1358,7 @@ export function ContractDetailClient({
                 editable={!locked}
                 dynamicValues={dynamicValues}
                 showPlaceholders={placeholderView}
+                variables={variables}
               />
             )}
           </div>
@@ -1600,6 +1602,7 @@ function BundleSectionEditor({
   editorRef,
   editable = true,
   showPlaceholders = false,
+  variables,
 }: {
   index: number;
   total: number;
@@ -1610,6 +1613,7 @@ function BundleSectionEditor({
   editorRef: (e: Editor | null) => void;
   editable?: boolean;
   showPlaceholders?: boolean;
+  variables?: Record<string, string>;
 }) {
   const sectionMeta = CONTRACT_TYPE_META[section.type];
   // Stejná diff logika jako jinde (ne naivní !==), ať „Upraveno proti šabloně"
@@ -1655,6 +1659,7 @@ function BundleSectionEditor({
         editorRef={editorRef}
         editable={editable}
         showPlaceholders={showPlaceholders}
+        variables={variables}
       />
     </div>
   );

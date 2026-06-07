@@ -83,6 +83,14 @@ body {
 .ProseMirror {
   font-family: var(--font-sans);
 }
+/* Zvýraznění {{tokenů}} v režimu placeholderů (dekorace PlaceholderHighlight). */
+.ph-hl {
+  background: #f3eecf;
+  color: #7a5b00;
+  border-radius: 3px;
+  padding: 0 2px;
+  white-space: nowrap;
+}
 .ProseMirror > * + * {
   margin-top: 0.6em;
 }

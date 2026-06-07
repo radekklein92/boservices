@@ -11,6 +11,8 @@ import {
   refreshDynamicValues,
   tokensToDynNodes,
 } from "./dynamic-clause-node";
+import { PlaceholderHighlight } from "./placeholder-highlight";
+import { bakedToTokenHtml, resolveForEditing } from "@/lib/portal/contract-render";
 import {
   Bold,
   Italic,
@@ -32,26 +34,13 @@ import { useEffect, useRef } from "react";
 
 export type TiptapEditorHandle = Editor;
 
-// Náhled placeholderů: zapečené hodnoty (data-ph spany) nahradí jejich tokenem
-// {{key}}, pak všechny {{tokeny}} (i dynamické) vizuálně zvýrazní. Jen pro čtení.
-function toPlaceholderHtml(html: string): string {
-  const withTokens = html.replace(
-    /<span[^>]*\bdata-ph="(\w+)"[^>]*>[\s\S]*?<\/span>/g,
-    (_m, key: string) => `{{${key}}}`,
-  );
-  return withTokens.replace(
-    /\{\{(\w+)\}\}/g,
-    (_m, key: string) =>
-      `<span style="background:#f3eecf;color:#7a5b00;padding:0 4px;border-radius:3px;font-style:normal;white-space:nowrap">{{${key}}}</span>`,
-  );
-}
-
 export function TiptapEditor({
   value,
   onChange,
   editorRef,
   editable = true,
   dynamicValues,
+  variables,
   showPlaceholders = false,
 }: {
   value: string;
@@ -62,12 +51,32 @@ export function TiptapEditor({
   // Vyrenderované hodnoty dynamických klauzulí (odstoupení) pro zobrazení v
   // editoru místo {{tokenů}}. Klíč = token (managerPartyLine, dependencyClause…).
   dynamicValues?: Record<string, string>;
-  // true = místo editoru ukázat read-only náhled s placeholdery ({{tokeny}}).
+  // Proměnné smlouvy - pro převod mezi placeholdery a hodnotami (token ↔ baked).
+  variables?: Record<string, string>;
+  // true = editovat v režimu placeholderů ({{tokeny}}); false = finální hodnoty.
   showPlaceholders?: boolean;
 }) {
-  // Ref, ať onCreate i efekty čtou vždy aktuální hodnoty (bez stale closure).
+  // Refy, ať onCreate/onUpdate i efekty čtou vždy aktuální hodnoty (bez stale closure).
   const dynRef = useRef(dynamicValues ?? {});
   dynRef.current = dynamicValues ?? {};
+  const varsRef = useRef(variables ?? {});
+  varsRef.current = variables ?? {};
+  const modeRef = useRef(showPlaceholders);
+  modeRef.current = showPlaceholders;
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
+  // Kanonické (uložené) html je zapečené. Editor zobrazuje buď zapečené hodnoty
+  // (s dynamickými nody), nebo token-formu ({{tokeny}}) dle režimu.
+  const displayFor = (canonical: string): string =>
+    modeRef.current
+      ? bakedToTokenHtml(canonical, varsRef.current)
+      : tokensToDynNodes(canonical);
+  // Z editorového html zpět na kanonické (zapečené) html.
+  const toCanonical = (editorHtml: string): string =>
+    modeRef.current
+      ? resolveForEditing(editorHtml, varsRef.current)
+      : dynNodesToTokens(editorHtml);
 
   const editor = useEditor({
     editable,
@@ -87,14 +96,15 @@ export function TiptapEditor({
       // Poslední - vykreslí se nejvíc uvnitř (zachová <strong>/<em> kolem hodnoty).
       PlaceholderValue,
       DynamicClause,
+      PlaceholderHighlight,
     ],
-    content: tokensToDynNodes(value),
+    content: displayFor(value),
     onCreate({ editor }) {
       refreshDynamicValues(editor, dynRef.current);
     },
     onUpdate({ editor }) {
-      // Uložené HTML drží {{tokeny}} (ne vyrenderované hodnoty) - serializujeme zpět.
-      onChange(dynNodesToTokens(editor.getHTML()));
+      // Vždy emitujeme kanonické (zapečené) html - bez ohledu na režim editoru.
+      onChangeRef.current(toCanonical(editor.getHTML()));
     },
     editorProps: {
       attributes: {
@@ -117,13 +127,14 @@ export function TiptapEditor({
 
   useEffect(() => {
     if (!editor) return;
-    // Porovnáváme v „token" prostoru (editor drží dynamické klauzule jako nody).
-    const currentTokens = dynNodesToTokens(editor.getHTML());
-    if (currentTokens !== value) {
-      editor.commands.setContent(tokensToDynNodes(value), { emitUpdate: false });
+    // Porovnáváme v kanonickém (zapečeném) prostoru. Reaguje i na přepnutí režimu
+    // (showPlaceholders) - překreslí obsah do správné reprezentace.
+    const current = toCanonical(editor.getHTML());
+    if (current !== value) {
+      editor.commands.setContent(displayFor(value), { emitUpdate: false });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]);
+  }, [value, showPlaceholders]);
 
   // Změna hodnot (přepínač MS/KS, výběr firmy) -> překresli dynamické klauzule
   // v editoru. Uložené HTML se nemění (drží {{tokeny}}).
@@ -139,19 +150,6 @@ export function TiptapEditor({
         <div className="min-h-[480px] px-6 py-7 text-[13.5px] text-ink-mid">
           Načítám editor…
         </div>
-      </div>
-    );
-  }
-
-  // Náhled placeholderů - read-only, místo editoru (editor zůstává namountovaný
-  // s hodnotami, jen ho dočasně neukazujeme).
-  if (showPlaceholders) {
-    return (
-      <div className="rounded-2xl border border-edge bg-paper">
-        <div
-          className="prose prose-sm max-w-none min-h-[480px] px-6 py-7 text-ink-base leading-relaxed"
-          dangerouslySetInnerHTML={{ __html: toPlaceholderHtml(value) }}
-        />
       </div>
     );
   }

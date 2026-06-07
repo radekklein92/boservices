@@ -395,6 +395,27 @@ export function resolveForEditing(
   });
 }
 
+// Opak resolveForEditing pro editovatelný režim „placeholdery": zapečené data-ph
+// spany převede zpět na {{token}}, ALE jen pokud jejich obsah stále odpovídá
+// hodnotě proměnné (= nedotčený placeholder). Ručně přepsaný obsah ponechá jako
+// literální text (token se zahodí, text zůstane - žádná ztráta ruční úpravy).
+// KEEP_DYNAMIC {{tokeny}} i literální text uživatele zůstávají beze změny.
+// Použití: zobrazení/úprava placeholderů + kopírování znění mezi smlouvami.
+const DATA_PH_SPAN_RE = /<span[^>]*\bdata-ph="(\w+)"[^>]*>([\s\S]*?)<\/span>/g;
+export function bakedToTokenHtml(
+  html: string,
+  variables: ContractVariables,
+): string {
+  return html.replace(DATA_PH_SPAN_RE, (_m, key: string, inner: string) => {
+    const value = variables[key];
+    const expected =
+      value === undefined || value === null || value === ""
+        ? emptyMarker(key)
+        : escapeHtml(value);
+    return inner === expected ? `{{${key}}}` : inner;
+  });
+}
+
 // Přepíše obsah všech značek data-ph daného klíče v zapečeném HTML novou
 // hodnotou (escaped); prázdná hodnota → marker [Label]. Klíčované = bez kolizí.
 // Tolerantní k pořadí atributů (Tiptap může span přerenderovat).
