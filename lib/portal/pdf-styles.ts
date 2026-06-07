@@ -212,15 +212,24 @@ export const PDF_PAGE_STYLES = `
   .signatures p { page-break-inside: avoid; break-inside: avoid; }
   .sign-unit { break-inside: avoid; page-break-inside: avoid; }
 
-  /* Příloha č. 1 (seznam pohledávek) - vždy začíná na samostatné stránce,
-   * tabulka se pokud možno nezalomí přes konec stránky. */
+  /* Příloha č. 1 (seznam pohledávek) - vždy začíná na samostatné stránce.
+   * Tabulka NESMÍ mít break-inside: avoid - bývá delší než stránka, a Chrome by
+   * ji pak celou odsunul na další stranu (nadpis by zůstal sám). Necháme ji téct
+   * hned za nadpisem; nedělíme jen jednotlivé řádky a hlavičku opakujeme. */
   .claims-appendix {
     break-before: page;
     page-break-before: always;
   }
-  .claims-appendix table {
+  .claims-appendix h2 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+  .claims-appendix tr {
     break-inside: avoid;
     page-break-inside: avoid;
+  }
+  .claims-appendix thead {
+    display: table-header-group;
   }
   .claims-appendix-sign {
     margin-top: 28pt;
