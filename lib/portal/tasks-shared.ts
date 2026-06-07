@@ -36,6 +36,7 @@ export interface Task {
   id: string;
   title: string;
   assignee: string; // jméno řešitele (volně, datalist členů týmu)
+  requester: string; // jméno zadavatele (volně, datalist členů týmu)
   deadline: string | null; // "YYYY-MM-DD"
   status: TaskStatus;
   body: string | null; // markdown popis

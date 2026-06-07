@@ -34,6 +34,8 @@ export async function POST(req: Request) {
     id: nanoid(),
     title: input.title,
     assignee: input.assignee,
+    // Zadavatel: pokud není zadán, default = jméno přihlášeného (autora).
+    requester: input.requester || g.session.user!.name || "",
     deadline: input.deadline,
     status: input.status,
     body: input.body,

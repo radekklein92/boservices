@@ -24,6 +24,7 @@ export const linksSchema = z.object({
 export const taskInputSchema = z.object({
   title: z.string().trim().min(1, "Zadejte název.").max(300),
   assignee: z.string().trim().max(200).default(""),
+  requester: z.string().trim().max(200).default(""),
   deadline: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Neplatné datum.")

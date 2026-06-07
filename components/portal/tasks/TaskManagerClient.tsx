@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   DndContext,
   KeyboardSensor,
@@ -24,10 +24,13 @@ import {
   ArrowDownUp,
   Building2,
   CalendarDays,
+  Check,
+  ChevronDown,
   FileText,
   GripVertical,
   KanbanSquare,
   ListChecks,
+  MapPin,
   Plus,
   Rows3,
   Search,
@@ -57,12 +60,14 @@ export function TaskManagerClient({
   options,
   initialSeenMap,
   initialOpenTaskId,
+  currentUserName,
 }: {
   initialTasks: Task[];
   members: MemberOption[];
   options: TaskEntityOptions;
   initialSeenMap: SeenMap;
   initialOpenTaskId?: string;
+  currentUserName: string;
 }) {
   const router = useRouter();
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
@@ -178,6 +183,24 @@ export function TaskManagerClient({
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
+      });
+      const data = await res.json();
+      if (data.ok) upsertLocal(data.task as Task);
+    } catch {
+      router.refresh();
+    }
+  }
+
+  async function toggleSubtask(task: Task, subtaskId: string) {
+    const subtasks = task.subtasks.map((s) =>
+      s.id === subtaskId ? { ...s, done: !s.done } : s,
+    );
+    upsertLocal({ ...task, subtasks, updatedAt: new Date().toISOString() });
+    try {
+      const res = await fetch(`/api/portal/tasks/${task.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subtasks }),
       });
       const data = await res.json();
       if (data.ok) upsertLocal(data.task as Task);
@@ -313,6 +336,7 @@ export function TaskManagerClient({
                   unseen={isUnseen(t)}
                   onOpen={() => setPanel(t)}
                   onStatus={(s) => changeStatus(t, s)}
+                  onToggleSubtask={(sid) => toggleSubtask(t, sid)}
                 />
               ))}
             </div>
@@ -343,6 +367,7 @@ export function TaskManagerClient({
             task={panel}
             members={members}
             options={options}
+            currentUserName={currentUserName}
             onClose={() => setPanel(false)}
             onSaved={(t) => {
               upsertLocal(t);
@@ -434,6 +459,7 @@ function TaskRow({
   unseen,
   onOpen,
   onStatus,
+  onToggleSubtask,
 }: {
   task: Task;
   even: boolean;
@@ -441,89 +467,180 @@ function TaskRow({
   unseen: boolean;
   onOpen: () => void;
   onStatus: (s: TaskStatus) => void;
+  onToggleSubtask: (subtaskId: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
     disabled: !dragEnabled,
   });
+  const [expanded, setExpanded] = useState(true);
   const dl = formatDeadline(task.deadline);
+  const subTotal = task.subtasks.length;
   const subDone = task.subtasks.filter((s) => s.done).length;
+  const pct = subTotal ? Math.round((subDone / subTotal) * 100) : 0;
   const ll = task.linkLabels;
+  const hasLinks = !!(ll.clientName || ll.locationName || ll.contractNumber);
 
   return (
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`group flex items-center gap-3 border-b border-edge px-3 py-3 last:border-0 sm:px-4 ${
+      className={`group border-b border-edge last:border-0 ${
         even ? "bg-paper" : "bg-paper-warm/40"
       } ${isDragging ? "opacity-60" : ""}`}
     >
-      <button
-        type="button"
-        className={`shrink-0 text-ink-soft transition-opacity ${
-          dragEnabled ? "cursor-grab opacity-0 group-hover:opacity-100" : "cursor-default opacity-0"
-        }`}
-        {...attributes}
-        {...listeners}
-        aria-label="Přetáhnout"
-        disabled={!dragEnabled}
-      >
-        <GripVertical className="h-4 w-4" strokeWidth={1.5} />
-      </button>
+      <div className="flex items-center gap-3 px-3 py-3 sm:px-4">
+        <button
+          type="button"
+          className={`shrink-0 text-ink-soft transition-opacity ${
+            dragEnabled ? "cursor-grab opacity-0 group-hover:opacity-100" : "cursor-default opacity-0"
+          }`}
+          {...attributes}
+          {...listeners}
+          aria-label="Přetáhnout"
+          disabled={!dragEnabled}
+        >
+          <GripVertical className="h-4 w-4" strokeWidth={1.5} />
+        </button>
 
-      <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
-        <span className="flex items-center gap-1.5">
-          {unseen && task.status !== "done" && (
-            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" aria-label="Nepřečteno" />
-          )}
-          <span
-            className={`truncate text-[14px] font-medium ${
-              task.status === "done" ? "text-ink-mid line-through" : "text-ink-base"
-            }`}
-          >
-            {task.title}
+        <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
+          <span className="flex items-center gap-1.5">
+            {unseen && task.status !== "done" && (
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" aria-label="Nepřečteno" />
+            )}
+            <span
+              className={`truncate text-[14px] font-medium ${
+                task.status === "done" ? "text-ink-mid line-through" : "text-ink-base"
+              }`}
+            >
+              {task.title}
+            </span>
           </span>
+          {(subTotal > 0 || hasLinks) && (
+            <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-ink-mid">
+              {subTotal > 0 && (
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-1.5 w-16 overflow-hidden rounded-full bg-edge">
+                    <span
+                      className={`block h-full rounded-full transition-all ${
+                        subDone === subTotal ? "bg-emerald-500" : "bg-ink-base/70"
+                      }`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </span>
+                  <span className="tabular-nums">
+                    {subDone}/{subTotal}
+                  </span>
+                </span>
+              )}
+              {ll.clientName && (
+                <span className="inline-flex items-center gap-1">
+                  <Building2 className="h-3 w-3" strokeWidth={1.5} /> {ll.clientName}
+                </span>
+              )}
+              {ll.locationName && (
+                <span className="inline-flex items-center gap-1">
+                  <MapPin className="h-3 w-3" strokeWidth={1.5} /> {ll.locationName}
+                </span>
+              )}
+              {ll.contractNumber && (
+                <span className="inline-flex items-center gap-1">
+                  <FileText className="h-3 w-3" strokeWidth={1.5} /> {ll.contractNumber}
+                </span>
+              )}
+            </span>
+          )}
+        </button>
+
+        <span className="hidden w-28 shrink-0 truncate text-[12.5px] text-ink-deep sm:block">
+          {task.assignee || "—"}
         </span>
-        <span className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[11px] text-ink-mid">
-          {task.subtasks.length > 0 && (
-            <span className="inline-flex items-center gap-1">
-              <ListChecks className="h-3 w-3" strokeWidth={1.5} /> {subDone}/{task.subtasks.length}
-            </span>
-          )}
-          {ll.clientName && (
-            <span className="inline-flex items-center gap-1">
-              <Building2 className="h-3 w-3" strokeWidth={1.5} /> {ll.clientName}
-            </span>
-          )}
-          {ll.locationName && (
-            <span className="inline-flex items-center gap-1">
-              <span className="text-ink-soft">·</span> {ll.locationName}
-            </span>
-          )}
-          {ll.contractNumber && (
-            <span className="inline-flex items-center gap-1">
-              <FileText className="h-3 w-3" strokeWidth={1.5} /> {ll.contractNumber}
-            </span>
-          )}
+
+        <span
+          className={`hidden w-24 shrink-0 items-center gap-1 text-[12px] sm:inline-flex ${
+            dl.overdue ? "text-rose-600" : dl.soon ? "text-amber-700" : "text-ink-mid"
+          }`}
+        >
+          {task.deadline && <CalendarDays className="h-3.5 w-3.5" strokeWidth={1.5} />}
+          {task.deadline ? dl.text : ""}
         </span>
-      </button>
 
-      <span className="hidden w-28 shrink-0 truncate text-[12.5px] text-ink-deep sm:block">
-        {task.assignee || "—"}
-      </span>
+        <div className="shrink-0">
+          <StatusDropdown value={task.status} onChange={onStatus} compact />
+        </div>
 
-      <span
-        className={`hidden w-24 shrink-0 items-center gap-1 text-[12px] sm:inline-flex ${
-          dl.overdue ? "text-rose-600" : dl.soon ? "text-amber-700" : "text-ink-mid"
-        }`}
-      >
-        {task.deadline && <CalendarDays className="h-3.5 w-3.5" strokeWidth={1.5} />}
-        {task.deadline ? dl.text : ""}
-      </span>
-
-      <div className="shrink-0">
-        <StatusDropdown value={task.status} onChange={onStatus} compact />
+        {subTotal > 0 ? (
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-ink-soft transition-colors hover:bg-edge-warm hover:text-ink-base"
+            aria-label={expanded ? "Sbalit podúkoly" : "Rozbalit podúkoly"}
+            aria-expanded={expanded}
+          >
+            <ChevronDown
+              className={`h-3.5 w-3.5 transition-transform ${expanded ? "rotate-180" : ""}`}
+              strokeWidth={1.75}
+            />
+          </button>
+        ) : (
+          <span className="w-7 shrink-0" aria-hidden="true" />
+        )}
       </div>
+
+      <AnimatePresence initial={false}>
+        {subTotal > 0 && expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            className="overflow-hidden"
+          >
+            <div className="px-3 pb-3 pl-10 sm:px-4 sm:pl-11">
+              <div className="rounded-xl border border-edge bg-paper-warm/60 p-3">
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-edge">
+                    <span
+                      className={`block h-full rounded-full transition-all ${
+                        subDone === subTotal ? "bg-emerald-500" : "bg-ink-base/70"
+                      }`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </span>
+                  <span className="shrink-0 text-[11px] tabular-nums text-ink-mid">
+                    {subDone}/{subTotal}
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 gap-x-5 gap-y-1 sm:grid-cols-2">
+                  {task.subtasks.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => onToggleSubtask(s.id)}
+                      className="flex items-center gap-2 rounded-md py-1 text-left transition-colors hover:bg-paper"
+                    >
+                      <span
+                        className={`grid h-4 w-4 shrink-0 place-items-center rounded border transition-colors ${
+                          s.done ? "border-emerald-500 bg-emerald-500 text-white" : "border-ink-soft"
+                        }`}
+                      >
+                        {s.done && <Check className="h-3 w-3" strokeWidth={3} />}
+                      </span>
+                      <span
+                        className={`text-[12.5px] ${
+                          s.done ? "text-ink-soft line-through" : "text-ink-deep"
+                        }`}
+                      >
+                        {s.title}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

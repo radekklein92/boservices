@@ -23,13 +23,13 @@ type Item = {
 
 const main: Item[] = [
   { href: "/portal", label: "Dashboard", Icon: LayoutDashboard },
+  { href: "/portal/tasks", label: "Úkoly", Icon: ListChecks },
 ];
 
 const provoz: Item[] = [
   { href: "/portal/clients", label: "Klienti", Icon: Building2 },
   { href: "/portal/locations", label: "Lokality", Icon: MapPin },
   { href: "/portal/contracts", label: "Smlouvy", Icon: FileText },
-  { href: "/portal/tasks", label: "Úkoly", Icon: ListChecks },
 ];
 
 const admin: Item[] = [
@@ -55,6 +55,7 @@ export function SidebarNav({
             key={item.href}
             {...item}
             active={isActive(pathname, item.href)}
+            badge={item.href === "/portal/tasks" ? tasksBadge : 0}
           />
         ))}
       </NavSection>
@@ -65,7 +66,6 @@ export function SidebarNav({
             key={item.href}
             {...item}
             active={isActive(pathname, item.href)}
-            badge={item.href === "/portal/tasks" ? tasksBadge : 0}
           />
         ))}
       </NavSection>

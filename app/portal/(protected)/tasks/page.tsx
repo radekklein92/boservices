@@ -54,7 +54,7 @@ export default async function TasksPage({
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
-        eyebrow="Provoz"
+        eyebrow="Tým"
         title="Úkoly"
         lede="Interní úkoly týmu - termíny, podúkoly, e-mailové připomínky a vazby na klienty, lokality a smlouvy."
       />
@@ -68,6 +68,7 @@ export default async function TasksPage({
         }}
         initialSeenMap={seenMap}
         initialOpenTaskId={sp.task}
+        currentUserName={session!.user!.name ?? ""}
       />
     </div>
   );

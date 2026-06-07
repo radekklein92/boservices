@@ -58,6 +58,7 @@ export function TaskSidePanel({
   task,
   members,
   options,
+  currentUserName,
   onClose,
   onSaved,
   onDeleted,
@@ -65,6 +66,7 @@ export function TaskSidePanel({
   task: Partial<Task> | null;
   members: MemberOption[];
   options: TaskEntityOptions;
+  currentUserName: string;
   onClose: () => void;
   onSaved: (t: Task) => void;
   onDeleted: (id: string) => void;
@@ -72,6 +74,9 @@ export function TaskSidePanel({
   const isNew = !task?.id;
   const [title, setTitle] = useState(task?.title ?? "");
   const [assignee, setAssignee] = useState(task?.assignee ?? "");
+  const [requester, setRequester] = useState(
+    task?.requester ?? (task?.id ? "" : currentUserName),
+  );
   const [deadline, setDeadline] = useState(task?.deadline ?? "");
   const [status, setStatus] = useState<TaskStatus>(task?.status ?? "todo");
   const [body, setBody] = useState(task?.body ?? "");
@@ -102,6 +107,7 @@ export function TaskSidePanel({
     const payload = {
       title: title.trim(),
       assignee: assignee.trim(),
+      requester: requester.trim(),
       deadline: deadline || null,
       status,
       body: body.trim() || null,
@@ -186,6 +192,12 @@ export function TaskSidePanel({
               className="w-full border-0 bg-transparent text-[18px] font-bold tracking-[-0.01em] text-ink-base outline-none placeholder:text-ink-soft"
             />
 
+            <datalist id="task-members">
+              {memberNames.map((n) => (
+                <option key={n} value={n} />
+              ))}
+            </datalist>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="flex flex-col gap-1.5">
                 <span className={LABEL}>Řešitel</span>
@@ -196,12 +208,20 @@ export function TaskSidePanel({
                   placeholder="Jméno"
                   className={FIELD}
                 />
-                <datalist id="task-members">
-                  {memberNames.map((n) => (
-                    <option key={n} value={n} />
-                  ))}
-                </datalist>
               </div>
+              <div className="flex flex-col gap-1.5">
+                <span className={LABEL}>Zadavatel</span>
+                <input
+                  list="task-members"
+                  value={requester}
+                  onChange={(e) => setRequester(e.target.value)}
+                  placeholder="Jméno"
+                  className={FIELD}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
               <div className="flex flex-col gap-1.5">
                 <span className={LABEL}>Termín</span>
                 <input
@@ -211,12 +231,11 @@ export function TaskSidePanel({
                   className={FIELD}
                 />
               </div>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <span className={LABEL}>Stav</span>
-              <div>
-                <StatusDropdown value={status} onChange={setStatus} />
+              <div className="flex flex-col gap-1.5">
+                <span className={LABEL}>Stav</span>
+                <div>
+                  <StatusDropdown value={status} onChange={setStatus} />
+                </div>
               </div>
             </div>
 
