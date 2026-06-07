@@ -80,6 +80,7 @@ import { TemplateMatchBadge } from "./TemplateMatchBadge";
 import { DiffModal } from "./DiffModal";
 import { isApprovalGated } from "@/lib/portal/contract-types";
 import { LEASE_HOLDERS } from "@/lib/portal/lease-holders";
+import { EDITOR_RENDERED_TOKENS } from "./dynamic-clause-node";
 
 type Props = {
   initial: Contract;
@@ -242,6 +243,16 @@ export function ContractDetailClient({
     : null;
   const insolvencyOpen =
     !!insolvencyRule && insolvencyKey !== insolvencyDismissed;
+
+  // Vyrenderované hodnoty dynamických klauzulí (odstoupení) pro zobrazení v
+  // editoru místo {{tokenů}}. Uložené HTML zůstává na {{tokenech}}.
+  const dynamicValues = useMemo(() => {
+    const out: Record<string, string> = {};
+    for (const key of EDITOR_RENDERED_TOKENS) {
+      if (variables[key] !== undefined) out[key] = variables[key];
+    }
+    return out;
+  }, [variables]);
 
   function notify(kind: "ok" | "error", msg: string) {
     setToast({ kind, msg });
@@ -1182,6 +1193,7 @@ export function ContractDetailClient({
                 onChange={updateHtml}
                 editorRef={(e) => (editorRef.current = e)}
                 editable={!locked}
+                dynamicValues={dynamicValues}
               />
             )}
           </div>

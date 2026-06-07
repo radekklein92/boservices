@@ -6,6 +6,12 @@ import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
 import { PlaceholderValue } from "./placeholder-value-mark";
 import {
+  DynamicClause,
+  dynNodesToTokens,
+  refreshDynamicValues,
+  tokensToDynNodes,
+} from "./dynamic-clause-node";
+import {
   Bold,
   Italic,
   Underline as UnderlineIcon,
@@ -22,7 +28,7 @@ import {
   Pilcrow,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 export type TiptapEditorHandle = Editor;
 
@@ -31,13 +37,21 @@ export function TiptapEditor({
   onChange,
   editorRef,
   editable = true,
+  dynamicValues,
 }: {
   value: string;
   onChange: (html: string) => void;
   editorRef?: (editor: Editor | null) => void;
   // false = jen pro čtení (smlouva uzamčená proti úpravám).
   editable?: boolean;
+  // Vyrenderované hodnoty dynamických klauzulí (odstoupení) pro zobrazení v
+  // editoru místo {{tokenů}}. Klíč = token (managerPartyLine, dependencyClause…).
+  dynamicValues?: Record<string, string>;
 }) {
+  // Ref, ať onCreate i efekty čtou vždy aktuální hodnoty (bez stale closure).
+  const dynRef = useRef(dynamicValues ?? {});
+  dynRef.current = dynamicValues ?? {};
+
   const editor = useEditor({
     editable,
     extensions: [
@@ -55,10 +69,15 @@ export function TiptapEditor({
       }),
       // Poslední - vykreslí se nejvíc uvnitř (zachová <strong>/<em> kolem hodnoty).
       PlaceholderValue,
+      DynamicClause,
     ],
-    content: value,
+    content: tokensToDynNodes(value),
+    onCreate({ editor }) {
+      refreshDynamicValues(editor, dynRef.current);
+    },
     onUpdate({ editor }) {
-      onChange(editor.getHTML());
+      // Uložené HTML drží {{tokeny}} (ne vyrenderované hodnoty) - serializujeme zpět.
+      onChange(dynNodesToTokens(editor.getHTML()));
     },
     editorProps: {
       attributes: {
@@ -81,12 +100,20 @@ export function TiptapEditor({
 
   useEffect(() => {
     if (!editor) return;
-    const current = editor.getHTML();
-    if (current !== value) {
-      editor.commands.setContent(value, { emitUpdate: false });
+    // Porovnáváme v „token" prostoru (editor drží dynamické klauzule jako nody).
+    const currentTokens = dynNodesToTokens(editor.getHTML());
+    if (currentTokens !== value) {
+      editor.commands.setContent(tokensToDynNodes(value), { emitUpdate: false });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
+
+  // Změna hodnot (přepínač MS/KS, výběr firmy) -> překresli dynamické klauzule
+  // v editoru. Uložené HTML se nemění (drží {{tokeny}}).
+  useEffect(() => {
+    if (editor) refreshDynamicValues(editor, dynamicValues ?? {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor, dynamicValues]);
 
   if (!editor) {
     return (
