@@ -178,6 +178,8 @@ export function ContractDetailClient({
   // Zámek úprav konceptu (modal pro výběr povolených uživatelů + probíhající uložení).
   const [lockModalOpen, setLockModalOpen] = useState(false);
   const [lockBusy, setLockBusy] = useState(false);
+  // Editor: zobrazit finální hodnoty (default) nebo placeholdery ({{tokeny}}).
+  const [placeholderView, setPlaceholderView] = useState(false);
   const editorRef = useRef<Editor | null>(null);
   const bundleEditorRefs = useRef<(Editor | null)[]>([]);
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -1286,18 +1288,47 @@ export function ContractDetailClient({
 
       {/* Editor */}
       <section>
-        <div className="mb-3 flex items-baseline gap-2.5">
-          <h2 className="text-[10.5px] font-semibold uppercase tracking-[0.18em] text-ink-base">
-            {isBundle ? "Znění balíčku" : "Znění smlouvy"}
-          </h2>
-          <span className="text-[11.5px] text-ink-mid">
-            ·{" "}
-            {locked
-              ? "Jen pro čtení — smlouva je uzamčená. Placeholdery se nahrazují hodnotami nahoře."
-              : isBundle
-                ? "Tři dokumenty pod sebou. Placeholdery se vyplňují společně nahoře. Vložení placeholderu z palety jde do naposledy zaměřeného editoru."
-                : "Editujte text. Placeholdery se nahradí hodnotami nahoře."}
-          </span>
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2.5">
+          <div className="flex items-baseline gap-2.5">
+            <h2 className="text-[10.5px] font-semibold uppercase tracking-[0.18em] text-ink-base">
+              {isBundle ? "Znění balíčku" : "Znění smlouvy"}
+            </h2>
+            <span className="text-[11.5px] text-ink-mid">
+              ·{" "}
+              {placeholderView
+                ? "Náhled placeholderů (jen pro čtení). Přepni na Hodnoty pro úpravy."
+                : locked
+                  ? "Jen pro čtení — smlouva je uzamčená. Placeholdery se nahrazují hodnotami nahoře."
+                  : isBundle
+                    ? "Tři dokumenty pod sebou. Placeholdery se vyplňují společně nahoře. Vložení placeholderu z palety jde do naposledy zaměřeného editoru."
+                    : "Editujte text. Placeholdery se nahradí hodnotami nahoře."}
+            </span>
+          </div>
+          {/* Přepínač zobrazení: finální hodnoty (default) / placeholdery. */}
+          <div className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-edge bg-paper p-0.5">
+            <button
+              type="button"
+              onClick={() => setPlaceholderView(false)}
+              aria-pressed={!placeholderView}
+              className={[
+                "inline-flex h-7 items-center rounded-full px-3 text-[12px] font-medium transition-colors",
+                !placeholderView ? "bg-ink-base text-paper" : "text-ink-mid hover:text-ink-base",
+              ].join(" ")}
+            >
+              Hodnoty
+            </button>
+            <button
+              type="button"
+              onClick={() => setPlaceholderView(true)}
+              aria-pressed={placeholderView}
+              className={[
+                "inline-flex h-7 items-center rounded-full px-3 text-[12px] font-medium transition-colors",
+                placeholderView ? "bg-ink-base text-paper" : "text-ink-mid hover:text-ink-base",
+              ].join(" ")}
+            >
+              Placeholdery
+            </button>
+          </div>
         </div>
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_300px]">
           <div className="flex min-w-0 flex-col gap-5">
@@ -1315,6 +1346,7 @@ export function ContractDetailClient({
                     bundleEditorRefs.current[idx] = e;
                   }}
                   editable={!locked}
+                  showPlaceholders={placeholderView}
                 />
               ))
             ) : (
@@ -1324,6 +1356,7 @@ export function ContractDetailClient({
                 editorRef={(e) => (editorRef.current = e)}
                 editable={!locked}
                 dynamicValues={dynamicValues}
+                showPlaceholders={placeholderView}
               />
             )}
           </div>
@@ -1566,6 +1599,7 @@ function BundleSectionEditor({
   onFocus,
   editorRef,
   editable = true,
+  showPlaceholders = false,
 }: {
   index: number;
   total: number;
@@ -1575,6 +1609,7 @@ function BundleSectionEditor({
   onFocus: () => void;
   editorRef: (e: Editor | null) => void;
   editable?: boolean;
+  showPlaceholders?: boolean;
 }) {
   const sectionMeta = CONTRACT_TYPE_META[section.type];
   // Stejná diff logika jako jinde (ne naivní !==), ať „Upraveno proti šabloně"
@@ -1619,6 +1654,7 @@ function BundleSectionEditor({
         onChange={onChange}
         editorRef={editorRef}
         editable={editable}
+        showPlaceholders={showPlaceholders}
       />
     </div>
   );

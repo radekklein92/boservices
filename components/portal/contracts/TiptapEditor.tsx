@@ -32,12 +32,27 @@ import { useEffect, useRef } from "react";
 
 export type TiptapEditorHandle = Editor;
 
+// Náhled placeholderů: zapečené hodnoty (data-ph spany) nahradí jejich tokenem
+// {{key}}, pak všechny {{tokeny}} (i dynamické) vizuálně zvýrazní. Jen pro čtení.
+function toPlaceholderHtml(html: string): string {
+  const withTokens = html.replace(
+    /<span[^>]*\bdata-ph="(\w+)"[^>]*>[\s\S]*?<\/span>/g,
+    (_m, key: string) => `{{${key}}}`,
+  );
+  return withTokens.replace(
+    /\{\{(\w+)\}\}/g,
+    (_m, key: string) =>
+      `<span style="background:#f3eecf;color:#7a5b00;padding:0 4px;border-radius:3px;font-style:normal;white-space:nowrap">{{${key}}}</span>`,
+  );
+}
+
 export function TiptapEditor({
   value,
   onChange,
   editorRef,
   editable = true,
   dynamicValues,
+  showPlaceholders = false,
 }: {
   value: string;
   onChange: (html: string) => void;
@@ -47,6 +62,8 @@ export function TiptapEditor({
   // Vyrenderované hodnoty dynamických klauzulí (odstoupení) pro zobrazení v
   // editoru místo {{tokenů}}. Klíč = token (managerPartyLine, dependencyClause…).
   dynamicValues?: Record<string, string>;
+  // true = místo editoru ukázat read-only náhled s placeholdery ({{tokeny}}).
+  showPlaceholders?: boolean;
 }) {
   // Ref, ať onCreate i efekty čtou vždy aktuální hodnoty (bez stale closure).
   const dynRef = useRef(dynamicValues ?? {});
@@ -122,6 +139,19 @@ export function TiptapEditor({
         <div className="min-h-[480px] px-6 py-7 text-[13.5px] text-ink-mid">
           Načítám editor…
         </div>
+      </div>
+    );
+  }
+
+  // Náhled placeholderů - read-only, místo editoru (editor zůstává namountovaný
+  // s hodnotami, jen ho dočasně neukazujeme).
+  if (showPlaceholders) {
+    return (
+      <div className="rounded-2xl border border-edge bg-paper">
+        <div
+          className="prose prose-sm max-w-none min-h-[480px] px-6 py-7 text-ink-base leading-relaxed"
+          dangerouslySetInnerHTML={{ __html: toPlaceholderHtml(value) }}
+        />
       </div>
     );
   }
