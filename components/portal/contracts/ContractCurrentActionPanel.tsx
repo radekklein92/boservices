@@ -248,7 +248,7 @@ export function ContractCurrentActionPanel({
   }
 
   const status = contract.status;
-  const flow = getStatusFlowForType(contract.type);
+  const flow = getStatusFlowForType(contract.type, contract.variant);
   const idx = flow.indexOf(status);
   const nextStatus: ContractStatus | null =
     idx >= 0 && idx < flow.length - 1 ? flow[idx + 1]! : null;

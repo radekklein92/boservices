@@ -76,7 +76,16 @@ export const APPROVAL_CONTRACT_STATUSES: ContractStatus[] = [
 // labely a statusOrder. APPROVAL flow je nejdelší a obsahuje všechny.
 export const ALL_CONTRACT_STATUSES: ContractStatus[] = APPROVAL_CONTRACT_STATUSES;
 
-export function getStatusFlowForType(type: ContractType): ContractStatus[] {
+export function getStatusFlowForType(
+  type: ContractType,
+  variant?: string,
+): ContractStatus[] {
+  // Dohoda o ukončení (withdrawal varianta D) je dvoustranná → standardní flow
+  // s podpisem BOS i klienta. Jednostranné odstoupení (A/B) a oznámení o
+  // postoupení mají zkrácený flow bez „Podepsáno BOS".
+  if (type === "withdrawal" && variant === "D") {
+    return CONTRACT_STATUSES;
+  }
   if (type === "withdrawal" || type === "assignment-notice") {
     return WITHDRAWAL_CONTRACT_STATUSES;
   }
@@ -154,11 +163,6 @@ export interface Contract {
   // PDF s logem v záhlaví a textem v patičce (true, default) nebo bez nich.
   // Snapshot z template.letterhead při vytvoření smlouvy.
   letterhead?: boolean;
-  // Volitelný override názvu a podtitulku v hlavičce PDF (cover). Prázdné /
-  // nevyplněné = výchozí znění dle typu (getCoverForType). Editovatelné u
-  // odstoupení (jednorázové dokumenty s vlastním názvem).
-  coverTitle?: string;
-  coverSubtitle?: string;
   // Lokalita, ke které se smlouva vztahuje - jen typy posuzované podle lokality
   // (isApprovalGated). Vybírá se povinně při vytvoření a lze ji změnit ve stavu
   // Koncept. locationSnapshot je zmrazený stav z Transition v okamžiku výběru
@@ -244,6 +248,7 @@ export function computeContractStatus(
   c: Pick<
     Contract,
     | "type"
+    | "variant"
     | "submittedForApprovalAt"
     | "approvedAt"
     | "signerPickedAt"
@@ -252,7 +257,7 @@ export function computeContractStatus(
     | "scanUploadedAt"
   >,
 ): ContractStatus {
-  const flow = getStatusFlowForType(c.type);
+  const flow = getStatusFlowForType(c.type, c.variant);
   for (let i = flow.length - 1; i >= 1; i--) {
     const status = flow[i]!;
     const field = STATUS_DONE_FIELD[status];
@@ -284,7 +289,7 @@ export function backfillToStatus(
   nowIso: string,
   email: string,
 ): Partial<Contract> {
-  const flow = getStatusFlowForType(contract.type);
+  const flow = getStatusFlowForType(contract.type, contract.variant);
   const targetIdx = flow.indexOf(targetStatus);
   if (targetIdx < 1) return {};
   const patch: Record<string, string> = {};

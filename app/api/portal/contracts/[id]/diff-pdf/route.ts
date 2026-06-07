@@ -44,10 +44,7 @@ export async function GET(
   }
 
   const meta = CONTRACT_TYPE_META[contract.type];
-  const cover = resolveCover(contract.type, {
-    title: contract.coverTitle,
-    subtitle: contract.coverSubtitle,
-  });
+  const cover = resolveCover(contract.type, contract.variant);
 
   let pdf: Buffer;
   try {

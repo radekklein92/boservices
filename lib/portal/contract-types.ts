@@ -102,8 +102,16 @@ export function isContractType(value: string): value is ContractType {
 export const FRANCHISE_VARIANTS = ["AB", "B"] as const;
 export type FranchiseVariant = (typeof FRANCHISE_VARIANTS)[number];
 
-export const WITHDRAWAL_VARIANTS = ["A", "B"] as const;
+// A/B = jednostranné Odstoupení (A porušení Manažera, B porušení Poskytovatele).
+// D = dvoustranná Dohoda o ukončení smluv (vychází ze stejného porušení jako B).
+export const WITHDRAWAL_VARIANTS = ["A", "B", "D"] as const;
 export type WithdrawalVariant = (typeof WITHDRAWAL_VARIANTS)[number];
+
+// Dohoda o ukončení (varianta D) - dvoustranná, na rozdíl od jednostranného
+// odstoupení (A/B). Řídí cover, podpisový flow i podpisové bloky.
+export function isWithdrawalAgreement(variant?: string): boolean {
+  return variant === "D";
+}
 
 // Sjednocený typ - každý Contract.variant je textový identifikátor, jehož
 // platné hodnoty určuje typ smlouvy.
@@ -129,12 +137,16 @@ export const FRANCHISE_VARIANT_META: Record<FranchiseVariant, VariantMeta> = {
 
 export const WITHDRAWAL_VARIANT_META: Record<WithdrawalVariant, VariantMeta> = {
   A: {
-    label: "A — porušení Manažera",
-    description: "Při aktivní manažerské smlouvě.",
+    label: "Odstoupení — porušení Manažera",
+    description: "Jednostranné odstoupení od MS (FS padá § 1727). Při aktivní manažerské smlouvě.",
   },
   B: {
-    label: "B — porušení Poskytovatele",
-    description: "Pokud TWIST přišel o místo.",
+    label: "Odstoupení — porušení Poskytovatele",
+    description: "Jednostranné odstoupení od FS (MS padá § 1727). Pokud TWIST přišel o místo.",
+  },
+  D: {
+    label: "Dohoda o ukončení — porušení Poskytovatele",
+    description: "Dvoustranná dohoda o ukončení FS a navázaných smluv. Podepisují obě strany.",
   },
 };
 

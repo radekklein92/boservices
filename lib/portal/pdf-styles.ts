@@ -53,17 +53,20 @@ export function getCoverForType(type: ContractType): CoverHeader {
   };
 }
 
-// Cover s volitelným per-smlouva overridem názvu/podtitulku. Prázdná hodnota
-// (po trim) spadne na výchozí znění typu - tj. smazání pole = default.
+// Cover podle typu a varianty. Odstoupení varianta D = Dohoda o ukončení smluv
+// (jiný název i podtitulek než jednostranné odstoupení A/B).
 export function resolveCover(
   type: ContractType,
-  overrides?: { title?: string | null; subtitle?: string | null },
+  variant?: string,
 ): CoverHeader {
-  const base = getCoverForType(type);
-  return {
-    title: overrides?.title?.trim() || base.title,
-    subtitle: overrides?.subtitle?.trim() || base.subtitle,
-  };
+  if (type === "withdrawal" && variant === "D") {
+    return {
+      title: "Dohoda o ukončení smluv",
+      subtitle:
+        "dvoustranné ujednání o ukončení závislých smluv dle § 1727 a § 1981 zákona č. 89/2012 Sb., občanský zákoník",
+    };
+  }
+  return getCoverForType(type);
 }
 
 export const PDF_PAGE_STYLES = `

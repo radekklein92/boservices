@@ -43,9 +43,6 @@ const updateSchema = z.object({
   number: z.string().trim().max(40).optional(),
   bundleSections: z.array(bundleSectionSchema).optional(),
   claims: z.array(claimSchema).max(200).optional(),
-  // Override hlavičky PDF (cover) - editovatelné u odstoupení.
-  coverTitle: z.string().max(300).optional(),
-  coverSubtitle: z.string().max(500).optional(),
 });
 
 export async function GET(
@@ -128,8 +125,6 @@ export async function PUT(
     bundleSections: nextBundleSections,
     variables: mergedVars,
     claims: parsed.data.claims ?? existing.claims,
-    coverTitle: parsed.data.coverTitle ?? existing.coverTitle,
-    coverSubtitle: parsed.data.coverSubtitle ?? existing.coverSubtitle,
     number: existing.number,
     // Editing invalidates the previously generated PDF
     generatedPdfUrl: undefined,

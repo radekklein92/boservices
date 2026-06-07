@@ -100,9 +100,6 @@ type Props = {
   // Standardní odměna z aktivní šablony (raw částka) - baseline pro detekci
   // ruční změny u cooperation/operation. Franšíza ji nepoužívá.
   standardOperatingFee?: string | null;
-  // Výchozí hlavička PDF (cover) dle typu - placeholder/baseline pro editovatelný
-  // název a podtitulek u odstoupení.
-  defaultCover: { title: string; subtitle: string };
 };
 
 function formatDateTime(iso: string): string {
@@ -129,17 +126,10 @@ export function ContractDetailClient({
   approverEmails,
   locationNewco = null,
   standardOperatingFee = null,
-  defaultCover,
 }: Props) {
   const router = useRouter();
   const [contract, setContract] = useState(initial);
   const [html, setHtml] = useState(initial.html);
-  const [coverTitle, setCoverTitle] = useState(
-    initial.coverTitle ?? defaultCover.title,
-  );
-  const [coverSubtitle, setCoverSubtitle] = useState(
-    initial.coverSubtitle ?? defaultCover.subtitle,
-  );
   const [bundleSections, setBundleSections] = useState<BundleSection[]>(
     initial.bundleSections ?? [],
   );
@@ -428,11 +418,6 @@ export function ContractDetailClient({
       } else {
         body.html = htmlSnapshot;
       }
-      // Override hlavičky PDF jen u odstoupení (jediný typ s editací názvu).
-      if (contract.type === "withdrawal") {
-        body.coverTitle = coverTitle.trim();
-        body.coverSubtitle = coverSubtitle.trim();
-      }
       const res = await fetch(`/api/portal/contracts/${contract.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -516,7 +501,7 @@ export function ContractDetailClient({
       if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [html, variables, bundleSections, claims, coverTitle, coverSubtitle, saveState]);
+  }, [html, variables, bundleSections, claims, saveState]);
 
   async function ensureSaved() {
     if (saveState === "pending" || saveState === "saving") {
@@ -788,29 +773,6 @@ export function ContractDetailClient({
             odstoupení BOServices nepodepisuje). */}
         {contract.type === "withdrawal" && (
           <>
-            <FieldGroup label="Hlavička dokumentu">
-              <div className="grid grid-cols-1 gap-3">
-                <SmallField
-                  label="Název"
-                  value={coverTitle}
-                  placeholder={defaultCover.title}
-                  onChange={(v) => {
-                    setCoverTitle(v);
-                    markDirty();
-                  }}
-                />
-                <SmallField
-                  label="Podtitulek"
-                  value={coverSubtitle}
-                  placeholder={defaultCover.subtitle}
-                  onChange={(v) => {
-                    setCoverSubtitle(v);
-                    markDirty();
-                  }}
-                />
-              </div>
-            </FieldGroup>
-
             <FieldGroup label="Manažer (adresát MS)">
               <CompanyChipPicker
                 selectedIco={variables.managerIco}
