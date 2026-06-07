@@ -26,6 +26,7 @@ import { getSession } from "@/lib/portal/get-session";
 import { getTemplateApprovers } from "@/lib/portal/users-db";
 import { ContractDetailClient } from "@/components/portal/contracts/ContractDetailClient";
 import { EntityTasks } from "@/components/portal/tasks/EntityTasks";
+import { getCoverForType } from "@/lib/portal/pdf-styles";
 
 export const dynamic = "force-dynamic";
 
@@ -169,6 +170,7 @@ export default async function ContractDetailPage({
         approverEmails={approverEmails}
         locationNewco={locationNewco}
         standardOperatingFee={standardOperatingFee}
+        defaultCover={getCoverForType(contract.type)}
       />
       <EntityTasks kind="contract" id={id} />
     </div>

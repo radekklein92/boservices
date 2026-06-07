@@ -53,6 +53,19 @@ export function getCoverForType(type: ContractType): CoverHeader {
   };
 }
 
+// Cover s volitelným per-smlouva overridem názvu/podtitulku. Prázdná hodnota
+// (po trim) spadne na výchozí znění typu - tj. smazání pole = default.
+export function resolveCover(
+  type: ContractType,
+  overrides?: { title?: string | null; subtitle?: string | null },
+): CoverHeader {
+  const base = getCoverForType(type);
+  return {
+    title: overrides?.title?.trim() || base.title,
+    subtitle: overrides?.subtitle?.trim() || base.subtitle,
+  };
+}
+
 export const PDF_PAGE_STYLES = `
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }

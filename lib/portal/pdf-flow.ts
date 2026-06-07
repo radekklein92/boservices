@@ -8,7 +8,7 @@ import {
   wrapSignatures,
 } from "./contract-render";
 import { bundleHtmlToPdfBuffer, htmlToPdfBuffer } from "./pdf-generator";
-import { getCoverForType } from "./pdf-styles";
+import { resolveCover } from "./pdf-styles";
 import { getUser } from "./users-db";
 import {
   buildClaimsVariables,
@@ -46,7 +46,10 @@ export async function renderAndStoreContractPdf(contract: Contract): Promise<{
 }> {
   const meta = CONTRACT_TYPE_META[contract.type];
   const title = `${meta.shortName} - ${contract.clientName}`;
-  const cover = getCoverForType(contract.type);
+  const cover = resolveCover(contract.type, {
+    title: contract.coverTitle,
+    subtitle: contract.coverSubtitle,
+  });
 
   // Finální PDF (bez watermarku) = po kroku „K podpisu" (signerPickedAt) - platí
   // pro všechny typy (odstoupení k němu dojde přes „Připravit k podpisu").

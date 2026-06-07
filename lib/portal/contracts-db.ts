@@ -154,6 +154,11 @@ export interface Contract {
   // PDF s logem v záhlaví a textem v patičce (true, default) nebo bez nich.
   // Snapshot z template.letterhead při vytvoření smlouvy.
   letterhead?: boolean;
+  // Volitelný override názvu a podtitulku v hlavičce PDF (cover). Prázdné /
+  // nevyplněné = výchozí znění dle typu (getCoverForType). Editovatelné u
+  // odstoupení (jednorázové dokumenty s vlastním názvem).
+  coverTitle?: string;
+  coverSubtitle?: string;
   // Lokalita, ke které se smlouva vztahuje - jen typy posuzované podle lokality
   // (isApprovalGated). Vybírá se povinně při vytvoření a lze ji změnit ve stavu
   // Koncept. locationSnapshot je zmrazený stav z Transition v okamžiku výběru

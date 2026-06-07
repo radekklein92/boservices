@@ -9,7 +9,7 @@ import {
   bundleHtmlToPdfBuffer,
   htmlToPdfBuffer,
 } from "@/lib/portal/pdf-generator";
-import { getCoverForType } from "@/lib/portal/pdf-styles";
+import { resolveCover } from "@/lib/portal/pdf-styles";
 
 export const maxDuration = 60;
 
@@ -44,7 +44,10 @@ export async function GET(
   }
 
   const meta = CONTRACT_TYPE_META[contract.type];
-  const cover = getCoverForType(contract.type);
+  const cover = resolveCover(contract.type, {
+    title: contract.coverTitle,
+    subtitle: contract.coverSubtitle,
+  });
 
   let pdf: Buffer;
   try {
