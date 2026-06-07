@@ -44,6 +44,29 @@ function parsePolishAddress(raw: string): {
   return { street, zip: "", city: rest };
 }
 
+// Biała lista vrací adresu i město KAPITÁLKAMI ("STAWY 5", "WARSZAWA"). Převod
+// na běžné psaní (první písmeno velké, zbytek malá), s respektem k polským
+// uličním zkratkám (ul., al., pl., os. …) a slovům bez písmen (čísla) i pomlčkám.
+const PL_LOWER_TOKENS = new Set(["ul.", "al.", "pl.", "os.", "im.", "św.", "gen."]);
+
+function titleCaseToken(token: string): string {
+  if (!/\p{L}/u.test(token)) return token; // číslo / "5" / "414/9"
+  const lower = token.toLowerCase();
+  if (PL_LOWER_TOKENS.has(lower)) return lower;
+  return lower
+    .split("-")
+    .map((p) => (p ? p[0]!.toUpperCase() + p.slice(1) : p))
+    .join("-");
+}
+
+function toProperCase(s: string): string {
+  return s
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(titleCaseToken)
+    .join(" ");
+}
+
 export async function lookupPolishCompany(
   rawRegon: string,
 ): Promise<AresLookupResult | null> {
@@ -70,7 +93,12 @@ export async function lookupPolishCompany(
     dic: subject.nip || undefined,
     companyName: subject.name.trim(),
     legalForm: "PO",
-    address: { ...addr, country: "Polsko" },
+    address: {
+      street: toProperCase(addr.street),
+      city: toProperCase(addr.city),
+      zip: addr.zip,
+      country: "Polsko",
+    },
   };
 }
 

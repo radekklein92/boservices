@@ -117,6 +117,9 @@ export function ClientForm({
   const registerLabel =
     registerKey === "pl" ? "Biała lista" : registerKey === "sk" ? "RPO" : "ARES";
   const idLabel = registerKey === "pl" ? "REGON" : "IČO";
+  // Stát mimo tři rejstříkové země = vlastní (bez automatického načtení).
+  const KNOWN_COUNTRIES = ["Česká republika", "Polsko", "Slovensko"];
+  const isCustomCountry = !KNOWN_COUNTRIES.includes(state.country.trim());
 
   async function lookupRegister() {
     const id = state.ico.trim();
@@ -254,34 +257,62 @@ export function ClientForm({
             : `Doplňte jméno, ${idLabel} (volitelně) a DIČ.`
         }
       >
-        {/* Výběr rejstříku přímo u IČO - nastaví pole Stát níže a určí, odkud
-            tlačítko lupy načte (ČR=ARES, Polsko=Biała lista, Slovensko=RPO). */}
+        {/* Stát + rejstřík v jednom (nahrazuje samostatné pole Stát). Určuje,
+            odkud lupa u IČO načte: ČR=ARES, Polsko=Biała lista, Slovensko=RPO.
+            „Jiná země" = ruční zadání bez automatického načtení. */}
         <div className="mb-3 flex flex-col gap-1.5">
           <span className="text-[10px] font-medium uppercase tracking-[0.16em] text-ink-mid">
-            Rejstřík / stát
+            Stát / rejstřík
           </span>
           <div className="flex flex-wrap gap-1.5">
             {[
-              { key: "cz", country: "Česká republika", label: "Česká republika · ARES" },
-              { key: "pl", country: "Polsko", label: "Polsko · Biała lista" },
-              { key: "sk", country: "Slovensko", label: "Slovensko · RPO" },
-            ].map((r) => (
-              <button
-                key={r.key}
-                type="button"
-                onClick={() => set("country", r.country)}
-                aria-pressed={registerKey === r.key}
-                className={[
-                  "inline-flex h-9 items-center rounded-full border px-3.5 text-[12.5px] font-medium transition-colors",
-                  registerKey === r.key
-                    ? "border-ink-base bg-ink-base text-paper"
-                    : "border-edge bg-paper text-ink-deep hover:border-ink-soft",
-                ].join(" ")}
-              >
-                {r.label}
-              </button>
-            ))}
+              { country: "Česká republika", label: "Česká republika · ARES" },
+              { country: "Polsko", label: "Polsko · Biała lista" },
+              { country: "Slovensko", label: "Slovensko · RPO" },
+            ].map((r) => {
+              const active = !isCustomCountry && state.country.trim() === r.country;
+              return (
+                <button
+                  key={r.country}
+                  type="button"
+                  onClick={() => set("country", r.country)}
+                  aria-pressed={active}
+                  className={[
+                    "inline-flex h-9 items-center rounded-full border px-3.5 text-[12.5px] font-medium transition-colors",
+                    active
+                      ? "border-ink-base bg-ink-base text-paper"
+                      : "border-edge bg-paper text-ink-deep hover:border-ink-soft",
+                  ].join(" ")}
+                >
+                  {r.label}
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => {
+                if (!isCustomCountry) set("country", "");
+              }}
+              aria-pressed={isCustomCountry}
+              className={[
+                "inline-flex h-9 items-center rounded-full border px-3.5 text-[12.5px] font-medium transition-colors",
+                isCustomCountry
+                  ? "border-ink-base bg-ink-base text-paper"
+                  : "border-edge bg-paper text-ink-deep hover:border-ink-soft",
+              ].join(" ")}
+            >
+              Jiná země
+            </button>
           </div>
+          {isCustomCountry && (
+            <input
+              type="text"
+              value={state.country}
+              onChange={(e) => set("country", e.target.value)}
+              placeholder="Název státu (firma se vyplní ručně)"
+              className={`${inputCls} mt-1`}
+            />
+          )}
         </div>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-[160px_1fr_140px]">
           <Field label={idLabel}>
@@ -377,16 +408,6 @@ export function ClientForm({
               value={state.zip}
               onChange={(e) => set("zip", e.target.value)}
               placeholder="11000"
-              className={inputCls}
-            />
-          </Field>
-        </div>
-        <div className="mt-3">
-          <Field label="Stát">
-            <input
-              type="text"
-              value={state.country}
-              onChange={(e) => set("country", e.target.value)}
               className={inputCls}
             />
           </Field>
