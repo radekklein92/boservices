@@ -180,33 +180,77 @@ export const WITHDRAWAL_KS_TEXTS = {
 
 export type WithdrawalKsMode = keyof typeof WITHDRAWAL_KS_TEXTS;
 
-// Odstoupení varianta B (porušení Poskytovatele, odstupuje se od FS). Které
-// závislé smlouvy zaniknou spolu s FS podle § 1727 je volitelné: MS (manažerská
-// - nemusela být v balíčku podepsaná) a KS (kupní). FS se odstupuje vždy.
-// Závislé se skládají do jedné fráze (depDropPhrase) kvůli správné gramatice
-// výčtu („MS a KS" / „MS" / „KS"). Vrací sadu dynamických tokenů.
-export function composeWithdrawalBDeps(opts: {
-  msIncluded: boolean;
-  ksDropped: boolean;
-}): {
-  msIntroClause: string;
-  ksIntroLineSeparator: string;
-  ksIntroClause: string;
+// Odstoupení - skládá INLINE klauzule podle toho, které smlouvy jsou v balíčku
+// a jak se ukončují. A: primárně MS (FS padá § 1727); B: primárně FS (MS padá).
+// KS (kupní) volitelně u obou; MS (manažerská) volitelně u B (nemusela být
+// podepsaná). Tokeny jsou ČISTĚ INLINE (žádné <li>/<ol>), aby je Tiptap při
+// otevření editoru nepřebaloval do <li> a nerozbíjel strukturu (= dřív „falešné
+// změny" + vadné PDF).
+//  - depIntroPhrase: výčet uzavřených smluv v Úvodním prohlášení (nominativ).
+//  - depDropPhrase: závislé smlouvy zanikající dle § 1727 (genitiv, „též X a Y").
+//  - ksPreservedNote: dovětek, že KS zůstává v platnosti (když nepadá).
+//  - managerPartyLine: řádek Manažera ve Smluvních stranách (prázdný, když u B
+//    MS nebyla podepsána). Hodnoty manažera se zapékají rovnou (escapované).
+export function composeWithdrawalDeps(
+  variant: string,
+  opts: {
+    msIncluded: boolean;
+    ksDropped: boolean;
+    manager?: { name?: string; ico?: string; street?: string; city?: string; zip?: string };
+  },
+): {
+  depIntroPhrase: string;
   depDropPhrase: string;
-  ksPreservedClause: string;
+  ksPreservedNote: string;
+  managerPartyLine: string;
 } {
-  const { msIncluded, ksDropped } = opts;
-  const items: string[] = [];
-  if (msIncluded) items.push("<strong>Smlouvy o provozování provozovny (MS)</strong>");
-  if (ksDropped) items.push("<strong>Kupní smlouvy k vybavení (KS)</strong>");
+  const isA = variant === "A";
+  const msIncluded = isA ? true : opts.msIncluded;
+  const ksDropped = opts.ksDropped;
+
+  const join = (items: string[]): string =>
+    items.length <= 1
+      ? items.join("")
+      : `${items.slice(0, -1).join(", ")} a ${items[items.length - 1]}`;
+
+  const FS_N = "<strong>Franšízingová smlouva (FS)</strong>";
+  const MS_N = "<strong>Smlouva o provozování provozovny (MS)</strong>";
+  const KS_N = "<strong>Kupní smlouva k vybavení (KS)</strong>";
+  const FS_G = "<strong>Franšízingové smlouvy (FS)</strong>";
+  const MS_G = "<strong>Smlouvy o provozování provozovny (MS)</strong>";
+  const KS_G = "<strong>Kupní smlouvy k vybavení (KS)</strong>";
+
+  const intro: string[] = [];
+  const dep: string[] = [];
+  if (isA) {
+    intro.push(MS_N, FS_N);
+    dep.push(FS_G);
+  } else {
+    intro.push(FS_N);
+    if (msIncluded) {
+      intro.push(MS_N);
+      dep.push(MS_G);
+    }
+  }
+  if (ksDropped) {
+    intro.push(KS_N);
+    dep.push(KS_G);
+  }
+
+  const m = opts.manager ?? {};
+  const esc = (s?: string) =>
+    (s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const managerPartyLine = msIncluded
+    ? `<strong>${esc(m.name)}</strong>, IČO: ${esc(m.ico)}, se sídlem ${esc(m.street)}, ${esc(m.zip)} ${esc(m.city)} (dále jen „<strong>Manažer</strong>“)`
+    : "";
+
   return {
-    msIntroClause: msIncluded
-      ? `<li><p><strong>Smlouva o provozování provozovny</strong> mezi Odesílatelem a Manažerem (dále jen „<strong>MS</strong>“);</p></li>`
-      : "",
-    ksIntroLineSeparator: ksDropped ? ";" : ".",
-    ksIntroClause: ksDropped ? WITHDRAWAL_KS_TEXTS.dropped.ksIntroClause : "",
-    depDropPhrase: items.length === 0 ? "" : `též ${items.join(" a ")}`,
-    ksPreservedClause: ksDropped ? "" : WITHDRAWAL_KS_TEXTS.preserved.ksPreservedClause,
+    depIntroPhrase: join(intro),
+    depDropPhrase: dep.length ? `též ${join(dep)}` : "",
+    ksPreservedNote: ksDropped
+      ? ""
+      : ` Pro vyloučení pochybností se odstoupení <strong>nevztahuje na Kupní smlouvu k vybavení (KS)</strong>; ta není ve smyslu § 1727 OZ závislá, její účel je splněn a zůstává v platnosti.`,
+    managerPartyLine,
   };
 }
 
@@ -227,7 +271,10 @@ const ALLOW_EMPTY = new Set([
   "ksPreservedClause",
   "ksIntroClause",
   "msIntroClause",
+  "depIntroPhrase",
   "depDropPhrase",
+  "ksPreservedNote",
+  "managerPartyLine",
   // Příloha č. 1 - tabulka pohledávek se generuje systémově z contract.claims.
   "claimsTable",
 ]);
@@ -240,7 +287,10 @@ const RAW_HTML_PLACEHOLDERS = new Set([
   "ksPreservedClause",
   "ksIntroClause",
   "msIntroClause",
+  "depIntroPhrase",
   "depDropPhrase",
+  "ksPreservedNote",
+  "managerPartyLine",
   // Vygenerovaná HTML tabulka pohledávek (Příloha č. 1). Hodnotu skládá systém
   // z contract.claims (renderClaimsTableHtml), uživatel ji nezadává volně, takže
   // nehrozí XSS - veškerý uživatelský text je escapovaný uvnitř helperu.
@@ -276,7 +326,10 @@ export const KEEP_DYNAMIC_TOKENS = new Set([
   "ksDropClause",
   "ksIntroLineSeparator",
   "msIntroClause",
+  "depIntroPhrase",
   "depDropPhrase",
+  "ksPreservedNote",
+  "managerPartyLine",
 ]);
 
 // Obal zapečené hodnoty - neviditelná značka s klíčem (Tiptap mark

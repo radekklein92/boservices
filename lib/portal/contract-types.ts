@@ -129,12 +129,14 @@ export const FRANCHISE_VARIANT_META: Record<FranchiseVariant, VariantMeta> = {
 
 export const WITHDRAWAL_VARIANT_META: Record<WithdrawalVariant, VariantMeta> = {
   A: {
-    label: "Odstoupení — porušení Manažera",
-    description: "Jednostranné odstoupení od MS (FS padá § 1727). Při aktivní manažerské smlouvě.",
+    label: "Porušení na straně manažera",
+    description:
+      "Manažer porušil své povinnosti. Klient odstupuje od smlouvy o provozování; navázaná franšízingová smlouva tím zaniká.",
   },
   B: {
-    label: "Odstoupení — porušení Poskytovatele",
-    description: "Jednostranné odstoupení od FS (MS padá § 1727). Pokud TWIST přišel o místo.",
+    label: "Porušení na straně poskytovatele",
+    description:
+      "Poskytovatel přišel o provozovnu nebo porušil své povinnosti. Klient odstupuje od franšízingové smlouvy; smlouva o provozování tím zaniká.",
   },
 };
 

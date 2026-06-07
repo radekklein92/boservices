@@ -10,9 +10,11 @@ import {
   Download,
   FileText,
   Lock,
+  Pencil,
   RefreshCw,
   Save,
   Trash2,
+  X,
   type LucideIcon,
 } from "lucide-react";
 import type { Editor } from "@tiptap/react";
@@ -31,7 +33,7 @@ import {
   type ContractType,
   type ContractVariant,
 } from "@/lib/portal/contract-types";
-import { WITHDRAWAL_KS_TEXTS, composeWithdrawalBDeps } from "@/lib/portal/contract-render";
+import { WITHDRAWAL_KS_TEXTS, composeWithdrawalDeps } from "@/lib/portal/contract-render";
 import {
   bakeSnapshotForDiff,
   extractPlaceholderTokens,
@@ -151,6 +153,11 @@ export function ContractDetailClient({
   const [signerLabel, setSignerLabel] = useState<string | null>(null);
   // Pro bundle: index aktuálně fokusovaného editoru - kam se vkládají placeholdery.
   const [activeBundleIdx, setActiveBundleIdx] = useState(0);
+  // Odstoupení: modál „Upravit údaje" pro detaily Manažera / Poskytovatele
+  // (IČO, sídlo). Firma se vybírá chip-pickerem; detaily se mění zřídka.
+  const [partyModal, setPartyModal] = useState<null | "manager" | "provider">(
+    null,
+  );
   const editorRef = useRef<Editor | null>(null);
   const bundleEditorRefs = useRef<(Editor | null)[]>([]);
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -321,8 +328,39 @@ export function ContractDetailClient({
     markDirty();
     notify("ok", `Dlužník vyplněn: ${payload.debtorName || payload.debtorIco}.`);
   }
+  // Odstoupení (nové compose schéma): Manažer je INLINE token {{managerPartyLine}},
+  // skládá se z údajů manažera + voleb MS/KS. Při změně kterékoli části přepočítáme
+  // všechny závislé klauzule (depIntroPhrase, depDropPhrase, ksPreservedNote,
+  // managerPartyLine) z aktuálních hodnot. applyBakedValues je no-op pro tokeny,
+  // které v HTML nemají data-ph span (nová šablona je drží dynamické).
+  const isNewWithdrawal = has("depIntroPhrase");
+  // MS v balíčku? U varianty A vždy; u B podle toho, zda úvodní výčet zmiňuje MS.
+  function wdMsIncluded(v: Record<string, string>): boolean {
+    if (contract.variant === "A") return true;
+    return (v.depIntroPhrase ?? "").includes("(MS)");
+  }
+  // KS padá s ostatními? Pak compose nevypíše dovětek o zachování KS.
+  function wdKsDropped(v: Record<string, string>): boolean {
+    return !(v.ksPreservedNote ?? "").trim();
+  }
+  function composeWithdrawal(
+    v: Record<string, string>,
+    over: { msIncluded?: boolean; ksDropped?: boolean },
+  ): Record<string, string> {
+    return composeWithdrawalDeps(contract.variant ?? "A", {
+      msIncluded: over.msIncluded ?? wdMsIncluded(v),
+      ksDropped: over.ksDropped ?? wdKsDropped(v),
+      manager: {
+        name: v.managerName,
+        ico: v.managerIco,
+        street: v.managerStreet,
+        city: v.managerCity,
+        zip: v.managerZip,
+      },
+    });
+  }
   function fillManager(p: CompanyFillPayload) {
-    const changes: Record<string, string> = {
+    const baked: Record<string, string> = {
       managerName: p.name,
       managerIco: p.ico,
       managerStreet: p.street,
@@ -331,23 +369,34 @@ export function ContractDetailClient({
     };
     // Manažer v úpadku -> Datum uzavření defaultně 3 dny před úpadkem (bezpečné).
     const safe = safeContractDate([p.name]);
-    const datedToSafe: string | null = safe ?? null;
     if (safe) {
-      changes.contractDate = safe;
-      changes.effectiveDate = safe;
+      baked.contractDate = safe;
+      baked.effectiveDate = safe;
     }
-    setVariables((prev) => ({ ...prev, ...changes }));
-    applyBakedValues(changes);
+    setVariables((prev) => {
+      const next = { ...prev, ...baked };
+      return { ...next, ...composeWithdrawal(next, {}) };
+    });
+    applyBakedValues(baked);
     markDirty();
     notify(
       "ok",
-      datedToSafe
-        ? `Manažer vyplněn: ${p.name || p.ico}. Datum uzavření nastaveno na ${datedToSafe} (před úpadkem).`
+      safe
+        ? `Manažer vyplněn: ${p.name || p.ico}. Datum uzavření nastaveno na ${safe} (před úpadkem).`
         : `Manažer vyplněn: ${p.name || p.ico}.`,
     );
   }
+  // Ruční úprava detailu manažera v modálu (IČO, sídlo) -> přepočítá party line.
+  function updateManagerField(key: string, value: string) {
+    setVariables((prev) => {
+      const next = { ...prev, [key]: value };
+      return { ...next, ...composeWithdrawal(next, {}) };
+    });
+    applyBakedValues({ [key]: value });
+    markDirty();
+  }
   function fillWithdrawalProvider(p: CompanyFillPayload) {
-    // Validace ani úprava data se Poskytovatele netýká - jen vyplníme pole.
+    // Poskytovatel je u odstoupení přímý zapečený token - žádný compose, jen pole.
     const changes: Record<string, string> = {
       providerName: p.name,
       providerIco: p.ico,
@@ -360,13 +409,25 @@ export function ContractDetailClient({
     markDirty();
     notify("ok", `Poskytovatel vyplněn: ${p.name || p.ico}.`);
   }
+  // MS toggle (jen varianta B): zda byla MS v balíčku podepsaná.
+  function setMsMode(mode: string) {
+    setVariables((prev) => ({
+      ...prev,
+      ...composeWithdrawal(prev, { msIncluded: mode === "included" }),
+    }));
+    markDirty();
+  }
+  // KS toggle: nové smlouvy přes compose (ksPreservedNote/depDropPhrase),
+  // starší přes statické texty WITHDRAWAL_KS_TEXTS (ksDropClause/ksPreservedClause).
   function setKsMode(mode: string) {
-    // Toggle „KS padá" / „KS zůstává v platnosti" se promítne do 4 placeholderů,
-    // které šablona vykresluje na příslušných místech:
-    // - ksIntroLineSeparator: ; nebo . za FS řádkem v Úvodním prohlášení
-    // - ksIntroClause: <li>KS bod 3</li> v Úvodním prohlášení (jen když padá)
-    // - ksDropClause: „a KS" dovětek v bodě 4 Odstoupení (jen když padá)
-    // - ksPreservedClause: bod 5 prohlášení o zachování KS (jen když zůstává)
+    if (isNewWithdrawal) {
+      setVariables((prev) => ({
+        ...prev,
+        ...composeWithdrawal(prev, { ksDropped: mode === "dropped" }),
+      }));
+      markDirty();
+      return;
+    }
     const texts =
       mode === "preserved"
         ? WITHDRAWAL_KS_TEXTS.preserved
@@ -377,16 +438,6 @@ export function ContractDetailClient({
       ksIntroClause: texts.ksIntroClause,
       ksDropClause: texts.ksDropClause,
       ksPreservedClause: texts.ksPreservedClause,
-    }));
-    markDirty();
-  }
-
-  // Odstoupení varianta B (compose schéma): MS i KS volitelně. Závislé smlouvy
-  // (depDropPhrase) i úvodní seznam se přepočítají z kombinace obou voleb.
-  function setComposedBDeps(msIncluded: boolean, ksDropped: boolean) {
-    setVariables((prev) => ({
-      ...prev,
-      ...composeWithdrawalBDeps({ msIncluded, ksDropped }),
     }));
     markDirty();
   }
@@ -777,55 +828,68 @@ export function ContractDetailClient({
           </div>
         </FieldGroup>
 
-        {/* Odstoupení od smluv: Manažer i Poskytovatel jsou firmy ze sítě
-            BOServices, ne hlavní s.r.o. User je vybírá ze stejných 7 presetů
-            jako Dlužníka. Sekce „Zástupci poskytovatele" se neukazuje (na
-            odstoupení BOServices nepodepisuje). */}
+        {/* Odstoupení od smluv. Pořadí: 1) které smlouvy z balíčku byly podepsány
+            a jak se ukončují, 2) Manažer (jen když je MS v balíčku), 3) Poskytovatel,
+            4) data a lokace. Manažer i Poskytovatel jsou firmy ze sítě BOServices -
+            vybírají se chip-pickerem; detaily (IČO, sídlo) se mění zřídka, schované
+            v modálu „Upravit údaje". Manažer = INLINE token {{managerPartyLine}}. */}
         {contract.type === "withdrawal" && (
           <>
-            <FieldGroup label="Manažer (adresát MS)">
-              <CompanyChipPicker
-                selectedIco={variables.managerIco}
-                onFill={fillManager}
-                addLabel="Jiná firma"
-                modalEyebrow="Manažer mimo presety"
-                modalTitle="Vyhledat firmu v ARES"
-              />
+            <FieldGroup label="Smlouvy v balíčku">
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <SmallField
-                  label="Manažer - obchodní jméno"
-                  value={variables.managerName ?? ""}
-                  placeholder="Twistcafe s.r.o."
-                  onChange={(v) => updateVar("managerName", v)}
-                />
-                <SmallField
-                  label="Manažer - IČO"
-                  value={variables.managerIco ?? ""}
-                  placeholder="12345678"
-                  onChange={(v) => updateVar("managerIco", v)}
-                />
-                <SmallField
-                  label="Manažer - ulice a č.p."
-                  value={variables.managerStreet ?? ""}
-                  placeholder="Hlavní 1"
-                  onChange={(v) => updateVar("managerStreet", v)}
-                />
-                <SmallField
-                  label="Manažer - obec"
-                  value={variables.managerCity ?? ""}
-                  placeholder="Praha 1"
-                  onChange={(v) => updateVar("managerCity", v)}
-                />
-                <SmallField
-                  label="Manažer - PSČ"
-                  value={variables.managerZip ?? ""}
-                  placeholder="11000"
-                  onChange={(v) => updateVar("managerZip", v)}
-                />
+                {contract.variant === "B" && isNewWithdrawal && (
+                  <ChipField
+                    label="Smlouva o provozování (MS)"
+                    hint="byla v balíčku podepsaná?"
+                    value={wdMsIncluded(variables) ? "included" : "omitted"}
+                    onChange={setMsMode}
+                    options={MS_MODE_OPTIONS}
+                  />
+                )}
+                {(has("depIntroPhrase") ||
+                  has("ksDropClause") ||
+                  has("ksPreservedClause")) && (
+                  <ChipField
+                    label="Kupní smlouva (KS)"
+                    hint="zaniká s ostatními, nebo zůstává?"
+                    value={
+                      isNewWithdrawal
+                        ? wdKsDropped(variables)
+                          ? "dropped"
+                          : "preserved"
+                        : detectKsMode(variables)
+                    }
+                    onChange={setKsMode}
+                    options={KS_MODE_OPTIONS}
+                  />
+                )}
               </div>
             </FieldGroup>
 
-            <FieldGroup label="Poskytovatel (adresát FS)">
+            {(!isNewWithdrawal || wdMsIncluded(variables)) && (
+              <FieldGroup
+                label={
+                  contract.variant === "A"
+                    ? "Manažer (odstupuje se od jeho smlouvy)"
+                    : "Manažer (smluvní strana MS)"
+                }
+              >
+                <CompanyChipPicker
+                  selectedIco={variables.managerIco}
+                  onFill={fillManager}
+                  addLabel="Jiná firma"
+                  modalEyebrow="Manažer mimo presety"
+                  modalTitle="Vyhledat firmu v ARES"
+                />
+                <PartyDetailsRow
+                  name={variables.managerName}
+                  emptyLabel="Vyberte firmu manažera výše"
+                  onEdit={() => setPartyModal("manager")}
+                />
+              </FieldGroup>
+            )}
+
+            <FieldGroup label="Poskytovatel (smluvní strana FS)">
               <CompanyChipPicker
                 selectedIco={variables.providerIco}
                 onFill={fillWithdrawalProvider}
@@ -833,37 +897,41 @@ export function ContractDetailClient({
                 modalEyebrow="Poskytovatel mimo presety"
                 modalTitle="Vyhledat firmu v ARES"
               />
+              <PartyDetailsRow
+                name={variables.providerName}
+                emptyLabel="Vyberte firmu poskytovatele výše"
+                onEdit={() => setPartyModal("provider")}
+              />
+            </FieldGroup>
+
+            <FieldGroup label="Specifika odstoupení">
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <SmallField
-                  label="Poskytovatel - obchodní jméno"
-                  value={variables.providerName ?? ""}
-                  placeholder="Trdlokafe International s.r.o."
-                  onChange={(v) => updateVar("providerName", v)}
-                />
-                <SmallField
-                  label="Poskytovatel - IČO"
-                  value={variables.providerIco ?? ""}
-                  placeholder="12345678"
-                  onChange={(v) => updateVar("providerIco", v)}
-                />
-                <SmallField
-                  label="Poskytovatel - ulice a č.p."
-                  value={variables.providerStreet ?? ""}
-                  placeholder="Hlavní 1"
-                  onChange={(v) => updateVar("providerStreet", v)}
-                />
-                <SmallField
-                  label="Poskytovatel - obec"
-                  value={variables.providerCity ?? ""}
-                  placeholder="Praha 1"
-                  onChange={(v) => updateVar("providerCity", v)}
-                />
-                <SmallField
-                  label="Poskytovatel - PSČ"
-                  value={variables.providerZip ?? ""}
-                  placeholder="11000"
-                  onChange={(v) => updateVar("providerZip", v)}
-                />
+                {has("withdrawalLocation") && (
+                  <SmallField
+                    label="Lokace (předmět smluv)"
+                    hint="koncept + adresa"
+                    value={variables.withdrawalLocation ?? ""}
+                    placeholder="Kytky od Pepy Štefánikova Praha"
+                    onChange={(v) => updateVar("withdrawalLocation", v)}
+                  />
+                )}
+                {has("originContractsDate") && (
+                  <SmallField
+                    label="Datum uzavření smluv"
+                    value={variables.originContractsDate ?? ""}
+                    placeholder="1. ledna 2026"
+                    onChange={(v) => updateVar("originContractsDate", v)}
+                  />
+                )}
+                {has("leaseLostDate") && (
+                  <SmallField
+                    label="Datum ztráty provozovny"
+                    hint="kdy poskytovatel přišel o nájem"
+                    value={variables.leaseLostDate ?? ""}
+                    placeholder="1. dubna 2026"
+                    onChange={(v) => updateVar("leaseLostDate", v)}
+                  />
+                )}
               </div>
             </FieldGroup>
           </>
@@ -1053,76 +1121,6 @@ export function ContractDetailClient({
           </FieldGroup>
         )}
 
-        {hasAny([
-          "originContractsDate",
-          "withdrawalLocation",
-          "leaseLostDate",
-          "ksDropClause",
-          "ksPreservedClause",
-        ]) && (
-          <FieldGroup label="Specifika odstoupení">
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              {has("originContractsDate") && (
-                <SmallField
-                  label="Datum uzavření MS+FS (+KS)"
-                  value={variables.originContractsDate ?? ""}
-                  placeholder="1. ledna 2026"
-                  onChange={(v) => updateVar("originContractsDate", v)}
-                />
-              )}
-              {has("withdrawalLocation") && (
-                <SmallField
-                  label="Lokace (předmět smluv)"
-                  hint="koncept + adresa"
-                  value={variables.withdrawalLocation ?? ""}
-                  placeholder="Kytky od Pepy Štefánikova Praha"
-                  onChange={(v) => updateVar("withdrawalLocation", v)}
-                />
-              )}
-              {has("depDropPhrase") && (
-                <ChipField
-                  label="Manažerská smlouva (MS)"
-                  hint="byla MS v balíčku podepsaná?"
-                  value={
-                    (variables.msIntroClause ?? "").trim() ? "included" : "omitted"
-                  }
-                  onChange={(mode) =>
-                    setComposedBDeps(
-                      mode === "included",
-                      detectKsMode(variables) === "dropped",
-                    )
-                  }
-                  options={MS_MODE_OPTIONS}
-                />
-              )}
-              {(has("ksDropClause") || has("ksPreservedClause")) && (
-                <ChipField
-                  label="Kupní smlouva (KS)"
-                  hint="jak se ke KS chovat v dokumentu"
-                  value={detectKsMode(variables)}
-                  onChange={(mode) =>
-                    has("depDropPhrase")
-                      ? setComposedBDeps(
-                          (variables.msIntroClause ?? "").trim() !== "",
-                          mode === "dropped",
-                        )
-                      : setKsMode(mode)
-                  }
-                  options={KS_MODE_OPTIONS}
-                />
-              )}
-              {has("leaseLostDate") && (
-                <SmallField
-                  label="Datum ztráty nájmu (var. B)"
-                  value={variables.leaseLostDate ?? ""}
-                  placeholder="1. dubna 2026"
-                  onChange={(v) => updateVar("leaseLostDate", v)}
-                />
-              )}
-            </div>
-          </FieldGroup>
-        )}
-
         <div className="border-t border-edge pt-4 text-[11px] text-ink-mid">
           Číslo smlouvy{" "}
           <span className="font-mono text-ink-base">
@@ -1258,6 +1256,130 @@ export function ContractDetailClient({
           </div>
         </div>
       )}
+
+      {partyModal && (
+        <PartyDetailsModal
+          party={partyModal}
+          variables={variables}
+          onChange={
+            partyModal === "manager" ? updateManagerField : updateVar
+          }
+          onClose={() => setPartyModal(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// Řádek pod chip-pickerem (odstoupení): jméno vybrané firmy + tlačítko, které
+// otevře modál s detaily (IČO, sídlo). Detaily se mění zřídka, proto skryté.
+function PartyDetailsRow({
+  name,
+  emptyLabel,
+  onEdit,
+}: {
+  name?: string;
+  emptyLabel: string;
+  onEdit: () => void;
+}) {
+  const filled = !!(name ?? "").trim();
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-edge bg-paper px-3 py-2">
+      <span
+        className={[
+          "truncate text-[13px]",
+          filled ? "font-medium text-ink-base" : "text-ink-soft",
+        ].join(" ")}
+      >
+        {filled ? name : emptyLabel}
+      </span>
+      <button
+        type="button"
+        onClick={onEdit}
+        className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-edge px-3 text-[12px] font-medium text-ink-deep transition-colors hover:border-ink-soft"
+      >
+        <Pencil className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
+        Upravit údaje
+      </button>
+    </div>
+  );
+}
+
+// Modál s detaily smluvní strany (odstoupení). Manažer = pole se přepočítají do
+// {{managerPartyLine}} (onChange = updateManagerField); Poskytovatel = přímé
+// zapečené tokeny (onChange = updateVar). Obchodní jméno se mění přes chip-picker,
+// tady jen doladění (IČO, sídlo) nebo ruční přepis jména.
+function PartyDetailsModal({
+  party,
+  variables,
+  onChange,
+  onClose,
+}: {
+  party: "manager" | "provider";
+  variables: Record<string, string>;
+  onChange: (key: string, value: string) => void;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const prefix = party === "manager" ? "manager" : "provider";
+  const heading = party === "manager" ? "Manažer" : "Poskytovatel";
+  const fields: { key: string; label: string; placeholder: string }[] = [
+    { key: `${prefix}Name`, label: "Obchodní jméno", placeholder: "Twistcafe s.r.o." },
+    { key: `${prefix}Ico`, label: "IČO", placeholder: "12345678" },
+    { key: `${prefix}Street`, label: "Ulice a č.p.", placeholder: "Hlavní 1" },
+    { key: `${prefix}City`, label: "Obec", placeholder: "Praha 1" },
+    { key: `${prefix}Zip`, label: "PSČ", placeholder: "11000" },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-ink-base/40 px-4 backdrop-blur-sm">
+      <div className="w-full max-w-[480px] rounded-2xl border border-edge bg-paper p-6 shadow-[0_18px_42px_-18px_rgba(14,14,14,0.35)]">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-[10px] font-medium uppercase tracking-[0.22em] text-ink-soft">
+              Upravit údaje
+            </div>
+            <h3 className="mt-1 text-[17px] font-bold leading-[1.2] tracking-[-0.02em] text-ink-base">
+              {heading}
+            </h3>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Zavřít"
+            className="grid h-9 w-9 place-items-center rounded-full border border-edge text-ink-mid transition-colors hover:border-ink-soft"
+          >
+            <X className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+          </button>
+        </div>
+        <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2">
+          {fields.map((f) => (
+            <SmallField
+              key={f.key}
+              label={f.label}
+              value={variables[f.key] ?? ""}
+              placeholder={f.placeholder}
+              onChange={(v) => onChange(f.key, v)}
+            />
+          ))}
+        </div>
+        <div className="mt-6 flex items-center justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-10 items-center gap-2 rounded-full bg-ink-base px-5 text-[13px] font-semibold text-paper transition-transform active:translate-y-px"
+          >
+            Hotovo
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
