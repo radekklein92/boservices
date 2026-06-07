@@ -406,7 +406,8 @@ export function bakedToTokenHtml(
   html: string,
   variables: ContractVariables,
 ): string {
-  return html.replace(DATA_PH_SPAN_RE, (_m, key: string, inner: string) => {
+  // 1) Zapečené data-ph spany -> {{token}} (jen nedotčené; ručně přepsané = literál).
+  let out = html.replace(DATA_PH_SPAN_RE, (_m, key: string, inner: string) => {
     const value = variables[key];
     const expected =
       value === undefined || value === null || value === ""
@@ -414,6 +415,27 @@ export function bakedToTokenHtml(
         : escapeHtml(value);
     return inner === expected ? `{{${key}}}` : inner;
   });
+
+  // 2) Hodnoty zapečené BEZ spanu (RAW/legacy/server render) - zpětně na {{token}}
+  //    shodou textu hodnoty. Bezpečnostní pojistky: jen neprázdné a dost dlouhé
+  //    hodnoty (>= 4 znaky), jen JEDNOZNAČNÉ (stejná hodnota u víc proměnných =
+  //    přeskočit, ať nedosadíme špatný token), nejdelší první (kvůli podřetězcům).
+  //    KEEP_DYNAMIC tokeny vynecháme - ty zůstávají {{token}} samy.
+  const byValue = new Map<string, string | null>();
+  for (const [key, value] of Object.entries(variables)) {
+    if (!value || value.trim().length < 4) continue;
+    if (KEEP_DYNAMIC_TOKENS.has(key)) continue;
+    const enc = escapeHtml(value);
+    byValue.set(enc, byValue.has(enc) ? null : key);
+  }
+  const entries = ([...byValue.entries()].filter(([, k]) => k) as [
+    string,
+    string,
+  ][]).sort((a, b) => b[0].length - a[0].length);
+  for (const [enc, key] of entries) {
+    if (out.includes(enc)) out = out.split(enc).join(`{{${key}}}`);
+  }
+  return out;
 }
 
 // Přepíše obsah všech značek data-ph daného klíče v zapečeném HTML novou
