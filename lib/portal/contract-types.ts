@@ -239,7 +239,9 @@ export function variantShortLabel(
 }
 
 export const DEFAULT_FRANCHISE_VARIANT: FranchiseVariant = "B";
-export const DEFAULT_WITHDRAWAL_VARIANT: WithdrawalVariant = "A";
+// Default B = „porušení na straně poskytovatele" (častější případ; předvybráno
+// v modálu vytváření).
+export const DEFAULT_WITHDRAWAL_VARIANT: WithdrawalVariant = "B";
 
 export function getDefaultVariantForType(type: ContractType): string | undefined {
   if (type === "franchise") return DEFAULT_FRANCHISE_VARIANT;
