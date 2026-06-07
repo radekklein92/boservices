@@ -405,6 +405,10 @@ const DATA_PH_SPAN_RE = /<span[^>]*\bdata-ph="(\w+)"[^>]*>([\s\S]*?)<\/span>/g;
 export function bakedToTokenHtml(
   html: string,
   variables: ContractVariables,
+  // Klíče tokenů reálně použité v šabloně smlouvy - u shodné hodnoty se z víc
+  // proměnných preferuje klíč ze šablony (např. {{clientSignerName}} v podpisu
+  // vyhraje nad metadatovým contactName se stejnou hodnotou).
+  validKeys?: Set<string>,
 ): string {
   // 1) Zapečené data-ph spany -> {{token}} (jen nedotčené; ručně přepsané = literál).
   let out = html.replace(DATA_PH_SPAN_RE, (_m, key: string, inner: string) => {
@@ -417,21 +421,27 @@ export function bakedToTokenHtml(
   });
 
   // 2) Hodnoty zapečené BEZ spanu (RAW/legacy/server render) - zpětně na {{token}}
-  //    shodou textu hodnoty. Bezpečnostní pojistky: jen neprázdné a dost dlouhé
-  //    hodnoty (>= 4 znaky), jen JEDNOZNAČNÉ (stejná hodnota u víc proměnných =
-  //    přeskočit, ať nedosadíme špatný token), nejdelší první (kvůli podřetězcům).
-  //    KEEP_DYNAMIC tokeny vynecháme - ty zůstávají {{token}} samy.
-  const byValue = new Map<string, string | null>();
+  //    shodou textu hodnoty. Pojistky: jen neprázdné a dost dlouhé hodnoty
+  //    (>= 4 znaky), nejdelší první (kvůli podřetězcům), KEEP_DYNAMIC vynecháme.
+  //    Při shodné hodnotě u víc proměnných vyhraje PRVNÍ klíč (zachová pořadí
+  //    proměnných - např. contractDate před effectiveDate); hodnota je správná,
+  //    jen u zcela identických polí může token reprezentovat jedno z nich.
+  const byValue = new Map<string, string>();
   for (const [key, value] of Object.entries(variables)) {
     if (!value || value.trim().length < 4) continue;
     if (KEEP_DYNAMIC_TOKENS.has(key)) continue;
     const enc = escapeHtml(value);
-    byValue.set(enc, byValue.has(enc) ? null : key);
+    const existing = byValue.get(enc);
+    if (existing === undefined) {
+      byValue.set(enc, key);
+    } else if (validKeys && !validKeys.has(existing) && validKeys.has(key)) {
+      // Upgrade: stávající klíč není v šabloně, nový ano -> preferuj šablonový.
+      byValue.set(enc, key);
+    }
   }
-  const entries = ([...byValue.entries()].filter(([, k]) => k) as [
-    string,
-    string,
-  ][]).sort((a, b) => b[0].length - a[0].length);
+  const entries = [...byValue.entries()].sort(
+    (a, b) => b[0].length - a[0].length,
+  );
   for (const [enc, key] of entries) {
     if (out.includes(enc)) out = out.split(enc).join(`{{${key}}}`);
   }

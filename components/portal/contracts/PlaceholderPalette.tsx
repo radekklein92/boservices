@@ -7,25 +7,31 @@ import { PLACEHOLDER_GROUPS } from "@/lib/portal/placeholders";
 export function PlaceholderPalette({
   onInsert,
   resolveValue,
+  allowedKeys,
 }: {
   onInsert: (token: string) => void;
   // Když je zadáno, znění je zapečené (vyplněné) - u položky ukážeme aktuální
   // hodnotu místo tokenu a kliknutím se vloží přímo hodnota.
   resolveValue?: (token: string) => string;
+  // Když je zadáno, zobrazí jen placeholdery použitelné v dané smlouvě (klíče
+  // tokenů z její šablony). Bez něj se zobrazí všechny (např. editor šablon).
+  allowedKeys?: Set<string>;
 }) {
   const [query, setQuery] = useState("");
   const filled = !!resolveValue;
 
   const groups = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return PLACEHOLDER_GROUPS;
+    const keyOf = (token: string) => token.match(/\{\{(\w+)\}\}/)?.[1] ?? "";
     return PLACEHOLDER_GROUPS.map((g) => ({
       ...g,
-      items: g.items.filter((i) =>
-        `${i.label} ${i.token} ${i.example}`.toLowerCase().includes(q),
-      ),
+      items: g.items.filter((i) => {
+        if (allowedKeys && !allowedKeys.has(keyOf(i.token))) return false;
+        if (!q) return true;
+        return `${i.label} ${i.token} ${i.example}`.toLowerCase().includes(q);
+      }),
     })).filter((g) => g.items.length > 0);
-  }, [query]);
+  }, [query, allowedKeys]);
 
   return (
     <div className="flex flex-col gap-3">

@@ -41,6 +41,7 @@ export function TiptapEditor({
   editable = true,
   dynamicValues,
   variables,
+  tokenKeys,
   showPlaceholders = false,
 }: {
   value: string;
@@ -53,6 +54,8 @@ export function TiptapEditor({
   dynamicValues?: Record<string, string>;
   // Proměnné smlouvy - pro převod mezi placeholdery a hodnotami (token ↔ baked).
   variables?: Record<string, string>;
+  // Klíče tokenů ze šablony - u shodných hodnot preferují šablonový token.
+  tokenKeys?: Set<string>;
   // true = editovat v režimu placeholderů ({{tokeny}}); false = finální hodnoty.
   showPlaceholders?: boolean;
 }) {
@@ -61,6 +64,8 @@ export function TiptapEditor({
   dynRef.current = dynamicValues ?? {};
   const varsRef = useRef(variables ?? {});
   varsRef.current = variables ?? {};
+  const keysRef = useRef(tokenKeys);
+  keysRef.current = tokenKeys;
   const modeRef = useRef(showPlaceholders);
   modeRef.current = showPlaceholders;
   const onChangeRef = useRef(onChange);
@@ -70,7 +75,7 @@ export function TiptapEditor({
   // (s dynamickými nody), nebo token-formu ({{tokeny}}) dle režimu.
   const displayFor = (canonical: string): string =>
     modeRef.current
-      ? bakedToTokenHtml(canonical, varsRef.current)
+      ? bakedToTokenHtml(canonical, varsRef.current, keysRef.current)
       : tokensToDynNodes(canonical);
   // Z editorového html zpět na kanonické (zapečené) html.
   const toCanonical = (editorHtml: string): string =>

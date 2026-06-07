@@ -1348,6 +1348,7 @@ export function ContractDetailClient({
                   editable={!locked}
                   showPlaceholders={placeholderView}
                   variables={variables}
+                  tokenKeys={usedTokens}
                 />
               ))
             ) : (
@@ -1359,6 +1360,7 @@ export function ContractDetailClient({
                 dynamicValues={dynamicValues}
                 showPlaceholders={placeholderView}
                 variables={variables}
+                tokenKeys={usedTokens}
               />
             )}
           </div>
@@ -1371,6 +1373,7 @@ export function ContractDetailClient({
                     ? undefined
                     : (t) => resolvePlaceholderValue(t, variables)
                 }
+                allowedKeys={usedTokens}
               />
               {isBundle && (
                 <div className="mt-4 rounded-lg border border-edge bg-paper p-3 text-[11px] leading-relaxed text-ink-mid">
@@ -1603,6 +1606,7 @@ function BundleSectionEditor({
   editable = true,
   showPlaceholders = false,
   variables,
+  tokenKeys,
 }: {
   index: number;
   total: number;
@@ -1614,6 +1618,7 @@ function BundleSectionEditor({
   editable?: boolean;
   showPlaceholders?: boolean;
   variables?: Record<string, string>;
+  tokenKeys?: Set<string>;
 }) {
   const sectionMeta = CONTRACT_TYPE_META[section.type];
   // Stejná diff logika jako jinde (ne naivní !==), ať „Upraveno proti šabloně"
@@ -1660,6 +1665,7 @@ function BundleSectionEditor({
         editable={editable}
         showPlaceholders={showPlaceholders}
         variables={variables}
+        tokenKeys={tokenKeys}
       />
     </div>
   );
