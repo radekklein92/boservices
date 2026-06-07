@@ -251,7 +251,7 @@ export function TaskManagerClient({
       <div className="flex flex-col gap-3">
         {/* Řádek 1: hledání + nový úkol (kanonický vzor portálu) */}
         <div className="flex flex-wrap items-center gap-3">
-          <div className="relative max-w-[400px] flex-1">
+          <div className="relative w-full sm:max-w-[400px] sm:flex-1">
             <Search
               className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mid"
               strokeWidth={1.5}
@@ -267,7 +267,7 @@ export function TaskManagerClient({
           <span className="font-mono text-[12px] text-ink-soft">
             {filtered.length.toString().padStart(2, "0")} / {tasks.length.toString().padStart(2, "0")}
           </span>
-          <div className="flex-1" />
+          <div className="hidden flex-1 sm:block" />
           <button type="button" onClick={() => setPanel(null)} className={BTN_PRIMARY}>
             <Plus className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
             Nový úkol
@@ -318,7 +318,7 @@ export function TaskManagerClient({
           >
             <Zap className="h-3.5 w-3.5" strokeWidth={1.5} />
             Rychle
-            <kbd className="ml-0.5 rounded border border-edge bg-paper-warm px-1.5 py-0.5 font-mono text-[10px] font-semibold text-ink-mid">
+            <kbd className="ml-0.5 hidden rounded border border-edge bg-paper-warm px-1.5 py-0.5 font-mono text-[10px] font-semibold text-ink-mid sm:inline-block">
               ⌘K
             </kbd>
           </button>
@@ -509,7 +509,7 @@ function TaskRow({
       <div className="flex items-center gap-3 px-3 py-3 sm:px-4">
         <button
           type="button"
-          className={`shrink-0 text-ink-soft transition-opacity ${
+          className={`hidden shrink-0 text-ink-soft transition-opacity sm:block ${
             dragEnabled ? "cursor-grab opacity-0 group-hover:opacity-100" : "cursor-default opacity-0"
           }`}
           {...attributes}
@@ -551,21 +551,21 @@ function TaskRow({
                 </span>
               )}
               {ll.clients.length > 0 && (
-                <span className="inline-flex items-center gap-1">
-                  <Building2 className="h-3 w-3" strokeWidth={1.5} />{" "}
-                  {ll.clients.map((c) => c.label).join(", ")}
+                <span className="inline-flex max-w-full items-center gap-1">
+                  <Building2 className="h-3 w-3 shrink-0" strokeWidth={1.5} />
+                  <span className="truncate">{ll.clients.map((c) => c.label).join(", ")}</span>
                 </span>
               )}
               {ll.locations.length > 0 && (
-                <span className="inline-flex items-center gap-1">
-                  <MapPin className="h-3 w-3" strokeWidth={1.5} />{" "}
-                  {ll.locations.map((c) => c.label).join(", ")}
+                <span className="inline-flex max-w-full items-center gap-1">
+                  <MapPin className="h-3 w-3 shrink-0" strokeWidth={1.5} />
+                  <span className="truncate">{ll.locations.map((c) => c.label).join(", ")}</span>
                 </span>
               )}
               {ll.contracts.length > 0 && (
-                <span className="inline-flex items-center gap-1">
-                  <FileText className="h-3 w-3" strokeWidth={1.5} />{" "}
-                  {ll.contracts.map((c) => c.label).join(", ")}
+                <span className="inline-flex max-w-full items-center gap-1">
+                  <FileText className="h-3 w-3 shrink-0" strokeWidth={1.5} />
+                  <span className="truncate">{ll.contracts.map((c) => c.label).join(", ")}</span>
                 </span>
               )}
             </span>

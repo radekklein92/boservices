@@ -206,6 +206,8 @@ export function DiffModal({
             font-size: 14px;
             line-height: 1.65;
             color: var(--color-ink-base);
+            overflow-wrap: break-word;
+            word-break: break-word;
           }
           .diff-view h1, .diff-view h2, .diff-view h3 {
             font-weight: 700;

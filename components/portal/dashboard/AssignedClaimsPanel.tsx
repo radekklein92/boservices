@@ -84,7 +84,7 @@ export function AssignedClaimsPanel({
       {open &&
         createPortal(
           <div
-            className="fixed inset-0 z-50 grid place-items-center bg-ink-base/40 px-4 backdrop-blur-sm"
+            className="fixed inset-0 z-50 grid place-items-center bg-ink-base/40 px-4 py-6 backdrop-blur-sm"
             onClick={() => setOpen(false)}
           >
           <div

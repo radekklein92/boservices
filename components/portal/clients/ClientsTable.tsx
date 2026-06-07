@@ -224,7 +224,7 @@ export function ClientsTable({
                   {(badgesByClient?.[c.id] ?? []).map((b, i) => {
                     const Icon = TYPE_ICON[b.type] ?? FileText;
                     const tip = `${CONTRACT_TYPE_META[b.type].shortName} — ${STATE_LABEL[b.state]}`;
-                    const cls = `grid h-7 w-7 place-items-center rounded-full border ${STATE_STYLE[b.state]}${b.contractId ? " transition-transform hover:-translate-y-0.5" : ""}`;
+                    const cls = `grid h-9 w-9 place-items-center rounded-full border sm:h-7 sm:w-7 ${STATE_STYLE[b.state]}${b.contractId ? " transition-transform hover:-translate-y-0.5" : ""}`;
                     return b.contractId ? (
                       <Link
                         key={i}

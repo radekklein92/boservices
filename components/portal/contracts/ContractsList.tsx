@@ -363,8 +363,8 @@ export function ContractsList({
     <>
       <div className="flex flex-col gap-5">
         {/* Search + create */}
-        <div className="flex items-center gap-3">
-          <div className="relative max-w-[400px] flex-1">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative w-full sm:max-w-[400px] sm:flex-1">
             <Search
               className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mid"
               strokeWidth={1.5}
@@ -380,7 +380,7 @@ export function ContractsList({
           <span className="font-mono text-[12px] text-ink-soft">
             {filtered.length.toString().padStart(2, "0")} / {items.length}
           </span>
-          <div className="flex-1" />
+          <div className="hidden flex-1 sm:block" />
           <button
             type="button"
             onClick={() => setModalOpen(true)}
@@ -419,7 +419,7 @@ export function ContractsList({
               Vybráno {selected.size}{" "}
               {selected.size === 1 ? "smlouva" : selected.size < 5 ? "smlouvy" : "smluv"}
             </span>
-            <div className="flex-1" />
+            <div className="hidden flex-1 sm:block" />
             <BulkButton
               onClick={() => bulkStatus("submit")}
               disabled={bulkPending !== null}

@@ -40,7 +40,9 @@ export function StatusDropdown({
     const menuH = 8 + STATUS_ORDER.length * 38;
     const below = window.innerHeight - rect.bottom;
     const top = below < menuH + 8 ? rect.top - menuH - 6 : rect.bottom + 6;
-    setPos({ top, left: rect.left, width: Math.max(rect.width, 170) });
+    const width = Math.max(rect.width, 170);
+    const left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8));
+    setPos({ top, left, width });
   }, [open]);
 
   useEffect(() => {

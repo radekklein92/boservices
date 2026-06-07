@@ -200,7 +200,7 @@ export function TaskSidePanel({
               ))}
             </datalist>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="flex flex-col gap-1.5">
                 <span className={LABEL}>Řešitel</span>
                 <input
@@ -223,7 +223,7 @@ export function TaskSidePanel({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="flex flex-col gap-1.5">
                 <span className={LABEL}>Termín</span>
                 <input

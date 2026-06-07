@@ -1311,7 +1311,7 @@ export function ContractDetailClient({
               onClick={() => setPlaceholderView(false)}
               aria-pressed={!placeholderView}
               className={[
-                "inline-flex h-7 items-center rounded-full px-3 text-[12px] font-medium transition-colors",
+                "inline-flex h-9 items-center rounded-full px-3 text-[12px] font-medium transition-colors sm:h-7",
                 !placeholderView ? "bg-ink-base text-paper" : "text-ink-mid hover:text-ink-base",
               ].join(" ")}
             >
@@ -1322,7 +1322,7 @@ export function ContractDetailClient({
               onClick={() => setPlaceholderView(true)}
               aria-pressed={placeholderView}
               className={[
-                "inline-flex h-7 items-center rounded-full px-3 text-[12px] font-medium transition-colors",
+                "inline-flex h-9 items-center rounded-full px-3 text-[12px] font-medium transition-colors sm:h-7",
                 placeholderView ? "bg-ink-base text-paper" : "text-ink-mid hover:text-ink-base",
               ].join(" ")}
             >
@@ -1364,7 +1364,7 @@ export function ContractDetailClient({
               />
             )}
           </div>
-          <aside className="flex h-full min-h-[480px] flex-col overflow-hidden rounded-2xl border border-edge bg-paper-warm lg:sticky lg:top-6">
+          <aside className="flex h-full flex-col overflow-hidden rounded-2xl border border-edge bg-paper-warm lg:sticky lg:top-6 lg:min-h-[480px]">
             <div className="flex-1 overflow-y-auto p-4">
               <PlaceholderPalette
                 onInsert={handleInsert}
@@ -1396,7 +1396,7 @@ export function ContractDetailClient({
       {toast && (
         <div
           role="status"
-          className={`fixed bottom-6 right-6 z-50 max-w-md rounded-2xl border px-5 py-4 text-[13.5px] shadow-[0_18px_42px_-18px_rgba(14,14,14,0.35)] ${
+          className={`fixed bottom-6 left-4 right-4 z-50 mx-auto max-w-md rounded-2xl border px-5 py-4 text-[13.5px] shadow-[0_18px_42px_-18px_rgba(14,14,14,0.35)] sm:left-auto sm:mx-0 ${
             toast.kind === "ok"
               ? "border-edge bg-paper text-ink-base"
               : "border-ink-base bg-ink-base text-paper"

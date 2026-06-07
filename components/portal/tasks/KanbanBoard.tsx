@@ -176,7 +176,7 @@ function Card({
           ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 50 }
           : undefined
       }
-      className={`group relative cursor-grab touch-none rounded-2xl border border-edge bg-paper p-3.5 pl-4 shadow-[0_1px_2px_rgba(14,14,14,0.04)] transition-shadow active:cursor-grabbing ${
+      className={`group relative cursor-grab touch-pan-y rounded-2xl border border-edge bg-paper p-3.5 pl-4 shadow-[0_1px_2px_rgba(14,14,14,0.04)] transition-shadow active:cursor-grabbing ${
         isDragging
           ? "rotate-[0.6deg] shadow-[0_18px_40px_-16px_rgba(14,14,14,0.4)]"
           : "hover:shadow-[0_8px_24px_-14px_rgba(14,14,14,0.35)]"

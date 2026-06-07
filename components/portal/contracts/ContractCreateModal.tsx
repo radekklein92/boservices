@@ -292,7 +292,7 @@ export function ContractCreateModal({
               <span className="text-[10px] font-medium uppercase tracking-[0.16em] text-ink-mid">
                 Varianta
               </span>
-              <div className="grid grid-cols-2 gap-1.5">
+              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
                 {availableVariants.map((v) => {
                   const meta = getVariantMeta(type, v);
                   if (!meta) return null;

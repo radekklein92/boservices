@@ -88,16 +88,16 @@ export function CompanyChipPicker({
               disabled={loading}
               aria-pressed={active}
               className={[
-                "inline-flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-[12.5px] font-medium transition-all disabled:opacity-60",
+                "inline-flex h-9 max-w-full items-center gap-1.5 rounded-full border px-3.5 text-[12.5px] font-medium transition-all disabled:opacity-60",
                 active
                   ? "border-ink-base bg-ink-base text-paper"
                   : "border-edge bg-paper text-ink-deep hover:border-ink-soft",
               ].join(" ")}
             >
               {loading && (
-                <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-ink-soft" />
+                <span className="inline-block h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-ink-soft" />
               )}
-              {preset.label}
+              <span className="truncate">{preset.label}</span>
             </button>
           );
         })}

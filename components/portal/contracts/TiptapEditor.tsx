@@ -114,7 +114,7 @@ export function TiptapEditor({
     editorProps: {
       attributes: {
         class:
-          "prose prose-sm max-w-none min-h-[480px] focus:outline-none px-6 py-7 text-ink-base leading-relaxed",
+          "prose prose-sm max-w-none min-h-[340px] md:min-h-[480px] focus:outline-none px-6 py-7 text-ink-base leading-relaxed",
         spellcheck: "false",
       },
     },
@@ -162,7 +162,7 @@ export function TiptapEditor({
     return (
       <div className="rounded-2xl border border-edge bg-paper">
         {editable && <Toolbar editor={null} />}
-        <div className="min-h-[480px] px-6 py-7 text-[13.5px] text-ink-mid">
+        <div className="min-h-[340px] px-6 py-7 text-[13.5px] text-ink-mid md:min-h-[480px]">
           Načítám editor…
         </div>
       </div>
@@ -347,7 +347,7 @@ function Tbtn({
       aria-label={label}
       title={label}
       className={[
-        "grid h-8 w-8 place-items-center rounded-md transition-colors",
+        "grid h-9 w-9 place-items-center rounded-md transition-colors sm:h-8 sm:w-8",
         isActive
           ? "bg-ink-base text-paper"
           : "text-ink-deep hover:bg-edge-warm",

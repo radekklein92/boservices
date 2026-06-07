@@ -403,7 +403,7 @@ function MilestoneHero({ count, festive = false }: { count: number; festive?: bo
         </div>
 
         {/* Right side: next milestone callout */}
-        <div className="min-w-[200px]">
+        <div className="w-full sm:w-auto sm:min-w-[200px]">
           {goalReached ? (
             <div className="inline-flex flex-col items-start gap-2 rounded-2xl border border-emerald-600 bg-emerald-50/40 px-5 py-4">
               <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-paper">
