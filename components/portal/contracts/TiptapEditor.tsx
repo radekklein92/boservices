@@ -125,16 +125,26 @@ export function TiptapEditor({
     if (editor) editor.setEditable(editable);
   }, [editor, editable]);
 
+  // Vnější změna hodnoty (pole, přepnutí varianty…) - srovnáme v kanonickém
+  // (zapečeném) prostoru, ať se needituje pod rukama.
   useEffect(() => {
     if (!editor) return;
-    // Porovnáváme v kanonickém (zapečeném) prostoru. Reaguje i na přepnutí režimu
-    // (showPlaceholders) - překreslí obsah do správné reprezentace.
     const current = toCanonical(editor.getHTML());
     if (current !== value) {
       editor.commands.setContent(displayFor(value), { emitUpdate: false });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value, showPlaceholders]);
+  }, [value]);
+
+  // Přepnutí režimu Hodnoty <-> Placeholdery: VŽDY překreslit obsah do správné
+  // reprezentace (porovnání v efektu výše by změnu režimu nezachytilo, protože
+  // zapečené html je v obou „kanonicky" stejné).
+  useEffect(() => {
+    if (editor) {
+      editor.commands.setContent(displayFor(value), { emitUpdate: false });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor, showPlaceholders]);
 
   // Změna hodnot (přepínač MS/KS, výběr firmy) -> překresli dynamické klauzule
   // v editoru. Uložené HTML se nemění (drží {{tokeny}}).
