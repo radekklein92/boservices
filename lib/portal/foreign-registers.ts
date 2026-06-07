@@ -1,5 +1,6 @@
 import https from "node:https";
 import type { AresLookupResult } from "./ares";
+import { abbreviateLegalForm } from "./company-name";
 
 // Načtení firem z polského a slovenského veřejného rejstříku, normalizované na
 // stejný tvar jako ARES (AresLookupResult). Volá se jen ze serveru (kvůli CORS).
@@ -91,7 +92,7 @@ export async function lookupPolishCompany(
   return {
     ico: regon,
     dic: subject.nip || undefined,
-    companyName: subject.name.trim(),
+    companyName: abbreviateLegalForm(subject.name),
     legalForm: "PO",
     address: {
       street: toProperCase(addr.street),
@@ -184,7 +185,7 @@ export async function lookupSlovakCompany(
 
   return {
     ico,
-    companyName: name,
+    companyName: abbreviateLegalForm(name),
     legalForm: "PO",
     address: { street, city, zip, country: "Slovensko" },
   };

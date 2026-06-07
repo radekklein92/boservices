@@ -25,6 +25,7 @@ import type {
   ContractTypeState,
 } from "@/lib/portal/client-contract-status";
 import { BTN_ROW, BTN_ICON } from "@/components/portal/ui/buttons";
+import { abbreviateLegalForm } from "@/lib/portal/company-name";
 
 const LEGAL_LABEL: Record<string, string> = {
   PO: "Právnická osoba",
@@ -196,8 +197,11 @@ export function ClientsTable({
                   href={`/portal/clients/${c.id}`}
                   className="flex items-baseline gap-3"
                 >
-                  <span className="truncate text-[15px] font-bold tracking-[-0.01em] text-ink-base">
-                    {c.companyName}
+                  <span
+                    className="truncate text-[15px] font-bold tracking-[-0.01em] text-ink-base"
+                    title={c.companyName}
+                  >
+                    {abbreviateLegalForm(c.companyName)}
                   </span>
                   <ArrowUpRight
                     className="h-3.5 w-3.5 shrink-0 text-ink-soft transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
