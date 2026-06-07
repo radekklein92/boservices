@@ -23,7 +23,7 @@ import {
 import { normalizeHtmlForDiff } from "@/lib/portal/contract-diff";
 import { getLocation, toLocationSnapshot } from "@/lib/portal/locations-db";
 import { getSession } from "@/lib/portal/get-session";
-import { getTemplateApprovers } from "@/lib/portal/users-db";
+import { getTemplateApprovers, listUsers } from "@/lib/portal/users-db";
 import { ContractDetailClient } from "@/components/portal/contracts/ContractDetailClient";
 import { EntityTasks } from "@/components/portal/tasks/EntityTasks";
 
@@ -150,14 +150,18 @@ export default async function ContractDetailPage({
   }
 
   // Schvalovatelé šablon - smí schválit smlouvu ve stavu Ke schválení.
-  const [session, approvers] = await Promise.all([
+  const [session, approvers, users] = await Promise.all([
     getSession(),
     getTemplateApprovers(),
+    listUsers(),
   ]);
   const approverEmails = approvers.map((a) => a.email);
   const isApprover = !!session?.user?.email
     && approverEmails.includes(session.user.email);
   const isSuperadmin = session?.user?.role === "superadmin";
+  const currentUserEmail = session?.user?.email ?? "";
+  // Volby pro picker uživatelů u zámku konceptu (e-mail + jméno).
+  const userOptions = users.map((u) => ({ email: u.email, name: u.name }));
 
   return (
     <div className="flex flex-col gap-10">
@@ -169,6 +173,8 @@ export default async function ContractDetailPage({
         approverEmails={approverEmails}
         locationNewco={locationNewco}
         standardOperatingFee={standardOperatingFee}
+        currentUserEmail={currentUserEmail}
+        userOptions={userOptions}
         tasksSlot={<EntityTasks kind="contract" id={id} />}
       />
     </div>

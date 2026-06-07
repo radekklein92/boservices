@@ -126,6 +126,35 @@ export function isContractEditable(status: ContractStatus): boolean {
   return statusOrder(status) < statusOrder("schvaleno");
 }
 
+// Uživatelský zámek konceptu: zamykatel (by) + vyjmenovaní (allowed) smí
+// upravovat, ostatní jen prohlížet. Superadmin má vždy přístup. Bez zámku smí
+// každý (v rámci status-editovatelnosti).
+export function canEditContractLock(
+  editLock: Contract["editLock"],
+  email: string | undefined,
+  isSuperadmin: boolean,
+): boolean {
+  if (!editLock) return true;
+  if (isSuperadmin) return true;
+  if (!email) return false;
+  const e = email.toLowerCase();
+  return (
+    editLock.by.toLowerCase() === e ||
+    editLock.allowed.some((a) => a.toLowerCase() === e)
+  );
+}
+
+// Smí daný uživatel měnit/rušit zámek? Jen ten, kdo zamkl, nebo superadmin.
+export function canManageContractLock(
+  editLock: Contract["editLock"],
+  email: string | undefined,
+  isSuperadmin: boolean,
+): boolean {
+  if (!editLock) return true; // zamknout smí kdokoli (kdo zrovna může editovat)
+  if (isSuperadmin) return true;
+  return !!email && editLock.by.toLowerCase() === email.toLowerCase();
+}
+
 export interface BundleSection {
   type: ClaimBundleSectionType;
   html: string;
@@ -207,6 +236,15 @@ export interface Contract {
   scanUploadedAt?: string;
   scanUploadedBy?: string;
   number?: string;
+  // Uživatelský zámek úprav konceptu: jen `by` + `allowed` smí upravovat, ostatní
+  // jen prohlížet. Nezávislé na status-zámku (schváleno+). Mění/ruší jen `by` nebo
+  // superadmin. Bez tohoto pole je smlouva editovatelná dle statusu (jako dosud).
+  editLock?: {
+    by: string;
+    byName?: string;
+    allowed: string[];
+    at: string;
+  };
   createdBy: string;
   createdAt: string;
   updatedAt: string;

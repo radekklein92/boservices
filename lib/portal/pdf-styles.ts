@@ -206,8 +206,11 @@ export const PDF_PAGE_STYLES = `
   /* Signature blocks (typický pattern dvou podpisových rámců) - celá sekce
    * pohromadě, a navíc každý odstavec (jeden podepisující) jako celek, ať se
    * podpis nerozlomí přes konec stránky ani když je sekce vysoká. */
-  .signatures { margin-top: 26pt; page-break-inside: avoid; }
+  /* Podpisová sekce se jako celek smí lámat přes stránky (využije zbytek
+   * předchozí strany). Pohromadě drží jen .sign-unit = datum + jeho podpis. */
+  .signatures { margin-top: 26pt; }
   .signatures p { page-break-inside: avoid; break-inside: avoid; }
+  .sign-unit { break-inside: avoid; page-break-inside: avoid; }
 
   /* Příloha č. 1 (seznam pohledávek) - vždy začíná na samostatné stránce,
    * tabulka se pokud možno nezalomí přes konec stránky. */
@@ -221,8 +224,6 @@ export const PDF_PAGE_STYLES = `
   }
   .claims-appendix-sign {
     margin-top: 28pt;
-    break-inside: avoid;
-    page-break-inside: avoid;
   }
 
   /* Bundle (claim-bundle) - oddělovač sekcí. První sekce zůstává hned za cover

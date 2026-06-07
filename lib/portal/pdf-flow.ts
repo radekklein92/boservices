@@ -3,6 +3,7 @@ import type { Contract } from "./contracts-db";
 import { CONTRACT_TYPE_META, isBundleType } from "./contract-types";
 import {
   applySignerOverride,
+  groupSignatureUnits,
   renderTemplate,
   stripPlaceholderSpans,
   wrapSignatures,
@@ -85,7 +86,10 @@ export async function renderAndStoreContractPdf(contract: Contract): Promise<{
     // Odstranit pomocné značky zapečených hodnot (data-ph) - do PDF čistý text.
     const base = stripPlaceholderSpans(h);
     const h1 = wrapSignatures(base);
-    return isClaim ? stripClamoraDicAndBank(prepareClaimsAppendix(h1)) : h1;
+    const h2 = isClaim ? stripClamoraDicAndBank(prepareClaimsAppendix(h1)) : h1;
+    // Datum + jeho podpis vždy pohromadě (.sign-unit); celá podpisová sekce už
+    // smí přetéct, takže využije zbytek předchozí stránky.
+    return groupSignatureUnits(h2);
   };
 
   let pdf: Buffer;

@@ -504,3 +504,21 @@ export function wrapSignatures(html: string): string {
   if (html.includes('class="signatures"')) return html;
   return html.replace(SIGNATURES_RE, '<div class="signatures">$1$2</div>');
 }
+
+// Seskupí každý pár „datum + podpis" do .sign-unit (break-inside: avoid), aby
+// datum a jeho podpis NIKDY neskončily na různých stránkách - ale jednotlivé
+// podpisy už smí přetéct na další stránku a využít zbytek předchozí (.signatures
+// jako celek se proto nezalamuje pohromadě). Skupina = volitelný řádek data
+// „V … dne …" + případné prázdné odstavce + odstavec podpisu (začíná podtržítky).
+// Idempotentní; aplikuje se jen při renderu PDF. Funguje na token i zapečené formě.
+const SIGN_UNIT_RE =
+  /((?:<p>\s*V\b[^<]*\bdne\b[^<]*<\/p>\s*|<p>(?:&nbsp;|\s| )*<\/p>\s*)*)(<p>_{6,}[\s\S]*?<\/p>)/g;
+
+export function groupSignatureUnits(html: string): string {
+  if (html.includes('class="sign-unit"')) return html;
+  return html.replace(
+    SIGN_UNIT_RE,
+    (_m, lead: string, sig: string) =>
+      `<div class="sign-unit">${lead}${sig}</div>`,
+  );
+}

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { del } from "@vercel/blob";
 import { requireSession } from "@/lib/portal/auth-guard";
 import {
+  canEditContractLock,
   computeContractStatus,
   deleteContract,
   getContract,
@@ -85,6 +86,24 @@ export async function PUT(
     );
   }
 
+  // Uživatelský zámek konceptu: jen zamykatel + povolení (nebo superadmin) smí
+  // upravovat. Ostatní si smlouvu jen prohlédnou.
+  if (
+    !canEditContractLock(
+      existing.editLock,
+      g.session.user!.email!,
+      g.session.user!.role === "superadmin",
+    )
+  ) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: `Koncept je uzamčen k úpravám uživatelem ${existing.editLock?.byName ?? existing.editLock?.by ?? ""}. Můžete ho jen prohlížet.`,
+      },
+      { status: 403 },
+    );
+  }
+
   let body: unknown;
   try {
     body = await req.json();
@@ -146,6 +165,22 @@ export async function DELETE(
   if (!g.ok) return g.response;
 
   const { id } = await params;
+  // Uzamčený koncept smí smazat jen ten, kdo smí editovat (zamykatel + povolení
+  // nebo superadmin) - ať cizí uživatel nesmaže zamčenou rozpracovanou smlouvu.
+  const before = await getContract(id);
+  if (
+    before &&
+    !canEditContractLock(
+      before.editLock,
+      g.session.user!.email!,
+      g.session.user!.role === "superadmin",
+    )
+  ) {
+    return NextResponse.json(
+      { ok: false, error: "Koncept je uzamčen jiným uživatelem." },
+      { status: 403 },
+    );
+  }
   const contract = await deleteContract(id);
   if (!contract) {
     bustContracts();
