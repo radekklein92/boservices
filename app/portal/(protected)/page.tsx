@@ -17,6 +17,7 @@ import { getSession } from "@/lib/portal/get-session";
 import { cachedListContracts } from "@/lib/portal/cached-db";
 import { parseClaimAmount } from "@/lib/portal/claims";
 import { FireworksCelebration } from "@/components/portal/dashboard/FireworksCelebration";
+import { AssignedClaimsPanel } from "@/components/portal/dashboard/AssignedClaimsPanel";
 
 // Dashboard - jediný story: postup k cíli 100 franšízových lokalit.
 //
@@ -91,14 +92,36 @@ export default async function PortalDashboardPage({
   // clientSignedAt / signedAt / scanUploadedAt). Pohledávky jsou vč. DPH.
   let assignedClaimsTotal = 0;
   let assignedClaimsContractsCount = 0;
+  // Rozpad po dlužnících (entitách) - kolik postoupených pohledávek je vůči
+  // jednotlivým společnostem (Flowers International, Bubblify International…).
+  const claimsByDebtor = new Map<
+    string,
+    { total: number; contracts: number; claims: number }
+  >();
   for (const c of contracts) {
     if (c.type !== "claim-bundle") continue;
     if (!(c.clientSignedAt || c.signedAt || c.scanUploadedAt)) continue;
     assignedClaimsContractsCount++;
+    const debtor = c.variables?.debtorName?.trim() || "Neuvedený dlužník";
+    const entry =
+      claimsByDebtor.get(debtor) ?? { total: 0, contracts: 0, claims: 0 };
+    entry.contracts++;
     for (const item of c.claims ?? []) {
-      assignedClaimsTotal += parseClaimAmount(item.amount);
+      const amt = parseClaimAmount(item.amount);
+      assignedClaimsTotal += amt;
+      entry.total += amt;
+      entry.claims++;
     }
+    claimsByDebtor.set(debtor, entry);
   }
+  const claimsBreakdown = [...claimsByDebtor.entries()]
+    .map(([name, v]) => ({
+      name,
+      total: v.total,
+      contractsCount: v.contracts,
+      claimsCount: v.claims,
+    }))
+    .sort((a, b) => b.total - a.total);
 
   const displayName =
     session?.user?.name?.split(/\s+/)[0] ??
@@ -161,6 +184,7 @@ export default async function PortalDashboardPage({
         <AssignedClaimsPanel
           total={assignedClaimsTotal}
           contractsCount={assignedClaimsContractsCount}
+          breakdown={claimsBreakdown}
         />
       </section>
 
@@ -649,66 +673,6 @@ function SecondaryStat({
         </div>
         <div className="mt-5 font-extrabold leading-none tracking-[-0.045em] text-ink-base text-[clamp(2.5rem,6vw,3.5rem)]">
           {value.toLocaleString("cs-CZ")}
-        </div>
-        <div className="mt-2.5 text-[13px] text-ink-mid">{caption}</div>
-      </div>
-    </Link>
-  );
-}
-
-// Postoupené pohledávky - sourozenec „Podepsaných smluv". Velké číslo
-// s formátovanou částkou v Kč (vč. DPH - poznámka v captionu, kvůli
-// výjimce z globálního pravidla „bez DPH"). Suma z claim-bundle smluv,
-// které mají alespoň „podepsáno klientem".
-function AssignedClaimsPanel({
-  total,
-  contractsCount,
-}: {
-  total: number;
-  contractsCount: number;
-}) {
-  // Bez desetinných míst (pohledávky jsou celé Kč) a non-breaking space jako
-  // oddělovač tisíců - cs-CZ Intl to dělá automaticky.
-  const formatted = new Intl.NumberFormat("cs-CZ", {
-    style: "currency",
-    currency: "CZK",
-    maximumFractionDigits: 0,
-  }).format(total);
-
-  const caption =
-    contractsCount === 0
-      ? "zatím žádné podepsané postoupení"
-      : `vč. DPH · z ${contractsCount} ${
-          contractsCount === 1
-            ? "smlouvy"
-            : contractsCount < 5
-              ? "smluv"
-              : "smluv"
-        }`;
-
-  return (
-    <Link
-      href="/portal/contracts"
-      className="group relative overflow-hidden rounded-[24px] border border-edge bg-paper p-7 transition-colors hover:border-ink-soft"
-    >
-      <Coins
-        className="absolute -bottom-4 -right-4 h-32 w-32 text-ink-base/[0.04]"
-        strokeWidth={1}
-        aria-hidden="true"
-      />
-      <div className="relative">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-[10.5px] font-medium uppercase tracking-[0.22em] text-ink-mid">
-            <Coins className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
-            Postoupené pohledávky
-          </div>
-          <ArrowUpRight
-            className="h-4 w-4 text-ink-mid transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
-            strokeWidth={1.5}
-          />
-        </div>
-        <div className="mt-5 font-extrabold leading-none tracking-[-0.045em] text-ink-base text-[clamp(2rem,4.6vw,2.85rem)]">
-          {formatted}
         </div>
         <div className="mt-2.5 text-[13px] text-ink-mid">{caption}</div>
       </div>
