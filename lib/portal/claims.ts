@@ -248,16 +248,19 @@ export function ensureAppendixSignature(html: string): string {
   return html.replace(CLAIMS_TOKEN, `${CLAIMS_TOKEN}${APPENDIX_SIGN_BLOCK}`);
 }
 
-// Obal kolem nadpisu + tabulky + (volitelně) podpisu Postupitele - drží přílohu
-// na jedné stránce. Skupina $3 (podpis) je volitelná; když chybí, nahradí se "".
-const APPENDIX_WRAP_RE =
-  /(<h2[^>]*>\s*Příloha č\.\s*1[^<]*<\/h2>)\s*(\{\{claimsTable\}\})(\s*<div class="claims-appendix-sign">[\s\S]*?<\/div>)?/;
+// Obal kolem celé Přílohy č. 1 (nadpis + tabulka + podpis Postupitele) -> CSS
+// .claims-appendix ji odsadí na novou stránku. Obalujeme od nadpisu „Příloha č.
+// 1" do KONCE dokumentu, protože příloha je v postoupení vždy poslední blok.
+// Robustní vůči tomu, že Tiptap zabalí {{claimsTable}} do <p> (pak by užší regex
+// kolem tokenu nematchnul a příloha by se nezalomila).
+const APPENDIX_FROM_HEADING_RE = /(<h2[^>]*>\s*Příloha č\.\s*1[\s\S]*)$/i;
 
 export function wrapClaimsAppendix(html: string): string {
   if (html.includes('class="claims-appendix"')) return html;
+  if (!APPENDIX_HEADING_RE.test(html)) return html;
   return html.replace(
-    APPENDIX_WRAP_RE,
-    '<div class="claims-appendix">$1$2$3</div>',
+    APPENDIX_FROM_HEADING_RE,
+    '<div class="claims-appendix">$1</div>',
   );
 }
 
