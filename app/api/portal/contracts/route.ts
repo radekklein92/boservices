@@ -224,8 +224,7 @@ export async function POST(req: Request) {
 
   // Odstoupení od smluv: default „KS padá s ostatními" (KS bod 3 v Úvodním
   // prohlášení, dovětek v bodě 4 Odstoupení). User to může v detailu přepnout.
-  // Dohoda (varianta D) ukončuje jen FS - žádné KS tokeny, default neplatí.
-  if (type === "withdrawal" && variant !== "D") {
+  if (type === "withdrawal") {
     const ks = WITHDRAWAL_KS_TEXTS.dropped;
     variables.ksIntroLineSeparator = ks.ksIntroLineSeparator;
     variables.ksIntroClause = ks.ksIntroClause;

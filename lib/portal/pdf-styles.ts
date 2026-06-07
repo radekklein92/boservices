@@ -53,21 +53,6 @@ export function getCoverForType(type: ContractType): CoverHeader {
   };
 }
 
-// Cover podle typu a varianty. Odstoupení varianta D = Dohoda o ukončení smluv
-// (jiný název i podtitulek než jednostranné odstoupení A/B).
-export function resolveCover(
-  type: ContractType,
-  variant?: string,
-): CoverHeader {
-  if (type === "withdrawal" && variant === "D") {
-    return {
-      title: "Dohoda o ukončení smluv",
-      subtitle:
-        "dvoustranné ujednání o ukončení franšízingové smlouvy dle § 1981 zákona č. 89/2012 Sb., občanský zákoník",
-    };
-  }
-  return getCoverForType(type);
-}
 
 export const PDF_PAGE_STYLES = `
   * { box-sizing: border-box; }

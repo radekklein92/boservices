@@ -41,7 +41,7 @@ export function ContractStatusStepper({
   signerLabel?: string | null;
 }) {
   const current = contract.status;
-  const flow = getStatusFlowForType(contract.type, contract.variant);
+  const flow = getStatusFlowForType(contract.type);
   // Když je smlouva už ve statusu, který v jejím flow neexistuje (např. data
   // ze starého času před zavedením unilateral flow), spadne to do max(flow).
   const currentIdx =
