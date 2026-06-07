@@ -146,7 +146,7 @@ export const WITHDRAWAL_VARIANT_META: Record<WithdrawalVariant, VariantMeta> = {
   },
   D: {
     label: "Dohoda o ukončení — porušení Poskytovatele",
-    description: "Dvoustranná dohoda o ukončení FS a navázaných smluv. Podepisují obě strany.",
+    description: "Dvoustranná dohoda o ukončení franšízingové smlouvy (FS). Podepisují obě strany.",
   },
 };
 

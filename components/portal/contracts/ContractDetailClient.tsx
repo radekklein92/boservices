@@ -773,6 +773,9 @@ export function ContractDetailClient({
             odstoupení BOServices nepodepisuje). */}
         {contract.type === "withdrawal" && (
           <>
+            {/* Manažer (MS) jen když ho šablona používá - Dohoda (D) ukončuje
+                pouze FS, takže Manažera nemá. */}
+            {has("managerName") && (
             <FieldGroup label="Manažer (adresát MS)">
               <CompanyChipPicker
                 selectedIco={variables.managerIco}
@@ -814,6 +817,7 @@ export function ContractDetailClient({
                 />
               </div>
             </FieldGroup>
+            )}
 
             <FieldGroup label="Poskytovatel (adresát FS)">
               <CompanyChipPicker

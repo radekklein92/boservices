@@ -1,19 +1,24 @@
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/portal/shell/PageHeader";
-import { cachedListContractTemplates } from "@/lib/portal/cached-db";
 import { getSession } from "@/lib/portal/get-session";
 import { isAdminRole } from "@/lib/portal/auth-guard";
 import { getTemplateApprovers } from "@/lib/portal/users-db";
-import { isTemplateApproved } from "@/lib/portal/contract-templates-db";
+import {
+  isTemplateApproved,
+  listContractTemplates,
+} from "@/lib/portal/contract-templates-db";
 import { TemplatesListClient, type TemplateRow } from "@/components/portal/contracts/TemplatesListClient";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Šablony smluv" };
 
 export default async function TemplatesPage() {
+  // Přímé čtení (ne cache) - seznam je levný (1 Redis pipeline) a hlavně se
+  // odvozuje z getVariantsForType, takže přidání varianty (např. odstoupení D)
+  // se projeví hned, bez čekání na expiraci unstable_cache.
   const [session, entries, approvers] = await Promise.all([
     getSession(),
-    cachedListContractTemplates(),
+    listContractTemplates(),
     getTemplateApprovers(),
   ]);
   if (!session?.user?.email) redirect("/portal/login");

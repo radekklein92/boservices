@@ -63,7 +63,7 @@ export function resolveCover(
     return {
       title: "Dohoda o ukončení smluv",
       subtitle:
-        "dvoustranné ujednání o ukončení závislých smluv dle § 1727 a § 1981 zákona č. 89/2012 Sb., občanský zákoník",
+        "dvoustranné ujednání o ukončení franšízingové smlouvy dle § 1981 zákona č. 89/2012 Sb., občanský zákoník",
     };
   }
   return getCoverForType(type);
