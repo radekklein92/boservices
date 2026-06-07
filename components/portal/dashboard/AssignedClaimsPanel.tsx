@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { ArrowUpRight, Coins, X } from "lucide-react";
 
 export type ClaimsBreakdownEntry = {
@@ -80,8 +81,9 @@ export function AssignedClaimsPanel({
         </div>
       </button>
 
-      {open && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-ink-base/40 px-4 backdrop-blur-sm">
+      {open &&
+        createPortal(
+          <div className="fixed inset-0 z-50 grid place-items-center bg-ink-base/40 px-4 backdrop-blur-sm">
           <div className="flex max-h-[82vh] w-full max-w-[560px] flex-col rounded-2xl border border-edge bg-paper shadow-[0_18px_42px_-18px_rgba(14,14,14,0.35)]">
             <div className="flex items-start justify-between gap-3 p-6 pb-4">
               <div>
@@ -139,8 +141,9 @@ export function AssignedClaimsPanel({
               </div>
             </div>
           </div>
-        </div>
-      )}
+        </div>,
+          document.body,
+        )}
     </>
   );
 }
