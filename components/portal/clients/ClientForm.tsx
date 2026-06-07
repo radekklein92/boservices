@@ -254,6 +254,35 @@ export function ClientForm({
             : `Doplňte jméno, ${idLabel} (volitelně) a DIČ.`
         }
       >
+        {/* Výběr rejstříku přímo u IČO - nastaví pole Stát níže a určí, odkud
+            tlačítko lupy načte (ČR=ARES, Polsko=Biała lista, Slovensko=RPO). */}
+        <div className="mb-3 flex flex-col gap-1.5">
+          <span className="text-[10px] font-medium uppercase tracking-[0.16em] text-ink-mid">
+            Rejstřík / stát
+          </span>
+          <div className="flex flex-wrap gap-1.5">
+            {[
+              { key: "cz", country: "Česká republika", label: "Česká republika · ARES" },
+              { key: "pl", country: "Polsko", label: "Polsko · Biała lista" },
+              { key: "sk", country: "Slovensko", label: "Slovensko · RPO" },
+            ].map((r) => (
+              <button
+                key={r.key}
+                type="button"
+                onClick={() => set("country", r.country)}
+                aria-pressed={registerKey === r.key}
+                className={[
+                  "inline-flex h-9 items-center rounded-full border px-3.5 text-[12.5px] font-medium transition-colors",
+                  registerKey === r.key
+                    ? "border-ink-base bg-ink-base text-paper"
+                    : "border-edge bg-paper text-ink-deep hover:border-ink-soft",
+                ].join(" ")}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-[160px_1fr_140px]">
           <Field label={idLabel}>
             <div className="flex gap-1.5">
