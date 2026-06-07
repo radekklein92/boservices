@@ -4,7 +4,7 @@ import { getContract } from "@/lib/portal/contracts-db";
 import { getOrSeedContractTemplate } from "@/lib/portal/contract-templates-db";
 import { CONTRACT_TYPE_META, isBundleType } from "@/lib/portal/contract-types";
 import { htmlDiff } from "@/lib/portal/contract-diff";
-import { renderTemplate } from "@/lib/portal/contract-render";
+import { bakeSnapshotForDiff, renderTemplate } from "@/lib/portal/contract-render";
 import {
   bundleHtmlToPdfBuffer,
   htmlToPdfBuffer,
@@ -83,7 +83,14 @@ export async function GET(
         const template = await getOrSeedContractTemplate(contract.type);
         snapshot = template.html;
       }
-      const result = htmlDiff(snapshot, contract.html);
+      // Stejně jako web (Přehled změn): u zapečených smluv zapeč i šablonu, ať
+      // se nediffuje „{{token}} vs hodnota" (to dřív rozhazovalo zarovnání).
+      const snapshotForDiff = bakeSnapshotForDiff(
+        snapshot,
+        contract.html,
+        contract.variables,
+      );
+      const result = htmlDiff(snapshotForDiff, contract.html);
       if (!result.hasChanges) {
         return NextResponse.json(
           { ok: false, error: "Smlouva se od šablony neliší - žádné změny k zobrazení." },

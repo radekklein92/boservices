@@ -347,6 +347,21 @@ export function extractPlaceholderTokens(html: string): Set<string> {
   return out;
 }
 
+// Připraví snapshot šablony pro diff proti znění smlouvy. U zapečených smluv
+// (html už nemá {{tokeny}} kromě dynamických) zapeče stejnými proměnnými i
+// šablonu, takže diff ukáže jen uživatelské úpravy, ne rozdíl „token vs
+// hodnota". U starých nezapečených smluv vrátí surový snapshot. Sdílené webovým
+// (Přehled změn) i PDF (PDF s úpravami) diffem - ať nemohou divergovat.
+export function bakeSnapshotForDiff(
+  snapshot: string,
+  html: string,
+  variables: ContractVariables,
+): string {
+  const tokens = extractPlaceholderTokens(html);
+  const isBaked = ![...tokens].some((t) => !KEEP_DYNAMIC_TOKENS.has(t));
+  return isBaked ? resolveForEditing(snapshot, variables) : snapshot;
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")
