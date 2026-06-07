@@ -1,3 +1,4 @@
+import https from "node:https";
 import type { AresLookupResult } from "./ares";
 
 // Načtení firem z polského a slovenského veřejného rejstříku, normalizované na
@@ -83,16 +84,60 @@ type PolishSubject = {
 
 // ────────────────────────── Slovensko ─────────────────────────
 
-// Pozn.: slovenský RPO (api.statistics.sk) aktuálně posílá řetězec certifikátu s
-// expirovaným kořenem, který Node (undici) odmítá (curl/prohlížeče ho tolerují).
-// Držíme PŘÍSNÉ ověření TLS - pokud RPO neodpoví, lookup vrátí null a uživatel
-// firmu doplní ručně. (Obcházení TLS by bylo bezpečnostní ústupek - neděláme.)
+// Slovenský RPO (api.statistics.sk) aktuálně posílá řetězec certifikátu s
+// expirovaným kořenem, který Node (undici) odmítá, ale systém/curl/prohlížeče ho
+// tolerují. Uživatel výslovně schválil obejít ověření TLS POUZE pro tento jeden
+// veřejný read-only host (žádné přihlašování, výsledek se před uložením kontroluje).
+// Scoped na konkrétní hostname; nic jiného se nemění.
+const SK_RPO_HOST = "api.statistics.sk";
+
+function slovakGetJson(url: string): Promise<unknown | null> {
+  return new Promise((resolve) => {
+    const u = new URL(url);
+    // Pojistka: tolerantní ověření použít VÝHRADNĚ pro RPO host.
+    const rejectUnauthorized = u.hostname !== SK_RPO_HOST;
+    const req = https.get(
+      url,
+      {
+        rejectUnauthorized,
+        headers: { Accept: "application/json" },
+        timeout: TIMEOUT_MS,
+      },
+      (res) => {
+        if (!res.statusCode || res.statusCode >= 400) {
+          res.resume();
+          resolve(null);
+          return;
+        }
+        let body = "";
+        res.setEncoding("utf8");
+        res.on("data", (c) => (body += c));
+        res.on("end", () => {
+          try {
+            resolve(JSON.parse(body));
+          } catch {
+            resolve(null);
+          }
+        });
+      },
+    );
+    req.on("error", (e) => {
+      console.error("[foreign-registers] SK RPO failed", e);
+      resolve(null);
+    });
+    req.on("timeout", () => {
+      req.destroy();
+      resolve(null);
+    });
+  });
+}
+
 export async function lookupSlovakCompany(
   rawIco: string,
 ): Promise<AresLookupResult | null> {
   const ico = (rawIco ?? "").replace(/\D/g, "");
   if (!ico) return null;
-  const data = (await fetchJson(
+  const data = (await slovakGetJson(
     `https://api.statistics.sk/rpo/v1/search?identifier=${ico}`,
   )) as { results?: SlovakEntity[] } | null;
   const entity = data?.results?.[0];
