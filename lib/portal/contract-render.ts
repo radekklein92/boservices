@@ -197,12 +197,14 @@ export function composeWithdrawalDeps(
     msIncluded: boolean;
     ksDropped: boolean;
     manager?: { name?: string; ico?: string; street?: string; city?: string; zip?: string };
+    seller?: { name?: string; ico?: string; street?: string; city?: string; zip?: string };
   },
 ): {
   depIntroPhrase: string;
   depDropPhrase: string;
   ksPreservedNote: string;
   managerPartyLine: string;
+  sellerPartyLine: string;
   dependencyClause: string;
 } {
   const isA = variant === "A";
@@ -245,6 +247,13 @@ export function composeWithdrawalDeps(
     ? `<strong>${esc(m.name)}</strong>, IČO: ${esc(m.ico)}, se sídlem ${esc(m.street)}, ${esc(m.zip)} ${esc(m.city)} (dále jen „<strong>Manažer</strong>“)`
     : "";
 
+  // Prodávající (smluvní strana KS) - uvádí se jen když KS padá s ostatními, aby
+  // bylo odstoupení účinné i vůči němu. Může být jiný subjekt než Poskytovatel.
+  const s = opts.seller ?? {};
+  const sellerPartyLine = ksDropped
+    ? `<strong>${esc(s.name)}</strong>, IČO: ${esc(s.ico)}, se sídlem ${esc(s.street)}, ${esc(s.zip)} ${esc(s.city)} (dále jen „<strong>Prodávající</strong>“)`
+    : "";
+
   // Bod 4 (§ 1727) jako jedna složená věta - aby NIKDY nevznikla nesmyslná
   // „dochází k zániku  jako smluv závislých" (prázdný výčet) a aby sedělo číslo
   // (1 smlouva = „jako smlouvy závislé", víc = „jako smluv závislých"). Když
@@ -268,6 +277,7 @@ export function composeWithdrawalDeps(
     depDropPhrase: dep.length ? `též ${join(dep)}` : "",
     ksPreservedNote: ksPreservedSentence ? ` ${ksPreservedSentence}` : "",
     managerPartyLine,
+    sellerPartyLine,
     dependencyClause,
   };
 }
@@ -293,6 +303,7 @@ const ALLOW_EMPTY = new Set([
   "depDropPhrase",
   "ksPreservedNote",
   "managerPartyLine",
+  "sellerPartyLine",
   "dependencyClause",
   // Příloha č. 1 - tabulka pohledávek se generuje systémově z contract.claims.
   "claimsTable",
@@ -310,6 +321,7 @@ const RAW_HTML_PLACEHOLDERS = new Set([
   "depDropPhrase",
   "ksPreservedNote",
   "managerPartyLine",
+  "sellerPartyLine",
   "dependencyClause",
   // Vygenerovaná HTML tabulka pohledávek (Příloha č. 1). Hodnotu skládá systém
   // z contract.claims (renderClaimsTableHtml), uživatel ji nezadává volně, takže
@@ -350,6 +362,7 @@ export const KEEP_DYNAMIC_TOKENS = new Set([
   "depDropPhrase",
   "ksPreservedNote",
   "managerPartyLine",
+  "sellerPartyLine",
   "dependencyClause",
 ]);
 

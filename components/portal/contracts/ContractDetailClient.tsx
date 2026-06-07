@@ -161,9 +161,9 @@ export function ContractDetailClient({
   const [activeBundleIdx, setActiveBundleIdx] = useState(0);
   // Odstoupení: modál „Upravit údaje" pro detaily Manažera / Poskytovatele
   // (IČO, sídlo). Firma se vybírá chip-pickerem; detaily se mění zřídka.
-  const [partyModal, setPartyModal] = useState<null | "manager" | "provider">(
-    null,
-  );
+  const [partyModal, setPartyModal] = useState<
+    null | "manager" | "provider" | "seller"
+  >(null);
   const editorRef = useRef<Editor | null>(null);
   const bundleEditorRefs = useRef<(Editor | null)[]>([]);
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -373,6 +373,13 @@ export function ContractDetailClient({
         city: v.managerCity,
         zip: v.managerZip,
       },
+      seller: {
+        name: v.sellerName,
+        ico: v.sellerIco,
+        street: v.sellerStreet,
+        city: v.sellerCity,
+        zip: v.sellerZip,
+      },
     });
   }
   function fillManager(p: CompanyFillPayload) {
@@ -402,7 +409,8 @@ export function ContractDetailClient({
         : `Manažer vyplněn: ${p.name || p.ico}.`,
     );
   }
-  // Ruční úprava detailu manažera v modálu (IČO, sídlo) -> přepočítá party line.
+  // Ruční úprava detailu manažera/prodávajícího v modálu (IČO, sídlo) -> přepočítá
+  // party line (managerPartyLine / sellerPartyLine se skládají z těchto polí).
   function updateManagerField(key: string, value: string) {
     setVariables((prev) => {
       const next = { ...prev, [key]: value };
@@ -410,6 +418,22 @@ export function ContractDetailClient({
     });
     applyBakedValues({ [key]: value });
     markDirty();
+  }
+  // Prodávající (smluvní strana KS) - jako manažer složený token sellerPartyLine.
+  function fillSeller(p: CompanyFillPayload) {
+    setVariables((prev) => {
+      const next = {
+        ...prev,
+        sellerName: p.name,
+        sellerIco: p.ico,
+        sellerStreet: p.street,
+        sellerCity: p.city,
+        sellerZip: p.zip,
+      };
+      return { ...next, ...composeWithdrawal(next, {}) };
+    });
+    markDirty();
+    notify("ok", `Prodávající vyplněn: ${p.name || p.ico}.`);
   }
   function fillWithdrawalProvider(p: CompanyFillPayload) {
     // Poskytovatel je u odstoupení přímý zapečený token - žádný compose, jen pole.
@@ -923,6 +947,25 @@ export function ContractDetailClient({
               />
             </FieldGroup>
 
+            {/* Prodávající (smluvní strana KS) - jen když KS padá s ostatními,
+                ať je odstoupení účinné i vůči němu. Může být jiný než Poskytovatel. */}
+            {wdKsDropped(variables) && (
+              <FieldGroup label="Prodávající (smluvní strana KS)">
+                <CompanyChipPicker
+                  selectedIco={variables.sellerIco}
+                  onFill={fillSeller}
+                  addLabel="Jiná firma"
+                  modalEyebrow="Prodávající mimo presety"
+                  modalTitle="Vyhledat firmu v ARES"
+                />
+                <PartyDetailsRow
+                  name={variables.sellerName}
+                  emptyLabel="Vyberte firmu prodávajícího výše"
+                  onEdit={() => setPartyModal("seller")}
+                />
+              </FieldGroup>
+            )}
+
             <FieldGroup label="Specifika odstoupení">
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 {has("withdrawalLocation") && (
@@ -1282,7 +1325,7 @@ export function ContractDetailClient({
           party={partyModal}
           variables={variables}
           onChange={
-            partyModal === "manager" ? updateManagerField : updateVar
+            partyModal === "provider" ? updateVar : updateManagerField
           }
           onClose={() => setPartyModal(null)}
         />
@@ -1335,7 +1378,7 @@ function PartyDetailsModal({
   onChange,
   onClose,
 }: {
-  party: "manager" | "provider";
+  party: "manager" | "provider" | "seller";
   variables: Record<string, string>;
   onChange: (key: string, value: string) => void;
   onClose: () => void;
@@ -1348,8 +1391,13 @@ function PartyDetailsModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const prefix = party === "manager" ? "manager" : "provider";
-  const heading = party === "manager" ? "Manažer" : "Poskytovatel";
+  const prefix = party;
+  const heading =
+    party === "manager"
+      ? "Manažer"
+      : party === "seller"
+        ? "Prodávající"
+        : "Poskytovatel";
   const fields: { key: string; label: string; placeholder: string }[] = [
     { key: `${prefix}Name`, label: "Obchodní jméno", placeholder: "Twistcafe s.r.o." },
     { key: `${prefix}Ico`, label: "IČO", placeholder: "12345678" },

@@ -17,6 +17,7 @@ import { Node, mergeAttributes } from "@tiptap/core";
 // Tokeny, které se v editoru zobrazují jako vyrenderovaná klauzule (ne {{...}}).
 export const EDITOR_RENDERED_TOKENS = new Set([
   "managerPartyLine",
+  "sellerPartyLine",
   "depIntroPhrase",
   "depDropPhrase",
   "ksPreservedNote",

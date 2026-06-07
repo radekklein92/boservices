@@ -236,6 +236,7 @@ export async function POST(req: Request) {
         msIncluded: true,
         ksDropped: true,
         manager: {},
+        seller: {},
       }),
     );
   }
