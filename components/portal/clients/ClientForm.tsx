@@ -153,7 +153,8 @@ export function ClientForm({
       const payload = {
         legalForm: state.legalForm,
         companyName: state.companyName.trim(),
-        ico: state.ico.replace(/\D/g, "") || undefined,
+        // Neškrtáme nečíslice - povolíme i zahraniční reg. číslo (REGON, NIP…).
+        ico: state.ico.trim() || undefined,
         dic: state.dic.trim() || undefined,
         address: {
           street: state.street.trim(),

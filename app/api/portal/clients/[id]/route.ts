@@ -14,13 +14,9 @@ import { normalizePlanned } from "@/lib/portal/client-contract-status";
 const updateSchema = z.object({
   legalForm: z.enum(["PO", "FO"]),
   companyName: z.string().trim().min(2).max(200),
-  ico: z
-    .string()
-    .trim()
-    .regex(/^\d{1,8}$/u)
-    .optional()
-    .or(z.literal("")),
-  dic: z.string().trim().max(15).optional().or(z.literal("")),
+  // Viz POST: volné reg. číslo (i zahraniční / mimo český rejstřík).
+  ico: z.string().trim().max(32).optional().or(z.literal("")),
+  dic: z.string().trim().max(20).optional().or(z.literal("")),
   address: z.object({
     street: z.string().trim().min(1).max(160),
     city: z.string().trim().min(1).max(80),
