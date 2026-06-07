@@ -106,19 +106,31 @@ export function ClientForm({
       return { ...prev, plannedContracts: map };
     });
 
-  async function lookupAres() {
-    const ico = state.ico.replace(/\D/g, "");
-    if (!ico) {
-      setAresMessage("Zadejte IČO.");
+  // Rejstřík podle pole Stát: Polsko = Biała lista (REGON), Slovensko = RPO (IČO),
+  // jinak ČR = ARES (IČO).
+  const registerKey: "pl" | "sk" | "cz" = (() => {
+    const c = state.country.toLowerCase();
+    if (c.includes("pol")) return "pl";
+    if (c.includes("sloven") || c.includes("slovac")) return "sk";
+    return "cz";
+  })();
+  const registerLabel =
+    registerKey === "pl" ? "Biała lista" : registerKey === "sk" ? "RPO" : "ARES";
+  const idLabel = registerKey === "pl" ? "REGON" : "IČO";
+
+  async function lookupRegister() {
+    const id = state.ico.trim();
+    if (!id) {
+      setAresMessage(`Zadejte ${idLabel}.`);
       return;
     }
     setAresPending(true);
     setAresMessage(null);
     try {
-      const res = await fetch("/api/portal/clients/ares", {
+      const res = await fetch("/api/portal/clients/company-lookup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ico }),
+        body: JSON.stringify({ id, country: state.country }),
       });
       const data = await res.json();
       if (!data.ok) {
@@ -137,9 +149,9 @@ export function ClientForm({
         zip: r.address.zip || prev.zip,
         country: r.address.country || prev.country,
       }));
-      setAresMessage("Doplněno z ARES.");
+      setAresMessage(`Doplněno z ${registerLabel}.`);
     } catch {
-      setAresMessage("ARES neodpovídá. Zkuste to znovu.");
+      setAresMessage(`${registerLabel} neodpovídá. Zkuste to znovu.`);
     } finally {
       setAresPending(false);
     }
@@ -238,12 +250,12 @@ export function ClientForm({
         label="Základní údaje"
         hint={
           state.legalForm === "PO"
-            ? "IČO + ARES vyplní zbytek."
-            : "Doplňte jméno, IČO (volitelně) a DIČ."
+            ? `${idLabel} + ${registerLabel} vyplní zbytek.`
+            : `Doplňte jméno, ${idLabel} (volitelně) a DIČ.`
         }
       >
         <div className="grid grid-cols-1 gap-3 md:grid-cols-[160px_1fr_140px]">
-          <Field label="IČO">
+          <Field label={idLabel}>
             <div className="flex gap-1.5">
               <input
                 type="text"
@@ -255,11 +267,11 @@ export function ClientForm({
               />
               <button
                 type="button"
-                onClick={lookupAres}
+                onClick={lookupRegister}
                 disabled={aresPending || !state.ico.trim()}
                 className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-edge bg-paper text-ink-mid transition-colors hover:border-ink-base hover:text-ink-base disabled:opacity-50"
-                aria-label="Načíst z ARES"
-                title="Načíst z ARES"
+                aria-label={`Načíst z ${registerLabel}`}
+                title={`Načíst z ${registerLabel}`}
               >
                 {aresPending ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />
