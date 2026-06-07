@@ -37,11 +37,13 @@ export async function PUT(
   const patch = parsed.data;
 
   const links = patch.links ?? existing.links;
+  const sameSet = (a: string[], b: string[]) =>
+    a.length === b.length && [...a].sort().join("|") === [...b].sort().join("|");
   const linksChanged =
     !!patch.links &&
-    (links.clientId !== existing.links.clientId ||
-      links.locationId !== existing.links.locationId ||
-      links.contractId !== existing.links.contractId);
+    (!sameSet(links.clientIds, existing.links.clientIds) ||
+      !sameSet(links.locationIds, existing.links.locationIds) ||
+      !sameSet(links.contractIds, existing.links.contractIds));
 
   const updated: Task = {
     ...existing,

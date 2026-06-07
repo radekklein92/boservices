@@ -151,13 +151,18 @@ function Card({
   const subDone = task.subtasks.filter((s) => s.done).length;
   const pct = subTotal ? Math.round((subDone / subTotal) * 100) : 0;
   const ll = task.linkLabels;
-  const link = ll.locationName
-    ? { Icon: MapPin, text: ll.locationName }
-    : ll.clientName
-      ? { Icon: Building2, text: ll.clientName }
-      : ll.contractNumber
-        ? { Icon: FileText, text: ll.contractNumber }
+  const totalLinks =
+    ll.locations.length + ll.clients.length + ll.contracts.length;
+  const primary = ll.locations[0]
+    ? { Icon: MapPin, text: ll.locations[0].label }
+    : ll.clients[0]
+      ? { Icon: Building2, text: ll.clients[0].label }
+      : ll.contracts[0]
+        ? { Icon: FileText, text: ll.contracts[0].label }
         : null;
+  const link = primary
+    ? { ...primary, extra: totalLinks - 1 }
+    : null;
 
   return (
     <div
@@ -212,9 +217,12 @@ function Card({
             </span>
           )}
           {link && (
-            <span className="inline-flex max-w-[150px] items-center gap-1 rounded-full bg-edge-warm px-2 py-0.5 text-[11px] font-medium text-ink-mid">
+            <span className="inline-flex max-w-[170px] items-center gap-1 rounded-full bg-edge-warm px-2 py-0.5 text-[11px] font-medium text-ink-mid">
               <link.Icon className="h-3 w-3 shrink-0" strokeWidth={1.75} />
               <span className="truncate">{link.text}</span>
+              {link.extra > 0 && (
+                <span className="shrink-0 text-ink-soft">+{link.extra}</span>
+              )}
             </span>
           )}
         </div>

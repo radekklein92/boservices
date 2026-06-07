@@ -102,6 +102,10 @@ type Props = {
   // Standardní odměna z aktivní šablony (raw částka) - baseline pro detekci
   // ruční změny u cooperation/operation. Franšíza ji nepoužívá.
   standardOperatingFee?: string | null;
+  // Sekce „Úkoly" (server komponenta EntityTasks) vložená mezi „Co teď" a
+  // „Hodnoty placeholderů". Předává se jako slot, protože jde o async server
+  // komponentu, kterou nelze renderovat uvnitř client komponenty napřímo.
+  tasksSlot?: React.ReactNode;
 };
 
 function formatDateTime(iso: string): string {
@@ -128,6 +132,7 @@ export function ContractDetailClient({
   approverEmails,
   locationNewco = null,
   standardOperatingFee = null,
+  tasksSlot = null,
 }: Props) {
   const router = useRouter();
   const [contract, setContract] = useState(initial);
@@ -744,6 +749,9 @@ export function ContractDetailClient({
           </span>
         </div>
       )}
+
+      {/* Úkoly navázané na smlouvu - mezi „Co teď" a „Hodnoty placeholderů". */}
+      {tasksSlot}
 
       {/* Editovatelná oblast - od stavu „schváleno" dál uzamčená (fieldset
           disabled vypne všechna pole/tlačítka, editor je read-only). */}

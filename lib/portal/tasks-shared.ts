@@ -17,19 +17,26 @@ export interface TaskNotification {
   daysBefore: number; // 0 = v den termínu, 1 = den předem, …
 }
 
-// Volitelné vazby úkolu na entity portálu (klient / lokalita / smlouva).
+// Volitelné vazby úkolu na entity portálu. Jeden úkol smí mít navázáno VÍCE
+// klientů / lokalit / smluv (pole id).
 export interface TaskLinks {
-  clientId: string | null;
-  locationId: string | null;
-  contractId: string | null;
+  clientIds: string[];
+  locationIds: string[];
+  contractIds: string[];
+}
+
+// Jeden navázaný odkaz: id (pro proklik na detail) + denormalizovaný popisek.
+export interface TaskLinkRef {
+  id: string;
+  label: string;
 }
 
 // Denormalizovaný snímek popisků navázaných entit - ať řádek/panel nemusí
 // dotahovat klienta/lokalitu/smlouvu zvlášť. Obnovuje se při uložení úkolu.
 export interface TaskLinkLabels {
-  clientName: string | null;
-  locationName: string | null;
-  contractNumber: string | null;
+  clients: TaskLinkRef[];
+  locations: TaskLinkRef[];
+  contracts: TaskLinkRef[];
 }
 
 export interface Task {
@@ -50,16 +57,76 @@ export interface Task {
 }
 
 export const EMPTY_LINKS: TaskLinks = {
-  clientId: null,
-  locationId: null,
-  contractId: null,
+  clientIds: [],
+  locationIds: [],
+  contractIds: [],
 };
 
 export const EMPTY_LINK_LABELS: TaskLinkLabels = {
-  clientName: null,
-  locationName: null,
-  contractNumber: null,
+  clients: [],
+  locations: [],
+  contracts: [],
 };
+
+// ─────────────── Backward-compat normalizace vazeb ───────────────
+// Starší úkoly mají links jako jednotlivé {clientId, locationId, contractId}
+// a linkLabels jako {clientName, locationName, contractNumber}. Při čtení je
+// převedeme na pole, ať zbytek kódu řeší jen nový tvar. Po dalším uložení se
+// nový tvar zapíše do Redisu.
+
+export function normalizeLinks(raw: unknown): TaskLinks {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  const toArr = (plural: unknown, single: unknown): string[] => {
+    if (Array.isArray(plural)) return plural.filter((x): x is string => !!x);
+    return typeof single === "string" && single ? [single] : [];
+  };
+  return {
+    clientIds: toArr(r.clientIds, r.clientId),
+    locationIds: toArr(r.locationIds, r.locationId),
+    contractIds: toArr(r.contractIds, r.contractId),
+  };
+}
+
+export function normalizeLinkLabels(
+  raw: unknown,
+  links: TaskLinks,
+): TaskLinkLabels {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  const toRefs = (
+    plural: unknown,
+    ids: string[],
+    singleLabel: unknown,
+  ): TaskLinkRef[] => {
+    if (Array.isArray(plural)) {
+      return plural.filter(
+        (x): x is TaskLinkRef =>
+          !!x && typeof x === "object" && typeof (x as TaskLinkRef).id === "string",
+      );
+    }
+    // Starý tvar: jeden popisek odpovídá prvnímu (jedinému) id.
+    if (ids.length && typeof singleLabel === "string" && singleLabel) {
+      return [{ id: ids[0]!, label: singleLabel }];
+    }
+    return ids.map((id) => ({ id, label: id }));
+  };
+  return {
+    clients: toRefs(r.clients, links.clientIds, r.clientName),
+    locations: toRefs(r.locations, links.locationIds, r.locationName),
+    contracts: toRefs(r.contracts, links.contractIds, r.contractNumber),
+  };
+}
+
+export function normalizeTask(raw: Task): Task {
+  const links = normalizeLinks((raw as { links?: unknown }).links);
+  return {
+    ...raw,
+    links,
+    linkLabels: normalizeLinkLabels(
+      (raw as { linkLabels?: unknown }).linkLabels,
+      links,
+    ),
+  };
+}
 
 // ───────────────────────── Status meta ──────────────────────────
 // Jen řetězce (žádné React ikony), ať je modul importovatelný i v e-mailu/cronu.

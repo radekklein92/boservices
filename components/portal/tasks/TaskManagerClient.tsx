@@ -495,7 +495,8 @@ function TaskRow({
   const subDone = task.subtasks.filter((s) => s.done).length;
   const pct = subTotal ? Math.round((subDone / subTotal) * 100) : 0;
   const ll = task.linkLabels;
-  const hasLinks = !!(ll.clientName || ll.locationName || ll.contractNumber);
+  const hasLinks =
+    ll.clients.length > 0 || ll.locations.length > 0 || ll.contracts.length > 0;
 
   return (
     <div
@@ -549,19 +550,22 @@ function TaskRow({
                   </span>
                 </span>
               )}
-              {ll.clientName && (
+              {ll.clients.length > 0 && (
                 <span className="inline-flex items-center gap-1">
-                  <Building2 className="h-3 w-3" strokeWidth={1.5} /> {ll.clientName}
+                  <Building2 className="h-3 w-3" strokeWidth={1.5} />{" "}
+                  {ll.clients.map((c) => c.label).join(", ")}
                 </span>
               )}
-              {ll.locationName && (
+              {ll.locations.length > 0 && (
                 <span className="inline-flex items-center gap-1">
-                  <MapPin className="h-3 w-3" strokeWidth={1.5} /> {ll.locationName}
+                  <MapPin className="h-3 w-3" strokeWidth={1.5} />{" "}
+                  {ll.locations.map((c) => c.label).join(", ")}
                 </span>
               )}
-              {ll.contractNumber && (
+              {ll.contracts.length > 0 && (
                 <span className="inline-flex items-center gap-1">
-                  <FileText className="h-3 w-3" strokeWidth={1.5} /> {ll.contractNumber}
+                  <FileText className="h-3 w-3" strokeWidth={1.5} />{" "}
+                  {ll.contracts.map((c) => c.label).join(", ")}
                 </span>
               )}
             </span>

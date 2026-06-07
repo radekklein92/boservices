@@ -169,8 +169,8 @@ export default async function ContractDetailPage({
         approverEmails={approverEmails}
         locationNewco={locationNewco}
         standardOperatingFee={standardOperatingFee}
+        tasksSlot={<EntityTasks kind="contract" id={id} />}
       />
-      <EntityTasks kind="contract" id={id} />
     </div>
   );
 }

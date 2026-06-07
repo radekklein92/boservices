@@ -16,9 +16,9 @@ export const notificationSchema = z.object({
 });
 
 export const linksSchema = z.object({
-  clientId: z.string().max(100).nullable(),
-  locationId: z.string().max(100).nullable(),
-  contractId: z.string().max(100).nullable(),
+  clientIds: z.array(z.string().max(100)).max(50).default([]),
+  locationIds: z.array(z.string().max(100)).max(50).default([]),
+  contractIds: z.array(z.string().max(100)).max(50).default([]),
 });
 
 export const taskInputSchema = z.object({
@@ -35,9 +35,9 @@ export const taskInputSchema = z.object({
   subtasks: z.array(subtaskSchema).max(100).default([]),
   notifications: z.array(notificationSchema).max(50).default([]),
   links: linksSchema.default({
-    clientId: null,
-    locationId: null,
-    contractId: null,
+    clientIds: [],
+    locationIds: [],
+    contractIds: [],
   }),
 });
 

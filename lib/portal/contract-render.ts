@@ -203,6 +203,7 @@ export function composeWithdrawalDeps(
   depDropPhrase: string;
   ksPreservedNote: string;
   managerPartyLine: string;
+  dependencyClause: string;
 } {
   const isA = variant === "A";
   const msIncluded = isA ? true : opts.msIncluded;
@@ -244,13 +245,30 @@ export function composeWithdrawalDeps(
     ? `<strong>${esc(m.name)}</strong>, IČO: ${esc(m.ico)}, se sídlem ${esc(m.street)}, ${esc(m.zip)} ${esc(m.city)} (dále jen „<strong>Manažer</strong>“)`
     : "";
 
+  // Bod 4 (§ 1727) jako jedna složená věta - aby NIKDY nevznikla nesmyslná
+  // „dochází k zániku  jako smluv závislých" (prázdný výčet) a aby sedělo číslo
+  // (1 smlouva = „jako smlouvy závislé", víc = „jako smluv závislých"). Když
+  // žádná závislá smlouva nezaniká (B bez MS, KS zůstává), zbyde jen dovětek o KS.
+  const ksPreservedSentence = ksDropped
+    ? ""
+    : `Pro vyloučení pochybností se odstoupení <strong>nevztahuje na Kupní smlouvu k vybavení (KS)</strong>; ta není ve smyslu § 1727 OZ závislá, její účel je splněn a zůstává v platnosti.`;
+  let dependencyClause = "";
+  if (dep.length) {
+    const noun = dep.length === 1 ? "smlouvy závislé" : "smluv závislých";
+    dependencyClause = `Zároveň podle <strong>§ 1727 občanského zákoníku</strong> dochází k zániku ${join(dep)} jako ${noun}.`;
+  }
+  if (ksPreservedSentence) {
+    dependencyClause = dependencyClause
+      ? `${dependencyClause} ${ksPreservedSentence}`
+      : ksPreservedSentence;
+  }
+
   return {
     depIntroPhrase: join(intro),
     depDropPhrase: dep.length ? `též ${join(dep)}` : "",
-    ksPreservedNote: ksDropped
-      ? ""
-      : ` Pro vyloučení pochybností se odstoupení <strong>nevztahuje na Kupní smlouvu k vybavení (KS)</strong>; ta není ve smyslu § 1727 OZ závislá, její účel je splněn a zůstává v platnosti.`,
+    ksPreservedNote: ksPreservedSentence ? ` ${ksPreservedSentence}` : "",
     managerPartyLine,
+    dependencyClause,
   };
 }
 
@@ -275,6 +293,7 @@ const ALLOW_EMPTY = new Set([
   "depDropPhrase",
   "ksPreservedNote",
   "managerPartyLine",
+  "dependencyClause",
   // Příloha č. 1 - tabulka pohledávek se generuje systémově z contract.claims.
   "claimsTable",
 ]);
@@ -291,6 +310,7 @@ const RAW_HTML_PLACEHOLDERS = new Set([
   "depDropPhrase",
   "ksPreservedNote",
   "managerPartyLine",
+  "dependencyClause",
   // Vygenerovaná HTML tabulka pohledávek (Příloha č. 1). Hodnotu skládá systém
   // z contract.claims (renderClaimsTableHtml), uživatel ji nezadává volně, takže
   // nehrozí XSS - veškerý uživatelský text je escapovaný uvnitř helperu.
@@ -330,6 +350,7 @@ export const KEEP_DYNAMIC_TOKENS = new Set([
   "depDropPhrase",
   "ksPreservedNote",
   "managerPartyLine",
+  "dependencyClause",
 ]);
 
 // Obal zapečené hodnoty - neviditelná značka s klíčem (Tiptap mark

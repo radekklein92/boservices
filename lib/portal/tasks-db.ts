@@ -3,6 +3,7 @@ import { getClient } from "./clients-db";
 import { getLocation } from "./locations-db";
 import { getContract } from "./contracts-db";
 import type { SeenMap, Task, TaskLinkLabels, TaskLinks } from "./tasks-shared";
+import { normalizeTask } from "./tasks-shared";
 
 // Úložiště úkolů v Redisu. Konvence prefixů jako u smluv/klientů (portal:*).
 //
@@ -33,7 +34,9 @@ export async function getAllTasks(): Promise<Task[]> {
   const pipe = r.pipeline();
   ids.forEach((id) => pipe.get<Task>(taskKey(id)));
   const raw = (await pipe.exec()) as (Task | null)[];
-  const tasks = raw.filter((t): t is Task => t !== null);
+  const tasks = raw
+    .filter((t): t is Task => t !== null)
+    .map(normalizeTask);
 
   const order = (await r.get<string[]>(ORDER)) ?? null;
   if (!order || !order.length) return tasks;
@@ -47,7 +50,8 @@ export async function getAllTasks(): Promise<Task[]> {
 export async function getTask(id: string): Promise<Task | null> {
   const r = getRedis();
   if (!r) return null;
-  return r.get<Task>(taskKey(id));
+  const raw = await r.get<Task>(taskKey(id));
+  return raw ? normalizeTask(raw) : null;
 }
 
 // Uloží/aktualizuje úkol a udrží reverzní indexy vazeb v souladu (odebere staré
@@ -62,22 +66,21 @@ export async function upsertTask(task: Task, previous?: Task | null): Promise<vo
     r.zadd(INDEX, { score: new Date(task.createdAt).getTime(), member: task.id }),
   ];
 
-  const syncLink = (
+  const syncLinks = (
     keyFn: (id: string) => string,
-    oldId: string | null,
-    newId: string | null,
+    oldIds: string[],
+    newIds: string[],
   ) => {
-    if (oldId === newId) {
-      if (newId) ops.push(r.sadd(keyFn(newId), task.id));
-      return;
+    const next = new Set(newIds);
+    for (const id of oldIds) {
+      if (!next.has(id)) ops.push(r.srem(keyFn(id), task.id));
     }
-    if (oldId) ops.push(r.srem(keyFn(oldId), task.id));
-    if (newId) ops.push(r.sadd(keyFn(newId), task.id));
+    for (const id of next) ops.push(r.sadd(keyFn(id), task.id));
   };
 
-  syncLink(byClientKey, prev?.links.clientId ?? null, task.links.clientId);
-  syncLink(byLocationKey, prev?.links.locationId ?? null, task.links.locationId);
-  syncLink(byContractKey, prev?.links.contractId ?? null, task.links.contractId);
+  syncLinks(byClientKey, prev?.links.clientIds ?? [], task.links.clientIds);
+  syncLinks(byLocationKey, prev?.links.locationIds ?? [], task.links.locationIds);
+  syncLinks(byContractKey, prev?.links.contractIds ?? [], task.links.contractIds);
 
   await Promise.all(ops);
 }
@@ -88,9 +91,9 @@ export async function deleteTask(id: string): Promise<void> {
   const task = await getTask(id);
   const ops: Promise<unknown>[] = [r.del(taskKey(id)), r.zrem(INDEX, id)];
   if (task) {
-    if (task.links.clientId) ops.push(r.srem(byClientKey(task.links.clientId), id));
-    if (task.links.locationId) ops.push(r.srem(byLocationKey(task.links.locationId), id));
-    if (task.links.contractId) ops.push(r.srem(byContractKey(task.links.contractId), id));
+    task.links.clientIds.forEach((cid) => ops.push(r.srem(byClientKey(cid), id)));
+    task.links.locationIds.forEach((lid) => ops.push(r.srem(byLocationKey(lid), id)));
+    task.links.contractIds.forEach((coid) => ops.push(r.srem(byContractKey(coid), id)));
   }
   await Promise.all(ops);
 
@@ -117,6 +120,7 @@ async function listTasksBySet(setKey: string): Promise<Task[]> {
   const raw = (await pipe.exec()) as (Task | null)[];
   return raw
     .filter((t): t is Task => t !== null)
+    .map(normalizeTask)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
@@ -132,16 +136,27 @@ export const listTasksByContract = (contractId: string) =>
 export async function resolveLinkLabels(
   links: TaskLinks,
 ): Promise<TaskLinkLabels> {
-  const [client, location, contract] = await Promise.all([
-    links.clientId ? getClient(links.clientId) : null,
-    links.locationId ? getLocation(links.locationId) : null,
-    links.contractId ? getContract(links.contractId) : null,
+  const [clients, locations, contracts] = await Promise.all([
+    Promise.all(
+      links.clientIds.map(async (id) => ({
+        id,
+        label: (await getClient(id))?.companyName ?? "klient",
+      })),
+    ),
+    Promise.all(
+      links.locationIds.map(async (id) => ({
+        id,
+        label: (await getLocation(id))?.name ?? "lokalita",
+      })),
+    ),
+    Promise.all(
+      links.contractIds.map(async (id) => ({
+        id,
+        label: (await getContract(id))?.number ?? "smlouva",
+      })),
+    ),
   ]);
-  return {
-    clientName: client?.companyName ?? null,
-    locationName: location?.name ?? null,
-    contractNumber: contract?.number ?? (links.contractId ? "smlouva" : null),
-  };
+  return { clients, locations, contracts };
 }
 
 // ──────────────────────── Seen tracking ─────────────────────────

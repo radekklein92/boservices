@@ -18,6 +18,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
+  ArrowUpRight,
   Bold,
   Building2,
   Check,
@@ -34,6 +35,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import Link from "next/link";
 import type {
   Subtask,
   Task,
@@ -255,29 +257,32 @@ export function TaskSidePanel({
 
             <div className="flex flex-col gap-2.5">
               <span className={LABEL}>Vazby</span>
-              <EntityPicker
+              <MultiEntityPicker
                 Icon={Building2}
                 placeholder="Připnout klienta"
                 options={options.clients}
-                value={links.clientId}
-                fallbackLabel={task?.linkLabels?.clientName ?? null}
-                onChange={(id) => setLinks((l) => ({ ...l, clientId: id }))}
+                selectedIds={links.clientIds}
+                refs={task?.linkLabels?.clients ?? []}
+                hrefBase="/portal/clients"
+                onChange={(ids) => setLinks((l) => ({ ...l, clientIds: ids }))}
               />
-              <EntityPicker
+              <MultiEntityPicker
                 Icon={MapPin}
                 placeholder="Připnout lokalitu"
                 options={options.locations}
-                value={links.locationId}
-                fallbackLabel={task?.linkLabels?.locationName ?? null}
-                onChange={(id) => setLinks((l) => ({ ...l, locationId: id }))}
+                selectedIds={links.locationIds}
+                refs={task?.linkLabels?.locations ?? []}
+                hrefBase="/portal/locations"
+                onChange={(ids) => setLinks((l) => ({ ...l, locationIds: ids }))}
               />
-              <EntityPicker
+              <MultiEntityPicker
                 Icon={FileText}
                 placeholder="Připnout smlouvu"
                 options={options.contracts}
-                value={links.contractId}
-                fallbackLabel={task?.linkLabels?.contractNumber ?? null}
-                onChange={(id) => setLinks((l) => ({ ...l, contractId: id }))}
+                selectedIds={links.contractIds}
+                refs={task?.linkLabels?.contracts ?? []}
+                hrefBase="/portal/contracts"
+                onChange={(ids) => setLinks((l) => ({ ...l, contractIds: ids }))}
               />
             </div>
           </div>
@@ -685,22 +690,27 @@ function NotificationList({
   );
 }
 
-// ─────────────────────── EntityPicker ───────────────────────────
+// ───────────────────── MultiEntityPicker ────────────────────────
+// Více navázaných entit (klient/lokalita/smlouva). Vybrané = chipy: popisek je
+// proklik na detail entity (nová záložka, ať se rozpracovaný úkol neztratí) +
+// křížek pro odebrání. Pod chipy tlačítko pro přidání další (vyhledávací rozbal).
 
-function EntityPicker({
+function MultiEntityPicker({
   Icon,
   placeholder,
   options,
-  value,
-  fallbackLabel,
+  selectedIds,
+  refs,
+  hrefBase,
   onChange,
 }: {
   Icon: typeof Building2;
   placeholder: string;
   options: EntityOption[];
-  value: string | null;
-  fallbackLabel: string | null;
-  onChange: (id: string | null) => void;
+  selectedIds: string[];
+  refs: { id: string; label: string }[];
+  hrefBase: string;
+  onChange: (ids: string[]) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -715,45 +725,67 @@ function EntityPicker({
     return () => window.removeEventListener("mousedown", onDown);
   }, [open]);
 
-  const selected = useMemo(() => options.find((o) => o.id === value) ?? null, [options, value]);
-  const label = selected?.label ?? (value ? fallbackLabel : null);
+  const labelFor = (id: string) =>
+    options.find((o) => o.id === id)?.label ??
+    refs.find((r) => r.id === id)?.label ??
+    id;
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return options.slice(0, 40);
-    return options
+    const avail = options.filter((o) => !selectedIds.includes(o.id));
+    if (!q) return avail.slice(0, 40);
+    return avail
       .filter((o) => `${o.label} ${o.sub ?? ""}`.toLowerCase().includes(q))
       .slice(0, 40);
-  }, [options, query]);
+  }, [options, query, selectedIds]);
+
+  const add = (id: string) => {
+    if (!selectedIds.includes(id)) onChange([...selectedIds, id]);
+    setQuery("");
+  };
+  const remove = (id: string) => onChange(selectedIds.filter((x) => x !== id));
 
   return (
-    <div ref={wrapRef} className="relative">
+    <div ref={wrapRef} className="relative flex flex-col gap-1.5">
+      {selectedIds.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {selectedIds.map((id) => (
+            <span
+              key={id}
+              className="inline-flex items-center gap-1.5 rounded-full border border-edge bg-paper-warm py-1 pl-2.5 pr-1.5 text-[12px] text-ink-base"
+            >
+              <Icon className="h-3 w-3 shrink-0 text-ink-mid" strokeWidth={1.5} />
+              <Link
+                href={`${hrefBase}/${id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex max-w-[180px] items-center gap-1 truncate font-medium transition-colors hover:text-ink-deep"
+                title={`Otevřít detail v nové záložce: ${labelFor(id)}`}
+              >
+                <span className="truncate">{labelFor(id)}</span>
+                <ArrowUpRight className="h-3 w-3 shrink-0 text-ink-soft" strokeWidth={1.75} />
+              </Link>
+              <button
+                type="button"
+                onClick={() => remove(id)}
+                className="shrink-0 rounded-full p-0.5 text-ink-soft transition-colors hover:text-rose-600"
+                aria-label="Odebrat vazbu"
+              >
+                <X className="h-3 w-3" strokeWidth={2} />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex h-10 w-full items-center gap-2 rounded-lg border border-edge bg-paper px-3 text-left text-[13px] transition-colors hover:border-ink-base"
+        className="flex h-10 w-full items-center gap-2 rounded-lg border border-edge bg-paper px-3 text-left text-[13px] text-ink-soft transition-colors hover:border-ink-base"
       >
-        <Icon className="h-3.5 w-3.5 shrink-0 text-ink-mid" strokeWidth={1.5} />
-        <span className={`min-w-0 flex-1 truncate ${label ? "text-ink-base" : "text-ink-soft"}`}>
-          {label ?? placeholder}
-        </span>
-        {value ? (
-          <span
-            role="button"
-            tabIndex={0}
-            onClick={(e) => {
-              e.stopPropagation();
-              onChange(null);
-              setOpen(false);
-            }}
-            className="shrink-0 text-ink-soft hover:text-rose-600"
-            aria-label="Odepnout"
-          >
-            <X className="h-3.5 w-3.5" strokeWidth={1.5} />
-          </span>
-        ) : (
-          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-ink-mid" strokeWidth={1.5} />
-        )}
+        <Plus className="h-3.5 w-3.5 shrink-0 text-ink-mid" strokeWidth={1.75} />
+        <span className="min-w-0 flex-1 truncate">{placeholder}</span>
+        <ChevronDown className="h-3.5 w-3.5 shrink-0 text-ink-mid" strokeWidth={1.5} />
       </button>
 
       {open && (
@@ -775,11 +807,7 @@ function EntityPicker({
                 <li key={o.id}>
                   <button
                     type="button"
-                    onClick={() => {
-                      onChange(o.id);
-                      setOpen(false);
-                      setQuery("");
-                    }}
+                    onClick={() => add(o.id)}
                     className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left transition-colors hover:bg-paper-warm"
                   >
                     <span className="min-w-0">
@@ -788,7 +816,7 @@ function EntityPicker({
                         <span className="block truncate text-[11px] text-ink-mid">{o.sub}</span>
                       )}
                     </span>
-                    {o.id === value && <Check className="h-3.5 w-3.5 text-ink-base" strokeWidth={2} />}
+                    <Plus className="h-3.5 w-3.5 shrink-0 text-ink-soft" strokeWidth={2} />
                   </button>
                 </li>
               ))}
