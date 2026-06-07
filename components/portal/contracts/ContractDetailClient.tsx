@@ -200,6 +200,14 @@ export function ContractDetailClient({
   const statusLocked = !isContractEditable(contract.status);
   const editLockedForMe = !!contract.editLock && !canEditLock;
   const locked = statusLocked || editLockedForMe;
+  const lockByLabel = contract.editLock?.byName ?? contract.editLock?.by ?? "";
+  const lockTitle = !contract.editLock
+    ? "Uzamknout úpravy"
+    : editLockedForMe
+      ? `Uzamčeno: ${lockByLabel} - jen pro čtení`
+      : canManageLock
+        ? "Uzamčeno - spravovat nebo odemknout"
+        : `Uzamčeno: ${lockByLabel} - smíte upravovat`;
   const dirty = saveState === "pending" || saveState === "saving";
 
   // Template changes detection - musí použít STEJNOU logiku jako Přehled změn
@@ -780,6 +788,36 @@ export function ContractDetailClient({
                 </>
               )}
             </button>
+            {!statusLocked &&
+              (contract.editLock ? (
+                <button
+                  type="button"
+                  onClick={canManageLock ? () => setLockModalOpen(true) : undefined}
+                  disabled={lockBusy || !canManageLock}
+                  aria-label={lockTitle}
+                  title={lockTitle}
+                  className={[
+                    "grid h-10 w-10 place-items-center rounded-full border transition-colors",
+                    editLockedForMe
+                      ? "border-amber-400 bg-amber-50 text-amber-600"
+                      : "border-ink-base bg-ink-base text-paper",
+                    canManageLock ? "hover:opacity-90" : "cursor-default",
+                  ].join(" ")}
+                >
+                  <Lock className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setLockModalOpen(true)}
+                  disabled={lockBusy}
+                  aria-label="Uzamknout úpravy"
+                  title="Uzamknout úpravy"
+                  className="grid h-10 w-10 place-items-center rounded-full border border-edge text-ink-mid transition-colors hover:border-ink-base hover:bg-ink-base hover:text-paper"
+                >
+                  <LockOpen className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+                </button>
+              ))}
             <button
               type="button"
               onClick={removeContract}
@@ -831,18 +869,6 @@ export function ContractDetailClient({
             obsahu. Pro úpravy nejdřív zrušte schválení v panelu „Co teď" výše.
           </span>
         </div>
-      )}
-
-      {/* Uživatelský zámek konceptu - jen dokud není status-uzamčeno. */}
-      {!statusLocked && (
-        <LockBar
-          editLock={contract.editLock}
-          editLockedForMe={editLockedForMe}
-          canManageLock={canManageLock}
-          busy={lockBusy}
-          onOpenManage={() => setLockModalOpen(true)}
-          onUnlock={() => setLock(false, [])}
-        />
       )}
 
       {/* Úkoly navázané na smlouvu - mezi „Co teď" a „Hodnoty placeholderů". */}
@@ -1398,96 +1424,9 @@ export function ContractDetailClient({
           userOptions={userOptions}
           busy={lockBusy}
           onConfirm={(allowed) => setLock(true, allowed)}
+          onUnlock={() => setLock(false, [])}
           onClose={() => setLockModalOpen(false)}
         />
-      )}
-    </div>
-  );
-}
-
-// Lišta uživatelského zámku konceptu. Bez zámku: tlačítko „Uzamknout úpravy".
-// Se zámkem: kdo zamkl + komu povolil + (pro správce zámku) Spravovat/Odemknout;
-// pro ostatní jen „jen pro čtení".
-function LockBar({
-  editLock,
-  editLockedForMe,
-  canManageLock,
-  busy,
-  onOpenManage,
-  onUnlock,
-}: {
-  editLock: Contract["editLock"];
-  editLockedForMe: boolean;
-  canManageLock: boolean;
-  busy: boolean;
-  onOpenManage: () => void;
-  onUnlock: () => void;
-}) {
-  if (!editLock) {
-    return (
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-edge bg-paper px-5 py-3.5">
-        <span className="inline-flex items-center gap-2 text-[12.5px] text-ink-mid">
-          <LockOpen className="h-4 w-4 shrink-0 text-ink-soft" strokeWidth={1.5} aria-hidden="true" />
-          Koncept je otevřený k úpravám pro všechny.
-        </span>
-        <button
-          type="button"
-          onClick={onOpenManage}
-          disabled={busy}
-          className="inline-flex h-9 items-center gap-1.5 rounded-full border border-edge px-3.5 text-[12.5px] font-medium text-ink-deep transition-colors hover:border-ink-base disabled:opacity-50"
-        >
-          <Lock className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
-          Uzamknout úpravy
-        </button>
-      </div>
-    );
-  }
-
-  const allowedCount = editLock.allowed.length;
-  return (
-    <div
-      className={[
-        "flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-5 py-3.5",
-        editLockedForMe ? "border-amber-300 bg-amber-50" : "border-ink-base bg-paper",
-      ].join(" ")}
-    >
-      <span className="inline-flex items-center gap-2 text-[12.5px] text-ink-mid">
-        <Lock
-          className={`h-4 w-4 shrink-0 ${editLockedForMe ? "text-amber-600" : "text-ink-base"}`}
-          strokeWidth={1.75}
-          aria-hidden="true"
-        />
-        <span>
-          <strong className="text-ink-base">Uzamčeno k úpravám</strong>
-          {" · zamkl "}
-          {editLock.byName ?? editLock.by}
-          {allowedCount > 0
-            ? ` · povoleno ${allowedCount} ${allowedCount === 1 ? "dalšímu" : "dalším"}`
-            : ""}
-          {editLockedForMe ? " · máte jen pro čtení" : ""}
-        </span>
-      </span>
-      {canManageLock && (
-        <span className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onOpenManage}
-            disabled={busy}
-            className="inline-flex h-9 items-center gap-1.5 rounded-full border border-edge px-3.5 text-[12.5px] font-medium text-ink-deep transition-colors hover:border-ink-base disabled:opacity-50"
-          >
-            <Pencil className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
-            Spravovat
-          </button>
-          <button
-            type="button"
-            onClick={onUnlock}
-            disabled={busy}
-            className="inline-flex h-9 items-center gap-1.5 rounded-full bg-ink-base px-3.5 text-[12.5px] font-semibold text-paper transition-transform active:translate-y-px disabled:opacity-50"
-          >
-            <LockOpen className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
-            Odemknout
-          </button>
-        </span>
       )}
     </div>
   );
@@ -1500,6 +1439,7 @@ function LockModal({
   userOptions,
   busy,
   onConfirm,
+  onUnlock,
   onClose,
 }: {
   editLock: Contract["editLock"];
@@ -1507,6 +1447,7 @@ function LockModal({
   userOptions: { email: string; name: string }[];
   busy: boolean;
   onConfirm: (allowed: string[]) => void;
+  onUnlock: () => void;
   onClose: () => void;
 }) {
   const [selected, setSelected] = useState<string[]>(editLock?.allowed ?? []);
@@ -1588,23 +1529,38 @@ function LockModal({
             )}
           </div>
         </div>
-        <div className="flex items-center justify-end gap-2 border-t border-edge p-4">
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex h-10 items-center rounded-full border border-edge px-4 text-[13px] font-medium text-ink-deep transition-colors hover:border-ink-base"
-          >
-            Zrušit
-          </button>
-          <button
-            type="button"
-            onClick={() => onConfirm(selected)}
-            disabled={busy}
-            className="inline-flex h-10 items-center gap-2 rounded-full bg-ink-base px-5 text-[13px] font-semibold text-paper transition-transform active:translate-y-px disabled:opacity-50"
-          >
-            <Lock className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
-            {editLock ? "Uložit zámek" : "Uzamknout"}
-          </button>
+        <div className="flex items-center justify-between gap-2 border-t border-edge p-4">
+          {editLock ? (
+            <button
+              type="button"
+              onClick={onUnlock}
+              disabled={busy}
+              className="inline-flex h-10 items-center gap-1.5 rounded-full border border-edge px-4 text-[13px] font-medium text-ink-deep transition-colors hover:border-ink-base disabled:opacity-50"
+            >
+              <LockOpen className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+              Odemknout
+            </button>
+          ) : (
+            <span />
+          )}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex h-10 items-center rounded-full border border-edge px-4 text-[13px] font-medium text-ink-deep transition-colors hover:border-ink-base"
+            >
+              Zrušit
+            </button>
+            <button
+              type="button"
+              onClick={() => onConfirm(selected)}
+              disabled={busy}
+              className="inline-flex h-10 items-center gap-2 rounded-full bg-ink-base px-5 text-[13px] font-semibold text-paper transition-transform active:translate-y-px disabled:opacity-50"
+            >
+              <Lock className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
+              {editLock ? "Uložit zámek" : "Uzamknout"}
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   ArrowUpRight,
   FileText,
+  Lock,
   Plus,
   Search,
   Trash2,
@@ -23,6 +24,7 @@ import {
 import type { Contract } from "@/lib/portal/contracts-db";
 import {
   ALL_CONTRACT_STATUSES,
+  canEditContractLock,
   CONTRACT_STATUS_LABEL,
   CONTRACT_STATUS_STYLE,
 } from "@/lib/portal/contracts-db";
@@ -83,12 +85,17 @@ export function ContractsList({
   contracts,
   clients,
   isApprover = false,
+  currentUserEmail = "",
+  isSuperadmin = false,
 }: {
   contracts: Contract[];
   clients: Client[];
   // Schvalovat smlouvy ve stavu Ke schválení smí jen schvalovatel šablon -
   // ostatním se hromadné tlačítko „Schválit" nezobrazuje.
   isApprover?: boolean;
+  // Pro indikaci uživatelského zámku v seznamu (kdo smí editovat).
+  currentUserEmail?: string;
+  isSuperadmin?: boolean;
 }) {
   const router = useRouter();
   const [items, setItems] = useState(contracts);
@@ -462,6 +469,10 @@ export function ContractsList({
               const meta = CONTRACT_TYPE_META[c.type];
               const StatusIcon = CONTRACT_STATUS_ICON[c.status];
               const isSelected = selected.has(c.id);
+              // Uzamčeno pro mě = zámek existuje a nejsem mezi povolenými.
+              const lockedForMe =
+                !!c.editLock &&
+                !canEditContractLock(c.editLock, currentUserEmail, isSuperadmin);
               return (
                 <li
                   key={c.id}
@@ -504,6 +515,27 @@ export function ContractsList({
                             aria-hidden="true"
                           />
                           Změny
+                        </span>
+                      )}
+                      {c.editLock && (
+                        <span
+                          className={[
+                            "inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-[10.5px] font-semibold uppercase tracking-[0.12em]",
+                            lockedForMe
+                              ? "bg-amber-100 text-amber-700"
+                              : "border border-ink-base text-ink-base",
+                          ].join(" ")}
+                          title={
+                            lockedForMe
+                              ? `Uzamčeno: ${c.editLock.byName ?? c.editLock.by} - jen pro čtení`
+                              : `Uzamčeno: ${c.editLock.byName ?? c.editLock.by}`
+                          }
+                          aria-label={
+                            lockedForMe ? "Uzamčeno, jen pro čtení" : "Uzamčeno"
+                          }
+                        >
+                          <Lock className="h-3 w-3" strokeWidth={2.25} aria-hidden="true" />
+                          Zámek
                         </span>
                       )}
                       <ArrowUpRight

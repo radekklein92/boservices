@@ -21,6 +21,8 @@ export default async function ContractsPage() {
   const isApprover =
     !!session?.user?.email &&
     approvers.some((a) => a.email === session.user!.email);
+  const currentUserEmail = session?.user?.email ?? "";
+  const isSuperadmin = session?.user?.role === "superadmin";
 
   return (
     <div className="flex flex-col gap-10">
@@ -29,7 +31,13 @@ export default async function ContractsPage() {
         title="Smlouvy"
         lede="Vygenerujte smlouvu pro klienta, stáhněte PDF a po podpisu nahrajte naskenovanou kopii."
       />
-      <ContractsList contracts={contracts} clients={clients} isApprover={isApprover} />
+      <ContractsList
+        contracts={contracts}
+        clients={clients}
+        isApprover={isApprover}
+        currentUserEmail={currentUserEmail}
+        isSuperadmin={isSuperadmin}
+      />
     </div>
   );
 }
