@@ -1,4 +1,10 @@
 import { Resend } from "resend";
+import {
+  formatDeadline,
+  markdownToHtml,
+  STATUS_META,
+  type TaskStatus,
+} from "./tasks-shared";
 
 let cached: Resend | null = null;
 
@@ -169,5 +175,70 @@ export async function sendContractsApprovalDigest(opts: {
     to: [opts.to],
     subject: `Smlouvy ke schválení - ${count} ${word} ${verb}`,
     html: shell("Smlouvy čekají na schválení.", "BOServices portál", body),
+  });
+}
+
+// E-mail upozornění na termín úkolu. Volá se ručně tlačítkem „Odeslat teď"
+// na úkolu i automaticky cronem (X dní před termínem dle task.notifications).
+export async function sendTaskNotificationEmail(opts: {
+  to: string;
+  badgeText: string; // „Dnes je termín" / „Zítra je termín" / „Za X dní je termín" / „Připomenutí"
+  task: {
+    id: string;
+    title: string;
+    assignee: string;
+    deadline: string | null;
+    status: TaskStatus;
+    body: string | null;
+    subtasks: { title: string; done: boolean }[];
+  };
+}): Promise<void> {
+  const resend = getResend();
+  if (!resend) {
+    console.warn("[portal email] Resend not configured");
+    return;
+  }
+  const t = opts.task;
+  const url = `${SITE_URL}/portal/tasks?task=${t.id}`;
+  const dl = formatDeadline(t.deadline);
+  const dlColor = dl.overdue ? "#DC2626" : dl.soon ? "#B45309" : "#0E0E0E";
+
+  const badge = `<span style="display:inline-block;background:#F2F3F1;color:#2A2A2A;border-radius:999px;padding:4px 12px;font-size:11px;font-weight:600;letter-spacing:.04em">${opts.badgeText}</span>`;
+
+  const info = `<table style="width:100%;border-collapse:collapse;margin:18px 0"><tr>
+    <td style="padding:8px 0;font-size:13px;color:#6F7672;width:120px">Řešitel</td>
+    <td style="padding:8px 0;font-size:14px;color:#0E0E0E;font-weight:600">${t.assignee || "—"}</td></tr>
+    <tr><td style="padding:8px 0;font-size:13px;color:#6F7672">Termín</td>
+    <td style="padding:8px 0;font-size:14px;font-weight:600;color:${dlColor}">${dl.text}</td></tr>
+    <tr><td style="padding:8px 0;font-size:13px;color:#6F7672">Stav</td>
+    <td style="padding:8px 0;font-size:14px;color:#0E0E0E;font-weight:600">${STATUS_META[t.status].label}</td></tr></table>`;
+
+  const description = t.body
+    ? `<div style="font-size:14px;line-height:1.55;color:#2A2A2A;margin:8px 0 4px">${markdownToHtml(t.body)}</div>`
+    : "";
+
+  let subtasksHtml = "";
+  if (t.subtasks.length > 0) {
+    const done = t.subtasks.filter((s) => s.done).length;
+    const pct = Math.round((done / t.subtasks.length) * 100);
+    const items = t.subtasks
+      .map(
+        (s) =>
+          `<li style="margin:4px 0;color:${s.done ? "#9CA3AF" : "#2A2A2A"};${s.done ? "text-decoration:line-through" : ""}">${s.title}</li>`,
+      )
+      .join("");
+    subtasksHtml = `<div style="margin:18px 0"><div style="font-size:12px;color:#6F7672;margin-bottom:6px">Podúkoly ${done}/${t.subtasks.length}</div><div style="height:6px;border-radius:999px;background:#E8ECE9;overflow:hidden;margin-bottom:8px"><div style="height:6px;width:${pct}%;background:#059669"></div></div><ul style="font-size:14px;padding-left:20px;margin:0">${items}</ul></div>`;
+  }
+
+  const body = `${badge}<h2 style="font-size:20px;font-weight:800;letter-spacing:-.01em;margin:16px 0 0;line-height:1.2">${t.title}</h2>${info}${description}${subtasksHtml}${button(url, "Otevřít v portálu")}${fallbackLink(url)}`;
+
+  const text = `${opts.badgeText}\n\n${t.title}\nŘešitel: ${t.assignee || "—"}\nTermín: ${dl.text}\nStav: ${STATUS_META[t.status].label}\n\nOtevřít: ${url}`;
+
+  await resend.emails.send({
+    from: FROM,
+    to: [opts.to],
+    subject: `${opts.badgeText}: ${t.title}`,
+    html: shell(t.title, "Úkol · BOServices portál", body),
+    text,
   });
 }

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { cachedGetLocation } from "@/lib/portal/cached-db";
 import { LocationDetail } from "@/components/portal/locations/LocationDetail";
+import { EntityTasks } from "@/components/portal/tasks/EntityTasks";
 
 export const dynamic = "force-dynamic";
 
@@ -23,5 +24,10 @@ export default async function LocationDetailPage({
   const location = await cachedGetLocation(id);
   if (!location) notFound();
 
-  return <LocationDetail location={location} />;
+  return (
+    <div className="flex flex-col gap-10">
+      <LocationDetail location={location} />
+      <EntityTasks kind="location" id={id} />
+    </div>
+  );
 }

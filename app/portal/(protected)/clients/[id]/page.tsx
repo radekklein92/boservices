@@ -7,6 +7,7 @@ import {
 } from "@/lib/portal/cached-db";
 import { PageHeader } from "@/components/portal/shell/PageHeader";
 import { ClientDetail } from "@/components/portal/clients/ClientDetail";
+import { EntityTasks } from "@/components/portal/tasks/EntityTasks";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +60,8 @@ export default async function ClientDetailPage({
       />
 
       <ClientDetail client={client} contracts={contracts} />
+
+      <EntityTasks kind="client" id={id} />
     </div>
   );
 }

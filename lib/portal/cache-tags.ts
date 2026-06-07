@@ -8,6 +8,7 @@ export const TAG = {
   templates: "contract-templates",
   leads: "leads",
   locations: "locations",
+  tasks: "tasks",
 } as const;
 
 export type CacheTag = (typeof TAG)[keyof typeof TAG];

@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/locations-sync",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/tasks-notify",
+      "schedule": "0 7 * * *"
     }
   ]
 }

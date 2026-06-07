@@ -31,3 +31,7 @@ export function bustTemplates(): void {
 export function bustLocations(): void {
   revalidateTag(TAG.locations, PROFILE);
 }
+
+export function bustTasks(): void {
+  revalidateTag(TAG.tasks, PROFILE);
+}

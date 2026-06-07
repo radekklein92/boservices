@@ -11,6 +11,12 @@ import {
   listLocations,
 } from "./locations-db";
 import { listUsers } from "./users-db";
+import {
+  getAllTasks,
+  listTasksByClient,
+  listTasksByContract,
+  listTasksByLocation,
+} from "./tasks-db";
 import { listAllowlist } from "./allowlist-db";
 import {
   getOrSeedContractTemplate,
@@ -87,6 +93,30 @@ export const cachedGetLocationsSyncMeta = unstable_cache(
   () => getLocationsSyncMeta(),
   ["cached:getLocationsSyncMeta"],
   { tags: [TAG.locations], revalidate: ONE_HOUR },
+);
+
+export const cachedListTasks = unstable_cache(
+  () => getAllTasks(),
+  ["cached:listTasks"],
+  { tags: [TAG.tasks], revalidate: ONE_HOUR },
+);
+
+export const cachedListTasksByClient = unstable_cache(
+  (clientId: string) => listTasksByClient(clientId),
+  ["cached:listTasksByClient"],
+  { tags: [TAG.tasks], revalidate: ONE_HOUR },
+);
+
+export const cachedListTasksByLocation = unstable_cache(
+  (locationId: string) => listTasksByLocation(locationId),
+  ["cached:listTasksByLocation"],
+  { tags: [TAG.tasks], revalidate: ONE_HOUR },
+);
+
+export const cachedListTasksByContract = unstable_cache(
+  (contractId: string) => listTasksByContract(contractId),
+  ["cached:listTasksByContract"],
+  { tags: [TAG.tasks], revalidate: ONE_HOUR },
 );
 
 export const cachedListContractTemplates = unstable_cache(

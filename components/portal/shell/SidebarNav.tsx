@@ -7,6 +7,7 @@ import {
   Building2,
   FileText,
   FilePenLine,
+  ListChecks,
   MapPin,
   Palette,
   Users,
@@ -28,6 +29,7 @@ const provoz: Item[] = [
   { href: "/portal/clients", label: "Klienti", Icon: Building2 },
   { href: "/portal/locations", label: "Lokality", Icon: MapPin },
   { href: "/portal/contracts", label: "Smlouvy", Icon: FileText },
+  { href: "/portal/tasks", label: "Úkoly", Icon: ListChecks },
 ];
 
 const admin: Item[] = [
@@ -36,7 +38,13 @@ const admin: Item[] = [
   { href: "/portal/users", label: "Uživatelé", Icon: Users },
 ];
 
-export function SidebarNav({ isAdmin }: { isAdmin: boolean }) {
+export function SidebarNav({
+  isAdmin,
+  tasksBadge = 0,
+}: {
+  isAdmin: boolean;
+  tasksBadge?: number;
+}) {
   const pathname = usePathname() ?? "/portal";
 
   return (
@@ -57,6 +65,7 @@ export function SidebarNav({ isAdmin }: { isAdmin: boolean }) {
             key={item.href}
             {...item}
             active={isActive(pathname, item.href)}
+            badge={item.href === "/portal/tasks" ? tasksBadge : 0}
           />
         ))}
       </NavSection>
@@ -104,7 +113,8 @@ function NavItem({
   Icon,
   active,
   disabled,
-}: Item & { active: boolean }) {
+  badge = 0,
+}: Item & { active: boolean; badge?: number }) {
   const base =
     "group flex h-10 items-center gap-3 rounded-lg px-3 text-[13.5px] font-medium transition-all duration-200";
   const state = active
@@ -128,7 +138,16 @@ function NavItem({
   return (
     <Link href={href} className={`${base} ${state}`}>
       <Icon className="h-4 w-4 shrink-0" strokeWidth={1.5} aria-hidden="true" />
-      <span className="truncate">{label}</span>
+      <span className="flex-1 truncate">{label}</span>
+      {badge > 0 && (
+        <span
+          className={`grid h-5 min-w-[20px] place-items-center rounded-full px-1.5 text-[10.5px] font-bold ${
+            active ? "bg-paper text-ink-base" : "bg-ink-base text-paper"
+          }`}
+        >
+          {badge > 99 ? "99+" : badge}
+        </span>
+      )}
     </Link>
   );
 }

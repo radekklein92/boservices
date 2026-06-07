@@ -5,7 +5,13 @@ import { isAdminRole } from "@/lib/portal/auth-guard";
 import { SidebarNav } from "./SidebarNav";
 import { UserMenu } from "./UserMenu";
 
-export function Sidebar({ session }: { session: Session }) {
+export function Sidebar({
+  session,
+  tasksBadge = 0,
+}: {
+  session: Session;
+  tasksBadge?: number;
+}) {
   const isAdmin = isAdminRole(session.user?.role);
 
   return (
@@ -19,7 +25,7 @@ export function Sidebar({ session }: { session: Session }) {
         </span>
       </div>
 
-      <SidebarNav isAdmin={isAdmin} />
+      <SidebarNav isAdmin={isAdmin} tasksBadge={tasksBadge} />
 
       <div className="border-t border-edge p-3">
         <UserMenu session={session} />

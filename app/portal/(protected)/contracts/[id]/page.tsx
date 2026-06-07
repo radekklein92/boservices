@@ -25,6 +25,7 @@ import { getLocation, toLocationSnapshot } from "@/lib/portal/locations-db";
 import { getSession } from "@/lib/portal/get-session";
 import { getTemplateApprovers } from "@/lib/portal/users-db";
 import { ContractDetailClient } from "@/components/portal/contracts/ContractDetailClient";
+import { EntityTasks } from "@/components/portal/tasks/EntityTasks";
 
 export const dynamic = "force-dynamic";
 
@@ -159,14 +160,17 @@ export default async function ContractDetailPage({
   const isSuperadmin = session?.user?.role === "superadmin";
 
   return (
-    <ContractDetailClient
-      initial={contract}
-      templateApproved={templateApproved}
-      isApprover={isApprover}
-      isSuperadmin={isSuperadmin}
-      approverEmails={approverEmails}
-      locationNewco={locationNewco}
-      standardOperatingFee={standardOperatingFee}
-    />
+    <div className="flex flex-col gap-10">
+      <ContractDetailClient
+        initial={contract}
+        templateApproved={templateApproved}
+        isApprover={isApprover}
+        isSuperadmin={isSuperadmin}
+        approverEmails={approverEmails}
+        locationNewco={locationNewco}
+        standardOperatingFee={standardOperatingFee}
+      />
+      <EntityTasks kind="contract" id={id} />
+    </div>
   );
 }
