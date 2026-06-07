@@ -32,7 +32,7 @@ export function ClientsPageClient({
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        eyebrow="Klienti"
+        eyebrow="Franšízing"
         title="Klienti"
         lede="Značky, pro které provozujeme prodejny. Z klienta pak generujete smlouvu."
         actions={

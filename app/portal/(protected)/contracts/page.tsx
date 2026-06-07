@@ -25,7 +25,7 @@ export default async function ContractsPage() {
   return (
     <div className="flex flex-col gap-10">
       <PageHeader
-        eyebrow="Smlouvy"
+        eyebrow="Franšízing"
         title="Smlouvy"
         lede="Vygenerujte smlouvu pro klienta, stáhněte PDF a po podpisu nahrajte naskenovanou kopii."
       />
