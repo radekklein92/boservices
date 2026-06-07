@@ -20,7 +20,11 @@ import {
   requiredFranchiseVariant,
 } from "@/lib/portal/contract-eligibility";
 import type { Contract } from "@/lib/portal/contracts-db";
-import { WITHDRAWAL_KS_TEXTS, resolveForEditing } from "@/lib/portal/contract-render";
+import {
+  WITHDRAWAL_KS_TEXTS,
+  composeWithdrawalBDeps,
+  resolveForEditing,
+} from "@/lib/portal/contract-render";
 import { ensureClaimsToken } from "@/lib/portal/claims";
 import { getOrSeedContractTemplate } from "@/lib/portal/contract-templates-db";
 import { bustContracts } from "@/lib/portal/revalidate";
@@ -222,14 +226,22 @@ export async function POST(req: Request) {
     variables.franchiseFeePercent = String(feePercent);
   }
 
-  // Odstoupení od smluv: default „KS padá s ostatními" (KS bod 3 v Úvodním
-  // prohlášení, dovětek v bodě 4 Odstoupení). User to může v detailu přepnout.
+  // Odstoupení od smluv: default „obě závislé smlouvy se ukončují".
+  // Varianta B (porušení Poskytovatele): MS i KS volitelně přes compose helper
+  // (MS nemusela být v balíčku podepsaná). Varianta A: jen KS volitelně.
   if (type === "withdrawal") {
-    const ks = WITHDRAWAL_KS_TEXTS.dropped;
-    variables.ksIntroLineSeparator = ks.ksIntroLineSeparator;
-    variables.ksIntroClause = ks.ksIntroClause;
-    variables.ksDropClause = ks.ksDropClause;
-    variables.ksPreservedClause = ks.ksPreservedClause;
+    if (variant === "B") {
+      Object.assign(
+        variables,
+        composeWithdrawalBDeps({ msIncluded: true, ksDropped: true }),
+      );
+    } else {
+      const ks = WITHDRAWAL_KS_TEXTS.dropped;
+      variables.ksIntroLineSeparator = ks.ksIntroLineSeparator;
+      variables.ksIntroClause = ks.ksIntroClause;
+      variables.ksDropClause = ks.ksDropClause;
+      variables.ksPreservedClause = ks.ksPreservedClause;
+    }
   }
 
   const nowIso = now.toISOString();

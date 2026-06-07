@@ -180,6 +180,36 @@ export const WITHDRAWAL_KS_TEXTS = {
 
 export type WithdrawalKsMode = keyof typeof WITHDRAWAL_KS_TEXTS;
 
+// Odstoupení varianta B (porušení Poskytovatele, odstupuje se od FS). Které
+// závislé smlouvy zaniknou spolu s FS podle § 1727 je volitelné: MS (manažerská
+// - nemusela být v balíčku podepsaná) a KS (kupní). FS se odstupuje vždy.
+// Závislé se skládají do jedné fráze (depDropPhrase) kvůli správné gramatice
+// výčtu („MS a KS" / „MS" / „KS"). Vrací sadu dynamických tokenů.
+export function composeWithdrawalBDeps(opts: {
+  msIncluded: boolean;
+  ksDropped: boolean;
+}): {
+  msIntroClause: string;
+  ksIntroLineSeparator: string;
+  ksIntroClause: string;
+  depDropPhrase: string;
+  ksPreservedClause: string;
+} {
+  const { msIncluded, ksDropped } = opts;
+  const items: string[] = [];
+  if (msIncluded) items.push("<strong>Smlouvy o provozování provozovny (MS)</strong>");
+  if (ksDropped) items.push("<strong>Kupní smlouvy k vybavení (KS)</strong>");
+  return {
+    msIntroClause: msIncluded
+      ? `<li><p><strong>Smlouva o provozování provozovny</strong> mezi Odesílatelem a Manažerem (dále jen „<strong>MS</strong>“);</p></li>`
+      : "",
+    ksIntroLineSeparator: ksDropped ? ";" : ".",
+    ksIntroClause: ksDropped ? WITHDRAWAL_KS_TEXTS.dropped.ksIntroClause : "",
+    depDropPhrase: items.length === 0 ? "" : `též ${items.join(" a ")}`,
+    ksPreservedClause: ksDropped ? "" : WITHDRAWAL_KS_TEXTS.preserved.ksPreservedClause,
+  };
+}
+
 const TOKEN_RE = /\{\{(\w+)\}\}/g;
 
 // Klíče, které mohou být legitimně prázdné (např. clientRepresentationClause
@@ -196,6 +226,8 @@ const ALLOW_EMPTY = new Set([
   "ksDropClause",
   "ksPreservedClause",
   "ksIntroClause",
+  "msIntroClause",
+  "depDropPhrase",
   // Příloha č. 1 - tabulka pohledávek se generuje systémově z contract.claims.
   "claimsTable",
 ]);
@@ -207,6 +239,8 @@ const ALLOW_EMPTY = new Set([
 const RAW_HTML_PLACEHOLDERS = new Set([
   "ksPreservedClause",
   "ksIntroClause",
+  "msIntroClause",
+  "depDropPhrase",
   // Vygenerovaná HTML tabulka pohledávek (Příloha č. 1). Hodnotu skládá systém
   // z contract.claims (renderClaimsTableHtml), uživatel ji nezadává volně, takže
   // nehrozí XSS - veškerý uživatelský text je escapovaný uvnitř helperu.
@@ -241,6 +275,8 @@ export const KEEP_DYNAMIC_TOKENS = new Set([
   "ksPreservedClause",
   "ksDropClause",
   "ksIntroLineSeparator",
+  "msIntroClause",
+  "depDropPhrase",
 ]);
 
 // Obal zapečené hodnoty - neviditelná značka s klíčem (Tiptap mark

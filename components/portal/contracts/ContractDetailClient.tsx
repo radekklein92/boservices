@@ -31,7 +31,7 @@ import {
   type ContractType,
   type ContractVariant,
 } from "@/lib/portal/contract-types";
-import { WITHDRAWAL_KS_TEXTS } from "@/lib/portal/contract-render";
+import { WITHDRAWAL_KS_TEXTS, composeWithdrawalBDeps } from "@/lib/portal/contract-render";
 import {
   bakeSnapshotForDiff,
   extractPlaceholderTokens,
@@ -377,6 +377,16 @@ export function ContractDetailClient({
       ksIntroClause: texts.ksIntroClause,
       ksDropClause: texts.ksDropClause,
       ksPreservedClause: texts.ksPreservedClause,
+    }));
+    markDirty();
+  }
+
+  // Odstoupení varianta B (compose schéma): MS i KS volitelně. Závislé smlouvy
+  // (depDropPhrase) i úvodní seznam se přepočítají z kombinace obou voleb.
+  function setComposedBDeps(msIncluded: boolean, ksDropped: boolean) {
+    setVariables((prev) => ({
+      ...prev,
+      ...composeWithdrawalBDeps({ msIncluded, ksDropped }),
     }));
     markDirty();
   }
@@ -1069,12 +1079,35 @@ export function ContractDetailClient({
                   onChange={(v) => updateVar("withdrawalLocation", v)}
                 />
               )}
+              {has("depDropPhrase") && (
+                <ChipField
+                  label="Manažerská smlouva (MS)"
+                  hint="byla MS v balíčku podepsaná?"
+                  value={
+                    (variables.msIntroClause ?? "").trim() ? "included" : "omitted"
+                  }
+                  onChange={(mode) =>
+                    setComposedBDeps(
+                      mode === "included",
+                      detectKsMode(variables) === "dropped",
+                    )
+                  }
+                  options={MS_MODE_OPTIONS}
+                />
+              )}
               {(has("ksDropClause") || has("ksPreservedClause")) && (
                 <ChipField
                   label="Kupní smlouva (KS)"
                   hint="jak se ke KS chovat v dokumentu"
                   value={detectKsMode(variables)}
-                  onChange={(mode) => setKsMode(mode)}
+                  onChange={(mode) =>
+                    has("depDropPhrase")
+                      ? setComposedBDeps(
+                          (variables.msIntroClause ?? "").trim() !== "",
+                          mode === "dropped",
+                        )
+                      : setKsMode(mode)
+                  }
                   options={KS_MODE_OPTIONS}
                 />
               )}
@@ -1355,6 +1388,11 @@ const ORIGIN_CONTRACT_TITLE_OPTIONS: ChipOption[] = [
 const KS_MODE_OPTIONS: ChipOption[] = [
   { label: "KS padá s ostatními", value: "dropped" },
   { label: "KS zůstává v platnosti", value: "preserved" },
+];
+
+const MS_MODE_OPTIONS: ChipOption[] = [
+  { label: "MS byla podepsána", value: "included" },
+  { label: "MS nebyla podepsána", value: "omitted" },
 ];
 
 // Z dvojice hodnot (ksDropClause + ksPreservedClause) odvodí aktuální mode.
