@@ -9,6 +9,7 @@ import {
   FileText,
   Lock,
   LockOpen,
+  MapPin,
   Plus,
   Search,
   Trash2,
@@ -159,7 +160,12 @@ export function ContractsList({
     return items.filter((c) => {
       if (statusFilter !== "all" && c.status !== statusFilter) return false;
       if (!q) return true;
-      return [c.clientName, c.number, CONTRACT_TYPE_META[c.type].fullName]
+      return [
+        c.clientName,
+        c.number,
+        CONTRACT_TYPE_META[c.type].fullName,
+        c.locationSnapshot?.name,
+      ]
         .filter(Boolean)
         .join(" ")
         .toLowerCase()
@@ -365,7 +371,7 @@ export function ContractsList({
             />
             <input
               type="search"
-              placeholder="Hledat podle klienta, čísla, typu…"
+              placeholder="Hledat podle klienta, čísla, typu, prodejny…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="h-11 w-full rounded-full border border-edge bg-paper pl-11 pr-4 text-[14px] text-ink-base outline-none transition-colors placeholder:text-ink-soft focus:border-ink-base"
@@ -574,6 +580,12 @@ export function ContractsList({
                       <span>{meta.fullName}</span>
                       {c.number && (
                         <span className="font-mono text-ink-soft">{c.number}</span>
+                      )}
+                      {c.locationSnapshot?.name && (
+                        <span className="inline-flex items-center gap-1 text-ink-mid">
+                          <MapPin className="h-3 w-3 shrink-0" strokeWidth={1.5} aria-hidden="true" />
+                          {c.locationSnapshot.name}
+                        </span>
                       )}
                     </div>
                   </div>
