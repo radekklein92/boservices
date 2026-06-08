@@ -53,6 +53,28 @@ export async function sendInviteEmail(opts: {
   });
 }
 
+// Notifikace po podpisu NDA přes DigiSign (volá webhook). Best-effort.
+export async function sendNdaSignedEmail(opts: {
+  to: string;
+  clientName: string;
+  number?: string;
+  contractId: string;
+}): Promise<void> {
+  const resend = getResend();
+  if (!resend) {
+    console.warn("[portal email] Resend not configured");
+    return;
+  }
+  const url = `${SITE_URL}/portal/contracts/${opts.contractId}`;
+  const body = `<p style="font-size:15px;line-height:1.6">Dohoda o mlčenlivosti s <strong>${opts.clientName}</strong>${opts.number ? ` (č. ${opts.number})` : ""} byla podepsána všemi stranami přes DigiSign.</p>${button(url, "Otevřít smlouvu")}${fallbackLink(url)}`;
+  await resend.emails.send({
+    from: FROM,
+    to: [opts.to],
+    subject: `NDA podepsána - ${opts.clientName}`,
+    html: shell("NDA podepsána.", "BOServices portál", body),
+  });
+}
+
 export async function sendResetEmail(opts: {
   to: string;
   name?: string;

@@ -40,13 +40,9 @@ function slugify(input: string): string {
 //   - jinak preview (watermark, default provider statutary)
 // Vrací { url, path, generatedAt } pro zapsání do Contract záznamu.
 // Volající endpoint si zajistí samotný upsertContract.
-export async function renderAndStoreContractPdf(contract: Contract): Promise<{
-  url: string;
-  path: string;
-  generatedAt: string;
-}> {
-  const meta = CONTRACT_TYPE_META[contract.type];
-  const title = `${meta.shortName} - ${contract.clientName}`;
+// Vyrenderuje PDF buffer dle aktuálního stavu smlouvy (bez uploadu). Sdílí logiku
+// s renderAndStoreContractPdf - používá ho i DigiSign odeslání (potřebuje buffer).
+export async function renderContractPdfBuffer(contract: Contract): Promise<Buffer> {
   const cover = getCoverForType(contract.type);
 
   // Finální PDF (bez watermarku) = po kroku „K podpisu" (signerPickedAt) - platí
@@ -116,6 +112,17 @@ export async function renderAndStoreContractPdf(contract: Contract): Promise<{
     });
   }
 
+  return pdf;
+}
+
+export async function renderAndStoreContractPdf(contract: Contract): Promise<{
+  url: string;
+  path: string;
+  generatedAt: string;
+}> {
+  const pdf = await renderContractPdfBuffer(contract);
+  const meta = CONTRACT_TYPE_META[contract.type];
+  const title = `${meta.shortName} - ${contract.clientName}`;
   const safeName = slugify(title);
   const path = `portal/contracts/${contract.id}/generated/${Date.now()}-${safeName}.pdf`;
   const uploaded = await put(path, pdf, {

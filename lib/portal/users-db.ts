@@ -13,6 +13,8 @@ export interface User {
   email: string;
   name: string;
   role: UserRole;
+  // Telefon (E.164 nebo české 9místné) - používá DigiSign u podepisujícího za BOS.
+  phone?: string;
   passwordHash?: string;
   createdAt: string;
   lastLoginAt?: string;

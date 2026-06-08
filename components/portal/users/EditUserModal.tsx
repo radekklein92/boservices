@@ -9,6 +9,7 @@ type EditableUser = Pick<
   | "email"
   | "name"
   | "role"
+  | "phone"
   | "isSigner"
   | "signerFunction"
   | "signerDisplayName"
@@ -28,6 +29,7 @@ export function EditUserModal({
   onSaved: () => void;
 }) {
   const [role, setRole] = useState<UserRole>(user.role);
+  const [phone, setPhone] = useState<string>(user.phone ?? "");
   const [isSigner, setIsSigner] = useState<boolean>(!!user.isSigner);
   const [signerFunction, setSignerFunction] = useState<SignerFunction>(
     user.signerFunction ?? "jednatel",
@@ -71,6 +73,7 @@ export function EditUserModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           role,
+          phone: phone.trim() || null,
           isSigner,
           signerFunction: isSigner ? signerFunction : null,
           signerDisplayName: isSigner ? signerDisplayName.trim() || null : null,
@@ -144,6 +147,20 @@ export function EditUserModal({
                   hint="Plný přístup, včetně mazání superadmin účtů."
                 />
               )}
+            </div>
+          </Field>
+
+          <Field label="Telefon">
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="+420 602 795 456"
+              className="h-12 w-full rounded-xl border border-edge bg-paper px-4 text-[15px] text-ink-base outline-none transition-colors placeholder:text-ink-soft focus:border-ink-base"
+            />
+            <div className="mt-1 text-[11.5px] text-ink-mid">
+              Potřebný pro elektronický podpis přes DigiSign (NDA), když uživatel
+              podepisuje za BOServices.
             </div>
           </Field>
 

@@ -196,6 +196,22 @@ export function ContractCurrentActionPanel({
     await callMilestone("DELETE", "client-signed", "Označení zrušeno.");
   }
 
+  // NDA: odeslání k elektronickému podpisu přes DigiSign (oběma stranám).
+  async function sendDigisign() {
+    if (
+      !window.confirm(
+        "Odeslat NDA k elektronickému podpisu přes DigiSign? Obě strany dostanou e-mail s odkazem k podpisu.",
+      )
+    ) {
+      return;
+    }
+    await callMilestone(
+      "POST",
+      "digisign-send",
+      "NDA odeslána k podpisu přes DigiSign.",
+    );
+  }
+
   async function uploadScan(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -254,6 +270,9 @@ export function ContractCurrentActionPanel({
     idx >= 0 && idx < flow.length - 1 ? flow[idx + 1]! : null;
   const isWithdrawalLike =
     contract.type === "withdrawal" || contract.type === "assignment-notice";
+  // NDA se podepisuje elektronicky přes DigiSign (ne ručně + sken).
+  const isNda = contract.type === "nda";
+  const dsStatus = contract.digisignStatus;
   const isGated = isApprovalGated(contract.type);
   const approvalView = getApprovalView(contract, locationNewco);
   // V Konceptu (gated) předpovíme, zda po odeslání půjde auto, nebo ke schvalovatelům.
@@ -447,7 +466,7 @@ export function ContractCurrentActionPanel({
 
       {/* Mezikroky podpisů - akce se řídí dalším krokem ve flow daného typu
           (standard: BOS→klient, postoupení: klient→BOS, odstoupení: jen klient). */}
-      {nextStatus === "podepsano-bos" && (
+      {!isNda && nextStatus === "podepsano-bos" && (
         <ActionRow
           headline="Čeká na podpis BOS"
           description="Stáhni finální PDF, podepiš za BOS a označ jako Podepsáno BOS."
@@ -463,7 +482,37 @@ export function ContractCurrentActionPanel({
         />
       )}
 
-      {nextStatus === "podepsano-klientem" && (
+      {isNda && status === "k-podpisu" && dsStatus !== "sent" && dsStatus !== "signed" && (
+        <ActionRow
+          headline="Připraveno k elektronickému podpisu"
+          description="Odešle NDA přes DigiSign oběma stranám (BOServices i protistraně). Po podpisu se smlouva archivuje automaticky."
+          primary={
+            <div className="flex flex-wrap items-center gap-2">
+              <PrimaryButton
+                onClick={sendDigisign}
+                pending={pending === "POST:digisign-send"}
+                Icon={Send}
+              >
+                Odeslat k podpisu (DigiSign)
+              </PrimaryButton>
+              {downloadFinal}
+            </div>
+          }
+          rollback={rollbackFor(status)}
+        />
+      )}
+
+      {isNda && dsStatus === "sent" && (
+        <ActionRow
+          headline="Odesláno k podpisu (DigiSign)"
+          description="Čeká se na elektronický podpis obou stran. Po dokončení se podepsané PDF uloží a smlouva se archivuje automaticky."
+          primary={
+            <div className="flex flex-wrap items-center gap-2">{downloadFinal}</div>
+          }
+        />
+      )}
+
+      {!isNda && nextStatus === "podepsano-klientem" && (
         <ActionRow
           headline={
             isWithdrawalLike ? "Připraveno k podpisu klientem" : "Čeká na podpis klienta"

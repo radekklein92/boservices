@@ -8,6 +8,7 @@ import { bustUsers } from "@/lib/portal/revalidate";
 const patchSchema = z.object({
   role: z.enum(["admin", "user", "superadmin"]).optional(),
   name: z.string().trim().max(120).optional(),
+  phone: z.string().trim().max(32).nullable().optional(),
   isSigner: z.boolean().optional(),
   signerFunction: z.enum(["jednatel", "power-of-attorney"]).nullable().optional(),
   signerDisplayName: z.string().trim().max(160).nullable().optional(),
@@ -98,6 +99,10 @@ export async function PATCH(
     ...user,
     role: parsed.data.role ?? user.role,
     name: parsed.data.name?.trim() || user.name,
+    phone:
+      parsed.data.phone !== undefined
+        ? parsed.data.phone?.trim() || undefined
+        : user.phone,
     isSigner: nextIsSigner || false,
     signerFunction: nextSignerFunction,
     signerDisplayName: nextSignerDisplayName,

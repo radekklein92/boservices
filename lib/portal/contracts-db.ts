@@ -236,6 +236,13 @@ export interface Contract {
   scanUploadedAt?: string;
   scanUploadedBy?: string;
   number?: string;
+  // DigiSign (zatím jen typ "nda"): obálka odeslaná k el. podpisu. Po dokončení
+  // webhook stáhne podepsané PDF a doplní signedAt/clientSignedAt + scanPdf.
+  digisignEnvelopeId?: string;
+  digisignDocumentId?: string;
+  digisignStatus?: "sent" | "signed" | "declined" | "voided";
+  digisignSentAt?: string;
+  digisignSentBy?: string;
   // Uživatelský zámek úprav konceptu: jen `by` + `allowed` smí upravovat, ostatní
   // jen prohlížet. Nezávislé na status-zámku (schváleno+). Mění/ruší jen `by` nebo
   // superadmin. Bez tohoto pole je smlouva editovatelná dle statusu (jako dosud).
@@ -334,6 +341,26 @@ export function backfillToStatus(
 
 const INDEX = "portal:contracts:index";
 const contractKey = (id: string) => `portal:contract:${id}`;
+const envelopeKey = (envelopeId: string) => `portal:digisign:envelope:${envelopeId}`;
+
+// Reverse index DigiSign obálky -> contractId (zapisuje digisign-send, čte webhook).
+export async function setEnvelopeContractId(
+  envelopeId: string,
+  contractId: string,
+): Promise<void> {
+  const r = getRedis();
+  if (!r) return;
+  await r.set(envelopeKey(envelopeId), contractId);
+}
+
+export async function getContractIdByEnvelope(
+  envelopeId: string,
+): Promise<string | null> {
+  const r = getRedis();
+  if (!r) return null;
+  return (await r.get<string>(envelopeKey(envelopeId))) ?? null;
+}
+
 const byClientKey = (clientId: string) =>
   `portal:contracts:by-client:${clientId}`;
 const byTypeKey = (type: ContractType) => `portal:contracts:by-type:${type}`;
