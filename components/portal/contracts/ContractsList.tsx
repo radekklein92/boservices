@@ -36,21 +36,32 @@ import { LockUsersModal } from "./LockUsersModal";
 import type { Client } from "@/lib/portal/clients-db";
 import dynamicImport from "next/dynamic";
 import { CONTRACT_TYPE_META, isBundleType } from "@/lib/portal/contract-types";
+import { htmlDiff } from "@/lib/portal/contract-diff";
+import { bakeSnapshotForDiff } from "@/lib/portal/contract-render";
 import { FilterChip } from "@/components/portal/ui/FilterChip";
 import { Chip } from "@/components/portal/ui/Chip";
 import { CONTRACT_STATUS_ICON } from "./contract-status-meta";
 import { BTN_ROW, BTN_ICON } from "@/components/portal/ui/buttons";
 
-// Stejná logika jako v ContractDetailClient.hasTemplateChanges - zda se
-// smlouva odchýlila od šablony. Pro bundle: aspoň jedna sekce má snapshot
-// jiný než html. Pro NE-bundle: top-level templateSnapshot vs html.
+// Stejná (robustní) logika jako v ContractDetailClient.hasTemplateChanges -
+// zda se smlouva odchýlila od šablony. NESMÍ to být naivní templateSnapshot
+// !== html: snapshot je v token-formě ({{tokeny}}), html zapečené, takže by se
+// vždy lišily a ZMĚNY by svítily i u nezměněných smluv. U ne-bundle proto
+// šablonu zapečeme (bakeSnapshotForDiff) a porovnáme přes htmlDiff; bundle je
+// na tokenech, porovnává se surově.
 function contractHasTemplateChanges(c: Contract): boolean {
   if (isBundleType(c.type)) {
     return (c.bundleSections ?? []).some(
-      (s) => s.templateSnapshot && s.templateSnapshot !== s.html,
+      (s) => !!s.templateSnapshot && htmlDiff(s.templateSnapshot, s.html).hasChanges,
     );
   }
-  return !!c.templateSnapshot && c.templateSnapshot !== c.html;
+  return (
+    !!c.templateSnapshot &&
+    htmlDiff(
+      bakeSnapshotForDiff(c.templateSnapshot, c.html, c.variables),
+      c.html,
+    ).hasChanges
+  );
 }
 
 const ContractCreateModal = dynamicImport(
@@ -172,6 +183,13 @@ export function ContractsList({
         .includes(q);
     });
   }, [items, query, statusFilter]);
+
+  // Změny proti šabloně předpočítáme jednou (htmlDiff není triviální - 180 smluv
+  // při každém renderu by sekalo). Set ID smluv, které mají změny.
+  const changedIds = useMemo(
+    () => new Set(items.filter(contractHasTemplateChanges).map((c) => c.id)),
+    [items],
+  );
 
   const selectableIds = useMemo(() => filtered.map((c) => c.id), [filtered]);
   const allSelected =
@@ -556,7 +574,7 @@ export function ContractsList({
                       <span className="truncate text-[15px] font-bold tracking-[-0.01em] text-ink-base">
                         {c.clientName}
                       </span>
-                      {contractHasTemplateChanges(c) && (
+                      {changedIds.has(c.id) && (
                         <span
                           className="inline-flex h-6 shrink-0 items-center gap-1 rounded-full bg-red-600 px-2 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-paper"
                           title="Smlouva má změny proti šabloně"
