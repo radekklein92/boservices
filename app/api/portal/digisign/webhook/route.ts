@@ -9,7 +9,6 @@ import {
   type Contract,
 } from "@/lib/portal/contracts-db";
 import { downloadSignedPdf } from "@/lib/portal/digisign";
-import { sendNdaSignedEmail } from "@/lib/portal/email";
 import { getRedis } from "@/lib/redis";
 import { bustContracts } from "@/lib/portal/revalidate";
 
@@ -160,21 +159,8 @@ export async function POST(req: NextRequest) {
       updated.clientSignedBy = "DigiSign";
     }
     updated.status = computeContractStatus(updated);
-
-    // Notifikace zakladateli (best-effort).
-    try {
-      const to = contract.digisignSentBy || contract.createdBy;
-      if (to) {
-        await sendNdaSignedEmail({
-          to,
-          clientName: contract.clientName,
-          number: contract.number,
-          contractId: contract.id,
-        });
-      }
-    } catch (e) {
-      console.warn("[digisign/webhook] notifikační e-mail selhal:", e);
-    }
+    // Vlastní e-mail neposíláme - DigiSign rozesílá podepsaným stranám vlastní
+    // notifikaci o dokončení automaticky.
   }
 
   await upsertContract(updated);
