@@ -32,6 +32,7 @@ export function StatusDropdown({
 }) {
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
   const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
 
   useEffect(() => {
@@ -48,7 +49,10 @@ export function StatusDropdown({
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
-      if (!btnRef.current?.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      // Menu je v portálu mimo tlačítko – klik na položku nesmí zavřít dřív,
+      // než stihne proběhnout onClick (jinak se výběr stavu ztratí).
+      if (!btnRef.current?.contains(t) && !menuRef.current?.contains(t)) setOpen(false);
     };
     const onScroll = () => setOpen(false);
     window.addEventListener("mousedown", onDown);
@@ -83,6 +87,7 @@ export function StatusDropdown({
         pos &&
         createPortal(
           <div
+            ref={menuRef}
             style={{ position: "fixed", top: pos.top, left: pos.left, width: pos.width, zIndex: 120 }}
             className="overflow-hidden rounded-xl border border-edge bg-paper py-1 shadow-[0_12px_28px_-12px_rgba(14,14,14,0.3)]"
           >
