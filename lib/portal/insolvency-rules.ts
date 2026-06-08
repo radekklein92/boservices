@@ -123,3 +123,20 @@ export function safeContractDate(
     year: "numeric",
   });
 }
+
+// Posun data uzavření dozadu: vrátí bezpečné datum (safeContractDate) JEN pokud je
+// dřív než stávající datum uzavření. Jinak null (datum se nikdy neposouvá dopředu).
+// Použití: výběr smluvní strany u odstoupení může datum posunout jen před úpadek,
+// firma bez úpadku / s pozdějším úpadkem ho nemění.
+export function earlierSafeContractDate(
+  currentText: string | undefined,
+  names: (string | undefined)[],
+  daysBefore = 3,
+): string | null {
+  const safe = safeContractDate(names, daysBefore);
+  if (!safe) return null;
+  const safeDate = parseCzechDate(safe);
+  if (!safeDate) return null;
+  const current = parseCzechDate(currentText);
+  return !current || safeDate.getTime() < current.getTime() ? safe : null;
+}

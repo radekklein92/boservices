@@ -51,7 +51,7 @@ import {
   formatClaimsTotalAmount,
   type ClaimItem,
 } from "@/lib/portal/claims";
-import { checkInsolvencyAny, safeContractDate } from "@/lib/portal/insolvency-rules";
+import { checkInsolvencyAny, earlierSafeContractDate } from "@/lib/portal/insolvency-rules";
 import { signerFunctionLabel } from "@/lib/portal/users-db";
 import { PlaceholderPalette } from "./PlaceholderPalette";
 import { ClaimsBuilder } from "./ClaimsBuilder";
@@ -268,13 +268,22 @@ export function ContractDetailClient({
 
   // Úpadek dlužníka: když je datum uzavření v den úpadku nebo po něm, vzniká
   // zapodstatová pohledávka -> upozornění (lze ignorovat na vlastní odpovědnost).
-  // Pouze odstoupení a pouze podle MANAŽERA (Poskytovatel se neřeší).
+  // Pouze odstoupení, podle KTERÉKOLIV strany (Manažer / Poskytovatel / Prodávající).
   const insolvencyRule = useMemo(
     () =>
       contract.type === "withdrawal"
-        ? checkInsolvencyAny([variables.managerName], variables.contractDate)
+        ? checkInsolvencyAny(
+            [variables.managerName, variables.providerName, variables.sellerName],
+            variables.contractDate,
+          )
         : null,
-    [contract.type, variables.managerName, variables.contractDate],
+    [
+      contract.type,
+      variables.managerName,
+      variables.providerName,
+      variables.sellerName,
+      variables.contractDate,
+    ],
   );
   const insolvencyKey = insolvencyRule
     ? `${insolvencyRule.match}|${variables.contractDate ?? ""}`
@@ -441,20 +450,23 @@ export function ContractDetailClient({
       },
     });
   }
+  // Výběr smluvní strany v úpadku posune datum uzavření DOZADU (3 dny před úpadek),
+  // jen pokud je to dřív než stávající datum. Firma bez úpadku / s pozdějším úpadkem
+  // datum nemění (nikdy se neposouvá dopředu). Vrací baked patch (prázdný = beze změny).
+  function pullBackDateFor(name: string | undefined): Record<string, string> {
+    const pulled = earlierSafeContractDate(variables.contractDate, [name]);
+    return pulled ? { contractDate: pulled, effectiveDate: pulled } : {};
+  }
   function fillManager(p: CompanyFillPayload) {
+    const datePatch = pullBackDateFor(p.name);
     const baked: Record<string, string> = {
       managerName: p.name,
       managerIco: p.ico,
       managerStreet: p.street,
       managerCity: p.city,
       managerZip: p.zip,
+      ...datePatch,
     };
-    // Manažer v úpadku -> Datum uzavření defaultně 3 dny před úpadkem (bezpečné).
-    const safe = safeContractDate([p.name]);
-    if (safe) {
-      baked.contractDate = safe;
-      baked.effectiveDate = safe;
-    }
     setVariables((prev) => {
       const next = { ...prev, ...baked };
       return { ...next, ...composeWithdrawal(next, {}) };
@@ -463,8 +475,8 @@ export function ContractDetailClient({
     markDirty();
     notify(
       "ok",
-      safe
-        ? `Manažer vyplněn: ${p.name || p.ico}. Datum uzavření nastaveno na ${safe} (před úpadkem).`
+      datePatch.contractDate
+        ? `Manažer vyplněn: ${p.name || p.ico}. Datum uzavření posunuto na ${datePatch.contractDate} (před úpadkem).`
         : `Manažer vyplněn: ${p.name || p.ico}.`,
     );
   }
@@ -480,6 +492,7 @@ export function ContractDetailClient({
   }
   // Prodávající (smluvní strana KS) - jako manažer složený token sellerPartyLine.
   function fillSeller(p: CompanyFillPayload) {
+    const datePatch = pullBackDateFor(p.name);
     setVariables((prev) => {
       const next = {
         ...prev,
@@ -488,25 +501,40 @@ export function ContractDetailClient({
         sellerStreet: p.street,
         sellerCity: p.city,
         sellerZip: p.zip,
+        ...datePatch,
       };
       return { ...next, ...composeWithdrawal(next, {}) };
     });
+    // Datum je zapečené (data-ph) - seller pole jdou přes dynamickou klauzuli.
+    applyBakedValues(datePatch);
     markDirty();
-    notify("ok", `Prodávající vyplněn: ${p.name || p.ico}.`);
+    notify(
+      "ok",
+      datePatch.contractDate
+        ? `Prodávající vyplněn: ${p.name || p.ico}. Datum uzavření posunuto na ${datePatch.contractDate} (před úpadkem).`
+        : `Prodávající vyplněn: ${p.name || p.ico}.`,
+    );
   }
   function fillWithdrawalProvider(p: CompanyFillPayload) {
     // Poskytovatel je u odstoupení přímý zapečený token - žádný compose, jen pole.
+    const datePatch = pullBackDateFor(p.name);
     const changes: Record<string, string> = {
       providerName: p.name,
       providerIco: p.ico,
       providerStreet: p.street,
       providerCity: p.city,
       providerZip: p.zip,
+      ...datePatch,
     };
     setVariables((prev) => ({ ...prev, ...changes }));
     applyBakedValues(changes);
     markDirty();
-    notify("ok", `Poskytovatel vyplněn: ${p.name || p.ico}.`);
+    notify(
+      "ok",
+      datePatch.contractDate
+        ? `Poskytovatel vyplněn: ${p.name || p.ico}. Datum uzavření posunuto na ${datePatch.contractDate} (před úpadkem).`
+        : `Poskytovatel vyplněn: ${p.name || p.ico}.`,
+    );
   }
   // MS toggle (jen varianta B): zda byla MS v balíčku podepsaná.
   function setMsMode(mode: string) {
@@ -961,10 +989,11 @@ export function ContractDetailClient({
         </FieldGroup>
 
         {/* Odstoupení od smluv. Pořadí: 1) které smlouvy z balíčku byly podepsány
-            a jak se ukončují, 2) Manažer (jen když je MS v balíčku), 3) Poskytovatel,
-            4) data a lokace. Manažer i Poskytovatel jsou firmy ze sítě BOServices -
-            vybírají se chip-pickerem; detaily (IČO, sídlo) se mění zřídka, schované
-            v modálu „Upravit údaje". Manažer = INLINE token {{managerPartyLine}}. */}
+            a jak se ukončují, 2) Poskytovatel, 3) Prodávající (jen když KS padá),
+            4) Manažer (jen když je MS v balíčku), 5) data a lokace. Strany jsou firmy
+            ze sítě BOServices - vybírají se chip-pickerem; detaily (IČO, sídlo) se mění
+            zřídka, schované v modálu „Upravit údaje". Výběr strany v úpadku posune
+            datum uzavření dozadu (3 dny před úpadek), nikdy dopředu. */}
         {contract.type === "withdrawal" && (
           <>
             <FieldGroup label="Smlouvy v balíčku">
@@ -998,29 +1027,6 @@ export function ContractDetailClient({
               </div>
             </FieldGroup>
 
-            {(!isNewWithdrawal || wdMsIncluded(variables)) && (
-              <FieldGroup
-                label={
-                  contract.variant === "A"
-                    ? "Manažer (odstupuje se od jeho smlouvy)"
-                    : "Manažer (smluvní strana MS)"
-                }
-              >
-                <CompanyChipPicker
-                  selectedIco={variables.managerIco}
-                  onFill={fillManager}
-                  addLabel="Jiná firma"
-                  modalEyebrow="Manažer mimo presety"
-                  modalTitle="Vyhledat firmu v ARES"
-                />
-                <PartyDetailsRow
-                  name={variables.managerName}
-                  emptyLabel="Vyberte firmu manažera výše"
-                  onEdit={() => setPartyModal("manager")}
-                />
-              </FieldGroup>
-            )}
-
             <FieldGroup label="Poskytovatel (smluvní strana FS)">
               <CompanyChipPicker
                 selectedIco={variables.providerIco}
@@ -1051,6 +1057,29 @@ export function ContractDetailClient({
                   name={variables.sellerName}
                   emptyLabel="Vyberte firmu prodávajícího výše"
                   onEdit={() => setPartyModal("seller")}
+                />
+              </FieldGroup>
+            )}
+
+            {(!isNewWithdrawal || wdMsIncluded(variables)) && (
+              <FieldGroup
+                label={
+                  contract.variant === "A"
+                    ? "Manažer (odstupuje se od jeho smlouvy)"
+                    : "Manažer (smluvní strana MS)"
+                }
+              >
+                <CompanyChipPicker
+                  selectedIco={variables.managerIco}
+                  onFill={fillManager}
+                  addLabel="Jiná firma"
+                  modalEyebrow="Manažer mimo presety"
+                  modalTitle="Vyhledat firmu v ARES"
+                />
+                <PartyDetailsRow
+                  name={variables.managerName}
+                  emptyLabel="Vyberte firmu manažera výše"
+                  onEdit={() => setPartyModal("manager")}
                 />
               </FieldGroup>
             )}
