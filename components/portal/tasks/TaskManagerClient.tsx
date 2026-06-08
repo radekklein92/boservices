@@ -156,6 +156,10 @@ export function TaskManagerClient({
           : b.deadline.localeCompare(a.deadline);
       });
     }
+    // Hotové úkoly vždy dolů (stabilní řazení zachová pořadí ostatních).
+    r = [...r].sort(
+      (a, b) => Number(a.status === "done") - Number(b.status === "done"),
+    );
     return r;
   }, [tasks, filterStatus, filterAssignee, sortDeadline, search]);
 
@@ -212,9 +216,12 @@ export function TaskManagerClient({
   function handleDragEnd(e: DragEndEvent) {
     const { active, over } = e;
     if (!over || active.id === over.id) return;
-    const oldI = tasks.findIndex((t) => t.id === active.id);
-    const newI = tasks.findIndex((t) => t.id === over.id);
-    const next = arrayMove(tasks, oldI, newI);
+    // Pracujeme s viditelným pořadím (filtered = hotové dole), ať drag sedí
+    // s tím, co uživatel vidí. V draggable stavu je filtered plná množina úkolů.
+    const oldI = filtered.findIndex((t) => t.id === active.id);
+    const newI = filtered.findIndex((t) => t.id === over.id);
+    if (oldI === -1 || newI === -1) return;
+    const next = arrayMove(filtered, oldI, newI);
     setTasks(next);
     fetch("/api/portal/tasks/reorder", {
       method: "PATCH",
