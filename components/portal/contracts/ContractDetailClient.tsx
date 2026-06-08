@@ -1666,6 +1666,7 @@ function BundleSectionEditor({
         showPlaceholders={showPlaceholders}
         variables={variables}
         tokenKeys={tokenKeys}
+        canonicalTokens
       />
     </div>
   );

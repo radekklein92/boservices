@@ -43,6 +43,7 @@ export function TiptapEditor({
   variables,
   tokenKeys,
   showPlaceholders = false,
+  canonicalTokens = false,
 }: {
   value: string;
   onChange: (html: string) => void;
@@ -58,6 +59,10 @@ export function TiptapEditor({
   tokenKeys?: Set<string>;
   // true = editovat v režimu placeholderů ({{tokeny}}); false = finální hodnoty.
   showPlaceholders?: boolean;
+  // Kanonická (uložená) forma je TOKEN ({{tokeny}}), ne zapečené hodnoty. Platí
+  // pro sekce balíčku (claim-bundle), které se zapékají až při generování PDF.
+  // U běžných smluv (false) je kanonické html zapečené (data-ph spany).
+  canonicalTokens?: boolean;
 }) {
   // Refy, ať onCreate/onUpdate i efekty čtou vždy aktuální hodnoty (bez stale closure).
   const dynRef = useRef(dynamicValues ?? {});
@@ -68,20 +73,42 @@ export function TiptapEditor({
   keysRef.current = tokenKeys;
   const modeRef = useRef(showPlaceholders);
   modeRef.current = showPlaceholders;
+  const tokenCanonRef = useRef(canonicalTokens);
+  tokenCanonRef.current = canonicalTokens;
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
 
-  // Kanonické (uložené) html je zapečené. Editor zobrazuje buď zapečené hodnoty
-  // (s dynamickými nody), nebo token-formu ({{tokeny}}) dle režimu.
-  const displayFor = (canonical: string): string =>
-    modeRef.current
-      ? bakedToTokenHtml(canonical, varsRef.current, keysRef.current)
-      : tokensToDynNodes(canonical);
-  // Z editorového html zpět na kanonické (zapečené) html.
-  const toCanonical = (editorHtml: string): string =>
-    modeRef.current
-      ? resolveForEditing(editorHtml, varsRef.current)
-      : dynNodesToTokens(editorHtml);
+  // Editor zobrazuje buď dosazené hodnoty (s dynamickými nody), nebo token-formu
+  // ({{tokeny}}) dle režimu. Kanonická (uložená) forma je u běžných smluv
+  // zapečená (data-ph spany), u balíčku (canonicalTokens) tokenová.
+  const displayFor = (canonical: string): string => {
+    if (modeRef.current) {
+      // Placeholdery: zapečené spany -> {{token}}; tokenové už {{tokeny}} jsou.
+      return bakedToTokenHtml(canonical, varsRef.current, keysRef.current);
+    }
+    // Hodnoty: tokenové kanonické html nejdřív zapéct na hodnoty (data-ph spany),
+    // zapečené už hodnoty má. Pak {{dynamické klauzule}} -> nody.
+    const baked = tokenCanonRef.current
+      ? resolveForEditing(canonical, varsRef.current)
+      : canonical;
+    return tokensToDynNodes(baked);
+  };
+  // Z editorového html zpět na kanonické html (zapečené, nebo tokenové u balíčku).
+  const toCanonical = (editorHtml: string): string => {
+    if (modeRef.current) {
+      // Z placeholder-režimu: u tokenového kanonického NEzapékat (jen dyn->token),
+      // u zapečeného {{tokeny}} zapéct na spany.
+      return tokenCanonRef.current
+        ? dynNodesToTokens(editorHtml)
+        : resolveForEditing(editorHtml, varsRef.current);
+    }
+    // Z režimu hodnot: dyn nody zpět na tokeny; u tokenového kanonického navíc
+    // zapečené hodnoty (data-ph spany) zpět na {{tokeny}}.
+    const tokens = dynNodesToTokens(editorHtml);
+    return tokenCanonRef.current
+      ? bakedToTokenHtml(tokens, varsRef.current, keysRef.current)
+      : tokens;
+  };
 
   const editor = useEditor({
     editable,
@@ -157,6 +184,16 @@ export function TiptapEditor({
     if (editor) refreshDynamicValues(editor, dynamicValues ?? {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor, dynamicValues]);
+
+  // Token-kanonické html (balíček) v režimu Hodnoty: změna proměnných (pole
+  // nahoře) nemění uložené {{tokeny}}, ale musí se překreslit dosazené hodnoty.
+  // (U zapečených smluv to řeší změna `value` výše.)
+  const varsKey = JSON.stringify(variables ?? {});
+  useEffect(() => {
+    if (!editor || !canonicalTokens || showPlaceholders) return;
+    editor.commands.setContent(displayFor(value), { emitUpdate: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor, varsKey, showPlaceholders, canonicalTokens]);
 
   if (!editor) {
     return (
