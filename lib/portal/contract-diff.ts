@@ -148,6 +148,10 @@ export function normalizeHtmlForDiff(html: string): string {
     html
       // 0. Odstranit pomocné značky zapečených hodnot (data-ph) - porovnáváme text.
       .replace(/<span[^>]*\bdata-ph="[^"]*"[^>]*>([\s\S]*?)<\/span>/g, "$1")
+      // 0b. Odstranit kosmetické atributy style/class - Tiptap je u běžných
+      //     elementů nezachovává (např. <p style="text-align: right"> uloží jako
+      //     <p>), takže by jinak dělaly falešné rozdíly vůči syrové šabloně.
+      .replace(/\s+(?:style|class)="[^"]*"/gi, "")
       // 1. Sjednotit whitespace - newlines, taby na mezery
       .replace(/[\t\n\r]+/g, " ")
       // 2. Strip whitespace mezi tagy (`>   <` → `><`)
