@@ -3,18 +3,22 @@
 import { useEffect, useState } from "react";
 import { X, PenLine, Gavel, Check, UserCheck } from "lucide-react";
 import type { User } from "@/lib/portal/users-db";
-import { signerFunctionLabel } from "@/lib/portal/users-db";
+import { signerFunctionLabel, signerRoleText } from "@/lib/portal/users-db";
 import { KEEP_ORIGINAL_SIGNER } from "./signer-keep-original";
 
 export function SignerPickerModal({
   currentSignerEmail,
   bulkCount,
+  ndaMode = false,
   onClose,
   onPicked,
 }: {
   currentSignerEmail?: string;
   // Pokud > 1, jde o hromadný výběr - zobrazíme informaci.
   bulkCount?: number;
+  // NDA/DigiSign: nabídni kohokoliv s telefonem (ne jen Podepisující), role
+  // se vezme dle funkce nebo „na základě plné moci". Bez „zachovat původního".
+  ndaMode?: boolean;
   onClose: () => void;
   onPicked: (email: string) => Promise<void> | void;
 }) {
@@ -45,7 +49,10 @@ export function SignerPickerModal({
         // /api/portal/signers vrací jen seznam Podepisujících (dostupné
         // pro všechny přihlášené, nejen pro adminy - běžný user musí
         // pickovat signera u svých smluv stejně jako admin).
-        const res = await fetch("/api/portal/signers", { cache: "no-store" });
+        const res = await fetch(
+          ndaMode ? "/api/portal/signers?withPhone=1" : "/api/portal/signers",
+          { cache: "no-store" },
+        );
         const data = await res.json();
         if (cancelled) return;
         if (!data.ok) throw new Error(data.error || "Chyba");
@@ -96,7 +103,9 @@ export function SignerPickerModal({
             <p className="mt-1.5 text-[13px] text-ink-mid">
               {isBulk
                 ? "Stejný podepisující bude přiřazen ke všem označeným smlouvám."
-                : "Vyber osobu, která fyzicky podepíše smlouvu za BOServices."}
+                : ndaMode
+                  ? "Vyber osobu, která NDA podepíše za BOServices (elektronicky přes DigiSign)."
+                  : "Vyber osobu, která fyzicky podepíše smlouvu za BOServices."}
             </p>
           </div>
           <button
@@ -116,7 +125,9 @@ export function SignerPickerModal({
             </div>
           ) : (
             <ul className="flex flex-col gap-2">
-              {/* Zachovat původního podepisujícího - bez přepsání zástupce ve smlouvě */}
+              {/* Zachovat původního podepisujícího - bez přepsání zástupce ve smlouvě.
+                  U NDA (DigiSign) nedává smysl - podepisující je vždy konkrétní. */}
+              {!ndaMode && (
               <li>
                 <button
                   type="button"
@@ -156,6 +167,7 @@ export function SignerPickerModal({
                   )}
                 </button>
               </li>
+              )}
 
               {signers.length === 0 ? (
                 <li className="py-8 text-center">
@@ -165,14 +177,20 @@ export function SignerPickerModal({
                     aria-hidden="true"
                   />
                   <p className="mt-3 text-[13px] text-ink-mid">
-                    Zatím nemáš žádné Podepisující. Vytvoř je v sekci Uživatelé.
+                    {ndaMode
+                      ? "Žádný uživatel nemá vyplněný telefon. Doplň ho v sekci Uživatelé."
+                      : "Zatím nemáš žádné Podepisující. Vytvoř je v sekci Uživatelé."}
                   </p>
                 </li>
               ) : (
                 signers.map((s) => {
                 const active = selected === s.email;
-                const fn = s.signerFunction!;
                 const displayName = s.signerDisplayName?.trim() || s.name;
+                // NDA: role dle funkce, jinak „na základě plné moci"; + telefon.
+                // Ostatní typy: jen funkce Podepisujícího.
+                const subtitle = ndaMode
+                  ? `${signerRoleText(s) || "na základě plné moci"} · ${s.email}`
+                  : `${signerFunctionLabel(s.signerFunction!)} · ${s.email}`;
                 return (
                   <li key={s.email}>
                     <button
@@ -203,7 +221,7 @@ export function SignerPickerModal({
                             active ? "text-paper/70" : "text-ink-mid"
                           }`}
                         >
-                          {signerFunctionLabel(fn)} · {s.email}
+                          {subtitle}
                         </span>
                       </span>
                       {active && (

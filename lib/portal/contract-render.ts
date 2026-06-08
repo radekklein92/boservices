@@ -60,13 +60,20 @@ export function applySignerOverride(
     | "signerPoaSubstituteFor"
     | "isSigner"
   >,
+  // poa = NDA: podepisuje kterýkoliv uživatel s telefonem. Role se vezme podle
+  // jeho funkce (jednatel/substituční PM jako u ostatních smluv); kdo funkci nemá,
+  // podepisuje „na základě plné moci". Bez ohledu na isSigner.
+  opts?: { poa?: boolean },
 ): ContractVariables {
-  if (!signer.isSigner || !signer.signerFunction) return variables;
+  if (!opts?.poa && (!signer.isSigner || !signer.signerFunction)) return variables;
+  const role = opts?.poa
+    ? signerRoleText(signer) || "na základě plné moci"
+    : signerRoleText(signer);
   return {
     ...variables,
     providerStatutory1Name:
       signer.signerDisplayName?.trim() || signer.name || variables.providerStatutory1Name,
-    providerStatutory1Role: signerRoleText(signer),
+    providerStatutory1Role: role,
   };
 }
 

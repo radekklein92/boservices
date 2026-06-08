@@ -55,7 +55,9 @@ export async function renderContractPdfBuffer(contract: Contract): Promise<Buffe
       ? await getUser(contract.signerEmail)
       : null;
   const baseVariables = signer
-    ? applySignerOverride(contract.variables, signer)
+    ? applySignerOverride(contract.variables, signer, {
+        poa: contract.type === "nda",
+      })
     : contract.variables;
 
   // Příloha č. 1 - tabulka pohledávek a jejich součet (vč. DPH) se generují

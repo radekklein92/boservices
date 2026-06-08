@@ -10,16 +10,23 @@ import { cachedListUsers } from "@/lib/portal/cached-db";
 // Cache: sdílí cachedListUsers (TAG.users) - po mutaci usera se invaliduje
 // stejně jako admin endpoint.
 
-export async function GET() {
+export async function GET(req: Request) {
   const g = await requireSession();
   if (!g.ok) return g.response;
 
+  // ?withPhone=1 (NDA/DigiSign): kdokoliv s vyplněným telefonem, bez ohledu na
+  // isSigner - DigiSign telefon vyžaduje. Jinak klasicky jen Podepisující.
+  const withPhone = new URL(req.url).searchParams.get("withPhone") === "1";
+
   const users = await cachedListUsers();
   const signers = users
-    .filter((u) => u.isSigner && u.signerFunction)
+    .filter((u) =>
+      withPhone ? !!u.phone && !!u.phone.trim() : u.isSigner && u.signerFunction,
+    )
     .map((u) => ({
       email: u.email,
       name: u.name,
+      phone: u.phone,
       signerFunction: u.signerFunction,
       signerDisplayName: u.signerDisplayName,
       signerPoaSubstituteFor: u.signerPoaSubstituteFor,

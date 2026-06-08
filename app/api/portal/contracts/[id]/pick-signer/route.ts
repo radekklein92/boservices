@@ -78,7 +78,16 @@ export async function POST(
         { status: 404 },
       );
     }
-    if (!signer.isSigner || !signer.signerFunction) {
+    // NDA se podepisuje přes DigiSign - podepisovat smí kterýkoliv uživatel
+    // s telefonem (na základě plné moci); u ostatních typů jen Podepisující.
+    if (contract.type === "nda") {
+      if (!signer.phone || !signer.phone.trim()) {
+        return NextResponse.json(
+          { ok: false, error: "Vybraný uživatel nemá v profilu telefon (DigiSign ho vyžaduje)." },
+          { status: 400 },
+        );
+      }
+    } else if (!signer.isSigner || !signer.signerFunction) {
       return NextResponse.json(
         { ok: false, error: "Vybraný uživatel není podepisující." },
         { status: 400 },
@@ -97,7 +106,9 @@ export async function POST(
   let newName = oldName;
   let newRole = oldRole;
   if (signer) {
-    const ov = applySignerOverride(contract.variables, signer);
+    const ov = applySignerOverride(contract.variables, signer, {
+      poa: contract.type === "nda",
+    });
     newName = ov.providerStatutory1Name ?? oldName;
     newRole = ov.providerStatutory1Role ?? oldRole;
   } else {

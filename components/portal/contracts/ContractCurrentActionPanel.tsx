@@ -594,6 +594,7 @@ export function ContractCurrentActionPanel({
       {pickerOpen && (
         <SignerPickerModal
           currentSignerEmail={contract.signerEmail}
+          ndaMode={isNda}
           onClose={() => setPickerOpen(false)}
           onPicked={pickSigner}
         />
