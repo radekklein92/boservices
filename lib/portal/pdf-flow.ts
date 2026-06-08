@@ -6,6 +6,7 @@ import {
   groupSignatureUnits,
   renderTemplate,
   stripPlaceholderSpans,
+  wrapNdaSignatureUnits,
   wrapSignatures,
 } from "./contract-render";
 import { bundleHtmlToPdfBuffer, htmlToPdfBuffer } from "./pdf-generator";
@@ -104,7 +105,10 @@ export async function renderContractPdfBuffer(contract: Contract): Promise<Buffe
       number: contract.number,
     });
   } else {
-    const rendered = renderTemplate(prep(contract.html), variables);
+    let rendered = renderTemplate(prep(contract.html), variables);
+    // NDA: doplnit DigiSign kotvy + mezery a zabalit podpisy do .sign-unit
+    // (drží pohromadě přes stránky). Kotvy jsou neviditelné, jen v PDF.
+    if (contract.type === "nda") rendered = wrapNdaSignatureUnits(rendered);
     pdf = await htmlToPdfBuffer(rendered, {
       type: contract.type,
       cover,

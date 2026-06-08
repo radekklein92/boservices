@@ -582,3 +582,26 @@ export function groupSignatureUnits(html: string): string {
       `<div class="sign-unit">${lead}${sig}</div>`,
   );
 }
+
+// NDA (DigiSign): nad každého podepisujícího vstříkne neviditelnou DigiSign kotvu
+// (zástupný text, na který se zakotví podpisové pole) + mezeru pro pole, a celý
+// jeho blok (mezera + jméno/role/za koho) zabalí do .sign-unit (break-inside:
+// avoid), aby se podpisové pole s údaji NIKDY nerozdělily přes konec stránky -
+// když se nevejdou, jdou celé na další stránku. Kotva NENÍ v uloženém HTML
+// (Tiptap by styl/span zahodil a text by zviditelnil) - přidává se až tady, při
+// renderu PDF. Svislé zarovnání pole řeší digisign-send (positioning bottom_left).
+const NDA_SIG_GAP = '<div style="height:84px"></div>';
+const ndaAnchor = (id: string) =>
+  `<span style="font-size:2px;color:transparent">${id}</span>`;
+
+export function wrapNdaSignatureUnits(html: string): string {
+  let out = html.replace(
+    /<p>((?:(?!<\/p>)[\s\S])*?za Poskytující stranu: Business Operations Services s\.r\.o\.)<\/p>/,
+    `<div class="sign-unit">${NDA_SIG_GAP}<p>${ndaAnchor("signBosFld")}$1</p></div>`,
+  );
+  out = out.replace(
+    /<p>((?:(?!<\/p>)[\s\S])*?za Přijímající stranu:(?:(?!<\/p>)[\s\S])*?)<\/p>/,
+    `<div class="sign-unit">${NDA_SIG_GAP}<p>${ndaAnchor("signClientFld")}$1</p></div>`,
+  );
+  return out;
+}
