@@ -4,6 +4,7 @@ export const CONTRACT_TYPES = [
   "operation",
   "claim-bundle",
   "withdrawal",
+  "nda",
   "claim-assignment",
   "side-fee",
   "assignment-notice",
@@ -21,6 +22,7 @@ export const CONTRACT_TYPES_PICKABLE = [
   "operation",
   "claim-bundle",
   "withdrawal",
+  "nda",
 ] as const;
 
 // Sekce, ze kterých se skládá balíček postoupení pohledávek (v tomto pořadí).
@@ -88,6 +90,13 @@ export const CONTRACT_TYPE_META: Record<ContractType, ContractTypeMeta> = {
     shortName: "Odstoupení od smluv",
     fullName: "Odstoupení od smluv",
     description: "Klient odstupuje od MS a FS, volitelně i od KS.",
+  },
+  nda: {
+    key: "nda",
+    shortName: "NDA",
+    fullName: "Dohoda o mlčenlivosti",
+    description:
+      "Mlčenlivost protistrany při zaslání návrhů franšízingových a souvisejících smluv.",
   },
 };
 

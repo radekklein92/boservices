@@ -44,6 +44,10 @@ const COVER_BY_TYPE: Record<ContractType, CoverHeader> = {
     subtitle:
       "jednostranný projev vůle dle § 2002 a § 1727 zákona č. 89/2012 Sb., občanský zákoník",
   },
+  nda: {
+    title: "Dohoda o mlčenlivosti",
+    subtitle: "uzavřená dle § 1746 odst. 2 zákona č. 89/2012 Sb., občanský zákoník",
+  },
 };
 
 export function getCoverForType(type: ContractType): CoverHeader {
