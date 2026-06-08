@@ -9,7 +9,7 @@ import {
   upsertContract,
 } from "@/lib/portal/contracts-db";
 import { getOrSeedContractTemplate } from "@/lib/portal/contract-templates-db";
-import { resolveForEditing } from "@/lib/portal/contract-render";
+import { composeWithdrawalDeps, resolveForEditing } from "@/lib/portal/contract-render";
 import {
   applySubleaseClause,
   isLeaseHolderKey,
@@ -93,6 +93,38 @@ export async function POST(
     } else if (!nextVariables.franchiseFeePercent) {
       nextVariables.franchiseFeePercent = "8";
     }
+  }
+
+  // Odstoupení (dynamická šablona s depIntroPhrase/dependencyClause aj.): přepočítat
+  // klauzule §1727 / výčty smluv / party-line pro NOVOU variantu. Bez toho by zůstaly
+  // hodnoty z původní varianty (KEEP_DYNAMIC tokeny se přes resolveForEditing nezapékají),
+  // takže např. po B->A by §1727 dál zaniklo MS místo FS. MS/KS volbu (a manažera/
+  // prodávajícího) odvodíme ze stávajících hodnot, ať se zachová nastavení uživatele.
+  if (contract.type === "withdrawal" && nextVariables.depIntroPhrase !== undefined) {
+    const msIncluded =
+      variant === "A" ? true : (nextVariables.depIntroPhrase ?? "").includes("(MS)");
+    const ksDropped = !(nextVariables.ksPreservedNote ?? "").trim();
+    Object.assign(
+      nextVariables,
+      composeWithdrawalDeps(variant, {
+        msIncluded,
+        ksDropped,
+        manager: {
+          name: nextVariables.managerName,
+          ico: nextVariables.managerIco,
+          street: nextVariables.managerStreet,
+          city: nextVariables.managerCity,
+          zip: nextVariables.managerZip,
+        },
+        seller: {
+          name: nextVariables.sellerName,
+          ico: nextVariables.sellerIco,
+          street: nextVariables.sellerStreet,
+          city: nextVariables.sellerCity,
+          zip: nextVariables.sellerZip,
+        },
+      }),
+    );
   }
 
   // Reseed znění z nové varianty + zapéct hodnoty (vyplněný editovatelný text).
