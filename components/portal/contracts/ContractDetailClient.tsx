@@ -865,7 +865,13 @@ export function ContractDetailClient({
       <ContractStatusStepper contract={contract} signerLabel={signerLabel} />
       <ContractCurrentActionPanel
         contract={contract}
-        onChanged={(next) => setContract(next)}
+        onChanged={(next) => {
+          setContract(next);
+          // Resync i html state - akce jako „Vybrat podepisujícího" zapečou do
+          // html nové jméno/roli. Bez toho by html zůstalo staré a diff vůči
+          // šabloně (počítaný z NOVÝCH variables) by falešně hlásil „Pozor, změny".
+          setHtml(next.html);
+        }}
         notify={notify}
         isApprover={isApprover}
         isSuperadmin={isSuperadmin}
