@@ -117,6 +117,10 @@ export interface DigiSignSigner {
   name: string;
   email: string;
   phone?: string | null;
+  // Zástupný text (anchor) v PDF, na který se zakotví podpisové pole. DigiSign
+  // ho najde a pole umístí přesně tam (správná stránka). Bez něj fallback na
+  // vypočtené absolutní pozice na poslední stránce.
+  placeholder?: string;
 }
 
 // Default DigiSign signature pole = 55 × 21 mm = 156 × 60 pt
@@ -234,19 +238,31 @@ export async function sendForSigning(
     recipients.push(r);
   }
 
-  const positions = await computeSignaturePositions(args.pdfBuffer, args.signers.length);
+  // Umístění podpisového pole: primárně přes zástupný text (anchor) - DigiSign
+  // ho najde v PDF a pole položí přesně na něj (bottom_left = anchor je v levém
+  // dolním rohu pole, pole roste nahoru nad kotvu). Bez anchoru fallback na
+  // vypočtené absolutní pozice na poslední stránce.
+  const needPositions = args.signers.some((s) => !s.placeholder);
+  const positions = needPositions
+    ? await computeSignaturePositions(args.pdfBuffer, args.signers.length)
+    : [];
   for (let i = 0; i < args.signers.length; i++) {
     const recipient = recipients[i]!;
-    const pos = positions[i]!;
+    const signer = args.signers[i]!;
+    const placement = signer.placeholder
+      ? { placeholder: signer.placeholder, positioning: "bottom_left" }
+      : {
+          page: positions[i]!.page,
+          xPosition: positions[i]!.xPosition,
+          yPosition: positions[i]!.yPosition,
+        };
     await ds(`/api/envelopes/${envelope.id}/tags`, {
       method: "POST",
       json: {
         document: `/api/envelopes/${envelope.id}/documents/${doc.id}`,
         recipient: `/api/envelopes/${envelope.id}/recipients/${recipient.id}`,
         type: "signature",
-        page: pos.page,
-        xPosition: pos.xPosition,
-        yPosition: pos.yPosition,
+        ...placement,
       },
     });
   }

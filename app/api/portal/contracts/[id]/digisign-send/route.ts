@@ -75,16 +75,20 @@ export async function POST(
     );
   }
 
+  // Kotvy (anchor) odpovídají skrytým markerům v podpisovém bloku NDA šablony,
+  // ať podpisové pole sedne přesně nad jméno (ne plovoucí dole). Viz ndaHtml().
   const signers: DigiSignSigner[] = [
     {
       name: signer.signerDisplayName?.trim() || signer.name,
       email: signer.email,
       phone: signer.phone,
+      placeholder: "signBosFld",
     },
     {
       name: (v.clientSignerName || v.clientName || contract.clientName).trim(),
       email: clientEmail,
       phone: clientPhone,
+      placeholder: "signClientFld",
     },
   ];
 
