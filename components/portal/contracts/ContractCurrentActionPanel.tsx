@@ -665,6 +665,7 @@ export function ContractCurrentActionPanel({
           contract={contract}
           hasTemplateChanges={hasTemplateChanges}
           changeCount={changeCount}
+          submitterName={currentUserName}
           pending={pending === "POST:approve"}
           onClose={() => setChecklistOpen(false)}
           onConfirm={async () => {

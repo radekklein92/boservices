@@ -13,6 +13,7 @@ import {
   Bell,
   Scale,
   ListChecks,
+  AlertTriangle,
 } from "lucide-react";
 import type { Contract } from "@/lib/portal/contracts-db";
 import { getVariantMeta } from "@/lib/portal/contract-types";
@@ -238,6 +239,7 @@ export function ApprovalChecklistModal({
   contract,
   hasTemplateChanges,
   changeCount,
+  submitterName,
   onClose,
   onConfirm,
   pending,
@@ -245,6 +247,8 @@ export function ApprovalChecklistModal({
   contract: Contract;
   hasTemplateChanges: boolean;
   changeCount: number;
+  // Jméno přihlášeného uživatele - pro upozornění o převzetí odpovědnosti.
+  submitterName?: string;
   onClose: () => void;
   onConfirm: () => void;
   pending?: boolean;
@@ -255,6 +259,7 @@ export function ApprovalChecklistModal({
   );
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const allChecked = checked.size === items.length;
+  const who = submitterName?.trim() ? submitterName.trim() : "odesílatel";
 
   useEffect(() => {
     const original = document.body.style.overflow;
@@ -365,6 +370,19 @@ export function ApprovalChecklistModal({
             );
           })}
         </ul>
+
+        <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-[12.5px] leading-relaxed text-amber-900">
+          <AlertTriangle
+            className="mt-0.5 h-4 w-4 shrink-0 text-amber-600"
+            strokeWidth={1.75}
+            aria-hidden="true"
+          />
+          <span>
+            Schválením přebíráš jako{" "}
+            <strong className="font-semibold">{who}</strong> odpovědnost za
+            případné chyby ve smlouvě.
+          </span>
+        </div>
 
         <div className="mt-5 flex items-center justify-between gap-3 border-t border-edge pt-5">
           <span className="text-[12px] font-medium text-ink-mid">
