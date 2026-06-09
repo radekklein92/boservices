@@ -45,9 +45,12 @@ export async function htmlToPdfBuffer(
     cover?: CoverHeader;
     diff?: boolean;
     letterhead?: boolean;
-    // Watermark "NÁVRH — nepoužívat k podpisu" přes celý dokument. Používá se
+    // Watermark přes celý dokument (nefinální PDF a přehled změn). Používá se
     // pro preview ve stavech Koncept a Schváleno (před výběrem podepisujícího).
     watermark?: boolean;
+    // Jméno příjemce ve vodoznaku (ochrana proti přeposílání). Bez něj jen
+    // generický label „NÁVRH · NEPOUŽÍVAT K PODPISU".
+    watermarkText?: string;
     // Číslo smlouvy - zobrazí se v záhlaví vpravo nahoře na každé stránce.
     number?: string;
   },
@@ -57,6 +60,7 @@ export async function htmlToPdfBuffer(
     cover,
     diff: opts.diff,
     watermark: opts.watermark,
+    watermarkText: opts.watermarkText,
     letterhead: opts.letterhead,
   });
   return renderHtmlToPdf(fullHtml, opts.type, opts.letterhead, opts.number);
@@ -72,6 +76,7 @@ export async function bundleHtmlToPdfBuffer(
     diff?: boolean;
     letterhead?: boolean;
     watermark?: boolean;
+    watermarkText?: string;
     number?: string;
   },
 ): Promise<Buffer> {
@@ -80,6 +85,7 @@ export async function bundleHtmlToPdfBuffer(
     cover,
     diff: opts.diff,
     watermark: opts.watermark,
+    watermarkText: opts.watermarkText,
     letterhead: opts.letterhead,
   });
   return renderHtmlToPdf(fullHtml, opts.type, opts.letterhead, opts.number);

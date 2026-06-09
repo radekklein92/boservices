@@ -112,6 +112,19 @@ export function buildClientVariables(client: Client): ContractVariables {
   };
 }
 
+// Jméno příjemce do vodoznaku nefinálních PDF (návrh + přehled změn). Slouží
+// jako ochrana proti přeposílání - každá stránka nese jméno toho, komu je kopie
+// určena. Bereme podepisujícího za klienta (u PO statutár, u FO sám klient),
+// fallback na název klienta. Prázdné = vodoznak jen s generickým labelem.
+export function watermarkRecipient(variables: ContractVariables): string {
+  return (
+    variables.clientSignerName?.trim() ||
+    variables.clientStatutoryName?.trim() ||
+    variables.clientName?.trim() ||
+    ""
+  );
+}
+
 export function buildDefaultContractMeta(date = new Date()): ContractVariables {
   const formattedDate = date.toLocaleDateString("cs-CZ", {
     day: "numeric",

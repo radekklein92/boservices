@@ -4,7 +4,11 @@ import { getContract } from "@/lib/portal/contracts-db";
 import { getOrSeedContractTemplate } from "@/lib/portal/contract-templates-db";
 import { CONTRACT_TYPE_META, isBundleType } from "@/lib/portal/contract-types";
 import { htmlDiff } from "@/lib/portal/contract-diff";
-import { bakeSnapshotForDiff, renderTemplate } from "@/lib/portal/contract-render";
+import {
+  bakeSnapshotForDiff,
+  renderTemplate,
+  watermarkRecipient,
+} from "@/lib/portal/contract-render";
 import {
   bundleHtmlToPdfBuffer,
   htmlToPdfBuffer,
@@ -45,6 +49,10 @@ export async function GET(
 
   const meta = CONTRACT_TYPE_META[contract.type];
   const cover = getCoverForType(contract.type);
+  // Přehled změn je vždy pracovní dokument (redline oproti šabloně), nikdy
+  // finální čistopis - vodoznak se jménem příjemce drží i tady (ochrana proti
+  // přeposílání).
+  const watermarkText = watermarkRecipient(contract.variables);
 
   let pdf: Buffer;
   try {
@@ -75,6 +83,8 @@ export async function GET(
           subtitle: `${cover.subtitle} · zobrazeny změny oproti šabloně`,
         },
         diff: true,
+        watermark: true,
+        watermarkText,
         letterhead: contract.letterhead ?? true,
       });
     } else {
@@ -102,6 +112,8 @@ export async function GET(
         type: contract.type,
         cover: { ...cover, subtitle: `${cover.subtitle} · zobrazeny změny oproti šabloně` },
         diff: true,
+        watermark: true,
+        watermarkText,
         letterhead: contract.letterhead ?? true,
       });
     }

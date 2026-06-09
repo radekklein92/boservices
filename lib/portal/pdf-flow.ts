@@ -6,6 +6,7 @@ import {
   groupSignatureUnits,
   renderTemplate,
   stripPlaceholderSpans,
+  watermarkRecipient,
   wrapNdaSignatureUnits,
   wrapSignatures,
 } from "./contract-render";
@@ -67,6 +68,8 @@ export async function renderContractPdfBuffer(contract: Contract): Promise<Buffe
 
   const letterhead = contract.letterhead ?? true;
   const watermark = !isFinal;
+  // Jméno příjemce ve vodoznaku (ochrana proti přeposílání) jen u nefinálních PDF.
+  const watermarkText = watermark ? watermarkRecipient(variables) : undefined;
 
   // Render-time příprava: příloha na novou stránku (vše), u postoupení navíc
   // odstranění DIČ Clamory a nahrazení čísla účtu linkou (i pro starší smlouvy).
@@ -102,6 +105,7 @@ export async function renderContractPdfBuffer(contract: Contract): Promise<Buffe
       cover,
       letterhead,
       watermark,
+      watermarkText,
       number: contract.number,
     });
   } else {
@@ -114,6 +118,7 @@ export async function renderContractPdfBuffer(contract: Contract): Promise<Buffe
       cover,
       letterhead,
       watermark,
+      watermarkText,
       number: contract.number,
     });
   }

@@ -401,31 +401,60 @@ function renderBundleBody(sections: BundleSectionInput[]): string {
 // Watermark renderujeme jako fixed-positioned ::before pseudo na <body>.
 // Chrome v print režimu opakuje position:fixed na každé stránce, takže
 // stejný watermark prosvítá přes celý dokument. Lehce průhledný šedý text
-// rotovaný -30° napříč stránkou. Používá se pro preview (status < k-podpisu).
-const PDF_WATERMARK_STYLES = `
+// rotovaný -30° napříč stránkou. Používá se pro nefinální PDF (status
+// < k-podpisu) a pro přehled změn. Dvě řádky: jméno příjemce (ochrana proti
+// přeposílání) + label „NÁVRH · NEPOUŽÍVAT K PODPISU".
+const WATERMARK_LABEL = "NÁVRH · NEPOUŽÍVAT K PODPISU";
+
+// Escape řetězce do CSS content (uvnitř dvojitých uvozovek). Newline mezi
+// řádky řešíme sekvencí \A (CSS escape pro U+000A) + white-space: pre.
+// Úhlové závorky escapujeme hex sekvencí, aby jméno nemohlo rozbít </style>.
+function escapeCssString(s: string): string {
+  return s
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"')
+    .replace(/</g, "\\3C ")
+    .replace(/>/g, "\\3E ");
+}
+
+function buildWatermarkStyles(recipient?: string): string {
+  const name = recipient?.trim();
+  const lines = name ? [name, WATERMARK_LABEL] : [WATERMARK_LABEL];
+  const content = lines.map(escapeCssString).join("\\A ");
+  return `
 body::before {
-  content: "NÁVRH — nepoužívat k podpisu";
+  content: "${content}";
+  white-space: pre;
+  text-align: center;
   position: fixed;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%) rotate(-30deg);
   font-family: "Manrope", sans-serif;
   font-weight: 800;
-  font-size: 64pt;
+  font-size: 40pt;
+  line-height: 1.18;
   letter-spacing: -0.02em;
   color: rgba(14, 14, 14, 0.08);
-  white-space: nowrap;
   pointer-events: none;
   z-index: 9999;
 }
 `;
+}
 
 function wrapPdfShell(
   body: string,
-  opts: { diff?: boolean; watermark?: boolean; letterhead?: boolean },
+  opts: {
+    diff?: boolean;
+    watermark?: boolean;
+    watermarkText?: string;
+    letterhead?: boolean;
+  },
 ): string {
   const diffStyles = opts.diff ? PDF_DIFF_STYLES : "";
-  const watermarkStyles = opts.watermark ? PDF_WATERMARK_STYLES : "";
+  const watermarkStyles = opts.watermark
+    ? buildWatermarkStyles(opts.watermarkText)
+    : "";
   // letterhead === false: PDF jiné firmy (Clamora postoupení / klientovo
   // odstoupení) - serif font, ozdobný oddělovač sekcí. Vizuálně odlišné od
   // BOServices franšízingových smluv.
@@ -470,6 +499,7 @@ export function buildServerPdfDocument(
     cover: CoverHeader;
     diff?: boolean;
     watermark?: boolean;
+    watermarkText?: string;
     letterhead?: boolean;
   },
 ): string {
@@ -478,6 +508,7 @@ export function buildServerPdfDocument(
   return wrapPdfShell(contentWithHeader, {
     diff: opts.diff,
     watermark: opts.watermark,
+    watermarkText: opts.watermarkText,
     letterhead: opts.letterhead,
   });
 }
@@ -491,6 +522,7 @@ export function buildServerBundlePdfDocument(
     cover: CoverHeader;
     diff?: boolean;
     watermark?: boolean;
+    watermarkText?: string;
     letterhead?: boolean;
   },
 ): string {
@@ -498,6 +530,7 @@ export function buildServerBundlePdfDocument(
   return wrapPdfShell(body, {
     diff: opts.diff,
     watermark: opts.watermark,
+    watermarkText: opts.watermarkText,
     letterhead: opts.letterhead,
   });
 }
