@@ -398,48 +398,74 @@ function renderBundleBody(sections: BundleSectionInput[]): string {
     .join("\n");
 }
 
-// Watermark renderujeme jako fixed-positioned ::before pseudo na <body>.
-// Chrome v print režimu opakuje position:fixed na každé stránce, takže
-// stejný watermark prosvítá přes celý dokument. Lehce průhledný šedý text
-// rotovaný -30° napříč stránkou. Používá se pro nefinální PDF (status
-// < k-podpisu) a pro přehled změn. Dvě řádky: jméno příjemce (ochrana proti
-// přeposílání) + label „NÁVRH · NEPOUŽÍVAT K PODPISU".
+// Vodoznak = vrstva přes celou stránku s opakovanou (dlaždicovanou) mřížkou
+// otočeného textu. position: fixed se v Chrome printu opakuje na každé stránce,
+// overflow: hidden ořízne přesah mřížky za okraj. Text je nativní HTML (správná
+// diakritika i font), ne CSS content. Každá dlaždice: jméno příjemce (ochrana
+// proti přeposílání) + label „NÁVRH · NEPOUŽÍVAT K PODPISU". Použito pro
+// nefinální PDF (status < k-podpisu) i pro přehled změn.
 const WATERMARK_LABEL = "NÁVRH · NEPOUŽÍVAT K PODPISU";
 
-// Escape řetězce do CSS content (uvnitř dvojitých uvozovek). Newline mezi
-// řádky řešíme sekvencí \A (CSS escape pro U+000A) + white-space: pre.
-// Úhlové závorky escapujeme hex sekvencí, aby jméno nemohlo rozbít </style>.
-function escapeCssString(s: string): string {
-  return s
-    .replace(/\\/g, "\\\\")
-    .replace(/"/g, '\\"')
-    .replace(/</g, "\\3C ")
-    .replace(/>/g, "\\3E ");
-}
-
-function buildWatermarkStyles(recipient?: string): string {
-  const name = recipient?.trim();
-  const lines = name ? [name, WATERMARK_LABEL] : [WATERMARK_LABEL];
-  const content = lines.map(escapeCssString).join("\\A ");
-  return `
-body::before {
-  content: "${content}";
-  white-space: pre;
-  text-align: center;
+const WATERMARK_STYLES = `
+.wm-layer {
   position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%) rotate(-30deg);
-  font-family: "Manrope", sans-serif;
-  font-weight: 800;
-  font-size: 40pt;
-  line-height: 1.18;
-  letter-spacing: -0.02em;
-  color: rgba(14, 14, 14, 0.08);
+  inset: 0;
+  overflow: hidden;
   pointer-events: none;
   z-index: 9999;
 }
+.wm-grid {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 185%;
+  height: 185%;
+  transform: translate(-50%, -50%) rotate(-30deg);
+  transform-origin: center;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  grid-auto-rows: 116px;
+  align-content: start;
+}
+.wm-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  white-space: nowrap;
+  color: rgba(14, 14, 14, 0.05);
+}
+.wm-cell .wm-name {
+  font-family: "Manrope", sans-serif;
+  font-weight: 800;
+  font-size: 13pt;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+.wm-cell .wm-label {
+  font-family: "Manrope", sans-serif;
+  font-weight: 800;
+  font-size: 9pt;
+  letter-spacing: 0.02em;
+  line-height: 1.3;
+}
 `;
+
+// 6 sloupců × 18 řádků dlaždic pokryje (po otočení o -30°) celou A4 i přesahy
+// rohů; nadbytek ořízne .wm-layer (overflow: hidden).
+const WATERMARK_COLS = 6;
+const WATERMARK_ROWS = 18;
+
+function buildWatermarkHtml(recipient?: string): string {
+  const name = recipient?.trim();
+  const cellInner = name
+    ? `<span class="wm-name">${escapeHtml(name)}</span><span class="wm-label">${escapeHtml(WATERMARK_LABEL)}</span>`
+    : `<span class="wm-name">${escapeHtml(WATERMARK_LABEL)}</span>`;
+  const cells = `<div class="wm-cell">${cellInner}</div>`.repeat(
+    WATERMARK_COLS * WATERMARK_ROWS,
+  );
+  return `<div class="wm-layer"><div class="wm-grid">${cells}</div></div>`;
 }
 
 function wrapPdfShell(
@@ -452,8 +478,9 @@ function wrapPdfShell(
   },
 ): string {
   const diffStyles = opts.diff ? PDF_DIFF_STYLES : "";
-  const watermarkStyles = opts.watermark
-    ? buildWatermarkStyles(opts.watermarkText)
+  const watermarkStyles = opts.watermark ? WATERMARK_STYLES : "";
+  const watermarkHtml = opts.watermark
+    ? buildWatermarkHtml(opts.watermarkText)
     : "";
   // letterhead === false: PDF jiné firmy (Clamora postoupení / klientovo
   // odstoupení) - serif font, ozdobný oddělovač sekcí. Vizuálně odlišné od
@@ -479,6 +506,7 @@ ${watermarkStyles}
 </style>
 </head>
 <body${bodyClass}>
+${watermarkHtml}
 <div class="__fontwarmup" style="font-family:'Manrope';font-weight:400">Mq</div>
 <div class="__fontwarmup" style="font-family:'Manrope';font-weight:500">Mq</div>
 <div class="__fontwarmup" style="font-family:'Manrope';font-weight:600">Mq</div>
