@@ -46,6 +46,7 @@ export async function POST(
 
   const now = new Date().toISOString();
   const email = g.session.user!.email!;
+  const senderName = g.session.user?.name?.trim();
 
   // Vyhodnocení proti AKTUÁLNÍM datům z Transition: smlouva je v konceptu (není
   // schválená), takže snapshot lokality čerstvě obnovíme z živého zrcadla. Tím
@@ -65,6 +66,7 @@ export async function POST(
     ...base,
     submittedForApprovalAt: now,
     submittedForApprovalBy: email,
+    ...(senderName ? { submittedForApprovalByName: senderName } : {}),
     // Splňuje vše → projde stavem Ke schválení rovnou do Schváleno.
     ...(auto
       ? {
@@ -106,6 +108,7 @@ export async function DELETE(
   const {
     submittedForApprovalAt: _sub,
     submittedForApprovalBy: _subBy,
+    submittedForApprovalByName: _subName,
     approvalDecision: _dec,
     approvalRule: _rule,
     approvalReasons: _reasons,
@@ -120,7 +123,7 @@ export async function DELETE(
     clientSignedBy: _csb,
     ...rest
   } = contract;
-  void _sub; void _subBy; void _dec; void _rule; void _reasons; void _a; void _ab;
+  void _sub; void _subBy; void _subName; void _dec; void _rule; void _reasons; void _a; void _ab;
   void _se; void _sp; void _spb; void _sa; void _sb; void _cs; void _csb;
 
   const updated = { ...rest, updatedAt: new Date().toISOString() };

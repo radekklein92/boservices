@@ -163,6 +163,7 @@ export default async function ContractDetailPage({
   // Admin (admin/superadmin) - smí z konceptu schválit Odstoupení a Postoupení.
   const isAdmin = isAdminRole(session?.user?.role);
   const currentUserEmail = session?.user?.email ?? "";
+  const currentUserName = session?.user?.name ?? "";
   // Volby pro picker uživatelů u zámku konceptu (e-mail + jméno).
   const userOptions = users.map((u) => ({ email: u.email, name: u.name }));
 
@@ -178,6 +179,7 @@ export default async function ContractDetailPage({
         locationNewco={locationNewco}
         standardOperatingFee={standardOperatingFee}
         currentUserEmail={currentUserEmail}
+        currentUserName={currentUserName}
         userOptions={userOptions}
         tasksSlot={<EntityTasks kind="contract" id={id} />}
       />

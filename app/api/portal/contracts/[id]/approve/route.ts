@@ -48,6 +48,7 @@ export async function POST(
   }
 
   const email = g.session.user!.email!;
+  const senderName = g.session.user?.name?.trim();
   const now = new Date().toISOString();
 
   // Typy posuzované podle lokality: ze stavu Ke schválení může schválit
@@ -89,6 +90,16 @@ export async function POST(
   const updated = {
     ...contract,
     ...extra,
+    // Negated typy (NDA, odstoupení, postoupení…) jdou z Konceptu rovnou na
+    // Schváleno - schvalovatel je zároveň ten, kdo smlouvu poslal z konceptu.
+    // Zaznamenáme to do submittedForApproval* (timeline + převzetí odpovědnosti).
+    ...(isApprovalGated(contract.type)
+      ? {}
+      : {
+          submittedForApprovalAt: now,
+          submittedForApprovalBy: email,
+          ...(senderName ? { submittedForApprovalByName: senderName } : {}),
+        }),
     approvedAt: now,
     approvedBy: email,
     ...(note ? { approvalNote: note } : {}),
@@ -118,6 +129,9 @@ export async function DELETE(
   const {
     approvedAt: _a,
     approvedBy: _ab,
+    submittedForApprovalAt: _sa2,
+    submittedForApprovalBy: _sb2,
+    submittedForApprovalByName: _sn2,
     signerEmail: _se,
     signerPickedAt: _sp,
     signerPickedBy: _spb,
@@ -127,10 +141,21 @@ export async function DELETE(
     clientSignedBy: _csb,
     ...rest
   } = contract;
-  void _a; void _ab; void _se; void _sp; void _spb;
+  void _a; void _ab; void _sa2; void _sb2; void _sn2; void _se; void _sp; void _spb;
   void _sa; void _sb; void _cs; void _csb;
   const updated = {
     ...rest,
+    // Gated: rollback vede zpět na „Ke schválení" - údaj o odeslání z konceptu
+    // musí zůstat. Negated: vede do Konceptu, takže ho mažeme (viz destructuring).
+    ...(isApprovalGated(contract.type)
+      ? {
+          submittedForApprovalAt: contract.submittedForApprovalAt,
+          submittedForApprovalBy: contract.submittedForApprovalBy,
+          ...(contract.submittedForApprovalByName
+            ? { submittedForApprovalByName: contract.submittedForApprovalByName }
+            : {}),
+        }
+      : {}),
     updatedAt: new Date().toISOString(),
   };
   updated.status = computeContractStatus(updated);

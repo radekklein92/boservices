@@ -116,6 +116,9 @@ type Props = {
   tasksSlot?: React.ReactNode;
   // E-mail přihlášeného uživatele - pro vyhodnocení uživatelského zámku konceptu.
   currentUserEmail?: string;
+  // Jméno přihlášeného uživatele - pro upozornění o převzetí odpovědnosti při
+  // odeslání smlouvy z konceptu ke schválení.
+  currentUserName?: string;
   // Seznam uživatelů (e-mail + jméno) pro picker u zámku konceptu.
   userOptions?: { email: string; name: string }[];
 };
@@ -147,6 +150,7 @@ export function ContractDetailClient({
   standardOperatingFee = null,
   tasksSlot = null,
   currentUserEmail = "",
+  currentUserName = "",
   userOptions = [],
 }: Props) {
   const router = useRouter();
@@ -234,6 +238,43 @@ export function ContractDetailClient({
           ).hasChanges,
     [isBundle, bundleSections, contract.templateSnapshot, contract.variables, html],
   );
+
+  // Počet úprav oproti šabloně - pro kontrolní seznam před schválením
+  // (Odstoupení/Postoupení). Stejná logika jako hasTemplateChanges, jen suma.
+  const templateChangeCount = useMemo(
+    () =>
+      isBundle
+        ? bundleSections.reduce(
+            (sum, s) =>
+              sum +
+              (s.templateSnapshot
+                ? htmlDiff(s.templateSnapshot, s.html).changeCount
+                : 0),
+            0,
+          )
+        : contract.templateSnapshot
+          ? htmlDiff(
+              bakeSnapshotForDiff(contract.templateSnapshot, html, contract.variables),
+              html,
+            ).changeCount
+          : 0,
+    [isBundle, bundleSections, contract.templateSnapshot, contract.variables, html],
+  );
+
+  // Jméno toho, kdo poslal smlouvu z konceptu - pro timeline. Preferuje uložené
+  // jméno, jinak dohledá v seznamu uživatelů přes e-mail, fallback e-mail.
+  const submitterLabel = useMemo(() => {
+    if (contract.submittedForApprovalByName) {
+      return contract.submittedForApprovalByName;
+    }
+    const email = contract.submittedForApprovalBy;
+    if (!email) return null;
+    return userOptions.find((o) => o.email === email)?.name || email;
+  }, [
+    contract.submittedForApprovalByName,
+    contract.submittedForApprovalBy,
+    userOptions,
+  ]);
 
   const meta = CONTRACT_TYPE_META[contract.type as ContractType];
 
@@ -865,7 +906,11 @@ export function ContractDetailClient({
       </header>
 
       {/* Stav smlouvy + aktuální akce */}
-      <ContractStatusStepper contract={contract} signerLabel={signerLabel} />
+      <ContractStatusStepper
+        contract={contract}
+        signerLabel={signerLabel}
+        submitterLabel={submitterLabel}
+      />
       <ContractCurrentActionPanel
         contract={contract}
         onChanged={(next) => {
@@ -879,6 +924,9 @@ export function ContractDetailClient({
         isApprover={isApprover}
         isSuperadmin={isSuperadmin}
         isAdmin={isAdmin}
+        hasTemplateChanges={hasTemplateChanges}
+        changeCount={templateChangeCount}
+        currentUserName={currentUserName}
         locationNewco={locationNewco}
       />
 

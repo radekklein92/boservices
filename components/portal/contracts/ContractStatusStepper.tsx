@@ -34,11 +34,15 @@ function formatStepDate(iso: string | undefined): string {
 export function ContractStatusStepper({
   contract,
   signerLabel,
+  submitterLabel,
 }: {
   contract: Contract;
   // Pro krok "K podpisu" zobrazujeme jméno podepisujícího jako sub-line.
   // Předáváme zvlášť, protože komponenta neřeší User lookup.
   signerLabel?: string | null;
+  // Jméno toho, kdo smlouvu poslal z konceptu (odeslal ke schválení / schválil).
+  // Zobrazí se u prvního kroku po Konceptu (flow[1]).
+  submitterLabel?: string | null;
 }) {
   const current = contract.status;
   const flow = getStatusFlowForType(contract.type);
@@ -156,6 +160,14 @@ export function ContractStatusStepper({
                 {subline && (
                   <div className="mt-0.5 text-[10.5px] leading-snug text-ink-mid">
                     {subline}
+                  </div>
+                )}
+
+                {/* Kdo poslal z konceptu - u prvního kroku po Konceptu (flow[1]),
+                    jakmile je dosažen. */}
+                {idx === 1 && (isDone || isCurrent) && submitterLabel && (
+                  <div className="mt-0.5 text-[10.5px] leading-snug text-ink-soft">
+                    odeslal: {submitterLabel}
                   </div>
                 )}
               </li>

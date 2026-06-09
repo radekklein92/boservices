@@ -200,6 +200,10 @@ export interface Contract {
   // "schvaleno") nebo vyžaduje schvalovatele ("manual", důvody v approvalReasons).
   submittedForApprovalAt?: string;
   submittedForApprovalBy?: string;
+  // Jméno odesílatele z konceptu (kdo smlouvu poslal ke schválení / schválil
+  // z konceptu) - ukládáme zvlášť, ať timeline nemusí dohledávat e-mail.
+  // Vyplňuje se u všech typů (gated přes submit, ostatní přes approve).
+  submittedForApprovalByName?: string;
   approvalDecision?: "auto" | "manual";
   // Historicky: číslo pravidla 1-4. Ponecháno kvůli starým záznamům (nové
   // smlouvy ho už nezapisují - rozhoduje se přes approvalReasons).
