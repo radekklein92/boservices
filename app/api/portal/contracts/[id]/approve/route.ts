@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
-import { requireSession } from "@/lib/portal/auth-guard";
+import { isAdminRole, requireSession } from "@/lib/portal/auth-guard";
 import {
   computeContractStatus,
   getContract,
   upsertContract,
 } from "@/lib/portal/contracts-db";
-import { isApprovalGated } from "@/lib/portal/contract-types";
+import {
+  isApprovalGated,
+  requiresAdminToApproveDraft,
+} from "@/lib/portal/contract-types";
 import { getUser } from "@/lib/portal/users-db";
 import { bustContracts } from "@/lib/portal/revalidate";
 
@@ -20,6 +23,17 @@ export async function POST(
   const contract = await getContract(id);
   if (!contract) {
     return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
+  }
+
+  // Odstoupení a Postoupení smí z konceptu schválit pouze administrátor.
+  if (
+    requiresAdminToApproveDraft(contract.type) &&
+    !isAdminRole(g.session.user?.role)
+  ) {
+    return NextResponse.json(
+      { ok: false, error: "Tento typ smlouvy smí schválit pouze administrátor." },
+      { status: 403 },
+    );
   }
 
   // Volitelná poznámka schvalovatele (např. „schváleno telefonicky …").

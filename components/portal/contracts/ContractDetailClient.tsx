@@ -96,6 +96,8 @@ type Props = {
   isApprover: boolean;
   // Superadmin smí schválit i bez role schvalovatele - ale s povinnou poznámkou.
   isSuperadmin: boolean;
+  // Admin (admin/superadmin) - smí z konceptu schválit Odstoupení a Postoupení.
+  isAdmin: boolean;
   // E-maily všech schvalovatelů (tooltip u "Připomenout e-mailem").
   approverEmails: string[];
   // NewCo údaje vybrané lokality pro panel schválení. null = smlouva nemá
@@ -139,6 +141,7 @@ export function ContractDetailClient({
   templateApproved,
   isApprover,
   isSuperadmin,
+  isAdmin,
   approverEmails,
   locationNewco = null,
   standardOperatingFee = null,
@@ -875,6 +878,7 @@ export function ContractDetailClient({
         notify={notify}
         isApprover={isApprover}
         isSuperadmin={isSuperadmin}
+        isAdmin={isAdmin}
         locationNewco={locationNewco}
       />
 

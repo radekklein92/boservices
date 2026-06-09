@@ -20,7 +20,10 @@ import {
   type Contract,
   type ContractStatus,
 } from "@/lib/portal/contracts-db";
-import { isApprovalGated } from "@/lib/portal/contract-types";
+import {
+  isApprovalGated,
+  requiresAdminToApproveDraft,
+} from "@/lib/portal/contract-types";
 import { getApprovalView, type NewcoSummary } from "@/lib/portal/contract-approval";
 import { BTN_PRIMARY, BTN_SUBTLE } from "@/components/portal/ui/buttons";
 import { KEEP_ORIGINAL_SIGNER } from "./signer-keep-original";
@@ -55,6 +58,7 @@ export function ContractCurrentActionPanel({
   notify,
   isApprover = false,
   isSuperadmin = false,
+  isAdmin = false,
   locationNewco = null,
 }: {
   contract: Contract;
@@ -64,6 +68,8 @@ export function ContractCurrentActionPanel({
   isApprover?: boolean;
   // Superadmin smí schválit i bez role schvalovatele, ale musí uvést poznámku.
   isSuperadmin?: boolean;
+  // Admin (admin/superadmin) - smí z konceptu schválit Odstoupení a Postoupení.
+  isAdmin?: boolean;
   // NewCo souhrn lokality - pro přesnou predikci klíče v Konceptu.
   locationNewco?: NewcoSummary | null;
 }) {
@@ -274,6 +280,10 @@ export function ContractCurrentActionPanel({
   const isNda = contract.type === "nda";
   const dsStatus = contract.digisignStatus;
   const isGated = isApprovalGated(contract.type);
+  // Odstoupení a Postoupení smí z konceptu schválit jen admin - běžnému
+  // uživateli skryjeme tlačítko (server to navíc tvrdě odmítne).
+  const adminApprovalBlocked =
+    requiresAdminToApproveDraft(contract.type) && !isAdmin;
   const approvalView = getApprovalView(contract, locationNewco);
   // V Konceptu (gated) předpovíme, zda po odeslání půjde auto, nebo ke schvalovatelům.
   const draftAuto = approvalView.kind === "draft" && approvalView.auto;
@@ -341,12 +351,22 @@ export function ContractCurrentActionPanel({
 
       {status === "koncept" && !isGated && (
         <ActionRow
-          headline="Smlouva je v konceptu"
-          description={`Dokud nezkontroluješ obsah a neschválíš ji, generuje se PDF s vodoznakem „NÁVRH".`}
+          headline={
+            adminApprovalBlocked
+              ? "Čeká na schválení administrátora"
+              : "Smlouva je v konceptu"
+          }
+          description={
+            adminApprovalBlocked
+              ? "Tento typ smlouvy může z konceptu schválit pouze administrátor."
+              : `Dokud nezkontroluješ obsah a neschválíš ji, generuje se PDF s vodoznakem „NÁVRH".`
+          }
           primary={
-            <PrimaryButton onClick={() => approve()} pending={pending === "POST:approve"} Icon={CheckCircle2}>
-              Schválit smlouvu
-            </PrimaryButton>
+            adminApprovalBlocked ? undefined : (
+              <PrimaryButton onClick={() => approve()} pending={pending === "POST:approve"} Icon={CheckCircle2}>
+                Schválit smlouvu
+              </PrimaryButton>
+            )
           }
         />
       )}

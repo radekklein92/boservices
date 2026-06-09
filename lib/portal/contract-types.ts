@@ -172,6 +172,18 @@ export function isApprovalGated(type: ContractType): boolean {
   return APPROVAL_GATED_TYPES.has(type);
 }
 
+// Typy, jejichž schválení / odeslání ke schválení z Konceptu smí provést jen
+// administrátor (role admin / superadmin). Ostatní typy smí z konceptu poslat
+// ke schválení kterýkoli přihlášený uživatel.
+export const ADMIN_DRAFT_APPROVAL_TYPES: ReadonlySet<ContractType> = new Set([
+  "withdrawal",
+  "claim-bundle",
+]);
+
+export function requiresAdminToApproveDraft(type: ContractType): boolean {
+  return ADMIN_DRAFT_APPROVAL_TYPES.has(type);
+}
+
 // Jednostranné smlouvy/prohlášení - BOS na nich nepodepisuje, šablona má
 // jen podpis klienta. Flow se proto zkracuje: Koncept → Schváleno →
 // Podepsáno klientem → Archivováno (skipuje se "K podpisu" a "Podepsáno BOS",

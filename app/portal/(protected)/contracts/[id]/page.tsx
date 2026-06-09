@@ -23,6 +23,7 @@ import {
 import { normalizeHtmlForDiff } from "@/lib/portal/contract-diff";
 import { getLocation, toLocationSnapshot } from "@/lib/portal/locations-db";
 import { getSession } from "@/lib/portal/get-session";
+import { isAdminRole } from "@/lib/portal/auth-guard";
 import { getTemplateApprovers, listUsers } from "@/lib/portal/users-db";
 import { ContractDetailClient } from "@/components/portal/contracts/ContractDetailClient";
 import { EntityTasks } from "@/components/portal/tasks/EntityTasks";
@@ -159,6 +160,8 @@ export default async function ContractDetailPage({
   const isApprover = !!session?.user?.email
     && approverEmails.includes(session.user.email);
   const isSuperadmin = session?.user?.role === "superadmin";
+  // Admin (admin/superadmin) - smí z konceptu schválit Odstoupení a Postoupení.
+  const isAdmin = isAdminRole(session?.user?.role);
   const currentUserEmail = session?.user?.email ?? "";
   // Volby pro picker uživatelů u zámku konceptu (e-mail + jméno).
   const userOptions = users.map((u) => ({ email: u.email, name: u.name }));
@@ -170,6 +173,7 @@ export default async function ContractDetailPage({
         templateApproved={templateApproved}
         isApprover={isApprover}
         isSuperadmin={isSuperadmin}
+        isAdmin={isAdmin}
         approverEmails={approverEmails}
         locationNewco={locationNewco}
         standardOperatingFee={standardOperatingFee}
