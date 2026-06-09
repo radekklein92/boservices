@@ -12,7 +12,6 @@ import {
   Stamp,
   Send,
   ShieldCheck,
-  AlertTriangle,
 } from "lucide-react";
 import dynamicImport from "next/dynamic";
 import { upload } from "@vercel/blob/client";
@@ -39,6 +38,10 @@ const ApprovalNoteModal = dynamicImport(
 );
 const ApprovalChecklistModal = dynamicImport(
   () => import("./ApprovalChecklistModal").then((m) => m.ApprovalChecklistModal),
+  { ssr: false },
+);
+const ResponsibilityModal = dynamicImport(
+  () => import("./ResponsibilityModal").then((m) => m.ResponsibilityModal),
   { ssr: false },
 );
 
@@ -91,6 +94,9 @@ export function ContractCurrentActionPanel({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [noteModalOpen, setNoteModalOpen] = useState(false);
   const [checklistOpen, setChecklistOpen] = useState(false);
+  const [responsibilityMode, setResponsibilityMode] = useState<
+    "submit" | "approve" | null
+  >(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function reload(): Promise<Contract | null> {
@@ -382,7 +388,7 @@ export function ContractCurrentActionPanel({
                 onClick={
                   requiresAdminToApproveDraft(contract.type)
                     ? () => setChecklistOpen(true)
-                    : () => approve()
+                    : () => setResponsibilityMode("approve")
                 }
                 pending={pending === "POST:approve"}
                 Icon={CheckCircle2}
@@ -390,13 +396,6 @@ export function ContractCurrentActionPanel({
                 Schválit smlouvu
               </PrimaryButton>
             )
-          }
-          notice={
-            // Odstoupení/Postoupení mají vlastní kontrolní seznam (modal) -
-            // ostatním typům ukážeme aspoň upozornění o převzetí odpovědnosti.
-            adminApprovalBlocked || requiresAdminToApproveDraft(contract.type)
-              ? undefined
-              : <ResponsibilityNotice name={currentUserName} mode="approve" />
           }
         />
       )}
@@ -413,18 +412,13 @@ export function ContractCurrentActionPanel({
           }
           primary={
             <PrimaryButton
-              onClick={submitForApproval}
+              onClick={() => setResponsibilityMode("submit")}
               pending={pending === "POST:submit"}
               Icon={Send}
               disabled={!hasLocation}
             >
               {draftAuto ? "Schválit smlouvu" : "Odeslat ke schválení"}
             </PrimaryButton>
-          }
-          notice={
-            hasLocation ? (
-              <ResponsibilityNotice name={currentUserName} mode="submit" />
-            ) : undefined
           }
         />
       )}
@@ -679,6 +673,22 @@ export function ContractCurrentActionPanel({
           }}
         />
       )}
+
+      {responsibilityMode && (
+        <ResponsibilityModal
+          name={currentUserName}
+          mode={responsibilityMode}
+          pending={
+            pending === (responsibilityMode === "submit" ? "POST:submit" : "POST:approve")
+          }
+          onClose={() => setResponsibilityMode(null)}
+          onConfirm={async () => {
+            if (responsibilityMode === "submit") await submitForApproval();
+            else await approve();
+            setResponsibilityMode(null);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -688,59 +698,26 @@ function ActionRow({
   description,
   primary,
   rollback,
-  notice,
 }: {
   headline: string;
   description: string;
   primary: React.ReactNode;
   rollback?: React.ReactNode;
-  // Volitelná spodní lišta přes celou šířku (např. upozornění o odpovědnosti).
-  notice?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div className="max-w-[480px]">
-          <div className="text-[15px] font-bold tracking-[-0.01em] text-ink-base">
-            {headline}
-          </div>
-          <p className="mt-1.5 text-[13px] leading-relaxed text-ink-mid">
-            {description}
-          </p>
+    <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+      <div className="max-w-[480px]">
+        <div className="text-[15px] font-bold tracking-[-0.01em] text-ink-base">
+          {headline}
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          {primary}
-          {rollback}
-        </div>
+        <p className="mt-1.5 text-[13px] leading-relaxed text-ink-mid">
+          {description}
+        </p>
       </div>
-      {notice}
-    </div>
-  );
-}
-
-// Upozornění, že odesláním/schválením z konceptu přebírá odesílatel odpovědnost
-// za případné chyby. Zobrazuje se u typů bez kontrolního seznamu (ostatní mají
-// důkladnější potvrzovací modal).
-function ResponsibilityNotice({
-  name,
-  mode,
-}: {
-  name?: string;
-  mode: "submit" | "approve";
-}) {
-  const who = name?.trim() ? name.trim() : "odesílatel";
-  return (
-    <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-[12.5px] leading-relaxed text-amber-900">
-      <AlertTriangle
-        className="mt-0.5 h-4 w-4 shrink-0 text-amber-600"
-        strokeWidth={1.75}
-        aria-hidden="true"
-      />
-      <span>
-        {mode === "submit" ? "Odesláním ke schválení" : "Schválením"} přebíráš
-        jako <strong className="font-semibold">{who}</strong> odpovědnost za
-        případné chyby ve smlouvě.
-      </span>
+      <div className="flex flex-wrap items-center gap-3">
+        {primary}
+        {rollback}
+      </div>
     </div>
   );
 }
