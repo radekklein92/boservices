@@ -4,7 +4,6 @@ import { requireSession } from "@/lib/portal/auth-guard";
 import {
   computeContractStatus,
   getContract,
-  statusOrder,
   upsertContract,
 } from "@/lib/portal/contracts-db";
 import { isApprovalGated } from "@/lib/portal/contract-types";
@@ -15,9 +14,9 @@ const bodySchema = z.object({ locationId: z.string().trim().min(1) });
 
 // Nastaví/změní lokalitu smlouvy a nasnapshotuje její aktuální stav z Transition
 // (kategorie, nájem, nový režim). Jen typy posuzované podle lokality. Měnit lze
-// v Konceptu (před schválením) nebo zpětně u už podepsané/archivované smlouvy
-// (doplnění chybějící lokace u starších smluv). Mezikroky schvalování zůstávají
-// zamčené - tam by změna snapshotu zmátla approval gate.
+// v jakémkoliv stavu KROMĚ "ke-schvaleni" (kde aktivně běží approval rozhodování
+// a změna snapshotu by ho zmátla) - tj. i zpětně u podepsaných/archivovaných
+// smluv (doplnění chybějící lokace u starších smluv, kde se nezadávala).
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -36,15 +35,12 @@ export async function POST(
       { status: 400 },
     );
   }
-  const canAssignLocation =
-    contract.status === "koncept" ||
-    statusOrder(contract.status) >= statusOrder("podepsano-klientem");
-  if (!canAssignLocation) {
+  if (contract.status === "ke-schvaleni") {
     return NextResponse.json(
       {
         ok: false,
         error:
-          "Lokalitu lze měnit v konceptu nebo u podepsané smlouvy. Mezikroky schvalování jsou zamčené.",
+          "Lokalitu nelze měnit, dokud smlouva čeká na schválení. Nejdřív ji schvalte nebo vraťte do konceptu.",
       },
       { status: 409 },
     );
