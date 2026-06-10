@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowUpRight, Search, MapPin, FileCheck, FileX } from "lucide-react";
+import { ArrowUpRight, Search, MapPin, FileCheck, FileX, Store } from "lucide-react";
 import type { LocationCategory, MirroredLocation } from "@/lib/portal/locations-db";
 import { FilterChip } from "@/components/portal/ui/FilterChip";
 import { BTN_ROW } from "@/components/portal/ui/buttons";
@@ -23,14 +23,18 @@ type LeaseFilter = "all" | "has" | "missing";
 export function LocationsTable({
   locations,
   withContractIds = [],
+  franchiseByLocation = {},
 }: {
   locations: MirroredLocation[];
   // Id lokalit s nahranou přílohou (nájemní smlouvou).
   withContractIds?: string[];
+  // Mapa locationId -> id podepsané franšízingové smlouvy.
+  franchiseByLocation?: Record<string, string>;
 }) {
   const [query, setQuery] = useState("");
   const [activeCats, setActiveCats] = useState<Set<LocationCategory>>(new Set());
   const [leaseFilter, setLeaseFilter] = useState<LeaseFilter>("all");
+  const [franchiseFilter, setFranchiseFilter] = useState<LeaseFilter>("all");
 
   const withContract = useMemo(
     () => new Set(withContractIds),
@@ -51,6 +55,12 @@ export function LocationsTable({
     return { has, missing: locations.length - has };
   }, [locations, withContract]);
 
+  const franchiseCounts = useMemo(() => {
+    let has = 0;
+    for (const l of locations) if (franchiseByLocation[l.id]) has++;
+    return { has, missing: locations.length - has };
+  }, [locations, franchiseByLocation]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return locations.filter((l) => {
@@ -59,6 +69,9 @@ export function LocationsTable({
       }
       if (leaseFilter === "has" && !withContract.has(l.id)) return false;
       if (leaseFilter === "missing" && withContract.has(l.id)) return false;
+      const hasFranchise = Boolean(franchiseByLocation[l.id]);
+      if (franchiseFilter === "has" && !hasFranchise) return false;
+      if (franchiseFilter === "missing" && hasFranchise) return false;
       if (!q) return true;
       const haystack = [
         l.name,
@@ -74,7 +87,15 @@ export function LocationsTable({
         .toLowerCase();
       return haystack.includes(q);
     });
-  }, [locations, query, activeCats, leaseFilter, withContract]);
+  }, [
+    locations,
+    query,
+    activeCats,
+    leaseFilter,
+    withContract,
+    franchiseFilter,
+    franchiseByLocation,
+  ]);
 
   function toggleCat(cat: LocationCategory) {
     setActiveCats((prev) => {
@@ -145,7 +166,7 @@ export function LocationsTable({
           active={leaseFilter === "has"}
           onClick={() => setLeaseFilter((f) => (f === "has" ? "all" : "has"))}
           Icon={FileCheck}
-          label="Se smlouvou"
+          label="S nájemní smlouvou"
           count={leaseCounts.has}
           title="Lokality s nahranou nájemní smlouvou (přílohou)"
         />
@@ -153,17 +174,41 @@ export function LocationsTable({
           active={leaseFilter === "missing"}
           onClick={() => setLeaseFilter((f) => (f === "missing" ? "all" : "missing"))}
           Icon={FileX}
-          label="Bez smlouvy"
+          label="Bez nájemní smlouvy"
           count={leaseCounts.missing}
           title="Lokality bez nahrané nájemní smlouvy"
         />
 
-        {(activeCats.size > 0 || leaseFilter !== "all") && (
+        <span className="mx-1 h-5 w-px shrink-0 bg-edge" aria-hidden="true" />
+
+        <FilterChip
+          active={franchiseFilter === "has"}
+          onClick={() => setFranchiseFilter((f) => (f === "has" ? "all" : "has"))}
+          Icon={Store}
+          label="Franšíza"
+          count={franchiseCounts.has}
+          title="Lokality s podepsanou franšízingovou smlouvou"
+        />
+        <FilterChip
+          active={franchiseFilter === "missing"}
+          onClick={() =>
+            setFranchiseFilter((f) => (f === "missing" ? "all" : "missing"))
+          }
+          Icon={Store}
+          label="Bez franšízy"
+          count={franchiseCounts.missing}
+          title="Lokality bez podepsané franšízingové smlouvy"
+        />
+
+        {(activeCats.size > 0 ||
+          leaseFilter !== "all" ||
+          franchiseFilter !== "all") && (
           <button
             type="button"
             onClick={() => {
               setActiveCats(new Set());
               setLeaseFilter("all");
+              setFranchiseFilter("all");
             }}
             className="ml-1 text-[12px] font-medium text-ink-mid underline-offset-2 hover:text-ink-base hover:underline"
           >
@@ -206,6 +251,15 @@ export function LocationsTable({
               </div>
 
               <div className="flex flex-wrap items-center gap-1.5">
+                {franchiseByLocation[l.id] && (
+                  <Link
+                    href={`/portal/contracts/${franchiseByLocation[l.id]}`}
+                    title="Franšízingová smlouva - podepsáno"
+                    className="grid h-7 w-7 place-items-center rounded-full border border-emerald-300 bg-emerald-50 text-emerald-700 transition-transform hover:-translate-y-0.5"
+                  >
+                    <Store className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+                  </Link>
+                )}
                 {l.category && (
                   <span className={`${CHIP_BASE} ${CATEGORY_STYLE[l.category]}`}>
                     {CATEGORY_LABEL[l.category]}

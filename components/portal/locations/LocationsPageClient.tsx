@@ -18,11 +18,14 @@ export function LocationsPageClient({
   locations,
   syncMeta,
   withContractIds,
+  franchiseByLocation,
 }: {
   locations: MirroredLocation[];
   syncMeta: LocationsSyncMeta | null;
   // Id lokalit s nahranou přílohou (nájemní smlouvou) - pro filtr v tabulce.
   withContractIds: string[];
+  // Mapa locationId -> id podepsané franšízingové smlouvy (pro badge + filtr).
+  franchiseByLocation: Record<string, string>;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -85,7 +88,11 @@ export function LocationsPageClient({
 
       <SyncStatus meta={syncMeta} error={error} />
 
-      <LocationsTable locations={locations} withContractIds={withContractIds} />
+      <LocationsTable
+        locations={locations}
+        withContractIds={withContractIds}
+        franchiseByLocation={franchiseByLocation}
+      />
 
       {importOpen && (
         <NewCoImportModal

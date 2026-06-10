@@ -447,6 +447,28 @@ export async function listContracts(opts?: {
     .filter((c): c is Contract => c !== null);
 }
 
+// Lokality s podepsanou franšízingovou smlouvou (status „podepsáno klientem"
+// a vyšší). Vrací mapu locationId -> id smlouvy, ať z badge u lokality lze
+// proklikat na konkrétní smlouvu. Necachované jako listLocationIdsWithAttachments
+// - ať se stav projeví hned po podpisu.
+export async function listLocationFranchiseContracts(): Promise<
+  Record<string, string>
+> {
+  const contracts = await listContracts();
+  const out: Record<string, string> = {};
+  const threshold = statusOrder("podepsano-klientem");
+  for (const c of contracts) {
+    if (
+      c.type === "franchise" &&
+      c.locationId &&
+      statusOrder(c.status) >= threshold
+    ) {
+      out[c.locationId] = c.id; // lokalita má max. 1 aktivní FS; poslední vyhrává
+    }
+  }
+  return out;
+}
+
 // Celkový počet smluv (pro pagination metadata).
 export async function countContracts(): Promise<number> {
   const r = getRedis();
