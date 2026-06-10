@@ -13,7 +13,7 @@ import {
   Pencil,
   X,
 } from "lucide-react";
-import type { Contract } from "@/lib/portal/contracts-db";
+import { statusOrder, type Contract } from "@/lib/portal/contracts-db";
 import {
   APPROVAL_KEY,
   APPROVAL_KEY_INTRO,
@@ -126,7 +126,12 @@ export function ContractApprovalPanel({
     }
   }
 
-  const canEditLocation = contract.status === "koncept";
+  // Lokalitu lze přiřadit/změnit v konceptu (před schválením) nebo zpětně
+  // u už podepsané/archivované smlouvy - doplnění chybějící lokace u starších
+  // smluv, kde se na začátku lokality nezadávaly.
+  const canEditLocation =
+    contract.status === "koncept" ||
+    statusOrder(contract.status) >= statusOrder("podepsano-klientem");
 
   // Fakta lokality + poplatek do jedné přehledné mřížky (štítek/hodnota).
   // Blokující hodnoty (důvod ručního schválení) se vyznačí červeně s křížkem.
