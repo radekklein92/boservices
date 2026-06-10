@@ -34,13 +34,15 @@ export async function GET(req: Request) {
     (c) => c.type === "franchise" && statusOrder(c.status) >= threshold,
   );
 
-  // Doplnit IČO z karty klienta (smlouva nese jen clientId + clientName).
+  // Doplnit IČO a jména osob z karty klienta (smlouva nese jen clientId +
+  // clientName). Jméno jednatele/kontaktu je klíčové pro párování na klienty
+  // v Transition - tam jsou klienti vedeni pod jmény osob, ne firem.
   const clientIds = [...new Set(signed.map((c) => c.clientId))];
   const clients = await Promise.all(clientIds.map((id) => getClient(id)));
-  const icoById = new Map(
+  const clientById = new Map(
     clients
       .filter((c): c is NonNullable<typeof c> => c !== null)
-      .map((c) => [c.id, c.ico ?? null]),
+      .map((c) => [c.id, c]),
   );
 
   return NextResponse.json(
@@ -48,19 +50,24 @@ export async function GET(req: Request) {
       ok: true,
       count: signed.length,
       syncedAt: new Date().toISOString(),
-      contracts: signed.map((c) => ({
-        id: c.id,
-        number: c.number ?? null,
-        status: c.status,
-        clientId: c.clientId,
-        clientName: c.clientName,
-        clientIco: icoById.get(c.clientId) ?? null,
-        // locationId je přímo ID lokality z Transition (zrcadlo) - párování
-        // na druhé straně je tedy 1:1 bez heuristik.
-        locationId: c.locationId ?? null,
-        locationName: c.locationSnapshot?.name ?? null,
-        clientSignedAt: c.clientSignedAt ?? null,
-      })),
+      contracts: signed.map((c) => {
+        const client = clientById.get(c.clientId);
+        return {
+          id: c.id,
+          number: c.number ?? null,
+          status: c.status,
+          clientId: c.clientId,
+          clientName: c.clientName,
+          clientIco: client?.ico ?? null,
+          statutoryName: client?.statutory?.name ?? null,
+          contactName: client?.contact?.name ?? null,
+          // locationId je přímo ID lokality z Transition (zrcadlo) - párování
+          // na druhé straně je tedy 1:1 bez heuristik.
+          locationId: c.locationId ?? null,
+          locationName: c.locationSnapshot?.name ?? null,
+          clientSignedAt: c.clientSignedAt ?? null,
+        };
+      }),
     },
     {
       headers: {
