@@ -250,8 +250,9 @@ export function LocationsTable({
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-1.5">
-                {franchiseByLocation[l.id] && (
+              {/* Franšízový badge - uprostřed řádku (jako ikonky smluv u Klientů). */}
+              {franchiseByLocation[l.id] ? (
+                <div className="flex items-center md:flex-1 md:justify-center">
                   <Link
                     href={`/portal/contracts/${franchiseByLocation[l.id]}`}
                     title="Franšízingová smlouva - podepsáno"
@@ -259,7 +260,12 @@ export function LocationsTable({
                   >
                     <Store className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
                   </Link>
-                )}
+                </div>
+              ) : (
+                <div className="hidden md:block md:flex-1" />
+              )}
+
+              <div className="flex flex-wrap items-center gap-1.5">
                 {l.category && (
                   <span className={`${CHIP_BASE} ${CATEGORY_STYLE[l.category]}`}>
                     {CATEGORY_LABEL[l.category]}
