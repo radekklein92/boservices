@@ -126,6 +126,16 @@ export function isContractEditable(status: ContractStatus): boolean {
   return statusOrder(status) < statusOrder("schvaleno");
 }
 
+// Approval-gated smlouva (franšíza, spolupráce, provozování) se nesmí posunout
+// dál ve flow bez přiřazené lokality. Vrací chybovou hlášku pro 409, nebo null
+// když je vše v pořádku. Voláno v dopředných milestone endpointech.
+export function locationRequiredError(contract: Contract): string | null {
+  if (isApprovalGated(contract.type) && !contract.locationId) {
+    return "Smlouva nemá přiřazenou lokalitu. Nejdřív ji doplňte v sekci Lokalita a schválení.";
+  }
+  return null;
+}
+
 // Uživatelský zámek konceptu: zamykatel (by) + vyjmenovaní (allowed) smí
 // upravovat, ostatní jen prohlížet. Superadmin má vždy přístup. Bez zámku smí
 // každý (v rámci status-editovatelnosti).

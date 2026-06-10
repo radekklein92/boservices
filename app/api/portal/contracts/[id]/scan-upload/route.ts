@@ -4,7 +4,7 @@ import {
   type HandleUploadBody,
 } from "@vercel/blob/client";
 import { requireSession } from "@/lib/portal/auth-guard";
-import { getContract } from "@/lib/portal/contracts-db";
+import { getContract, locationRequiredError } from "@/lib/portal/contracts-db";
 
 // Autorizace client uploadu skenu (prohlížeč -> Vercel Blob napřímo, bez 4,5 MB
 // limitu serverless funkce). Vrací podepsaný client token. Samotné zaevidování
@@ -34,6 +34,8 @@ export async function POST(
         if (!g.ok) throw new Error("Neautorizováno.");
         const contract = await getContract(id);
         if (!contract) throw new Error("Smlouva nenalezena.");
+        const locErr = locationRequiredError(contract);
+        if (locErr) throw new Error(locErr);
         // Cesta musí patřit této smlouvě - klient si nemůže zvolit cizí prefix.
         if (!pathname.startsWith(`portal/contracts/${id}/scans/`)) {
           throw new Error("Neplatná cesta skenu.");

@@ -126,10 +126,11 @@ export function ContractApprovalPanel({
     }
   }
 
-  // Lokalitu lze přiřadit/změnit v jakémkoliv stavu kromě "ke-schvaleni"
-  // (kde aktivně běží approval rozhodování) - i zpětně u podepsaných/
-  // archivovaných smluv, kde se na začátku lokality nezadávaly.
-  const canEditLocation = contract.status !== "ke-schvaleni";
+  // Lokalitu lze měnit jen v konceptu. Výjimka: pokud ji smlouva zatím NEMÁ
+  // vyplněnou, jde doplnit v jakémkoliv stavu (zpětné dopárování starších
+  // smluv). Jakmile je jednou vyplněná, po konceptu se zamkne.
+  const canEditLocation =
+    contract.status === "koncept" || !contract.locationId;
 
   // Fakta lokality + poplatek do jedné přehledné mřížky (štítek/hodnota).
   // Blokující hodnoty (důvod ručního schválení) se vyznačí červeně s křížkem.

@@ -3,6 +3,7 @@ import { isAdminRole, requireSession } from "@/lib/portal/auth-guard";
 import {
   computeContractStatus,
   getContract,
+  locationRequiredError,
   upsertContract,
 } from "@/lib/portal/contracts-db";
 import {
@@ -23,6 +24,10 @@ export async function POST(
   const contract = await getContract(id);
   if (!contract) {
     return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
+  }
+  const locErr = locationRequiredError(contract);
+  if (locErr) {
+    return NextResponse.json({ ok: false, error: locErr }, { status: 409 });
   }
 
   // Odstoupení a Postoupení smí z konceptu schválit pouze administrátor.

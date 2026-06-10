@@ -14,9 +14,10 @@ const bodySchema = z.object({ locationId: z.string().trim().min(1) });
 
 // Nastaví/změní lokalitu smlouvy a nasnapshotuje její aktuální stav z Transition
 // (kategorie, nájem, nový režim). Jen typy posuzované podle lokality. Měnit lze
-// v jakémkoliv stavu KROMĚ "ke-schvaleni" (kde aktivně běží approval rozhodování
-// a změna snapshotu by ho zmátla) - tj. i zpětně u podepsaných/archivovaných
-// smluv (doplnění chybějící lokace u starších smluv, kde se nezadávala).
+// jen v Konceptu (před schválením). Výjimka: smlouva, která lokalitu zatím NEMÁ
+// vyplněnou, jde doplnit v jakémkoliv stavu - zpětné dopárování starších smluv,
+// kde se lokalita na začátku nezadávala. Jakmile je lokalita jednou vyplněná,
+// po konceptu se už nemění (smlouva by se musela vrátit do konceptu).
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -35,12 +36,13 @@ export async function POST(
       { status: 400 },
     );
   }
-  if (contract.status === "ke-schvaleni") {
+  const canAssign = contract.status === "koncept" || !contract.locationId;
+  if (!canAssign) {
     return NextResponse.json(
       {
         ok: false,
         error:
-          "Lokalitu nelze měnit, dokud smlouva čeká na schválení. Nejdřív ji schvalte nebo vraťte do konceptu.",
+          "Lokalitu u schválené/podepsané smlouvy už nelze měnit. Vraťte ji do konceptu.",
       },
       { status: 409 },
     );
