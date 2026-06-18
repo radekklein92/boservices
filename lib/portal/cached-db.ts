@@ -18,6 +18,7 @@ import {
   listTasksByLocation,
 } from "./tasks-db";
 import { listAllowlist } from "./allowlist-db";
+import { getClaimsOverlay } from "./claims-overlay-db";
 import {
   getOrSeedContractTemplate,
   listContractTemplates,
@@ -130,4 +131,10 @@ export const cachedGetOrSeedContractTemplate = unstable_cache(
     getOrSeedContractTemplate(type, variant),
   ["cached:getOrSeedContractTemplate"],
   { tags: [TAG.templates], revalidate: ONE_HOUR },
+);
+
+export const cachedGetClaimsOverlay = unstable_cache(
+  () => getClaimsOverlay(),
+  ["cached:getClaimsOverlay"],
+  { tags: [TAG.claimsOverlay], revalidate: ONE_HOUR },
 );

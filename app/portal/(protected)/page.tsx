@@ -14,8 +14,9 @@ import {
 import { PageHeader } from "@/components/portal/shell/PageHeader";
 import { isAdminRole } from "@/lib/portal/auth-guard";
 import { getSession } from "@/lib/portal/get-session";
-import { cachedListContracts } from "@/lib/portal/cached-db";
-import { parseClaimAmount } from "@/lib/portal/claims";
+import { cachedGetClaimsOverlay, cachedListContracts } from "@/lib/portal/cached-db";
+import { buildAssignedClaimsView } from "@/lib/portal/assigned-claims";
+import { DEBTOR_PRESETS } from "@/lib/portal/debtor-presets";
 import { FireworksCelebration } from "@/components/portal/dashboard/FireworksCelebration";
 import { AssignedClaimsPanel } from "@/components/portal/dashboard/AssignedClaimsPanel";
 
@@ -64,9 +65,10 @@ export default async function PortalDashboardPage({
 }: {
   searchParams: Promise<{ celebrate?: string }>;
 }) {
-  const [session, contracts, sp] = await Promise.all([
+  const [session, contracts, overlay, sp] = await Promise.all([
     getSession(),
     cachedListContracts(),
+    cachedGetClaimsOverlay(),
     searchParams,
   ]);
   const isAdmin = isAdminRole(session?.user?.role);
@@ -87,41 +89,28 @@ export default async function PortalDashboardPage({
       : milestoneReachedRecently(contracts);
   const festive = celebrate != null;
 
-  // Postoupené pohledávky: suma claim.amount ze všech claim-bundle smluv, které
-  // už jsou alespoň „podepsáno klientem" (= máme aspoň jeden z timestamps
-  // clientSignedAt / signedAt / scanUploadedAt). Pohledávky jsou vč. DPH.
-  let assignedClaimsTotal = 0;
-  let assignedClaimsContractsCount = 0;
-  // Rozpad po dlužnících (entitách) - kolik postoupených pohledávek je vůči
-  // jednotlivým společnostem (Flowers International, Bubblify International…).
-  const claimsByDebtor = new Map<
-    string,
-    { total: number; contracts: number; claims: number }
-  >();
-  for (const c of contracts) {
-    if (c.type !== "claim-bundle") continue;
-    if (!(c.clientSignedAt || c.signedAt || c.scanUploadedAt)) continue;
-    assignedClaimsContractsCount++;
-    const debtor = c.variables?.debtorName?.trim() || "Neuvedený dlužník";
-    const entry =
-      claimsByDebtor.get(debtor) ?? { total: 0, contracts: 0, claims: 0 };
-    entry.contracts++;
-    for (const item of c.claims ?? []) {
-      const amt = parseClaimAmount(item.amount);
-      assignedClaimsTotal += amt;
-      entry.total += amt;
-      entry.claims++;
-    }
-    claimsByDebtor.set(debtor, entry);
-  }
-  const claimsBreakdown = [...claimsByDebtor.entries()]
-    .map(([name, v]) => ({
-      name,
-      total: v.total,
-      contractsCount: v.contracts,
-      claimsCount: v.claims,
-    }))
-    .sort((a, b) => b.total - a.total);
+  // Postoupené pohledávky: agregace smluvních pohledávek (claim-bundle podepsané
+  // klientem) + overlay vrstvy (ruční pohledávky + cross-ručení). Headline =
+  // součet všech uplatnění (dlužník + každý potvrzený ručitel). Vše vč. DPH.
+  const claimsView = buildAssignedClaimsView(contracts, overlay);
+  // Ploché smluvní pohledávky pro editor cross-ručení.
+  const contractClaims = claimsView.rows
+    .filter((r) => r.source === "contract")
+    .map((r) => ({
+      id: r.id,
+      title: r.title,
+      amount: r.amount,
+      debtor: r.debtorName,
+      contractId: r.contractId!,
+    }));
+  // Nabídka firem do pickeru: existující dlužníci z breakdownu (přesné stringy,
+  // aby cross-ručení padlo na stejný řádek) + přednastavení dlužníci.
+  const companyOptions = Array.from(
+    new Set([
+      ...claimsView.breakdown.map((b) => b.name),
+      ...DEBTOR_PRESETS.map((p) => p.label),
+    ]),
+  );
 
   const displayName =
     session?.user?.name?.split(/\s+/)[0] ??
@@ -182,9 +171,11 @@ export default async function PortalDashboardPage({
           href="/portal/contracts"
         />
         <AssignedClaimsPanel
-          total={assignedClaimsTotal}
-          contractsCount={assignedClaimsContractsCount}
-          breakdown={claimsBreakdown}
+          view={claimsView}
+          overlay={overlay}
+          contractClaims={contractClaims}
+          companyOptions={companyOptions}
+          isAdmin={isAdmin}
         />
       </section>
 
