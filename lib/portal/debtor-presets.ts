@@ -22,4 +22,5 @@ export const DEBTOR_PRESETS: readonly DebtorPreset[] = [
 export const EXTRA_CLAIM_COMPANIES: readonly string[] = [
   "Twistcafe Group",
   "Kofi Kofi servis s.r.o.",
+  "TK Holding",
 ];
