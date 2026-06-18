@@ -23,4 +23,5 @@ export const EXTRA_CLAIM_COMPANIES: readonly string[] = [
   "Twistcafe Group",
   "Kofi Kofi servis s.r.o.",
   "TK Holding",
+  "Trdlokafe Development 2 s.r.o.",
 ];
