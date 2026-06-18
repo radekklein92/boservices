@@ -22,6 +22,9 @@
 .DS_Store
 *.pem
 
+# macOS/iCloud sync duplikáty (např. "soubor 2.ts", "soubor 3.tsx") - láme build
+* [0-9].*
+
 # debug
 npm-debug.log*
 yarn-debug.log*
