@@ -98,6 +98,12 @@ export function formatCzk(value: number): string {
   return decPart ? `${sign}${grouped},${decPart} Kč` : `${sign}${grouped} Kč`;
 }
 
+// Jako formatCzk, ale zaokrouhleno na celé koruny (bez halířů) - pro přehledy
+// na dashboardu, kde halíře jen ruší. Smluvní tabulky používají dál formatCzk.
+export function formatCzkRounded(value: number): string {
+  return formatCzk(Math.round(value));
+}
+
 export function computeClaimsTotal(claims: ClaimItem[]): number {
   return claims.reduce((sum, c) => sum + parseClaimAmount(c.amount), 0);
 }

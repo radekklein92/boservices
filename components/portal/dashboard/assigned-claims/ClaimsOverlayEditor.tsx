@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { ChevronDown, Plus, Search, Trash2 } from "lucide-react";
 import { BTN_PRIMARY } from "@/components/portal/ui/buttons";
-import { formatCzk, parseClaimAmount } from "@/lib/portal/claims";
+import { formatCzkRounded, parseClaimAmount } from "@/lib/portal/claims";
 import {
   newManualClaim,
   type ClaimsOverlay,
@@ -225,7 +225,7 @@ export function ClaimsOverlayEditor({
                     <div className="rounded-lg bg-paper-warm/60 px-3 py-2 text-[12px] text-ink-deep">
                       Uplatní se u <strong>{k}</strong>{" "}
                       {k === 1 ? "firmy" : k < 5 ? "firem" : "firem"} · celkem{" "}
-                      <strong>{formatCzk(per * k)}</strong>
+                      <strong>{formatCzkRounded(per * k)}</strong>
                     </div>
                   )}
                 </div>
@@ -288,7 +288,7 @@ export function ClaimsOverlayEditor({
                       <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11.5px] text-ink-mid">
                         <span className="truncate">{c.debtor}</span>
                         <span aria-hidden="true">·</span>
-                        <span className="tabular-nums">{formatCzk(c.amount)}</span>
+                        <span className="tabular-nums">{formatCzkRounded(c.amount)}</span>
                         {count > 0 && (
                           <span className="rounded-full bg-ink-base px-2 py-0.5 text-[10.5px] font-semibold text-paper">
                             + {count} {count === 1 ? "ručitel" : count < 5 ? "ručitelé" : "ručitelů"}
@@ -304,6 +304,21 @@ export function ClaimsOverlayEditor({
                   </button>
                   {isOpen && (
                     <div className="border-t border-edge p-3.5">
+                      <dl className="mb-4 grid grid-cols-1 gap-x-5 gap-y-2 sm:grid-cols-2">
+                        <DetailRow label="Klient (postupitel)" value={c.client} />
+                        <DetailRow label="Dlužník" value={c.debtor} />
+                        <DetailRow label="Číslo smlouvy" value={c.contractNumber} />
+                        <DetailRow label="Datum smlouvy" value={c.contractDate} />
+                        <DetailRow label="Vznikla ze smlouvy" value={c.originLabel} />
+                        <DetailRow label="Výše vč. DPH" value={formatCzkRounded(c.amount)} />
+                        <DetailRow label="Číslo faktury" value={c.invoiceNumber} />
+                        <DetailRow label="Splatnost" value={c.dueDate} />
+                        <DetailRow label="Právní titul" value={c.title} full />
+                        <DetailRow label="Poznámka" value={c.note} full />
+                      </dl>
+                      <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-soft">
+                        Ručitelé (cross-uplatnění)
+                      </div>
                       <GuarantorEditor
                         value={gs}
                         companyOptions={companyOptions}
@@ -345,6 +360,26 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <span className="text-[11px] font-medium text-ink-mid">{label}</span>
       {children}
     </label>
+  );
+}
+
+function DetailRow({
+  label,
+  value,
+  full = false,
+}: {
+  label: string;
+  value?: string;
+  full?: boolean;
+}) {
+  if (!value || !value.trim()) return null;
+  return (
+    <div className={full ? "sm:col-span-2" : undefined}>
+      <dt className="text-[10.5px] font-medium uppercase tracking-[0.12em] text-ink-soft">
+        {label}
+      </dt>
+      <dd className="mt-0.5 text-[12.5px] text-ink-deep">{value}</dd>
+    </div>
   );
 }
 

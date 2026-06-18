@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
-import { formatCzk } from "@/lib/portal/claims";
+import { formatCzkRounded } from "@/lib/portal/claims";
 import type { AssignedClaimsView } from "@/lib/portal/assigned-claims";
 
 const claimsWord = (n: number) =>
@@ -58,7 +58,7 @@ export function ClaimsBreakdownView({ view }: { view: AssignedClaimsView }) {
                   {e.name}
                 </span>
                 <span className="shrink-0 text-[14px] font-bold tabular-nums tracking-[-0.01em] text-ink-base">
-                  {formatCzk(e.total)}
+                  {formatCzkRounded(e.total)}
                 </span>
               </div>
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-edge">
@@ -78,7 +78,7 @@ export function ClaimsBreakdownView({ view }: { view: AssignedClaimsView }) {
                   {e.asGuarantorTotal > 0 && (
                     <span className="text-ink-soft">
                       {" "}
-                      · z ručení {formatCzk(e.asGuarantorTotal)}
+                      · z ručení {formatCzkRounded(e.asGuarantorTotal)}
                     </span>
                   )}
                 </span>
@@ -127,7 +127,7 @@ export function ClaimsBreakdownView({ view }: { view: AssignedClaimsView }) {
                         </div>
                       </div>
                       <span className="shrink-0 text-[12.5px] font-semibold tabular-nums text-ink-base">
-                        {formatCzk(r.amount)}
+                        {formatCzkRounded(r.amount)}
                       </span>
                     </div>
                   );

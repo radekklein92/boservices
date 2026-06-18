@@ -15,3 +15,11 @@ export const DEBTOR_PRESETS: readonly DebtorPreset[] = [
   { ico: "05019001", label: "Trdlokafe International" },
   { ico: "21847487", label: "Rio International" },
 ] as const;
+
+// Další firmy nabízené jako dlužník/ručitel v overlay pohledávek (dashboard),
+// které nejsou v DEBTOR_PRESETS (nepotřebují ARES lookup pro smlouvy - jen
+// jako textová volba do pickeru). Doplňuje se sem ručně.
+export const EXTRA_CLAIM_COMPANIES: readonly string[] = [
+  "Twistcafe Group",
+  "Kofi Kofi servis s.r.o.",
+];

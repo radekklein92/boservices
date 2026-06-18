@@ -15,8 +15,8 @@ import { PageHeader } from "@/components/portal/shell/PageHeader";
 import { isAdminRole } from "@/lib/portal/auth-guard";
 import { getSession } from "@/lib/portal/get-session";
 import { cachedGetClaimsOverlay, cachedListContracts } from "@/lib/portal/cached-db";
-import { buildAssignedClaimsView } from "@/lib/portal/assigned-claims";
-import { DEBTOR_PRESETS } from "@/lib/portal/debtor-presets";
+import { buildAssignedClaimsView, buildContractClaimRefs } from "@/lib/portal/assigned-claims";
+import { DEBTOR_PRESETS, EXTRA_CLAIM_COMPANIES } from "@/lib/portal/debtor-presets";
 import { FireworksCelebration } from "@/components/portal/dashboard/FireworksCelebration";
 import { AssignedClaimsPanel } from "@/components/portal/dashboard/AssignedClaimsPanel";
 
@@ -93,22 +93,15 @@ export default async function PortalDashboardPage({
   // klientem) + overlay vrstvy (ruční pohledávky + cross-ručení). Headline =
   // součet všech uplatnění (dlužník + každý potvrzený ručitel). Vše vč. DPH.
   const claimsView = buildAssignedClaimsView(contracts, overlay);
-  // Ploché smluvní pohledávky pro editor cross-ručení.
-  const contractClaims = claimsView.rows
-    .filter((r) => r.source === "contract")
-    .map((r) => ({
-      id: r.id,
-      title: r.title,
-      amount: r.amount,
-      debtor: r.debtorName,
-      contractId: r.contractId!,
-    }));
+  // Ploché smluvní pohledávky pro editor cross-ručení (s plným kontextem).
+  const contractClaims = buildContractClaimRefs(contracts);
   // Nabídka firem do pickeru: existující dlužníci z breakdownu (přesné stringy,
-  // aby cross-ručení padlo na stejný řádek) + přednastavení dlužníci.
+  // aby cross-ručení padlo na stejný řádek) + přednastavení dlužníci + doplňkové.
   const companyOptions = Array.from(
     new Set([
       ...claimsView.breakdown.map((b) => b.name),
       ...DEBTOR_PRESETS.map((p) => p.label),
+      ...EXTRA_CLAIM_COMPANIES,
     ]),
   );
 

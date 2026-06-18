@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowUpRight, Coins, Settings, X } from "lucide-react";
-import { formatCzk } from "@/lib/portal/claims";
+import { formatCzkRounded } from "@/lib/portal/claims";
 import type {
   AssignedClaimsView,
   ContractClaimRef,
@@ -39,7 +39,7 @@ export function AssignedClaimsPanel({
   const [editMode, setEditMode] = useState(false);
 
   const total = view.total;
-  const formatted = formatCzk(total);
+  const formatted = formatCzkRounded(total);
   const caption =
     view.contractsCount === 0 && view.manualClaimsCount === 0
       ? "zatím žádné postoupené pohledávky"

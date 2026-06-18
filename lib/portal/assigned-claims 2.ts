@@ -9,12 +9,7 @@
 
 import type { Contract } from "./contracts-db";
 import type { ClaimItem } from "./claims";
-import {
-  parseClaimAmount,
-  claimLegalTitle,
-  claimOriginLabel,
-  CLAIM_ORIGIN_OPTIONS,
-} from "./claims";
+import { parseClaimAmount, claimLegalTitle, claimOriginLabel } from "./claims";
 import type { ClaimsOverlay } from "./claims-overlay";
 import { confirmedGuarantors, dedupeByCompany } from "./claims-overlay";
 
@@ -48,22 +43,13 @@ export interface AssignedClaimsView {
   rows: AssignedClaimRow[];
 }
 
-// Reference na smluvní pohledávku pro editor cross-ručení - s plným kontextem
-// (vše, co se u pohledávky vyplňuje), aby uživatel věděl, ke které pohledávce
-// ručitele přidává.
+// Odlehčená reference na smluvní pohledávku pro editor cross-ručení (klient).
 export interface ContractClaimRef {
   id: string;
-  title: string; // právní titul
+  title: string;
   amount: number;
-  debtor: string; // dlužník (variables.debtorName)
+  debtor: string;
   contractId: string;
-  client?: string; // postupitel (clientName)
-  contractNumber?: string;
-  contractDate?: string;
-  originLabel?: string; // "Kupní smlouva ze dne …"
-  invoiceNumber?: string;
-  dueDate?: string;
-  note?: string;
 }
 
 // Název smluvní pohledávky (ClaimItem nemá pole "name") - z právního titulu,
@@ -202,49 +188,4 @@ export function buildAssignedClaimsView(
     .sort((a, b) => b.total - a.total);
 
   return { total: headline, contractsCount, manualClaimsCount, breakdown, rows };
-}
-
-// Čistý popis "vznikla ze smlouvy" bez dovětku "uzavřená mezi Dlužníkem a
-// Postupitelem" (ten je vhodný do PDF tabulky, ne do přehledu).
-function originDisplay(item: ClaimItem): string {
-  const base =
-    item.origin === "jina"
-      ? item.originOther?.trim() || "Jiná smlouva"
-      : CLAIM_ORIGIN_OPTIONS.find((o) => o.value === item.origin)?.label ??
-        "Jiná smlouva";
-  const date = item.originDate?.trim();
-  return date ? `${base} ze dne ${date}` : base;
-}
-
-// Plochý seznam smluvních pohledávek pro editor cross-ručení - s plným
-// kontextem. Gate a odvození claimKey MUSÍ být shodné s buildAssignedClaimsView,
-// aby se ručitelé navázali na stejné klíče.
-export function buildContractClaimRefs(contracts: Contract[]): ContractClaimRef[] {
-  const out: ContractClaimRef[] = [];
-  for (const c of contracts) {
-    if (c.type !== "claim-bundle") continue;
-    if (!(c.clientSignedAt || c.signedAt || c.scanUploadedAt)) continue;
-    const debtor = c.variables?.debtorName?.trim() || UNNAMED_DEBTOR;
-    const claims = c.claims ?? [];
-    for (let index = 0; index < claims.length; index++) {
-      const item = claims[index]!;
-      const amt = parseClaimAmount(item.amount);
-      if (amt <= 0) continue;
-      out.push({
-        id: item.id || `${c.id}#${index}`,
-        contractId: c.id,
-        debtor,
-        amount: amt,
-        title: titleForClaimItem(item),
-        client: c.clientName?.trim() || undefined,
-        contractNumber: c.number?.trim() || undefined,
-        contractDate: c.variables?.contractDate?.trim() || undefined,
-        originLabel: originDisplay(item),
-        invoiceNumber: item.invoiceNumber?.trim() || undefined,
-        dueDate: item.dueDate?.trim() || undefined,
-        note: item.note?.trim() || undefined,
-      });
-    }
-  }
-  return out;
 }
