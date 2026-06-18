@@ -165,3 +165,55 @@ async function renderHtmlToPdf(
     await browser.close().catch(() => undefined);
   }
 }
+
+// Generický landscape PDF render pro exporty (ne smlouvy) - prázdný header,
+// footer s číslováním stránek, jen Manrope font. Záměrně oddělené od
+// renderHtmlToPdf (kritická cesta všech smluv); sdílí jen launch konfiguraci.
+export async function renderExportPdfBuffer(
+  fullHtml: string,
+  opts?: { landscape?: boolean; footerTemplate?: string },
+): Promise<Buffer> {
+  const landscape = opts?.landscape ?? true;
+  const puppeteer = (await import("puppeteer-core")).default;
+  const executablePath = await getExecutablePath();
+
+  const browser = await puppeteer.launch({
+    args: [
+      ...chromium.args,
+      "--hide-scrollbars",
+      "--disable-web-security",
+      "--font-render-hinting=none",
+    ],
+    executablePath,
+    headless: true,
+    defaultViewport: landscape
+      ? { width: 1754, height: 1240, deviceScaleFactor: 1 }
+      : { width: 1240, height: 1754, deviceScaleFactor: 1 },
+  });
+
+  try {
+    const page = await browser.newPage();
+    await page.setContent(fullHtml, { waitUntil: "load" });
+    await page.evaluate(async () => {
+      const weights = ["400", "500", "600", "700", "800"];
+      await Promise.all(
+        weights.map((w) => document.fonts.load(`${w} 12pt "Manrope"`)),
+      );
+      await document.fonts.ready;
+    });
+
+    const pdf = await page.pdf({
+      format: "A4",
+      landscape,
+      printBackground: true,
+      preferCSSPageSize: false,
+      displayHeaderFooter: true,
+      headerTemplate: `<div style="font-size:0;height:0;width:100%;"></div>`,
+      footerTemplate: opts?.footerTemplate ?? MINIMAL_FOOTER_TEMPLATE,
+      margin: { top: "12mm", right: "12mm", bottom: "14mm", left: "12mm" },
+    });
+    return Buffer.from(pdf);
+  } finally {
+    await browser.close().catch(() => undefined);
+  }
+}

@@ -3,7 +3,15 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowUpRight, Coins, Settings, X } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowUpRight,
+  Coins,
+  Download,
+  Loader2,
+  Settings,
+  X,
+} from "lucide-react";
 import { formatCzkRounded } from "@/lib/portal/claims";
 import type {
   AssignedClaimsView,
@@ -16,19 +24,22 @@ import { ClaimsOverlayEditor } from "./assigned-claims/ClaimsOverlayEditor";
 const contractsWord = (n: number) => (n === 1 ? "smlouvy" : "smluv");
 
 const ICON_BTN =
-  "grid h-9 w-9 shrink-0 place-items-center rounded-full border border-edge text-ink-mid transition-colors hover:border-ink-soft";
+  "grid h-9 w-9 shrink-0 place-items-center rounded-full border border-edge text-ink-mid transition-colors hover:border-ink-soft disabled:opacity-40 disabled:hover:border-edge";
 
-// Postoupené pohledávky - dlaždice na dashboardu. Klik otevře modal s rozpadem
-// částky po dlužnících + drill-down na jednotlivé pohledávky. Admin má kolečko
-// nastavení: ruční pohledávky mimo smlouvy + cross-ručení (overlay vrstva).
+// Postoupené pohledávky - dlaždice na dashboardu. Dlaždice ukazuje jen součet 3
+// klíčových firem (BBI + TD1 + FLW); celkový součet a rozpad po všech dlužnících
+// je až v modalu (+ drill-down). Admin má kolečko (overlay: ruční pohledávky +
+// cross-ručení) a tlačítko stáhnout (PDF podklad pro insolvence).
 export function AssignedClaimsPanel({
   view,
+  keyTotal,
   overlay,
   contractClaims,
   companyOptions,
   isAdmin,
 }: {
   view: AssignedClaimsView;
+  keyTotal: number;
   overlay: ClaimsOverlay;
   contractClaims: ContractClaimRef[];
   companyOptions: string[];
@@ -37,10 +48,17 @@ export function AssignedClaimsPanel({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
-  const total = view.total;
-  const formatted = formatCzkRounded(total);
-  const caption =
+  // Dlaždice = 3 klíčové firmy, modal = celkový součet.
+  const tileFormatted = formatCzkRounded(keyTotal);
+  const grandFormatted = formatCzkRounded(view.total);
+
+  const tileCaption =
+    view.total === 0
+      ? "zatím žádné postoupené pohledávky"
+      : "vč. DPH · 3 klíčové společnosti";
+  const modalCaption =
     view.contractsCount === 0 && view.manualClaimsCount === 0
       ? "zatím žádné postoupené pohledávky"
       : `vč. DPH · z ${view.contractsCount} ${contractsWord(view.contractsCount)}` +
@@ -49,7 +67,7 @@ export function AssignedClaimsPanel({
           : "");
 
   // Prázdná dlaždice jde otevřít jen adminovi (aby mohl přidat ruční pohledávku).
-  const disabled = total === 0 && !isAdmin;
+  const disabled = view.total === 0 && !isAdmin;
 
   useEffect(() => {
     if (!open) return;
@@ -71,6 +89,31 @@ export function AssignedClaimsPanel({
     setEditMode(false);
   }
 
+  async function downloadExport() {
+    setDownloading(true);
+    try {
+      const res = await fetch("/api/portal/claims-overlay/export");
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error ?? "Stažení selhalo.");
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download =
+        res.headers.get("X-Filename") ?? "postoupene-pohledavky-isir.pdf";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : "Stažení selhalo.");
+    } finally {
+      setDownloading(false);
+    }
+  }
+
   return (
     <>
       <button
@@ -85,20 +128,20 @@ export function AssignedClaimsPanel({
           aria-hidden="true"
         />
         <div className="relative">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-[10.5px] font-medium uppercase tracking-[0.22em] text-ink-mid">
-              <Coins className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
-              Postoupené pohledávky
+              <Coins className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} aria-hidden="true" />
+              Postoupené pohledávky · BBI + TD1 + FLW
             </div>
             <ArrowUpRight
-              className="h-4 w-4 text-ink-mid transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+              className="h-4 w-4 shrink-0 text-ink-mid transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
               strokeWidth={1.5}
             />
           </div>
           <div className="mt-5 font-extrabold leading-none tracking-[-0.045em] text-ink-base text-[clamp(2rem,4.6vw,2.85rem)]">
-            {formatted}
+            {tileFormatted}
           </div>
-          <div className="mt-2.5 text-[13px] text-ink-mid">{caption}</div>
+          <div className="mt-2.5 text-[13px] text-ink-mid">{tileCaption}</div>
         </div>
       </button>
 
@@ -119,14 +162,34 @@ export function AssignedClaimsPanel({
                     Postoupené pohledávky
                   </div>
                   <div className="mt-1.5 text-[26px] font-extrabold leading-none tracking-[-0.04em] text-ink-base">
-                    {formatted}
+                    {grandFormatted}
                   </div>
                   <div className="mt-1.5 text-[12.5px] text-ink-mid">
-                    {caption} ·{" "}
+                    {modalCaption} ·{" "}
                     {editMode ? "úpravy a ručení" : "rozpad po dlužnících"}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={downloadExport}
+                      disabled={downloading || view.breakdown.length === 0}
+                      aria-label="Stáhnout podklad pro insolvence (PDF)"
+                      title="Stáhnout PDF podklad pro přihlášky do insolvence"
+                      className={ICON_BTN}
+                    >
+                      {downloading ? (
+                        <Loader2
+                          className="h-4 w-4 animate-spin"
+                          strokeWidth={2}
+                          aria-hidden="true"
+                        />
+                      ) : (
+                        <Download className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+                      )}
+                    </button>
+                  )}
                   {isAdmin && (
                     <button
                       type="button"

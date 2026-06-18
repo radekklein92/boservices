@@ -19,6 +19,8 @@ import {
   buildAssignedClaimsView,
   buildContractClaimRefs,
   dedupeCompanyOptions,
+  sumCompanies,
+  KEY_DASHBOARD_COMPANIES,
 } from "@/lib/portal/assigned-claims";
 import { DEBTOR_PRESETS, EXTRA_CLAIM_COMPANIES } from "@/lib/portal/debtor-presets";
 import { FireworksCelebration } from "@/components/portal/dashboard/FireworksCelebration";
@@ -108,6 +110,12 @@ export default async function PortalDashboardPage({
     ...DEBTOR_PRESETS.map((p) => p.label),
     ...EXTRA_CLAIM_COMPANIES,
   ]);
+  // Dlaždice ukazuje jen součet 3 klíčových firem (BBI + TD1 + FLW); celkový
+  // součet je až v modalu.
+  const keyCompaniesTotal = sumCompanies(
+    claimsView.breakdown,
+    KEY_DASHBOARD_COMPANIES,
+  );
 
   const displayName =
     session?.user?.name?.split(/\s+/)[0] ??
@@ -169,6 +177,7 @@ export default async function PortalDashboardPage({
         />
         <AssignedClaimsPanel
           view={claimsView}
+          keyTotal={keyCompaniesTotal}
           overlay={overlay}
           contractClaims={contractClaims}
           companyOptions={companyOptions}

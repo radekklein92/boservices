@@ -238,9 +238,28 @@ export function dedupeCompanyOptions(names: string[]): string[] {
   return out;
 }
 
+// Klíčové společnosti na dlaždici dashboardu (zbytek je až v modalu).
+export const KEY_DASHBOARD_COMPANIES = [
+  "Bubblify International",
+  "Trdlokafe Development 1",
+  "Flowers International",
+];
+
+// Součet breakdown řádků pro zadané firmy (match přes normalizeCompany, takže
+// "Bubblify International s.r.o." sedne na klíč "Bubblify International").
+export function sumCompanies(
+  breakdown: AssignedClaimsCompanyRow[],
+  names: string[],
+): number {
+  const wanted = new Set(names.map(normalizeCompany));
+  return breakdown
+    .filter((b) => wanted.has(normalizeCompany(b.name)))
+    .reduce((s, b) => s + b.total, 0);
+}
+
 // Čistý popis "vznikla ze smlouvy" bez dovětku "uzavřená mezi Dlužníkem a
 // Postupitelem" (ten je vhodný do PDF tabulky, ne do přehledu).
-function originDisplay(item: ClaimItem): string {
+export function originDisplay(item: ClaimItem): string {
   const base =
     item.origin === "jina"
       ? item.originOther?.trim() || "Jiná smlouva"
