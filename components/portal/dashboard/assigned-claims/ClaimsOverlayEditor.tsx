@@ -106,7 +106,10 @@ export function ClaimsOverlayEditor({
     if (!q) return contractClaims;
     return contractClaims.filter(
       (c) =>
-        c.title.toLowerCase().includes(q) || c.debtor.toLowerCase().includes(q),
+        c.title.toLowerCase().includes(q) ||
+        c.debtor.toLowerCase().includes(q) ||
+        (c.client ?? "").toLowerCase().includes(q) ||
+        (c.contractNumber ?? "").toLowerCase().includes(q),
     );
   }, [contractClaims, query]);
 
@@ -258,7 +261,7 @@ export function ClaimsOverlayEditor({
                 <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Hledat podle názvu nebo dlužníka"
+                  placeholder="Hledat podle názvu, klienta, dlužníka nebo čísla smlouvy"
                   className="h-9 w-full rounded-lg border border-edge bg-paper pl-9 pr-3 text-[13px] text-ink-base outline-none transition-colors placeholder:text-ink-soft focus:border-ink-base"
                 />
               </div>

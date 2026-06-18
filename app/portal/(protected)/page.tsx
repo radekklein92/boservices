@@ -15,7 +15,11 @@ import { PageHeader } from "@/components/portal/shell/PageHeader";
 import { isAdminRole } from "@/lib/portal/auth-guard";
 import { getSession } from "@/lib/portal/get-session";
 import { cachedGetClaimsOverlay, cachedListContracts } from "@/lib/portal/cached-db";
-import { buildAssignedClaimsView, buildContractClaimRefs } from "@/lib/portal/assigned-claims";
+import {
+  buildAssignedClaimsView,
+  buildContractClaimRefs,
+  dedupeCompanyOptions,
+} from "@/lib/portal/assigned-claims";
 import { DEBTOR_PRESETS, EXTRA_CLAIM_COMPANIES } from "@/lib/portal/debtor-presets";
 import { FireworksCelebration } from "@/components/portal/dashboard/FireworksCelebration";
 import { AssignedClaimsPanel } from "@/components/portal/dashboard/AssignedClaimsPanel";
@@ -95,15 +99,15 @@ export default async function PortalDashboardPage({
   const claimsView = buildAssignedClaimsView(contracts, overlay);
   // Ploché smluvní pohledávky pro editor cross-ručení (s plným kontextem).
   const contractClaims = buildContractClaimRefs(contracts);
-  // Nabídka firem do pickeru: existující dlužníci z breakdownu (přesné stringy,
-  // aby cross-ručení padlo na stejný řádek) + přednastavení dlužníci + doplňkové.
-  const companyOptions = Array.from(
-    new Set([
-      ...claimsView.breakdown.map((b) => b.name),
-      ...DEBTOR_PRESETS.map((p) => p.label),
-      ...EXTRA_CLAIM_COMPANIES,
-    ]),
-  );
+  // Nabídka firem do pickeru: nejdřív existující dlužníci z breakdownu (přesné
+  // stringy, aby cross-ručení padlo na stejný řádek), pak presety a doplňkové.
+  // dedupeCompanyOptions zahodí krátké duplicity firem, které už v breakdownu
+  // jsou pod plným názvem (např. "Flowers International" vs "...s.r.o.").
+  const companyOptions = dedupeCompanyOptions([
+    ...claimsView.breakdown.map((b) => b.name),
+    ...DEBTOR_PRESETS.map((p) => p.label),
+    ...EXTRA_CLAIM_COMPANIES,
+  ]);
 
   const displayName =
     session?.user?.name?.split(/\s+/)[0] ??

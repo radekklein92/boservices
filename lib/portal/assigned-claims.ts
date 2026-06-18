@@ -204,6 +204,40 @@ export function buildAssignedClaimsView(
   return { total: headline, contractsCount, manualClaimsCount, breakdown, rows };
 }
 
+// Normalizace názvu firmy pro porovnání duplicit: malá písmena, bez právní
+// formy (s.r.o./a.s./spol.) a interpunkce. "Flowers International s.r.o." a
+// "Flowers International" → stejný klíč. NEMĚNÍ uloženou hodnotu, jen dedup
+// nabídky pickeru.
+function normalizeCompany(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/\bspol\.?\s*s\.?\s*r\.?\s*o\.?/g, "")
+    .replace(/\bs\.?\s*r\.?\s*o\.?/g, "")
+    .replace(/\ba\.\s*s\.?/g, "")
+    .replace(/[.,]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Sestaví nabídku firem do pickeru bez duplicit. Pořadí vstupu rozhoduje, která
+// varianta zůstane - volajícímu stačí dát napřed plné názvy z breakdownu (přesné
+// stringy = klíče agregace), pak krátké presety; krátká varianta se zahodí,
+// pokud už stejný subjekt v seznamu je.
+export function dedupeCompanyOptions(names: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const n of names) {
+    const trimmed = n.trim();
+    if (!trimmed) continue;
+    const norm = normalizeCompany(trimmed);
+    const key = norm || trimmed.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(trimmed);
+  }
+  return out;
+}
+
 // Čistý popis "vznikla ze smlouvy" bez dovětku "uzavřená mezi Dlužníkem a
 // Postupitelem" (ten je vhodný do PDF tabulky, ne do přehledu).
 function originDisplay(item: ClaimItem): string {
