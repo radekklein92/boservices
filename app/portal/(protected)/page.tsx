@@ -14,7 +14,11 @@ import {
 import { PageHeader } from "@/components/portal/shell/PageHeader";
 import { isAdminRole } from "@/lib/portal/auth-guard";
 import { getSession } from "@/lib/portal/get-session";
-import { cachedGetClaimsOverlay, cachedListContracts } from "@/lib/portal/cached-db";
+import {
+  cachedGetClaimsOverlay,
+  cachedGetClamoraClaims,
+  cachedListContracts,
+} from "@/lib/portal/cached-db";
 import {
   buildAssignedClaimsView,
   buildContractClaimRefs,
@@ -71,10 +75,11 @@ export default async function PortalDashboardPage({
 }: {
   searchParams: Promise<{ celebrate?: string }>;
 }) {
-  const [session, contracts, overlay, sp] = await Promise.all([
+  const [session, contracts, overlay, clamoraClaims, sp] = await Promise.all([
     getSession(),
     cachedListContracts(),
     cachedGetClaimsOverlay(),
+    cachedGetClamoraClaims(),
     searchParams,
   ]);
   const isAdmin = isAdminRole(session?.user?.role);
@@ -98,9 +103,10 @@ export default async function PortalDashboardPage({
   // Postoupené pohledávky: agregace smluvních pohledávek (claim-bundle podepsané
   // klientem) + overlay vrstvy (ruční pohledávky + cross-ručení). Headline =
   // součet všech uplatnění (dlužník + každý potvrzený ručitel). Vše vč. DPH.
-  const claimsView = buildAssignedClaimsView(contracts, overlay);
-  // Ploché smluvní pohledávky pro editor cross-ručení (s plným kontextem).
-  const contractClaims = buildContractClaimRefs(contracts);
+  const claimsView = buildAssignedClaimsView(contracts, overlay, clamoraClaims);
+  // Ploché smluvní pohledávky pro editor cross-ručení (s plným kontextem) -
+  // vč. zrcadlených z ClamoraPortal, ať jdou taky cross-ručit.
+  const contractClaims = buildContractClaimRefs(contracts, clamoraClaims);
   // Nabídka firem do pickeru: nejdřív existující dlužníci z breakdownu (přesné
   // stringy, aby cross-ručení padlo na stejný řádek), pak presety a doplňkové.
   // dedupeCompanyOptions zahodí krátké duplicity firem, které už v breakdownu

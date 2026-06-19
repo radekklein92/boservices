@@ -19,6 +19,7 @@ import {
 } from "./tasks-db";
 import { listAllowlist } from "./allowlist-db";
 import { getClaimsOverlay } from "./claims-overlay-db";
+import { getClamoraClaims } from "./clamora-claims-db";
 import {
   getOrSeedContractTemplate,
   listContractTemplates,
@@ -137,4 +138,10 @@ export const cachedGetClaimsOverlay = unstable_cache(
   () => getClaimsOverlay(),
   ["cached:getClaimsOverlay"],
   { tags: [TAG.claimsOverlay], revalidate: ONE_HOUR },
+);
+
+export const cachedGetClamoraClaims = unstable_cache(
+  () => getClamoraClaims(),
+  ["cached:getClamoraClaims"],
+  { tags: [TAG.claimsMirror], revalidate: ONE_HOUR },
 );

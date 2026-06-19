@@ -17,13 +17,14 @@ import {
 } from "./claims";
 import type { ClaimsOverlay } from "./claims-overlay";
 import { confirmedGuarantors, dedupeByCompany } from "./claims-overlay";
+import type { MirroredClamoraContract } from "./clamora-claims-db";
 
 const UNNAMED_DEBTOR = "Neuvedený dlužník";
 
 // Plochá pohledávka pro drill-down v modalu i pro editor cross-ručení.
 export interface AssignedClaimRow {
-  id: string; // smluvní: ClaimItem.id || `${contractId}#${index}`; ruční: ManualClaim.id
-  source: "contract" | "manual";
+  id: string; // smluvní: ClaimItem.id || `${contractId}#${index}`; ruční: ManualClaim.id; clamora: `clamora:${contractId}#${itemId}`
+  source: "contract" | "manual" | "clamora";
   contractId?: string;
   debtorName: string; // primární dlužník
   title: string;
@@ -38,11 +39,13 @@ export interface AssignedClaimsCompanyRow {
   asPrimaryTotal: number;
   asGuarantorTotal: number;
   contractsCount: number;
+  clamoraTotal: number; // kolik z total firmy pochází z pohledávek zrcadlených z ClamoraPortal
 }
 
 export interface AssignedClaimsView {
   total: number; // HEADLINE
-  contractsCount: number; // počet claim-bundle smluv v součtu
+  contractsCount: number; // počet claim-bundle smluv v součtu (vlastní BOServices)
+  clamoraContractsCount: number; // počet zrcadlených smluv z ClamoraPortal
   manualClaimsCount: number;
   breakdown: AssignedClaimsCompanyRow[]; // desc dle total; SUM(total) === total
   rows: AssignedClaimRow[];
@@ -84,11 +87,13 @@ type CompanyAccumulator = AssignedClaimsCompanyRow & {
 export function buildAssignedClaimsView(
   contracts: Contract[],
   overlay: ClaimsOverlay,
+  clamoraContracts: MirroredClamoraContract[] = [],
 ): AssignedClaimsView {
   const companyMap = new Map<string, CompanyAccumulator>();
   const rows: AssignedClaimRow[] = [];
   let headline = 0;
   let contractsCount = 0;
+  let clamoraContractsCount = 0;
   let manualClaimsCount = 0;
 
   function ensure(name: string): CompanyAccumulator {
@@ -101,6 +106,7 @@ export function buildAssignedClaimsView(
         asPrimaryTotal: 0,
         asGuarantorTotal: 0,
         contractsCount: 0,
+        clamoraTotal: 0,
         _claimKeys: new Set(),
         _contractKeys: new Set(),
       };
@@ -116,11 +122,13 @@ export function buildAssignedClaimsView(
     role: "primary" | "guarantor",
     claimKey: string,
     contractId?: string,
+    fromClamora = false,
   ): void {
     const name = rawName.trim() || UNNAMED_DEBTOR;
     const e = ensure(name);
     e.total += amount;
     headline += amount;
+    if (fromClamora) e.clamoraTotal += amount;
     if (role === "primary") e.asPrimaryTotal += amount;
     else e.asGuarantorTotal += amount;
     if (!e._claimKeys.has(claimKey)) {
@@ -168,6 +176,43 @@ export function buildAssignedClaimsView(
     }
   }
 
+  // 1b) Zrcadlené pohledávky z ClamoraPortal (podepsané klientem; sync vrstva).
+  // Stejné uplatnění jako smluvní: primární dlužník + případní cross-ručitelé
+  // z overlay. claimKey i kontext smlouvy mají prefix „clamora:", aby
+  // nekolidovaly s vlastními pohledávkami BOServices ve sdílených mapách.
+  for (const c of clamoraContracts) {
+    const debtor = c.debtorName?.trim() || UNNAMED_DEBTOR;
+    clamoraContractsCount++;
+    const items = c.items ?? [];
+    for (let index = 0; index < items.length; index++) {
+      const item = items[index]!;
+      const amt = parseClaimAmount(item.amount);
+      if (amt <= 0) continue;
+      const claimKey = `clamora:${c.contractId}#${item.id || index}`;
+      const ctxKey = `clamora:${c.contractId}`;
+      const confGs = dedupeByCompany(
+        confirmedGuarantors(overlay.guaranteesByClaimId[claimKey]),
+      );
+      apply(debtor, amt, "primary", claimKey, ctxKey, true);
+      const guarantorNames: string[] = [];
+      for (const g of confGs) {
+        const gName = g.company.trim();
+        if (!gName || gName === debtor) continue; // ručitel == dlužník -> nezapočítat 2x
+        apply(gName, amt, "guarantor", claimKey, ctxKey, true);
+        guarantorNames.push(gName);
+      }
+      rows.push({
+        id: claimKey,
+        source: "clamora",
+        contractId: c.contractId,
+        debtorName: debtor,
+        title: titleForClaimItem(item),
+        amount: amt,
+        guarantors: guarantorNames,
+      });
+    }
+  }
+
   // 2) Ruční pohledávky z overlay.
   for (const m of overlay.manualClaims) {
     const amt = parseClaimAmount(m.amount);
@@ -201,7 +246,14 @@ export function buildAssignedClaimsView(
     })
     .sort((a, b) => b.total - a.total);
 
-  return { total: headline, contractsCount, manualClaimsCount, breakdown, rows };
+  return {
+    total: headline,
+    contractsCount,
+    clamoraContractsCount,
+    manualClaimsCount,
+    breakdown,
+    rows,
+  };
 }
 
 // Normalizace názvu firmy pro porovnání duplicit: malá písmena, bez právní
@@ -272,7 +324,10 @@ export function originDisplay(item: ClaimItem): string {
 // Plochý seznam smluvních pohledávek pro editor cross-ručení - s plným
 // kontextem. Gate a odvození claimKey MUSÍ být shodné s buildAssignedClaimsView,
 // aby se ručitelé navázali na stejné klíče.
-export function buildContractClaimRefs(contracts: Contract[]): ContractClaimRef[] {
+export function buildContractClaimRefs(
+  contracts: Contract[],
+  clamoraContracts: MirroredClamoraContract[] = [],
+): ContractClaimRef[] {
   const out: ContractClaimRef[] = [];
   for (const c of contracts) {
     if (c.type !== "claim-bundle") continue;
@@ -292,6 +347,31 @@ export function buildContractClaimRefs(contracts: Contract[]): ContractClaimRef[
         client: c.clientName?.trim() || undefined,
         contractNumber: c.number?.trim() || undefined,
         contractDate: c.variables?.contractDate?.trim() || undefined,
+        originLabel: originDisplay(item),
+        invoiceNumber: item.invoiceNumber?.trim() || undefined,
+        dueDate: item.dueDate?.trim() || undefined,
+        note: item.note?.trim() || undefined,
+      });
+    }
+  }
+  // Zrcadlené pohledávky z ClamoraPortal - stejné claimKey jako v agregaci, ať
+  // k nim jde přidat cross-ručitele přes týž overlay.
+  for (const c of clamoraContracts) {
+    const debtor = c.debtorName?.trim() || UNNAMED_DEBTOR;
+    const items = c.items ?? [];
+    for (let index = 0; index < items.length; index++) {
+      const item = items[index]!;
+      const amt = parseClaimAmount(item.amount);
+      if (amt <= 0) continue;
+      out.push({
+        id: `clamora:${c.contractId}#${item.id || index}`,
+        contractId: c.contractId,
+        debtor,
+        amount: amt,
+        title: titleForClaimItem(item),
+        client: c.clientName?.trim() || undefined,
+        contractNumber: c.contractNumber?.trim() || undefined,
+        contractDate: c.contractDate?.trim() || undefined,
         originLabel: originDisplay(item),
         invoiceNumber: item.invoiceNumber?.trim() || undefined,
         dueDate: item.dueDate?.trim() || undefined,

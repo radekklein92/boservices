@@ -9,6 +9,7 @@
 // jeden globální údaj.
 
 import type { Contract } from "./contracts-db";
+import type { MirroredClamoraContract } from "./clamora-claims-db";
 import { parseClaimAmount, formatCzk } from "./claims";
 import {
   confirmedGuarantors,
@@ -22,7 +23,7 @@ import { PDF_PAGE_STYLES } from "./pdf-styles";
 const UNNAMED_DEBTOR = "Neuvedený dlužník";
 
 export interface IsirExportRow {
-  source: "postoupení" | "ruční"; // původ pohledávky
+  source: "postoupení" | "ruční" | "Clamora"; // původ pohledávky (Clamora = zrcadlené z ClamoraPortal)
   role: "dlužník" | "ručitel"; // postavení u TÉTO firmy
   amount: number; // vč. DPH (plná částka i u ručitele)
   title: string; // právní titul / název ruční pohledávky
@@ -66,6 +67,7 @@ function resolveIco(
 export function buildIsirExportData(
   contracts: Contract[],
   overlay: ClaimsOverlay,
+  clamoraContracts: MirroredClamoraContract[] = [],
 ): IsirExportData {
   const groupMap = new Map<string, IsirExportGroup>();
   const icoByCompany = new Map<string, string>();
@@ -117,6 +119,46 @@ export function buildIsirExportData(
         client: c.clientName?.trim() || undefined,
         contractNumber: c.number?.trim() || undefined,
         contractDate: c.variables?.contractDate?.trim() || undefined,
+        originLabel: originDisplay(item),
+        invoiceNumber: item.invoiceNumber?.trim() || undefined,
+        dueDate: item.dueDate?.trim() || undefined,
+        note: item.note?.trim() || undefined,
+        claimKey,
+      };
+      add(debtor, "dlužník", base);
+      const confGs = dedupeByCompany(
+        confirmedGuarantors(overlay.guaranteesByClaimId[claimKey]),
+      );
+      for (const gtor of confGs) {
+        const gName = gtor.company.trim();
+        if (!gName || gName === debtor) continue;
+        add(gName, "ručitel", base);
+      }
+    }
+  }
+
+  // 1b) Zrcadlené pohledávky z ClamoraPortal (podepsané klientem). Věřitel
+  // (postupník) = creditorName ze zrcadlené smlouvy (Clamora Bridge s.r.o.).
+  // claimKey s prefixem „clamora:" je shodný s agregací -> cross-ručení sedí.
+  for (const c of clamoraContracts) {
+    const debtor = c.debtorName?.trim() || UNNAMED_DEBTOR;
+    const ico = c.debtorIco?.trim();
+    if (ico && !icoByCompany.has(debtor)) icoByCompany.set(debtor, ico);
+    const items = c.items ?? [];
+    for (let index = 0; index < items.length; index++) {
+      const item = items[index]!;
+      const amt = parseClaimAmount(item.amount);
+      if (amt <= 0) continue;
+      const claimKey = `clamora:${c.contractId}#${item.id || index}`;
+      const base: Omit<IsirExportRow, "role"> = {
+        source: "Clamora",
+        amount: amt,
+        title: titleForClaimItem(item),
+        primaryDebtor: debtor,
+        creditor: c.creditorName?.trim() || undefined,
+        client: c.clientName?.trim() || undefined,
+        contractNumber: c.contractNumber?.trim() || undefined,
+        contractDate: c.contractDate?.trim() || undefined,
         originLabel: originDisplay(item),
         invoiceNumber: item.invoiceNumber?.trim() || undefined,
         dueDate: item.dueDate?.trim() || undefined,

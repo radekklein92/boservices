@@ -81,6 +81,12 @@ export function ClaimsBreakdownView({ view }: { view: AssignedClaimsView }) {
                       · z ručení {formatCzkRounded(e.asGuarantorTotal)}
                     </span>
                   )}
+                  {e.clamoraTotal > 0 && (
+                    <span className="text-sky-700">
+                      {" "}
+                      · z Clamory {formatCzkRounded(e.clamoraTotal)}
+                    </span>
+                  )}
                 </span>
                 <span className="tabular-nums">{pct} %</span>
               </div>
@@ -112,6 +118,11 @@ export function ClaimsBreakdownView({ view }: { view: AssignedClaimsView }) {
                           {r.source === "manual" && (
                             <Badge tone="border-edge bg-paper-warm text-ink-soft">
                               Ruční
+                            </Badge>
+                          )}
+                          {r.source === "clamora" && (
+                            <Badge tone="border-sky-300 bg-sky-50 text-sky-700">
+                              Clamora
                             </Badge>
                           )}
                           {isDebtor && r.guarantors.length > 0 && (

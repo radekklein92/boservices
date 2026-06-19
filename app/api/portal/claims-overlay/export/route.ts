@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/portal/auth-guard";
 import {
   cachedGetClaimsOverlay,
+  cachedGetClamoraClaims,
   cachedListContracts,
 } from "@/lib/portal/cached-db";
 import {
@@ -19,11 +20,12 @@ export async function GET() {
   const g = await requireAdmin();
   if (!g.ok) return g.response;
 
-  const [contracts, overlay] = await Promise.all([
+  const [contracts, overlay, clamoraClaims] = await Promise.all([
     cachedListContracts(),
     cachedGetClaimsOverlay(),
+    cachedGetClamoraClaims(),
   ]);
-  const data = buildIsirExportData(contracts, overlay);
+  const data = buildIsirExportData(contracts, overlay, clamoraClaims);
 
   if (data.groupsCount === 0) {
     return NextResponse.json(

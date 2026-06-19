@@ -10,6 +10,7 @@ export const TAG = {
   locations: "locations",
   tasks: "tasks",
   claimsOverlay: "claims-overlay",
+  claimsMirror: "claims-mirror",
 } as const;
 
 export type CacheTag = (typeof TAG)[keyof typeof TAG];

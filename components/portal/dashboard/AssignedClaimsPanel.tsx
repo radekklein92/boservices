@@ -59,9 +59,14 @@ export function AssignedClaimsPanel({
       ? "zatím žádné postoupené pohledávky"
       : "vč. DPH · 3 klíčové společnosti";
   const modalCaption =
-    view.contractsCount === 0 && view.manualClaimsCount === 0
+    view.contractsCount === 0 &&
+    view.clamoraContractsCount === 0 &&
+    view.manualClaimsCount === 0
       ? "zatím žádné postoupené pohledávky"
       : `vč. DPH · z ${view.contractsCount} ${contractsWord(view.contractsCount)}` +
+        (view.clamoraContractsCount > 0
+          ? ` · +${view.clamoraContractsCount} z Clamory`
+          : "") +
         (view.manualClaimsCount > 0
           ? ` · +${view.manualClaimsCount} ručních`
           : "");
