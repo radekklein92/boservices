@@ -52,6 +52,7 @@ export function PayoutManagerModal({
   const router = useRouter();
   const [showForm, setShowForm] = useState(row.payouts.length === 0);
   const [amount, setAmount] = useState("");
+  const [vs, setVs] = useState("");
   const [billing, setBilling] = useState<BillingState>({
     name: row.lastBilling?.name ?? row.name,
     ico: row.lastBilling?.ico ?? "",
@@ -98,12 +99,14 @@ export function PayoutManagerModal({
         body: JSON.stringify({
           salespersonId: row.id,
           amount: amountNum,
+          variableSymbol: vs.trim() || undefined,
           billing,
         }),
       });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || "Vytvoření selhalo.");
       setAmount("");
+      setVs("");
       setShowForm(false);
       router.refresh();
     } catch (err) {
@@ -265,6 +268,18 @@ export function PayoutManagerModal({
                   className={INPUT}
                 />
               </Field>
+
+              <div className="mt-2.5">
+                <Field label="Variabilní symbol">
+                  <input
+                    type="text"
+                    value={vs}
+                    onChange={(e) => setVs(e.target.value)}
+                    placeholder="prázdné = vygeneruje se automaticky"
+                    className={INPUT}
+                  />
+                </Field>
+              </div>
 
               <div className="mt-4 flex items-center justify-between gap-2">
                 <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-soft">

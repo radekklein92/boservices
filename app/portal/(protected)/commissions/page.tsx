@@ -1,4 +1,5 @@
-import { Info } from "lucide-react";
+import { ArrowUpRight, Info } from "lucide-react";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/portal/shell/PageHeader";
 import { isAdminRole } from "@/lib/portal/auth-guard";
@@ -144,29 +145,36 @@ export default async function CommissionsPage() {
           <div className="overflow-hidden rounded-[24px] border border-edge bg-paper">
             <ul className="divide-y divide-edge">
               {view.rows.map((r) => (
-                <li
-                  key={r.id}
-                  className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-paper-warm md:px-7"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-baseline gap-2">
-                      <span className="truncate text-[14px] font-semibold tracking-[-0.01em] text-ink-base">
-                        {r.clientName || "Bez názvu klienta"}
-                      </span>
-                      {r.number && (
-                        <span className="font-mono text-[11.5px] text-ink-soft">
-                          {r.number}
+                <li key={r.id}>
+                  <Link
+                    href={`/portal/contracts/${r.id}`}
+                    className="group flex items-center gap-4 px-5 py-4 transition-colors hover:bg-paper-warm md:px-7"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-baseline gap-2">
+                        <span className="truncate text-[14px] font-semibold tracking-[-0.01em] text-ink-base">
+                          {r.clientName || "Bez názvu klienta"}
                         </span>
-                      )}
+                        {r.number && (
+                          <span className="font-mono text-[11.5px] text-ink-soft">
+                            {r.number}
+                          </span>
+                        )}
+                      </div>
+                      <div className="truncate text-[12px] text-ink-mid">
+                        {r.label}
+                        {r.note ? ` · ${r.note}` : ""} · {formatDate(r.signedAt)}
+                      </div>
                     </div>
-                    <div className="truncate text-[12px] text-ink-mid">
-                      {r.label}
-                      {r.note ? ` · ${r.note}` : ""} · {formatDate(r.signedAt)}
-                    </div>
-                  </div>
-                  <span className="shrink-0 text-[14px] font-bold tabular-nums text-ink-base">
-                    {formatCzkRounded(r.commission)}
-                  </span>
+                    <span className="shrink-0 text-[14px] font-bold tabular-nums text-ink-base">
+                      {formatCzkRounded(r.commission)}
+                    </span>
+                    <ArrowUpRight
+                      className="h-4 w-4 shrink-0 text-ink-soft transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-ink-mid"
+                      strokeWidth={1.5}
+                      aria-hidden="true"
+                    />
+                  </Link>
                 </li>
               ))}
             </ul>

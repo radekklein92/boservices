@@ -33,6 +33,7 @@ const billingSchema = z.object({
 const createSchema = z.object({
   salespersonId: z.enum(["toman", "ebermann"]).optional(), // jen admin pro někoho jiného
   amount: z.number().finite().positive(),
+  variableSymbol: z.string().trim().max(20).optional(), // prázdné = automaticky
   billing: billingSchema,
   // Odběratel se nezadává - je vždy COMMISSION_PAYER.
 });
@@ -91,7 +92,7 @@ export async function POST(req: Request) {
     salespersonId: targetId,
     merchantName: salespersonName(targetId),
     amount,
-    variableSymbol: await getNextPayoutVs(),
+    variableSymbol: parsed.data.variableSymbol?.trim() || (await getNextPayoutVs()),
     status: "podklad",
     billing: parsed.data.billing,
     customer: COMMISSION_PAYER,
