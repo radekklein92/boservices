@@ -45,7 +45,9 @@ export async function verifyInvoice(
   }
 
   try {
-    const client = new Anthropic({ apiKey });
+    // SDK timeout 50 s < maxDuration funkce (60 s) - když AI visí, vrátíme
+    // graceful "skipped" (catch níže) dřív, než Vercel funkci tvrdě utne.
+    const client = new Anthropic({ apiKey, timeout: 50_000 });
     const res = await client.messages.create({
       model: "claude-opus-4-8",
       max_tokens: 1024,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -87,6 +87,171 @@ function formatDate(iso: string): string {
 }
 
 const STATUS_ORDER = ALL_CONTRACT_STATUSES;
+
+// Řádek seznamu jako memoizovaná komponenta - při ~180 smlouvách se při výběru/
+// filtru re-renderuje jen dotčený řádek, ne celá tabulka. Props jsou primitivní
+// a handlery stabilní (useCallback / setState setter), takže memo je účinné.
+type ContractRowProps = {
+  c: Contract;
+  isSelected: boolean;
+  isChanged: boolean;
+  isBusy: boolean;
+  lockBusy: boolean;
+  currentUserEmail: string;
+  isSuperadmin: boolean;
+  onToggle: (id: string) => void;
+  onLock: (id: string) => void;
+  onRemove: (id: string, name: string) => void;
+};
+
+const ContractRow = memo(function ContractRow({
+  c,
+  isSelected,
+  isChanged,
+  isBusy,
+  lockBusy,
+  currentUserEmail,
+  isSuperadmin,
+  onToggle,
+  onLock,
+  onRemove,
+}: ContractRowProps) {
+  const meta = CONTRACT_TYPE_META[c.type];
+  const StatusIcon = CONTRACT_STATUS_ICON[c.status];
+  // Uzamčeno pro mě = zámek existuje a nejsem mezi povolenými.
+  const lockedForMe =
+    !!c.editLock &&
+    !canEditContractLock(c.editLock, currentUserEmail, isSuperadmin);
+  // Zámek lze nastavovat jen do schválení; spravovat smí zamykatel/superadmin.
+  const lockEditable = isContractEditable(c.status);
+  const canManageLock = canManageContractLock(
+    c.editLock,
+    currentUserEmail,
+    isSuperadmin,
+  );
+  const lockByLabel = c.editLock?.byName ?? c.editLock?.by ?? "";
+  const lockTitle = !c.editLock
+    ? "Uzamknout úpravy"
+    : lockedForMe
+      ? `Uzamčeno: ${lockByLabel} - jen pro čtení`
+      : canManageLock
+        ? "Uzamčeno - spravovat nebo odemknout"
+        : `Uzamčeno: ${lockByLabel} - smíte upravovat`;
+  return (
+    <li
+      className={[
+        "group flex flex-col gap-4 px-5 py-5 transition-colors md:flex-row md:items-center md:gap-6 md:px-7 md:py-6",
+        isSelected ? "bg-paper-warm" : "hover:bg-paper-warm",
+      ].join(" ")}
+    >
+      <input
+        type="checkbox"
+        checked={isSelected}
+        onChange={() => onToggle(c.id)}
+        aria-label={`Vybrat smlouvu ${c.clientName}`}
+        className="h-4 w-4 shrink-0 cursor-pointer accent-ink-base"
+      />
+      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-edge bg-paper-warm text-ink-deep">
+        {isBundleType(c.type) ? (
+          <Package className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+        ) : (
+          <FileText className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <Link
+          href={`/portal/contracts/${c.id}`}
+          className="flex items-center gap-3"
+        >
+          <span className="truncate text-[15px] font-bold tracking-[-0.01em] text-ink-base">
+            {c.clientName}
+          </span>
+          {isChanged && (
+            <span
+              className="inline-flex h-6 shrink-0 items-center gap-1 rounded-full bg-red-600 px-2 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-paper"
+              title="Smlouva má změny proti šabloně"
+              aria-label="Smlouva má změny proti šabloně"
+            >
+              <AlertTriangle
+                className="h-3 w-3"
+                strokeWidth={2.25}
+                aria-hidden="true"
+              />
+              Změny
+            </span>
+          )}
+          <ArrowUpRight
+            className="h-3.5 w-3.5 shrink-0 text-ink-soft transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+            strokeWidth={1.5}
+            aria-hidden="true"
+          />
+        </Link>
+        <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[12.5px] text-ink-mid">
+          <span>{meta.fullName}</span>
+          {c.number && (
+            <span className="font-mono text-ink-soft">{c.number}</span>
+          )}
+          {c.locationSnapshot?.name && (
+            <span className="inline-flex items-center gap-1 text-ink-mid">
+              <MapPin className="h-3 w-3 shrink-0" strokeWidth={1.5} aria-hidden="true" />
+              {c.locationSnapshot.name}
+            </span>
+          )}
+        </div>
+      </div>
+      <Chip tone={CONTRACT_STATUS_STYLE[c.status]}>
+        <StatusIcon className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+        {CONTRACT_STATUS_LABEL[c.status]}
+      </Chip>
+      <div className="hidden flex-col items-end gap-1 md:flex">
+        <div className="text-[10.5px] font-medium uppercase tracking-[0.18em] text-ink-mid">
+          Vytvořeno
+        </div>
+        <div className="text-[12.5px] text-ink-base">
+          {formatDate(c.createdAt)}
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <Link href={`/portal/contracts/${c.id}`} className={BTN_ROW}>
+          Otevřít
+        </Link>
+        {lockEditable && (
+          <button
+            type="button"
+            onClick={canManageLock ? () => onLock(c.id) : undefined}
+            disabled={!canManageLock || lockBusy}
+            aria-label={lockTitle}
+            title={lockTitle}
+            className={[
+              "grid h-9 w-9 shrink-0 place-items-center rounded-full border transition-colors",
+              lockedForMe
+                ? "border-amber-400 bg-amber-50 text-amber-600"
+                : c.editLock
+                  ? "border-ink-base bg-ink-base text-paper"
+                  : "border-edge text-ink-mid hover:border-ink-base hover:bg-ink-base hover:text-paper",
+              canManageLock ? "" : "cursor-default",
+            ].join(" ")}
+          >
+            {c.editLock ? (
+              <Lock className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+            ) : (
+              <LockOpen className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+            )}
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => onRemove(c.id, c.clientName)}
+          disabled={isBusy}
+          aria-label="Smazat smlouvu"
+          className={BTN_ICON}
+        >
+          <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+        </button>
+      </div>
+    </li>
+  );
+});
 
 type StatusFilter = "all" | Contract["status"];
 type BulkAction =
@@ -198,14 +363,16 @@ export function ContractsList({
     selectableIds.every((id) => selected.has(id));
   const someSelected = selected.size > 0;
 
-  function toggleOne(id: string) {
+  // useCallback - stabilní reference, aby memoizovaný ContractRow nere-renderoval
+  // při změně nesouvisejícího stavu (jen functional update, žádné deps).
+  const toggleOne = useCallback((id: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
-  }
+  }, []);
 
   function toggleAll() {
     setSelected((prev) => {
@@ -224,28 +391,31 @@ export function ContractsList({
     setSelected(new Set());
   }
 
-  async function remove(id: string, name: string) {
-    if (!window.confirm(`Smazat smlouvu „${name}"? Akce je nevratná.`)) return;
-    setBusy(id);
-    try {
-      const res = await fetch(`/api/portal/contracts/${id}`, {
-        method: "DELETE",
-      });
-      const data = await res.json();
-      if (!data.ok) throw new Error(data.error);
-      setItems((prev) => prev.filter((c) => c.id !== id));
-      setSelected((prev) => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
-      router.refresh();
-    } catch (err) {
-      window.alert(err instanceof Error ? err.message : "Chyba");
-    } finally {
-      setBusy(null);
-    }
-  }
+  const remove = useCallback(
+    async (id: string, name: string) => {
+      if (!window.confirm(`Smazat smlouvu „${name}"? Akce je nevratná.`)) return;
+      setBusy(id);
+      try {
+        const res = await fetch(`/api/portal/contracts/${id}`, {
+          method: "DELETE",
+        });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error);
+        setItems((prev) => prev.filter((c) => c.id !== id));
+        setSelected((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+        router.refresh();
+      } catch (err) {
+        window.alert(err instanceof Error ? err.message : "Chyba");
+      } finally {
+        setBusy(null);
+      }
+    },
+    [router],
+  );
 
   async function bulkStatus(
     action: "submit" | "approve" | "pick-signer" | "signed" | "client-signed",
@@ -522,145 +692,21 @@ export function ContractsList({
             </div>
           )}
           <ul className="divide-y divide-edge">
-            {filtered.map((c) => {
-              const meta = CONTRACT_TYPE_META[c.type];
-              const StatusIcon = CONTRACT_STATUS_ICON[c.status];
-              const isSelected = selected.has(c.id);
-              // Uzamčeno pro mě = zámek existuje a nejsem mezi povolenými.
-              const lockedForMe =
-                !!c.editLock &&
-                !canEditContractLock(c.editLock, currentUserEmail, isSuperadmin);
-              // Zámek lze nastavovat jen do schválení; spravovat smí zamykatel/superadmin.
-              const lockEditable = isContractEditable(c.status);
-              const canManageLock = canManageContractLock(
-                c.editLock,
-                currentUserEmail,
-                isSuperadmin,
-              );
-              const lockByLabel = c.editLock?.byName ?? c.editLock?.by ?? "";
-              const lockTitle = !c.editLock
-                ? "Uzamknout úpravy"
-                : lockedForMe
-                  ? `Uzamčeno: ${lockByLabel} - jen pro čtení`
-                  : canManageLock
-                    ? "Uzamčeno - spravovat nebo odemknout"
-                    : `Uzamčeno: ${lockByLabel} - smíte upravovat`;
-              return (
-                <li
-                  key={c.id}
-                  className={[
-                    "group flex flex-col gap-4 px-5 py-5 transition-colors md:flex-row md:items-center md:gap-6 md:px-7 md:py-6",
-                    isSelected ? "bg-paper-warm" : "hover:bg-paper-warm",
-                  ].join(" ")}
-                >
-                  <input
-                    type="checkbox"
-                    checked={isSelected}
-                    onChange={() => toggleOne(c.id)}
-                    aria-label={`Vybrat smlouvu ${c.clientName}`}
-                    className="h-4 w-4 shrink-0 cursor-pointer accent-ink-base"
-                  />
-                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-edge bg-paper-warm text-ink-deep">
-                    {isBundleType(c.type) ? (
-                      <Package className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
-                    ) : (
-                      <FileText className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <Link
-                      href={`/portal/contracts/${c.id}`}
-                      className="flex items-center gap-3"
-                    >
-                      <span className="truncate text-[15px] font-bold tracking-[-0.01em] text-ink-base">
-                        {c.clientName}
-                      </span>
-                      {changedIds.has(c.id) && (
-                        <span
-                          className="inline-flex h-6 shrink-0 items-center gap-1 rounded-full bg-red-600 px-2 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-paper"
-                          title="Smlouva má změny proti šabloně"
-                          aria-label="Smlouva má změny proti šabloně"
-                        >
-                          <AlertTriangle
-                            className="h-3 w-3"
-                            strokeWidth={2.25}
-                            aria-hidden="true"
-                          />
-                          Změny
-                        </span>
-                      )}
-                      <ArrowUpRight
-                        className="h-3.5 w-3.5 shrink-0 text-ink-soft transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
-                        strokeWidth={1.5}
-                        aria-hidden="true"
-                      />
-                    </Link>
-                    <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[12.5px] text-ink-mid">
-                      <span>{meta.fullName}</span>
-                      {c.number && (
-                        <span className="font-mono text-ink-soft">{c.number}</span>
-                      )}
-                      {c.locationSnapshot?.name && (
-                        <span className="inline-flex items-center gap-1 text-ink-mid">
-                          <MapPin className="h-3 w-3 shrink-0" strokeWidth={1.5} aria-hidden="true" />
-                          {c.locationSnapshot.name}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <Chip tone={CONTRACT_STATUS_STYLE[c.status]}>
-                    <StatusIcon className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
-                    {CONTRACT_STATUS_LABEL[c.status]}
-                  </Chip>
-                  <div className="hidden flex-col items-end gap-1 md:flex">
-                    <div className="text-[10.5px] font-medium uppercase tracking-[0.18em] text-ink-mid">
-                      Vytvořeno
-                    </div>
-                    <div className="text-[12.5px] text-ink-base">
-                      {formatDate(c.createdAt)}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Link href={`/portal/contracts/${c.id}`} className={BTN_ROW}>
-                      Otevřít
-                    </Link>
-                    {lockEditable && (
-                      <button
-                        type="button"
-                        onClick={canManageLock ? () => setLockForId(c.id) : undefined}
-                        disabled={!canManageLock || lockBusy}
-                        aria-label={lockTitle}
-                        title={lockTitle}
-                        className={[
-                          "grid h-9 w-9 shrink-0 place-items-center rounded-full border transition-colors",
-                          lockedForMe
-                            ? "border-amber-400 bg-amber-50 text-amber-600"
-                            : c.editLock
-                              ? "border-ink-base bg-ink-base text-paper"
-                              : "border-edge text-ink-mid hover:border-ink-base hover:bg-ink-base hover:text-paper",
-                          canManageLock ? "" : "cursor-default",
-                        ].join(" ")}
-                      >
-                        {c.editLock ? (
-                          <Lock className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
-                        ) : (
-                          <LockOpen className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
-                        )}
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => remove(c.id, c.clientName)}
-                      disabled={busy === c.id}
-                      aria-label="Smazat smlouvu"
-                      className={BTN_ICON}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
-                    </button>
-                  </div>
-                </li>
-              );
-            })}
+            {filtered.map((c) => (
+              <ContractRow
+                key={c.id}
+                c={c}
+                isSelected={selected.has(c.id)}
+                isChanged={changedIds.has(c.id)}
+                isBusy={busy === c.id}
+                lockBusy={lockBusy}
+                currentUserEmail={currentUserEmail}
+                isSuperadmin={isSuperadmin}
+                onToggle={toggleOne}
+                onLock={setLockForId}
+                onRemove={remove}
+              />
+            ))}
             {filtered.length === 0 && (
               <li className="px-7 py-12 text-center text-[13px] text-ink-mid">
                 Žádné smlouvy v tomto stavu.

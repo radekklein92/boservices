@@ -231,41 +231,30 @@ export function ContractDetailClient({
   // se „{{token}} vs hodnota" hlásilo jako změna i bez úprav. Naivní
   // templateSnapshot !== html dřív falešně hlásilo „Pozor, změny". Bundle (na
   // tokenech) porovnává surově. Memoizováno - htmlDiff není triviální.
-  const hasTemplateChanges = useMemo(
-    () =>
-      isBundle
-        ? bundleSections.some(
-            (s) => !!s.templateSnapshot && htmlDiff(s.templateSnapshot, s.html).hasChanges,
-          )
-        : !!contract.templateSnapshot &&
-          htmlDiff(
-            bakeSnapshotForDiff(contract.templateSnapshot, html, contract.variables),
-            html,
-          ).hasChanges,
-    [isBundle, bundleSections, contract.templateSnapshot, contract.variables, html],
-  );
-
-  // Počet úprav oproti šabloně - pro kontrolní seznam před schválením
-  // (Odstoupení/Postoupení). Stejná logika jako hasTemplateChanges, jen suma.
-  const templateChangeCount = useMemo(
-    () =>
-      isBundle
-        ? bundleSections.reduce(
-            (sum, s) =>
-              sum +
-              (s.templateSnapshot
-                ? htmlDiff(s.templateSnapshot, s.html).changeCount
-                : 0),
-            0,
-          )
-        : contract.templateSnapshot
-          ? htmlDiff(
-              bakeSnapshotForDiff(contract.templateSnapshot, html, contract.variables),
-              html,
-            ).changeCount
-          : 0,
-    [isBundle, bundleSections, contract.templateSnapshot, contract.variables, html],
-  );
+  // hasChanges i changeCount z JEDNOHO průchodu - htmlDiff (tokenizace + regex)
+  // není levný a dřív se volal 2× nad stejnými daty (zvlášť pro .hasChanges
+  // a zvlášť pro .changeCount). U bundle s mnoha sekcemi to byl dvojnásobek práce.
+  const templateDiff = useMemo(() => {
+    if (isBundle) {
+      let hasChanges = false;
+      let changeCount = 0;
+      for (const s of bundleSections) {
+        if (!s.templateSnapshot) continue;
+        const d = htmlDiff(s.templateSnapshot, s.html);
+        if (d.hasChanges) hasChanges = true;
+        changeCount += d.changeCount;
+      }
+      return { hasChanges, changeCount };
+    }
+    if (!contract.templateSnapshot) return { hasChanges: false, changeCount: 0 };
+    const d = htmlDiff(
+      bakeSnapshotForDiff(contract.templateSnapshot, html, contract.variables),
+      html,
+    );
+    return { hasChanges: d.hasChanges, changeCount: d.changeCount };
+  }, [isBundle, bundleSections, contract.templateSnapshot, contract.variables, html]);
+  const hasTemplateChanges = templateDiff.hasChanges;
+  const templateChangeCount = templateDiff.changeCount;
 
   // Jméno toho, kdo poslal smlouvu z konceptu - pro timeline. Preferuje uložené
   // jméno, jinak dohledá v seznamu uživatelů přes e-mail, fallback e-mail.
