@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   AlertTriangle,
+  Ban,
   Check,
   CheckCircle2,
   Download,
@@ -14,6 +15,7 @@ import {
   LockOpen,
   Pencil,
   RefreshCw,
+  RotateCcw,
   Save,
   Trash2,
   X,
@@ -79,6 +81,7 @@ import {
 import { ContractStatusStepper } from "./ContractStatusStepper";
 import { ContractCurrentActionPanel } from "./ContractCurrentActionPanel";
 import { ContractApprovalPanel } from "./ContractApprovalPanel";
+import { CancelContractModal } from "./CancelContractModal";
 import { BackLink } from "@/components/portal/ui/BackLink";
 
 import { TemplateMatchBadge } from "./TemplateMatchBadge";
@@ -185,6 +188,9 @@ export function ContractDetailClient({
   // Zámek úprav konceptu (modal pro výběr povolených uživatelů + probíhající uložení).
   const [lockModalOpen, setLockModalOpen] = useState(false);
   const [lockBusy, setLockBusy] = useState(false);
+  // Zrušení smlouvy (klient odstoupil) / obnovení - potvrzovací modal. Jen admin.
+  const [cancelMode, setCancelMode] = useState<null | "cancel" | "restore">(null);
+  const [cancelBusy, setCancelBusy] = useState(false);
   // Editor: zobrazit finální hodnoty (default) nebo placeholdery ({{tokeny}}).
   const [placeholderView, setPlaceholderView] = useState(false);
   const editorRef = useRef<Editor | null>(null);
@@ -790,6 +796,31 @@ export function ContractDetailClient({
     }
   }
 
+  // Zrušení smlouvy (klient odstoupil) / obnovení. POST/DELETE /cancel, pak
+  // znovu načteme smlouvu (endpoint vrací jen {ok}) a obnovíme server data.
+  async function cancelOrRestore(mode: "cancel" | "restore", reason?: string) {
+    setCancelBusy(true);
+    try {
+      const res = await fetch(`/api/portal/contracts/${contract.id}/cancel`, {
+        method: mode === "cancel" ? "POST" : "DELETE",
+        headers: reason ? { "Content-Type": "application/json" } : undefined,
+        body: reason ? JSON.stringify({ reason }) : undefined,
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || "Chyba");
+      const r = await fetch(`/api/portal/contracts/${contract.id}`);
+      const j = await r.json();
+      if (j.ok) setContract(j.contract as Contract);
+      setCancelMode(null);
+      notify("ok", mode === "cancel" ? "Smlouva označena jako zrušená." : "Smlouva obnovena.");
+      router.refresh();
+    } catch (err) {
+      notify("error", err instanceof Error ? err.message : "Chyba");
+    } finally {
+      setCancelBusy(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-4">
@@ -893,6 +924,36 @@ export function ContractDetailClient({
                   <LockOpen className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
                 </button>
               ))}
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={() =>
+                  setCancelMode(contract.status === "zrusena" ? "restore" : "cancel")
+                }
+                aria-label={
+                  contract.status === "zrusena"
+                    ? "Obnovit zrušenou smlouvu"
+                    : "Označit smlouvu jako zrušenou"
+                }
+                title={
+                  contract.status === "zrusena"
+                    ? "Obnovit zrušenou smlouvu"
+                    : "Zrušit smlouvu - pro případ, že klient od smlouvy odstoupil"
+                }
+                className={[
+                  "grid h-10 w-10 place-items-center rounded-full border transition-colors",
+                  contract.status === "zrusena"
+                    ? "border-red-300 bg-red-50 text-red-600 hover:bg-red-100"
+                    : "border-edge text-ink-mid hover:border-red-300 hover:bg-red-50 hover:text-red-600",
+                ].join(" ")}
+              >
+                {contract.status === "zrusena" ? (
+                  <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+                ) : (
+                  <Ban className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+                )}
+              </button>
+            )}
             <button
               type="button"
               onClick={removeContract}
@@ -1552,6 +1613,16 @@ export function ContractDetailClient({
           onConfirm={(allowed) => setLock(true, allowed)}
           onUnlock={() => setLock(false, [])}
           onClose={() => setLockModalOpen(false)}
+        />
+      )}
+
+      {cancelMode && (
+        <CancelContractModal
+          mode={cancelMode}
+          clientName={contract.clientName}
+          pending={cancelBusy}
+          onClose={() => setCancelMode(null)}
+          onConfirm={(reason) => cancelOrRestore(cancelMode, reason)}
         />
       )}
     </div>

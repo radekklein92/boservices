@@ -12,8 +12,6 @@ import {
   Stamp,
   Send,
   ShieldCheck,
-  Ban,
-  RotateCcw,
 } from "lucide-react";
 import dynamicImport from "next/dynamic";
 import { upload } from "@vercel/blob/client";
@@ -48,19 +46,6 @@ const ResponsibilityModal = dynamicImport(
 );
 
 type Notify = (kind: "ok" | "error", msg: string) => void;
-
-// Krátký formát data pro popisek zrušení („18. června 2026").
-function formatWhen(iso: string): string {
-  try {
-    return new Date(iso).toLocaleDateString("cs-CZ", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
-  } catch {
-    return iso;
-  }
-}
 
 // Bezpečný název souboru pro cestu v Blob storu (bez diakritiky a speciálních znaků).
 function scanSlug(name: string): string {
@@ -305,32 +290,6 @@ export function ContractCurrentActionPanel({
     await callMilestone("DELETE", "scan", "Sken odebrán.");
   }
 
-  // Zrušení smlouvy (klient odstoupil) - terminální stav. Volitelně se v jednom
-  // dialogu zeptáme i na důvod (prázdné = bez důvodu, Storno dialogu = nerušit).
-  async function cancel() {
-    const reason = window.prompt(
-      "Označit smlouvu jako zrušenou (klient odstoupil)?\n\nPřestane se počítat do provizí i do čísel na dashboardu. Volitelně uveďte důvod:",
-      "",
-    );
-    if (reason === null) return;
-    await callMilestone(
-      "POST",
-      "cancel",
-      "Smlouva označena jako zrušená.",
-      reason.trim() ? { reason: reason.trim() } : undefined,
-    );
-  }
-
-  async function uncancel() {
-    if (
-      !window.confirm(
-        "Obnovit smlouvu? Vrátí se do stavu před zrušením a začne se zase počítat do provizí i na dashboardu.",
-      )
-    )
-      return;
-    await callMilestone("DELETE", "cancel", "Smlouva obnovena.");
-  }
-
   const status = contract.status;
   const flow = getStatusFlowForType(contract.type);
   const idx = flow.indexOf(status);
@@ -416,24 +375,10 @@ export function ContractCurrentActionPanel({
           headline="Smlouva je zrušená"
           description={
             "Klient od smlouvy odstoupil. Nezapočítává se do provizí ani do čísel na dashboardu." +
-            (contract.cancelledByName || contract.cancelledBy
-              ? ` Zrušil(a): ${contract.cancelledByName ?? contract.cancelledBy}${
-                  contract.cancelledAt ? ` (${formatWhen(contract.cancelledAt)})` : ""
-                }.`
-              : "") +
-            (contract.cancelReason ? ` Důvod: ${contract.cancelReason}` : "")
+            (contract.cancelReason ? ` Důvod: ${contract.cancelReason}` : "") +
+            (isAdmin ? " Obnovit ji můžeš ikonou nahoře vedle koše." : "")
           }
-          primary={
-            isAdmin ? (
-              <PrimaryButton
-                onClick={uncancel}
-                pending={pending === "DELETE:cancel"}
-                Icon={RotateCcw}
-              >
-                Obnovit smlouvu
-              </PrimaryButton>
-            ) : undefined
-          }
+          primary={null}
         />
       )}
 
@@ -705,32 +650,6 @@ export function ContractCurrentActionPanel({
             ) : null
           }
         />
-      )}
-
-      {/* Správa smlouvy - zrušení (klient odstoupil). Jen admin, mimo lineární
-          flow. Dostupné v jakémkoli stavu kromě už zrušené. */}
-      {status !== "zrusena" && isAdmin && (
-        <div className="mt-2 flex flex-col gap-3 border-t border-edge pt-5 md:flex-row md:items-center md:justify-between">
-          <div className="max-w-[480px]">
-            <div className="text-[13px] font-semibold text-ink-base">
-              Správa smlouvy
-            </div>
-            <p className="mt-1 text-[12.5px] leading-relaxed text-ink-mid">
-              Pokud klient od smlouvy odstoupil, označ ji jako zrušenou. Přestane
-              se počítat do provizí i do čísel na dashboardu. Lze kdykoli vrátit
-              zpět.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={cancel}
-            disabled={pending === "POST:cancel"}
-            className="inline-flex h-11 shrink-0 items-center gap-2 rounded-full border border-red-200 bg-red-50 px-5 text-[13px] font-semibold text-red-600 transition-colors hover:border-red-300 hover:bg-red-100 disabled:opacity-60"
-          >
-            <Ban className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
-            {pending === "POST:cancel" ? "Pracuji…" : "Označit jako zrušenou"}
-          </button>
-        </div>
       )}
 
       {pickerOpen && (
