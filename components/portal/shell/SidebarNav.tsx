@@ -31,8 +31,15 @@ const provoz: Item[] = [
   { href: "/portal/clients", label: "Klienti", Icon: Building2 },
   { href: "/portal/locations", label: "Lokality", Icon: MapPin },
   { href: "/portal/contracts", label: "Smlouvy", Icon: FileText },
-  { href: "/portal/commissions", label: "Provize", Icon: HandCoins },
 ];
+
+// Provize: admini ji vidí v sekci Administrace, obchodníci (ne-admini) ve
+// Franšízingu; ostatní staff vůbec.
+const commissionsItem: Item = {
+  href: "/portal/commissions",
+  label: "Provize",
+  Icon: HandCoins,
+};
 
 const admin: Item[] = [
   { href: "/portal/templates", label: "Šablony smluv", Icon: FilePenLine },
@@ -42,9 +49,11 @@ const admin: Item[] = [
 
 export function SidebarNav({
   isAdmin,
+  canSeeCommissions = false,
   tasksBadge = 0,
 }: {
   isAdmin: boolean;
+  canSeeCommissions?: boolean;
   tasksBadge?: number;
 }) {
   const pathname = usePathname() ?? "/portal";
@@ -70,10 +79,21 @@ export function SidebarNav({
             active={isActive(pathname, item.href)}
           />
         ))}
+        {/* Obchodníci (ne-admini) vidí Provize tady; admini až v Administraci. */}
+        {!isAdmin && canSeeCommissions && (
+          <NavItem
+            {...commissionsItem}
+            active={isActive(pathname, commissionsItem.href)}
+          />
+        )}
       </NavSection>
 
       {isAdmin && (
         <NavSection label="Administrace">
+          <NavItem
+            {...commissionsItem}
+            active={isActive(pathname, commissionsItem.href)}
+          />
           {admin.map((item) => (
             <NavItem
               key={item.href}

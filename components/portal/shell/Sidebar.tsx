@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Session } from "next-auth";
 import { Logo } from "@/components/brand/Logo";
 import { isAdminRole } from "@/lib/portal/auth-guard";
+import { isSalespersonEmail } from "@/lib/portal/commissions";
 import { SidebarNav } from "./SidebarNav";
 import { UserMenu } from "./UserMenu";
 
@@ -13,6 +14,8 @@ export function Sidebar({
   tasksBadge?: number;
 }) {
   const isAdmin = isAdminRole(session.user?.role);
+  // Provize vidí admini + sami obchodníci (Toman/Ebermann dle e-mailu).
+  const canSeeCommissions = isAdmin || isSalespersonEmail(session.user?.email);
 
   return (
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-edge bg-paper md:flex">
@@ -25,7 +28,11 @@ export function Sidebar({
         </span>
       </div>
 
-      <SidebarNav isAdmin={isAdmin} tasksBadge={tasksBadge} />
+      <SidebarNav
+        isAdmin={isAdmin}
+        canSeeCommissions={canSeeCommissions}
+        tasksBadge={tasksBadge}
+      />
 
       <div className="border-t border-edge p-3">
         <UserMenu session={session} />

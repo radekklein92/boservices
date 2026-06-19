@@ -266,11 +266,6 @@ export interface Contract {
     allowed: string[];
     at: string;
   };
-  // Obchodník/ci, kteří smlouvu dojednali (provize). Pole id ze SALESPEOPLE
-  // (lib/portal/commissions.ts), max 2; prázdné/undefined = nepřiřazeno.
-  // Relevantní jen pro franchise a claim-bundle. Přiřazuje se i u podepsaných
-  // smluv (vlastní endpoint, mimo isContractEditable). Přežívá migrateContract.
-  salespeople?: string[];
   createdBy: string;
   createdAt: string;
   updatedAt: string;

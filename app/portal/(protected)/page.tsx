@@ -5,10 +5,8 @@ import {
   Coins,
   FileSignature,
   PartyPopper,
-  Plus,
   Sparkle,
   Star,
-  Users,
   type LucideIcon,
 } from "lucide-react";
 import { PageHeader } from "@/components/portal/shell/PageHeader";
@@ -27,7 +25,7 @@ import {
   KEY_DASHBOARD_COMPANIES,
 } from "@/lib/portal/assigned-claims";
 import { DEBTOR_PRESETS, EXTRA_CLAIM_COMPANIES } from "@/lib/portal/debtor-presets";
-import { buildCommissionsView } from "@/lib/portal/commissions";
+import { buildCommissionsView, isSalespersonEmail } from "@/lib/portal/commissions";
 import { FireworksCelebration } from "@/components/portal/dashboard/FireworksCelebration";
 import { AssignedClaimsPanel } from "@/components/portal/dashboard/AssignedClaimsPanel";
 import { SalespersonCard } from "@/components/portal/commissions/SalespersonCard";
@@ -85,6 +83,9 @@ export default async function PortalDashboardPage({
     searchParams,
   ]);
   const isAdmin = isAdminRole(session?.user?.role);
+  // Provize vidí admini + sami obchodníci (Toman/Ebermann dle e-mailu).
+  const canSeeCommissions =
+    isAdmin || isSalespersonEmail(session?.user?.email);
 
   const signedByClientCount = contracts.filter(
     (c) => !!c.clientSignedAt,
@@ -196,44 +197,26 @@ export default async function PortalDashboardPage({
         />
       </section>
 
-      {/* Provizní výsledky obchodníků - vidí všichni přihlášení. */}
-      <section>
-        <div className="mb-5 flex items-center justify-between gap-3">
-          <SectionLabel>Provizní výsledky</SectionLabel>
-          <Link
-            href="/portal/commissions"
-            className="group inline-flex items-center gap-1.5 text-[12.5px] font-medium text-ink-mid transition-colors hover:text-ink-base"
-          >
-            Detail a přiřazení
-            <ArrowUpRight
-              className="h-3.5 w-3.5 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
-              strokeWidth={1.5}
-            />
-          </Link>
-        </div>
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          {commissionsView.bySalesperson.map((s) => (
-            <SalespersonCard key={s.id} data={s} />
-          ))}
-        </div>
-      </section>
-
-      {isAdmin && (
+      {/* Provizní výsledky obchodníků - jen admini + obchodníci (Toman/Ebermann). */}
+      {canSeeCommissions && (
         <section>
-          <SectionLabel>Co můžete udělat</SectionLabel>
-          <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
-            <ActionCard
-              href="/portal/users"
-              title="Pozvat uživatele"
-              body="Přidáte e-mail do allowlistu a Resend pošle pozvánku s odkazem pro nastavení hesla."
-              Icon={Plus}
-            />
-            <ActionCard
-              href="/portal/users"
-              title="Správa uživatelů"
-              body="Reset hesla, změna role, odebrání přístupu - vše v jednom přehledu."
-              Icon={Users}
-            />
+          <div className="mb-5 flex items-center justify-between gap-3">
+            <SectionLabel>Provizní výsledky</SectionLabel>
+            <Link
+              href="/portal/commissions"
+              className="group inline-flex items-center gap-1.5 text-[12.5px] font-medium text-ink-mid transition-colors hover:text-ink-base"
+            >
+              Detail a výběry
+              <ArrowUpRight
+                className="h-3.5 w-3.5 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+                strokeWidth={1.5}
+              />
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+            {commissionsView.bySalesperson.map((s) => (
+              <SalespersonCard key={s.id} data={s} />
+            ))}
           </div>
         </section>
       )}
@@ -726,39 +709,3 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-function ActionCard({
-  href,
-  title,
-  body,
-  Icon,
-}: {
-  href: string;
-  title: string;
-  body: string;
-  Icon: LucideIcon;
-}) {
-  return (
-    <Link
-      href={href}
-      className="group flex items-start gap-5 rounded-[24px] border border-edge bg-paper p-6 transition-colors hover:border-ink-base"
-    >
-      <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-edge-warm text-ink-base transition-colors group-hover:bg-ink-base group-hover:text-paper">
-        <Icon className="h-5 w-5" strokeWidth={1.5} aria-hidden="true" />
-      </div>
-      <div className="flex-1">
-        <div className="flex items-baseline justify-between gap-2">
-          <h3 className="text-[1.05rem] font-bold tracking-[-0.02em] text-ink-base">
-            {title}
-          </h3>
-          <ArrowUpRight
-            className="h-4 w-4 text-ink-mid transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
-            strokeWidth={1.5}
-          />
-        </div>
-        <p className="mt-1.5 text-[0.92rem] leading-relaxed text-ink-deep">
-          {body}
-        </p>
-      </div>
-    </Link>
-  );
-}

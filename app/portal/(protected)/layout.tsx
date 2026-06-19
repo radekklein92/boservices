@@ -5,6 +5,7 @@ import { MobileTopBar } from "@/components/portal/shell/MobileTopBar";
 import { UserMenu } from "@/components/portal/shell/UserMenu";
 import { getSession } from "@/lib/portal/get-session";
 import { isAdminRole } from "@/lib/portal/auth-guard";
+import { isSalespersonEmail } from "@/lib/portal/commissions";
 import { cachedListTasks } from "@/lib/portal/cached-db";
 import { getSeenMap } from "@/lib/portal/tasks-db";
 import { unseenCount } from "@/lib/portal/tasks-shared";
@@ -26,6 +27,7 @@ export default async function ProtectedLayout({
   );
 
   const isAdmin = isAdminRole(session.user?.role);
+  const canSeeCommissions = isAdmin || isSalespersonEmail(session.user?.email);
 
   const [tasks, seenMap] = await Promise.all([
     cachedListTasks(),
@@ -38,6 +40,7 @@ export default async function ProtectedLayout({
       <Sidebar session={session} tasksBadge={tasksBadge} />
       <MobileTopBar
         isAdmin={isAdmin}
+        canSeeCommissions={canSeeCommissions}
         tasksBadge={tasksBadge}
         userMenu={<UserMenu session={session} />}
       />
