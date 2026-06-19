@@ -107,6 +107,7 @@ export function forEachContractClaimApplication(
 ): void {
   for (const c of contracts) {
     if (c.type !== "claim-bundle") continue;
+    if (c.cancelledAt) continue; // zrušená smlouva se nepočítá nikam
     if (!(c.clientSignedAt || c.signedAt || c.scanUploadedAt)) continue;
     const debtor = c.variables?.debtorName?.trim() || UNNAMED_DEBTOR;
     const claims = c.claims ?? [];
@@ -193,6 +194,7 @@ export function buildAssignedClaimsView(
   contractsCount = contracts.filter(
     (c) =>
       c.type === "claim-bundle" &&
+      !c.cancelledAt &&
       !!(c.clientSignedAt || c.signedAt || c.scanUploadedAt),
   ).length;
   forEachContractClaimApplication(contracts, overlay, (app) => {
@@ -375,6 +377,7 @@ export function buildContractClaimRefs(
   const out: ContractClaimRef[] = [];
   for (const c of contracts) {
     if (c.type !== "claim-bundle") continue;
+    if (c.cancelledAt) continue; // zrušená smlouva se nepočítá nikam
     if (!(c.clientSignedAt || c.signedAt || c.scanUploadedAt)) continue;
     const debtor = c.variables?.debtorName?.trim() || UNNAMED_DEBTOR;
     const claims = c.claims ?? [];

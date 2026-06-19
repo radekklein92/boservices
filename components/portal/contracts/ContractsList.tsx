@@ -161,6 +161,7 @@ export function ContractsList({
       "podepsano-bos": 0,
       "podepsano-klientem": 0,
       archivovano: 0,
+      zrusena: 0,
     };
     for (const c of items) m[c.status]++;
     return m;

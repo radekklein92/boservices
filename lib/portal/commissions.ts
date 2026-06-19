@@ -47,6 +47,7 @@ function contractCommission(
   c: Contract,
   accompaniedLocations: ReadonlySet<string>,
 ): number {
+  if (c.cancelledAt) return 0; // zrušená smlouva provizi nezakládá
   if (!c.clientSignedAt) return 0;
   const isNew = c.clientSignedAt >= NEW_RULES_FROM;
   if (c.type === "franchise") {
@@ -59,6 +60,26 @@ function contractCommission(
     return isNew ? 0 : CONTRACT_COMMISSION_CZK;
   }
   return 0;
+}
+
+// Rozpad provize z pohledávek per smlouva (kvůli přesné poznámce v rozpisu).
+interface ClaimAccum {
+  total: number;
+  debtorFee: number; // 0,1 % za dlužníka (klíčovou firmu)
+  guaranteeFee: number; // 0,05 % za každé klíčové ručení
+  guaranteeCount: number; // počet klíčových potvrzených ručení
+}
+
+// Lidská poznámka k řádku pohledávky - rozliší dlužníka (0,1 %) a ručení
+// (0,05 %), aby bylo z rozpisu jasné, že se sazby liší. Volá se jen u řádků,
+// kde provize > 0 (tj. aspoň jedna část je nenulová).
+function claimNote(acc: ClaimAccum): string {
+  const parts: string[] = [];
+  if (acc.debtorFee > 0) parts.push("0,1 % za dlužníka");
+  if (acc.guaranteeCount > 0) {
+    parts.push(`0,05 % za ručení (${acc.guaranteeCount}x)`);
+  }
+  return parts.join(" + ");
 }
 
 export function salespersonName(id: string): string {
@@ -96,12 +117,13 @@ export interface SalespersonCommission {
 // Jeden řádek rozpisu - co konkrétně provizi tvoří (celá částka před 50:50).
 export interface CommissionRow {
   id: string;
+  kind: "contract" | "claim"; // smluvní provize vs. postoupení pohledávek (pro filtr)
   label: string; // "Franšíza" | "Spolupráce" | "Provozování" | "Postoupení pohledávek"
   clientName: string;
   number?: string;
   signedAt?: string;
   commission: number; // provize CELÉ smlouvy (před dělením 50:50)
-  note?: string; // "samostatná franšíza" | "s doprovodnou smlouvou" | "0,1 % z pohledávek"
+  note?: string; // "samostatná franšíza" | "0,1 % za dlužníka + 0,05 % za ručení (2x)" ...
 }
 
 export interface CommissionsView {
@@ -122,18 +144,34 @@ export function buildCommissionsView(
   // iterátor zaručí stejný gate / claimKey / dedup jako dlaždice.
   // Provize z pohledávek per smlouva: dlužník (klíčová firma) 0,1 %, každé
   // potvrzené ručení klíčovou firmou 0,05 %.
-  const claimCommissionByContract = new Map<string, number>();
+  // Per smlouva sledujeme rozpad: provize za dlužníka (0,1 %) a provize za
+  // ručení (0,05 % za každé klíčové potvrzené ručení) + počet ručení - kvůli
+  // přesné poznámce v rozpisu.
+  const claimCommissionByContract = new Map<string, ClaimAccum>();
   forEachContractClaimApplication(contracts, overlay, (app) => {
-    let comm = 0;
-    if (isKeyCompany(app.debtor)) comm += app.amount * CLAIM_COMMISSION_RATE;
+    let debtorFee = 0;
+    let guaranteeFee = 0;
+    let guaranteeCount = 0;
+    if (isKeyCompany(app.debtor)) debtorFee += app.amount * CLAIM_COMMISSION_RATE;
     for (const g of app.guarantors) {
-      if (isKeyCompany(g)) comm += app.amount * CLAIM_GUARANTEE_RATE;
+      if (isKeyCompany(g)) {
+        guaranteeFee += app.amount * CLAIM_GUARANTEE_RATE;
+        guaranteeCount += 1;
+      }
     }
-    if (comm > 0) {
-      claimCommissionByContract.set(
-        app.contractId,
-        (claimCommissionByContract.get(app.contractId) ?? 0) + comm,
-      );
+    if (debtorFee + guaranteeFee > 0) {
+      const prev = claimCommissionByContract.get(app.contractId) ?? {
+        total: 0,
+        debtorFee: 0,
+        guaranteeFee: 0,
+        guaranteeCount: 0,
+      };
+      claimCommissionByContract.set(app.contractId, {
+        total: prev.total + debtorFee + guaranteeFee,
+        debtorFee: prev.debtorFee + debtorFee,
+        guaranteeFee: prev.guaranteeFee + guaranteeFee,
+        guaranteeCount: prev.guaranteeCount + guaranteeCount,
+      });
     }
   });
 
@@ -143,6 +181,7 @@ export function buildCommissionsView(
     if (
       (c.type === "cooperation" || c.type === "operation") &&
       c.clientSignedAt &&
+      !c.cancelledAt &&
       c.locationId
     ) {
       accompaniedLocations.add(c.locationId);
@@ -156,17 +195,19 @@ export function buildCommissionsView(
 
   for (const c of contracts) {
     if (c.type === "claim-bundle") {
-      const fee = claimCommissionByContract.get(c.id) ?? 0; // dlužník 0,1 % + ručení 0,05 %
+      const acc = claimCommissionByContract.get(c.id); // dlužník 0,1 % + ručení 0,05 %
+      const fee = acc?.total ?? 0;
       claimTotal += fee;
-      if (fee > 0) {
+      if (acc && fee > 0) {
         rows.push({
           id: c.id,
+          kind: "claim",
           label: "Postoupení pohledávek",
           clientName: c.clientName,
           number: c.number,
           signedAt: c.clientSignedAt ?? c.signedAt ?? c.scanUploadedAt,
           commission: fee,
-          note: "0,1 % z pohledávek",
+          note: claimNote(acc),
         });
       }
       continue;
@@ -190,6 +231,7 @@ export function buildCommissionsView(
           : undefined;
       rows.push({
         id: c.id,
+        kind: "contract",
         label,
         clientName: c.clientName,
         number: c.number,

@@ -18,6 +18,11 @@ import type { ClaimItem } from "./claims";
 // isApprovalGated). Status je computed z timestampů jednotlivých milestones
 // (viz computeContractStatus). Každý milestone má samostatný POST/DELETE
 // endpoint pro rollback (smazání timestampu vrátí smlouvu o status zpět).
+//
+// „zrusena" je TERMINÁLNÍ override (klient od smlouvy odstoupil). Není to krok
+// ve flow - nastavuje se polem `cancelledAt` (viz cancel endpoint) a má přednost
+// před computed statusem. Zrušená smlouva se nepočítá nikam (dashboard, provize,
+// pohledávky, ISIR) a po vymazání `cancelledAt` se status vrátí dle timestampů.
 export type ContractStatus =
   | "koncept"
   | "ke-schvaleni"
@@ -25,7 +30,8 @@ export type ContractStatus =
   | "k-podpisu"
   | "podepsano-bos"
   | "podepsano-klientem"
-  | "archivovano";
+  | "archivovano"
+  | "zrusena";
 
 // Standardní flow (BOS podepisuje první, pak klient) - franšíza, provozování,
 // spolupráce.
@@ -73,8 +79,12 @@ export const APPROVAL_CONTRACT_STATUSES: ContractStatus[] = [
 ];
 
 // Sjednocené pořadí všech statusů (nadmnožina všech flows) - pro UI chips,
-// labely a statusOrder. APPROVAL flow je nejdelší a obsahuje všechny.
-export const ALL_CONTRACT_STATUSES: ContractStatus[] = APPROVAL_CONTRACT_STATUSES;
+// labely a statusOrder. APPROVAL flow je nejdelší a obsahuje všechny; „zrusena"
+// je terminální override mimo flow, řadí se na konec (nejvyšší statusOrder).
+export const ALL_CONTRACT_STATUSES: ContractStatus[] = [
+  ...APPROVAL_CONTRACT_STATUSES,
+  "zrusena",
+];
 
 export function getStatusFlowForType(type: ContractType): ContractStatus[] {
   if (type === "withdrawal" || type === "assignment-notice") {
@@ -101,6 +111,7 @@ export const CONTRACT_STATUS_LABEL: Record<ContractStatus, string> = {
   "podepsano-bos": "Podepsáno BOS",
   "podepsano-klientem": "Podepsáno klientem",
   archivovano: "Archivováno",
+  zrusena: "Zrušená",
 };
 
 // Chip tóny stavu smlouvy (border+bg+text). Barvy jsou rozprostřené po celém
@@ -114,6 +125,7 @@ export const CONTRACT_STATUS_STYLE: Record<ContractStatus, string> = {
   "podepsano-bos": "border-fuchsia-300 bg-fuchsia-50 text-fuchsia-700",
   "podepsano-klientem": "border-rose-300 bg-rose-50 text-rose-700",
   archivovano: "border-emerald-300 bg-emerald-50 text-emerald-700",
+  zrusena: "border-red-200 bg-red-50 text-red-600",
 };
 
 export function statusOrder(status: ContractStatus): number {
@@ -122,7 +134,9 @@ export function statusOrder(status: ContractStatus): number {
 
 // Obsah smlouvy lze upravovat jen do schválení - od stavu „schváleno" dál
 // (k-podpisu, podepsáno…, archivováno) je smlouva uzamčená proti editaci.
+// Zrušená smlouva je vždy uzamčená (terminální stav).
 export function isContractEditable(status: ContractStatus): boolean {
+  if (status === "zrusena") return false;
   return statusOrder(status) < statusOrder("schvaleno");
 }
 
@@ -249,6 +263,14 @@ export interface Contract {
   scanPdfPath?: string;
   scanUploadedAt?: string;
   scanUploadedBy?: string;
+  // Zrušení smlouvy (klient odstoupil) - terminální override statusu na
+  // „zrusena". Má přednost před computed statusem; po vymazání se status vrátí
+  // dle timestampů. Zrušená smlouva se nepočítá do dashboardu, provizí, dlaždice
+  // pohledávek ani ISIR. Nastavuje/maže jen admin (cancel endpoint).
+  cancelledAt?: string;
+  cancelledBy?: string;
+  cancelledByName?: string;
+  cancelReason?: string;
   number?: string;
   // DigiSign (zatím jen typ "nda"): obálka odeslaná k el. podpisu. Po dokončení
   // webhook stáhne podepsané PDF a doplní signedAt/clientSignedAt + scanPdf.
@@ -304,8 +326,11 @@ export function computeContractStatus(
     | "signedAt"
     | "clientSignedAt"
     | "scanUploadedAt"
+    | "cancelledAt"
   >,
 ): ContractStatus {
+  // Zrušení je terminální override - má přednost před computed statusem.
+  if (c.cancelledAt) return "zrusena";
   const flow = getStatusFlowForType(c.type);
   for (let i = flow.length - 1; i >= 1; i--) {
     const status = flow[i]!;
@@ -471,6 +496,7 @@ export async function listLocationFranchiseContracts(): Promise<
     if (
       c.type === "franchise" &&
       c.locationId &&
+      !c.cancelledAt &&
       statusOrder(c.status) >= threshold
     ) {
       out[c.locationId] = c.id; // lokalita má max. 1 aktivní FS; poslední vyhrává

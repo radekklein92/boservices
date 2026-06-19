@@ -6,6 +6,7 @@ import {
   Stamp,
   PenLine,
   ScanLine,
+  Ban,
   type LucideIcon,
 } from "lucide-react";
 import type { ContractStatus } from "@/lib/portal/contracts-db";
@@ -20,4 +21,5 @@ export const CONTRACT_STATUS_ICON: Record<ContractStatus, LucideIcon> = {
   "podepsano-bos": Stamp,
   "podepsano-klientem": PenLine,
   archivovano: ScanLine,
+  zrusena: Ban,
 };

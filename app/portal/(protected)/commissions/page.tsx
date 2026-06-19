@@ -1,5 +1,4 @@
-import { ArrowUpRight, Info } from "lucide-react";
-import Link from "next/link";
+import { Info } from "lucide-react";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/portal/shell/PageHeader";
 import { isAdminRole } from "@/lib/portal/auth-guard";
@@ -18,28 +17,15 @@ import {
   salespersonAvailable,
   sumPayouts,
 } from "@/lib/portal/payouts-db";
-import { formatCzkRounded } from "@/lib/portal/claims";
 import { SalespersonCard } from "@/components/portal/commissions/SalespersonCard";
 import {
   CommissionsPayoutsClient,
   type PayoutSalespersonRow,
 } from "@/components/portal/commissions/CommissionsPayoutsClient";
+import { CommissionsBreakdownClient } from "@/components/portal/commissions/CommissionsBreakdownClient";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Provizní výsledky" };
-
-function formatDate(iso: string | undefined): string {
-  if (!iso) return "—";
-  try {
-    return new Date(iso).toLocaleDateString("cs-CZ", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
-  } catch {
-    return iso;
-  }
-}
 
 export default async function CommissionsPage() {
   const [session, contracts, overlay, payouts] = await Promise.all([
@@ -128,59 +114,9 @@ export default async function CommissionsPage() {
       {/* Výběry provize (payouty) - nad rozpisem */}
       <CommissionsPayoutsClient rows={payoutRows} isAdmin={isAdmin} />
 
-      {/* Rozpis jednotlivých provizí (read-only, celé částky před 50:50) */}
-      {view.rows.length > 0 && (
-        <section>
-          <div className="mb-4 flex items-baseline gap-3">
-            <h2 className="text-[1.05rem] font-bold tracking-[-0.02em] text-ink-base">
-              Rozpis provizí
-            </h2>
-            <span className="font-mono text-[12px] text-ink-soft">
-              {view.rows.length.toString().padStart(2, "0")}
-            </span>
-            <span className="hidden text-[12px] text-ink-mid md:inline">
-              · celkem {formatCzkRounded(view.total)} (děleno 50:50)
-            </span>
-          </div>
-          <div className="overflow-hidden rounded-[24px] border border-edge bg-paper">
-            <ul className="divide-y divide-edge">
-              {view.rows.map((r) => (
-                <li key={r.id}>
-                  <Link
-                    href={`/portal/contracts/${r.id}`}
-                    className="group flex items-center gap-4 px-5 py-4 transition-colors hover:bg-paper-warm md:px-7"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-baseline gap-2">
-                        <span className="truncate text-[14px] font-semibold tracking-[-0.01em] text-ink-base">
-                          {r.clientName || "Bez názvu klienta"}
-                        </span>
-                        {r.number && (
-                          <span className="font-mono text-[11.5px] text-ink-soft">
-                            {r.number}
-                          </span>
-                        )}
-                      </div>
-                      <div className="truncate text-[12px] text-ink-mid">
-                        {r.label}
-                        {r.note ? ` · ${r.note}` : ""} · {formatDate(r.signedAt)}
-                      </div>
-                    </div>
-                    <span className="shrink-0 text-[14px] font-bold tabular-nums text-ink-base">
-                      {formatCzkRounded(r.commission)}
-                    </span>
-                    <ArrowUpRight
-                      className="h-4 w-4 shrink-0 text-ink-soft transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-ink-mid"
-                      strokeWidth={1.5}
-                      aria-hidden="true"
-                    />
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
-      )}
+      {/* Rozpis jednotlivých provizí (read-only, celé částky před 50:50) -
+          s filtrem na postoupení pohledávek vs. ostatní smlouvy. */}
+      <CommissionsBreakdownClient rows={view.rows} />
     </div>
   );
 }

@@ -1,0 +1,138 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import Link from "next/link";
+import { ArrowUpRight, Coins, FileText, LayoutList } from "lucide-react";
+import type { CommissionRow } from "@/lib/portal/commissions";
+import { formatCzkRounded } from "@/lib/portal/claims";
+import { FilterChip } from "@/components/portal/ui/FilterChip";
+
+type Filter = "all" | "contract" | "claim";
+
+function formatDate(iso: string | undefined): string {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleDateString("cs-CZ", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  } catch {
+    return iso;
+  }
+}
+
+// Rozpis jednotlivých provizí (read-only, celé částky před dělením 50:50)
+// s filtrem na postoupení pohledávek vs. ostatní smlouvy. Každý řádek vede na
+// detail příslušné smlouvy.
+export function CommissionsBreakdownClient({
+  rows,
+}: {
+  rows: CommissionRow[];
+}) {
+  const [filter, setFilter] = useState<Filter>("all");
+
+  const contractCount = useMemo(
+    () => rows.filter((r) => r.kind === "contract").length,
+    [rows],
+  );
+  const claimCount = useMemo(
+    () => rows.filter((r) => r.kind === "claim").length,
+    [rows],
+  );
+
+  const filtered = useMemo(
+    () => (filter === "all" ? rows : rows.filter((r) => r.kind === filter)),
+    [rows, filter],
+  );
+  const filteredTotal = useMemo(
+    () => filtered.reduce((s, r) => s + r.commission, 0),
+    [filtered],
+  );
+
+  if (rows.length === 0) return null;
+
+  return (
+    <section>
+      <div className="mb-4 flex flex-wrap items-baseline gap-3">
+        <h2 className="text-[1.05rem] font-bold tracking-[-0.02em] text-ink-base">
+          Rozpis provizí
+        </h2>
+        <span className="font-mono text-[12px] text-ink-soft">
+          {filtered.length.toString().padStart(2, "0")}
+        </span>
+        <span className="hidden text-[12px] text-ink-mid md:inline">
+          · celkem {formatCzkRounded(filteredTotal)} (děleno 50:50)
+        </span>
+      </div>
+
+      {/* Filtr: vše / ostatní smlouvy / postoupení pohledávek */}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <FilterChip
+          active={filter === "all"}
+          onClick={() => setFilter("all")}
+          label="Vše"
+          count={rows.length}
+          Icon={LayoutList}
+        />
+        <FilterChip
+          active={filter === "contract"}
+          onClick={() => setFilter("contract")}
+          label="Ostatní smlouvy"
+          count={contractCount}
+          Icon={FileText}
+        />
+        <FilterChip
+          active={filter === "claim"}
+          onClick={() => setFilter("claim")}
+          label="Postoupení pohledávek"
+          count={claimCount}
+          Icon={Coins}
+        />
+      </div>
+
+      <div className="overflow-hidden rounded-[24px] border border-edge bg-paper">
+        <ul className="divide-y divide-edge">
+          {filtered.map((r) => (
+            <li key={r.id}>
+              <Link
+                href={`/portal/contracts/${r.id}`}
+                className="group flex items-center gap-4 px-5 py-4 transition-colors hover:bg-paper-warm md:px-7"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-baseline gap-2">
+                    <span className="truncate text-[14px] font-semibold tracking-[-0.01em] text-ink-base">
+                      {r.clientName || "Bez názvu klienta"}
+                    </span>
+                    {r.number && (
+                      <span className="font-mono text-[11.5px] text-ink-soft">
+                        {r.number}
+                      </span>
+                    )}
+                  </div>
+                  <div className="truncate text-[12px] text-ink-mid">
+                    {r.label}
+                    {r.note ? ` · ${r.note}` : ""} · {formatDate(r.signedAt)}
+                  </div>
+                </div>
+                <span className="shrink-0 text-[14px] font-bold tabular-nums text-ink-base">
+                  {formatCzkRounded(r.commission)}
+                </span>
+                <ArrowUpRight
+                  className="h-4 w-4 shrink-0 text-ink-soft transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-ink-mid"
+                  strokeWidth={1.5}
+                  aria-hidden="true"
+                />
+              </Link>
+            </li>
+          ))}
+          {filtered.length === 0 && (
+            <li className="px-7 py-12 text-center text-[13px] text-ink-mid">
+              V tomto filtru nejsou žádné položky.
+            </li>
+          )}
+        </ul>
+      </div>
+    </section>
+  );
+}

@@ -100,6 +100,7 @@ export function buildIsirExportData(
   // 1) Smluvní pohledávky (stejný gate jako buildAssignedClaimsView).
   for (const c of contracts) {
     if (c.type !== "claim-bundle") continue;
+    if (c.cancelledAt) continue; // zrušená smlouva se nepočítá nikam
     if (!(c.clientSignedAt || c.signedAt || c.scanUploadedAt)) continue;
     const debtor = c.variables?.debtorName?.trim() || UNNAMED_DEBTOR;
     const ico = c.variables?.debtorIco?.trim();

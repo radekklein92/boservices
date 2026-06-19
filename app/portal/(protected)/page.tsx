@@ -56,7 +56,7 @@ function milestoneReachedRecently(
   contracts: Awaited<ReturnType<typeof cachedListContracts>>,
 ): number | null {
   const dates = contracts
-    .filter((c) => c.type === "franchise" && !!c.clientSignedAt)
+    .filter((c) => c.type === "franchise" && !!c.clientSignedAt && !c.cancelledAt)
     .map((c) => c.clientSignedAt as string)
     .sort();
   if (!dates.length) return null;
@@ -88,10 +88,10 @@ export default async function PortalDashboardPage({
     isAdmin || isSalespersonEmail(session?.user?.email);
 
   const signedByClientCount = contracts.filter(
-    (c) => !!c.clientSignedAt,
+    (c) => !!c.clientSignedAt && !c.cancelledAt,
   ).length;
   const franchiseLocationsCount = contracts.filter(
-    (c) => c.type === "franchise" && !!c.clientSignedAt,
+    (c) => c.type === "franchise" && !!c.clientSignedAt && !c.cancelledAt,
   ).length;
 
   // Oslavný ohňostroj: dnes padlý milník (pro všechny), nebo náhled přes

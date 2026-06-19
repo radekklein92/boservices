@@ -1,6 +1,6 @@
 "use client";
 
-import { Check } from "lucide-react";
+import { Check, Ban } from "lucide-react";
 import {
   CONTRACT_STATUS_LABEL,
   getStatusFlowForType,
@@ -19,6 +19,7 @@ const STATUS_TIMESTAMP_FIELD: Record<ContractStatus, keyof Contract> = {
   "podepsano-bos": "signedAt",
   "podepsano-klientem": "clientSignedAt",
   archivovano: "scanUploadedAt",
+  zrusena: "cancelledAt",
 };
 
 function formatStepDate(iso: string | undefined): string {
@@ -44,6 +45,32 @@ export function ContractStatusStepper({
   // Zobrazí se u prvního kroku po Konceptu (flow[1]).
   submitterLabel?: string | null;
 }) {
+  // Zrušená smlouva není krok ve flow - místo zavádějícího „vše hotovo"
+  // stepperu vykreslíme jasný terminální stav.
+  if (contract.status === "zrusena") {
+    return (
+      <div className="rounded-2xl border border-red-200 bg-red-50/60 px-6 py-6 md:px-8 md:py-7">
+        <div className="mb-3 flex items-baseline justify-between gap-4">
+          <div className="text-[10.5px] font-medium uppercase tracking-[0.22em] text-ink-mid">
+            Stav smlouvy
+          </div>
+          <div className="text-[12.5px] font-semibold text-red-600">Zrušená</div>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-red-100 text-red-600">
+            <Ban className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+          </span>
+          <div className="text-[13px] leading-relaxed text-ink-deep">
+            Smlouva byla zrušená
+            {contract.cancelledAt ? ` ${formatStepDate(contract.cancelledAt)}` : ""}
+            {contract.cancelledByName ? ` (${contract.cancelledByName})` : ""}.
+            Nezapočítává se do provizí ani do čísel na dashboardu.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const current = contract.status;
   const flow = getStatusFlowForType(contract.type);
   // Když je smlouva už ve statusu, který v jejím flow neexistuje (např. data
