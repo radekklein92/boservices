@@ -2,7 +2,10 @@
 // Měří latenci Redis volání z reálné serverless funkce (potvrdí region + rozpad).
 // Gated přes CRON_SECRET. Po dokončení auditu SMAZAT.
 //
-//   GET /api/_perf?key=<CRON_SECRET>
+//   GET /api/perf-diag?key=<CRON_SECRET>
+//
+// Pozn.: složka NESMÍ začínat podtržítkem - Next.js App Router takové složky
+// považuje za "private" a vyloučí je z routingu.
 
 import { NextResponse } from "next/server";
 import { getRedis } from "@/lib/redis";
