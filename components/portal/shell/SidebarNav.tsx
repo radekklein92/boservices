@@ -7,6 +7,7 @@ import {
   Building2,
   FileText,
   FilePenLine,
+  HandCoins,
   ListChecks,
   MapPin,
   Palette,
@@ -30,6 +31,7 @@ const provoz: Item[] = [
   { href: "/portal/clients", label: "Klienti", Icon: Building2 },
   { href: "/portal/locations", label: "Lokality", Icon: MapPin },
   { href: "/portal/contracts", label: "Smlouvy", Icon: FileText },
+  { href: "/portal/commissions", label: "Provize", Icon: HandCoins },
 ];
 
 const admin: Item[] = [

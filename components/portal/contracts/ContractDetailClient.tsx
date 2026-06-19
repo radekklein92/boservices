@@ -51,6 +51,11 @@ import {
   formatClaimsTotalAmount,
   type ClaimItem,
 } from "@/lib/portal/claims";
+import {
+  SALESPEOPLE,
+  normalizeSalespeople,
+  type SalespersonId,
+} from "@/lib/portal/commissions";
 import { checkInsolvencyAny, earlierSafeContractDate } from "@/lib/portal/insolvency-rules";
 import { signerFunctionLabel } from "@/lib/portal/users-db";
 import { PlaceholderPalette } from "./PlaceholderPalette";
@@ -166,6 +171,7 @@ export function ContractDetailClient({
   const [genPending, setGenPending] = useState(false);
   const [uploadPending, setUploadPending] = useState(false);
   const [leaseHolderPending, setLeaseHolderPending] = useState(false);
+  const [salespeoplePending, setSalespeoplePending] = useState(false);
   const [toast, setToast] = useState<{ kind: "ok" | "error"; msg: string } | null>(null);
   const [diffOpen, setDiffOpen] = useState(false);
   // Kontrola úpadku dlužníka: klíč naposledy ignorovaného upozornění (rule|datum).
@@ -439,6 +445,33 @@ export function ContractDetailClient({
       notify("error", err instanceof Error ? err.message : "Chyba");
     } finally {
       setLeaseHolderPending(false);
+    }
+  }
+  // Obchodníci (provize). Vlastní endpoint mimo isContractEditable - jde
+  // přiřadit i u podepsaných smluv. Toggle = přidat/odebrat obchodníka.
+  async function toggleSalesperson(sp: SalespersonId) {
+    const current = normalizeSalespeople(contract.salespeople);
+    const next = current.includes(sp)
+      ? current.filter((x) => x !== sp)
+      : [...current, sp];
+    setSalespeoplePending(true);
+    try {
+      const res = await fetch(
+        `/api/portal/contracts/${contract.id}/salespeople`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ salespeople: next }),
+        },
+      );
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || "Chyba");
+      setContract((c) => ({ ...c, salespeople: data.salespeople }));
+      notify("ok", "Obchodníci uloženi.");
+    } catch (err) {
+      notify("error", err instanceof Error ? err.message : "Chyba");
+    } finally {
+      setSalespeoplePending(false);
     }
   }
   function updateClaims(next: ClaimItem[]) {
@@ -962,6 +995,51 @@ export function ContractDetailClient({
 
       {/* Úkoly navázané na smlouvu - mezi „Co teď" a „Hodnoty placeholderů". */}
       {tasksSlot}
+
+      {/* Obchodníci (provize) - jen admin, jen franšíza a postoupení. ZÁMĚRNĚ
+          mimo fieldset disabled={locked} - přiřazení musí jít i u podepsaných
+          smluv (vlastní endpoint, nezávislý na isContractEditable). */}
+      {isAdmin &&
+        (contract.type === "franchise" || contract.type === "claim-bundle") && (
+          <section className="flex flex-col gap-3 rounded-2xl border border-edge bg-paper p-5 md:p-6">
+            <div className="flex flex-wrap items-baseline gap-2.5">
+              <h2 className="text-[10.5px] font-semibold uppercase tracking-[0.18em] text-ink-base">
+                Obchodníci
+              </h2>
+              <span className="text-[11.5px] text-ink-mid">
+                ·{" "}
+                {contract.type === "franchise"
+                  ? "provize za franšízu 20 000 Kč"
+                  : "provize za postoupení 0,1 %"}
+                ; při dvou se dělí na poloviny
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {SALESPEOPLE.map((s) => {
+                const active = normalizeSalespeople(contract.salespeople).includes(
+                  s.id,
+                );
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => toggleSalesperson(s.id)}
+                    disabled={salespeoplePending}
+                    aria-pressed={active}
+                    className={[
+                      "inline-flex h-9 items-center rounded-full border px-3.5 text-[12.5px] font-medium transition-all disabled:opacity-50",
+                      active
+                        ? "border-ink-base bg-ink-base text-paper"
+                        : "border-edge bg-paper text-ink-deep hover:border-ink-soft",
+                    ].join(" ")}
+                  >
+                    {s.name}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
       {/* Editovatelná oblast - od stavu „schváleno" dál uzamčená (fieldset
           disabled vypne všechna pole/tlačítka, editor je read-only). */}

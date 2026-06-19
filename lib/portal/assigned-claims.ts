@@ -84,6 +84,51 @@ type CompanyAccumulator = AssignedClaimsCompanyRow & {
   _contractKeys: Set<string>;
 };
 
+// Jedno uplatnění smluvní pohledávky (claim-bundle): primární dlužník + částka +
+// potvrzení dedup-ručitelé (≠ dlužník). Sdílená struktura pro všechny konzumenty.
+export interface ContractClaimApplication {
+  contractId: string;
+  claimKey: string; // item.id || `${contractId}#${index}` - MUSÍ sedět na overlay klíče
+  item: ClaimItem;
+  debtor: string; // primární dlužník (trim, fallback UNNAMED_DEBTOR)
+  amount: number; // vč. DPH, > 0
+  guarantors: string[]; // jen potvrzení, dedup, ≠ dlužník (názvy firem)
+}
+
+// JEDINÁ definice průchodu smluvními pohledávkami z podepsaných claim-bundle
+// smluv (gate + claimKey + dedup ručitelů). Sdílí ji buildAssignedClaimsView
+// (dlaždice) i buildCommissionsView (provize), aby se logika nerozešla. Gate a
+// odvození claimKey MUSÍ zůstat shodné s overlay (guaranteesByClaimId).
+// (isir-export.ts drží vlastní kopii kvůli odlišnému výstupu - viz pozn. tam.)
+export function forEachContractClaimApplication(
+  contracts: Contract[],
+  overlay: ClaimsOverlay,
+  visit: (app: ContractClaimApplication) => void,
+): void {
+  for (const c of contracts) {
+    if (c.type !== "claim-bundle") continue;
+    if (!(c.clientSignedAt || c.signedAt || c.scanUploadedAt)) continue;
+    const debtor = c.variables?.debtorName?.trim() || UNNAMED_DEBTOR;
+    const claims = c.claims ?? [];
+    for (let index = 0; index < claims.length; index++) {
+      const item = claims[index]!;
+      const amt = parseClaimAmount(item.amount);
+      if (amt <= 0) continue;
+      const claimKey = item.id || `${c.id}#${index}`;
+      const confGs = dedupeByCompany(
+        confirmedGuarantors(overlay.guaranteesByClaimId[claimKey]),
+      );
+      const guarantors: string[] = [];
+      for (const g of confGs) {
+        const gName = g.company.trim();
+        if (!gName || gName === debtor) continue; // ručitel == dlužník -> nezapočítat 2x
+        guarantors.push(gName);
+      }
+      visit({ contractId: c.id, claimKey, item, debtor, amount: amt, guarantors });
+    }
+  }
+}
+
 export function buildAssignedClaimsView(
   contracts: Contract[],
   overlay: ClaimsOverlay,
@@ -142,39 +187,29 @@ export function buildAssignedClaimsView(
   }
 
   // 1) Smluvní pohledávky z claim-bundle smluv (zachovaný gate z dashboardu).
-  for (const c of contracts) {
-    if (c.type !== "claim-bundle") continue;
-    if (!(c.clientSignedAt || c.signedAt || c.scanUploadedAt)) continue;
-    contractsCount++;
-    const debtor = c.variables?.debtorName?.trim() || UNNAMED_DEBTOR;
-    const claims = c.claims ?? [];
-    for (let index = 0; index < claims.length; index++) {
-      const item = claims[index]!;
-      const amt = parseClaimAmount(item.amount);
-      if (amt <= 0) continue;
-      const claimKey = item.id || `${c.id}#${index}`;
-      const confGs = dedupeByCompany(
-        confirmedGuarantors(overlay.guaranteesByClaimId[claimKey]),
-      );
-      apply(debtor, amt, "primary", claimKey, c.id);
-      const guarantorNames: string[] = [];
-      for (const g of confGs) {
-        const gName = g.company.trim();
-        if (!gName || gName === debtor) continue; // ručitel == dlužník -> nezapočítat 2x
-        apply(gName, amt, "guarantor", claimKey, c.id);
-        guarantorNames.push(gName);
-      }
-      rows.push({
-        id: claimKey,
-        source: "contract",
-        contractId: c.id,
-        debtorName: debtor,
-        title: titleForClaimItem(item),
-        amount: amt,
-        guarantors: guarantorNames,
-      });
+  // contractsCount = každá podepsaná claim-bundle smlouva (i bez platných
+  // pohledávek), proto se počítá zvlášť od iterace uplatnění (forEach* navštíví
+  // jen smlouvy s aspoň jednou nenulovou pohledávkou).
+  contractsCount = contracts.filter(
+    (c) =>
+      c.type === "claim-bundle" &&
+      !!(c.clientSignedAt || c.signedAt || c.scanUploadedAt),
+  ).length;
+  forEachContractClaimApplication(contracts, overlay, (app) => {
+    apply(app.debtor, app.amount, "primary", app.claimKey, app.contractId);
+    for (const gName of app.guarantors) {
+      apply(gName, app.amount, "guarantor", app.claimKey, app.contractId);
     }
-  }
+    rows.push({
+      id: app.claimKey,
+      source: "contract",
+      contractId: app.contractId,
+      debtorName: app.debtor,
+      title: titleForClaimItem(app.item),
+      amount: app.amount,
+      guarantors: app.guarantors,
+    });
+  });
 
   // 1b) Zrcadlené pohledávky z ClamoraPortal (podepsané klientem; sync vrstva).
   // Stejné uplatnění jako smluvní: primární dlužník + případní cross-ručitelé
@@ -260,7 +295,7 @@ export function buildAssignedClaimsView(
 // formy (s.r.o./a.s./spol.) a interpunkce. "Flowers International s.r.o." a
 // "Flowers International" → stejný klíč. NEMĚNÍ uloženou hodnotu, jen dedup
 // nabídky pickeru.
-function normalizeCompany(name: string): string {
+export function normalizeCompany(name: string): string {
   return name
     .toLowerCase()
     .replace(/\bspol\.?\s*s\.?\s*r\.?\s*o\.?/g, "")
@@ -290,12 +325,21 @@ export function dedupeCompanyOptions(names: string[]): string[] {
   return out;
 }
 
-// Klíčové společnosti na dlaždici dashboardu (zbytek je až v modalu).
+// Klíčové společnosti na dlaždici dashboardu (zbytek je až v modalu). Tentýž
+// seznam je zároveň 3 provizní firmy (BBI/TD1/Flowers) - viz isKeyCompany.
 export const KEY_DASHBOARD_COMPANIES = [
   "Bubblify International",
   "Trdlokafe Development 1",
   "Flowers International",
 ];
+
+// Je firma jedna ze 3 klíčových (provizních) společností? Match přes
+// normalizeCompany (tj. „Bubblify International s.r.o." sedne na klíč). Jediný
+// zdroj pravdy pro dlaždici i pro výpočet provizí (lib/portal/commissions.ts).
+const KEY_COMPANY_KEYS = new Set(KEY_DASHBOARD_COMPANIES.map(normalizeCompany));
+export function isKeyCompany(name: string): boolean {
+  return KEY_COMPANY_KEYS.has(normalizeCompany(name));
+}
 
 // Součet breakdown řádků pro zadané firmy (match přes normalizeCompany, takže
 // "Bubblify International s.r.o." sedne na klíč "Bubblify International").

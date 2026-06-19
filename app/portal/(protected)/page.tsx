@@ -27,8 +27,10 @@ import {
   KEY_DASHBOARD_COMPANIES,
 } from "@/lib/portal/assigned-claims";
 import { DEBTOR_PRESETS, EXTRA_CLAIM_COMPANIES } from "@/lib/portal/debtor-presets";
+import { buildCommissionsView } from "@/lib/portal/commissions";
 import { FireworksCelebration } from "@/components/portal/dashboard/FireworksCelebration";
 import { AssignedClaimsPanel } from "@/components/portal/dashboard/AssignedClaimsPanel";
+import { SalespersonCard } from "@/components/portal/commissions/SalespersonCard";
 
 // Dashboard - jediný story: postup k cíli 100 franšízových lokalit.
 //
@@ -123,6 +125,9 @@ export default async function PortalDashboardPage({
     KEY_DASHBOARD_COMPANIES,
   );
 
+  // Provizní výsledky obchodníků (franšízy + postoupení u 3 klíčových firem).
+  const commissionsView = buildCommissionsView(contracts, overlay);
+
   const displayName =
     session?.user?.name?.split(/\s+/)[0] ??
     session?.user?.email ??
@@ -189,6 +194,28 @@ export default async function PortalDashboardPage({
           companyOptions={companyOptions}
           isAdmin={isAdmin}
         />
+      </section>
+
+      {/* Provizní výsledky obchodníků - vidí všichni přihlášení. */}
+      <section>
+        <div className="mb-5 flex items-center justify-between gap-3">
+          <SectionLabel>Provizní výsledky</SectionLabel>
+          <Link
+            href="/portal/commissions"
+            className="group inline-flex items-center gap-1.5 text-[12.5px] font-medium text-ink-mid transition-colors hover:text-ink-base"
+          >
+            Detail a přiřazení
+            <ArrowUpRight
+              className="h-3.5 w-3.5 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+              strokeWidth={1.5}
+            />
+          </Link>
+        </div>
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          {commissionsView.bySalesperson.map((s) => (
+            <SalespersonCard key={s.id} data={s} />
+          ))}
+        </div>
       </section>
 
       {isAdmin && (
