@@ -6,14 +6,17 @@ import { getSession } from "@/lib/portal/get-session";
 import {
   cachedGetClaimsOverlay,
   cachedListContracts,
-  cachedListPayouts,
 } from "@/lib/portal/cached-db";
 import {
   buildCommissionsView,
   isSalespersonEmail,
   salespersonByEmail,
 } from "@/lib/portal/commissions";
-import { salespersonAvailable, sumPayouts } from "@/lib/portal/payouts-db";
+import {
+  listPayouts,
+  salespersonAvailable,
+  sumPayouts,
+} from "@/lib/portal/payouts-db";
 import { formatCzkRounded } from "@/lib/portal/claims";
 import { SalespersonCard } from "@/components/portal/commissions/SalespersonCard";
 import {
@@ -42,7 +45,7 @@ export default async function CommissionsPage() {
     getSession(),
     cachedListContracts(),
     cachedGetClaimsOverlay(),
-    cachedListPayouts(),
+    listPayouts(),
   ]);
   const email = session?.user?.email;
   const isAdmin = isAdminRole(session?.user?.role);
@@ -84,17 +87,34 @@ export default async function CommissionsPage() {
         lede="Provize za podepsané smlouvy a postoupené pohledávky u BBI, TD1 a Flowers (0,1 % vč. ručení). Vždy se dělí 50:50 mezi Tomana a Ebermanna."
       />
 
-      {/* Info o změně pravidel od 20.6.2026 */}
-      <div className="flex items-start gap-3 rounded-2xl border border-edge bg-paper-warm px-5 py-4 text-[13px] leading-relaxed text-ink-deep">
-        <Info className="mt-0.5 h-4 w-4 shrink-0 text-ink-mid" strokeWidth={1.5} aria-hidden="true" />
-        <span>
-          <strong>Od 20. 6. 2026</strong> se mění pravidlo u franšíz: za
-          samostatnou franšízu <strong>20 000 Kč</strong>, za franšízu s navázanou
-          smlouvou o spolupráci nebo provozování (stejná lokalita){" "}
-          <strong>10 000 Kč</strong>; samostatná smlouva o spolupráci/provozování
-          už provizi nezakládá. Smlouvy podepsané klientem do 19. 6. 2026 zůstávají
-          10 000 Kč za kus.
-        </span>
+      {/* Pravidla provizí - kompletně a transparentně nahoře */}
+      <div className="rounded-2xl border border-edge bg-paper-warm px-5 py-4">
+        <div className="flex items-center gap-2 text-[10.5px] font-semibold uppercase tracking-[0.18em] text-ink-mid">
+          <Info className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+          Pravidla provizí
+        </div>
+        <ul className="mt-3 flex list-disc flex-col gap-2 pl-4 text-[13px] leading-relaxed text-ink-deep marker:text-ink-soft">
+          <li>
+            Provize se vždy dělí <strong>50:50</strong> mezi Tomana a Ebermanna.
+          </li>
+          <li>
+            <strong>Smlouvy</strong> (franšíza, spolupráce, provozování) podepsané
+            klientem <strong>do 19. 6. 2026</strong>: každá <strong>10 000 Kč</strong>.
+          </li>
+          <li>
+            Podepsané <strong>od 20. 6. 2026</strong>: počítá se jen{" "}
+            <strong>franšíza</strong> - <strong>20 000 Kč</strong> samostatná,{" "}
+            <strong>10 000 Kč</strong> pokud je na stejné lokalitě i spolupráce nebo
+            provozování. Samostatná smlouva o spolupráci/provozování už provizi
+            nezakládá.
+          </li>
+          <li>
+            <strong>Postoupené pohledávky</strong> přes portál u BBI / TD1 / Flowers:{" "}
+            <strong>0,1 %</strong> z částky za dlužníka + <strong>0,05 %</strong> za
+            každé potvrzené ručení jednou z těch firem (u jedné pohledávky může být i
+            obojí). Vše vč. DPH.
+          </li>
+        </ul>
       </div>
 
       {/* Výsledky per obchodník */}
@@ -103,6 +123,9 @@ export default async function CommissionsPage() {
           <SalespersonCard key={s.id} data={s} />
         ))}
       </section>
+
+      {/* Výběry provize (payouty) - nad rozpisem */}
+      <CommissionsPayoutsClient rows={payoutRows} isAdmin={isAdmin} />
 
       {/* Rozpis jednotlivých provizí (read-only, celé částky před 50:50) */}
       {view.rows.length > 0 && (
@@ -150,9 +173,6 @@ export default async function CommissionsPage() {
           </div>
         </section>
       )}
-
-      {/* Výběry provize (payouty) */}
-      <CommissionsPayoutsClient rows={payoutRows} isAdmin={isAdmin} />
     </div>
   );
 }

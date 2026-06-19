@@ -8,10 +8,11 @@
 //       * NOVÉ pravidlo (podpis >= 20.6.2026): počítá se JEN franšíza - 20 000 Kč
 //         pokud na její lokalitě NENÍ podepsaná spolupráce/provozování, jinak
 //         10 000 Kč. Spolupráce/provozování pod novým pravidlem samostatně 0 Kč.
-//   - Postoupení (claim-bundle): 0,1 % z částky (vč. DPH) za KAŽDÉ uplatnění u 3
-//     klíčových firem (BBI/TD1/Flowers) - dlužník i každé potvrzené ručení jednou
-//     z nich. Logika uplatnění shodná s dlaždicí (forEachContractClaimApplication).
-//     NEpočítají se ruční pohledávky ani zrcadlené z Clamory (externí).
+//   - Postoupení (claim-bundle) u 3 klíčových firem (BBI/TD1/Flowers): za DLUŽNÍKA
+//     0,1 % z částky (vč. DPH), za každé potvrzené RUČENÍ jednou z nich jen 0,05 %
+//     (poloviční). Lze i obojí u jedné pohledávky. Logika uplatnění shodná s
+//     dlaždicí (forEachContractClaimApplication). NEpočítají se ruční pohledávky
+//     ani zrcadlené z Clamory (externí).
 //
 // Vždy 50:50 mezi oba obchodníky. Čísla přesná, zaokrouhlení až při zobrazení.
 
@@ -34,7 +35,8 @@ export const SALESPEOPLE: readonly Salesperson[] = [
 
 export const CONTRACT_COMMISSION_CZK = 10_000;
 export const FRANCHISE_SOLO_COMMISSION_CZK = 20_000; // nové pravidlo: franšíza bez doprovodné
-export const CLAIM_COMMISSION_RATE = 0.001; // 0,1 % z částky vč. DPH
+export const CLAIM_COMMISSION_RATE = 0.001; // 0,1 % z částky vč. DPH (dlužník)
+export const CLAIM_GUARANTEE_RATE = 0.0005; // 0,05 % za ručení (poloviční)
 
 // Od tohoto okamžiku (dle clientSignedAt) platí nové pravidlo u smluvní provize.
 export const NEW_RULES_FROM = "2026-06-20T00:00:00.000Z";
@@ -118,17 +120,19 @@ export function buildCommissionsView(
   // Provizní base za claim-bundle smlouvu = Σ částek uplatnění u klíčových firem
   // (dlužník je klíčová firma + každý klíčový potvrzený ručitel). Sdílený
   // iterátor zaručí stejný gate / claimKey / dedup jako dlaždice.
-  const claimBaseByContract = new Map<string, number>();
+  // Provize z pohledávek per smlouva: dlužník (klíčová firma) 0,1 %, každé
+  // potvrzené ručení klíčovou firmou 0,05 %.
+  const claimCommissionByContract = new Map<string, number>();
   forEachContractClaimApplication(contracts, overlay, (app) => {
-    let base = 0;
-    if (isKeyCompany(app.debtor)) base += app.amount;
+    let comm = 0;
+    if (isKeyCompany(app.debtor)) comm += app.amount * CLAIM_COMMISSION_RATE;
     for (const g of app.guarantors) {
-      if (isKeyCompany(g)) base += app.amount;
+      if (isKeyCompany(g)) comm += app.amount * CLAIM_GUARANTEE_RATE;
     }
-    if (base > 0) {
-      claimBaseByContract.set(
+    if (comm > 0) {
+      claimCommissionByContract.set(
         app.contractId,
-        (claimBaseByContract.get(app.contractId) ?? 0) + base,
+        (claimCommissionByContract.get(app.contractId) ?? 0) + comm,
       );
     }
   });
@@ -152,8 +156,7 @@ export function buildCommissionsView(
 
   for (const c of contracts) {
     if (c.type === "claim-bundle") {
-      const base = claimBaseByContract.get(c.id) ?? 0; // jen podepsané mají base
-      const fee = base * CLAIM_COMMISSION_RATE;
+      const fee = claimCommissionByContract.get(c.id) ?? 0; // dlužník 0,1 % + ručení 0,05 %
       claimTotal += fee;
       if (fee > 0) {
         rows.push({

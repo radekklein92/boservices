@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
   AlertCircle,
+  Building2,
   Download,
   FileUp,
   Loader2,
@@ -62,6 +63,8 @@ export function PayoutManagerModal({
   const [busy, setBusy] = useState(false);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [aresPending, setAresPending] = useState(false);
+  const [aresMsg, setAresMsg] = useState<string | null>(null);
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   useEffect(() => {
@@ -107,6 +110,46 @@ export function PayoutManagerModal({
       setError(err instanceof Error ? err.message : "Vytvoření selhalo.");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function loadAres() {
+    const ico = billing.ico.trim();
+    if (!ico) {
+      setAresMsg("Zadejte IČO.");
+      return;
+    }
+    setAresPending(true);
+    setAresMsg(null);
+    try {
+      const res = await fetch("/api/portal/clients/ares", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ico }),
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        setAresMsg(data.error || "Firma se v ARES nenašla.");
+        return;
+      }
+      const r = data.result;
+      const address = [
+        r.address?.street,
+        [r.address?.zip, r.address?.city].filter(Boolean).join(" "),
+      ]
+        .filter((p: string) => p && p.trim())
+        .join(", ");
+      setBilling((b) => ({
+        ...b,
+        name: r.companyName || b.name,
+        ico: r.ico || b.ico,
+        dic: r.dic ?? b.dic,
+        address: address || b.address,
+      }));
+    } catch (err) {
+      setAresMsg(err instanceof Error ? err.message : "Chyba spojení.");
+    } finally {
+      setAresPending(false);
     }
   }
 
@@ -223,8 +266,23 @@ export function PayoutManagerModal({
                 />
               </Field>
 
-              <div className="mt-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-soft">
-                Dodavatel (obchodník)
+              <div className="mt-4 flex items-center justify-between gap-2">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-soft">
+                  Dodavatel (obchodník)
+                </span>
+                <button
+                  type="button"
+                  onClick={loadAres}
+                  disabled={aresPending || !billing.ico.trim()}
+                  className="inline-flex h-7 items-center gap-1.5 rounded-full border border-edge bg-paper px-3 text-[11px] font-medium text-ink-deep transition-colors hover:border-ink-base disabled:opacity-40"
+                >
+                  {aresPending ? (
+                    <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <Building2 className="h-3 w-3" strokeWidth={1.5} aria-hidden="true" />
+                  )}
+                  Načíst z ARES
+                </button>
               </div>
               <div className="mt-2 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                 <Field label="Jméno / firma">
@@ -245,6 +303,9 @@ export function PayoutManagerModal({
                   </Field>
                 </div>
               </div>
+              {aresMsg && (
+                <div className="mt-1.5 text-[11.5px] text-ink-mid">{aresMsg}</div>
+              )}
               <label className="mt-2.5 flex cursor-pointer items-center gap-2 text-[12.5px] text-ink-deep">
                 <input
                   type="checkbox"
