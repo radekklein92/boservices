@@ -375,7 +375,6 @@ export function ContractCurrentActionPanel({
           headline="Smlouva je zrušená"
           description={
             "Klient od smlouvy odstoupil. Nezapočítává se do provizí ani do čísel na dashboardu." +
-            (contract.cancelReason ? ` Důvod: ${contract.cancelReason}` : "") +
             (isAdmin ? " Obnovit ji můžeš ikonou nahoře vedle koše." : "")
           }
           primary={null}

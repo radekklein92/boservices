@@ -65,6 +65,7 @@ export function ContractStatusStepper({
             {contract.cancelledAt ? ` ${formatStepDate(contract.cancelledAt)}` : ""}
             {contract.cancelledByName ? ` (${contract.cancelledByName})` : ""}.
             Nezapočítává se do provizí ani do čísel na dashboardu.
+            {contract.cancelReason ? ` Důvod: ${contract.cancelReason}` : ""}
           </div>
         </div>
       </div>
