@@ -91,7 +91,7 @@ export function buildPayoutPodkladHtml(p: Payout): string {
     <table>
       <thead><tr><th>Položka</th><th style="text-align:right">Částka</th></tr></thead>
       <tbody>
-        <tr><td>Provize za zprostředkování franšízingových smluv a postoupení pohledávek</td><td style="text-align:right;white-space:nowrap">${esc(formatCzk(base))}</td></tr>
+        <tr><td>Provize za zprostředkování franšízingových smluv</td><td style="text-align:right;white-space:nowrap">${esc(formatCzk(base))}</td></tr>
       </tbody>
     </table>
 
