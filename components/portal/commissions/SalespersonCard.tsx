@@ -2,8 +2,8 @@ import { HandCoins } from "lucide-react";
 import { formatCzkRounded } from "@/lib/portal/claims";
 import type { SalespersonCommission } from "@/lib/portal/commissions";
 
-const franchiseWord = (n: number) =>
-  n === 1 ? "franšíza" : n >= 2 && n <= 4 ? "franšízy" : "franšíz";
+const contractWord = (n: number) =>
+  n === 1 ? "smlouva" : n >= 2 && n <= 4 ? "smlouvy" : "smluv";
 
 // Výsledková karta obchodníka (Toman / Ebermann). Stejný vizuál jako dlaždice
 // dashboardu (SecondaryStat / AssignedClaimsPanel). Čistě presentational, sdílí
@@ -27,14 +27,14 @@ export function SalespersonCard({ data }: { data: SalespersonCommission }) {
         <div className="mt-4 flex flex-col gap-1.5 text-[12.5px] text-ink-mid">
           <div className="flex items-baseline justify-between gap-3">
             <span>
-              Franšízy
+              Smlouvy
               <span className="text-ink-soft">
                 {" "}
-                · {data.franchiseCount} {franchiseWord(data.franchiseCount)}
+                · {data.contractsCount} {contractWord(data.contractsCount)}
               </span>
             </span>
             <span className="font-semibold text-ink-deep">
-              {formatCzkRounded(data.franchiseCommission)}
+              {formatCzkRounded(data.contractsCommission)}
             </span>
           </div>
           <div className="flex items-baseline justify-between gap-3">

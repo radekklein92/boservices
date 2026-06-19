@@ -43,3 +43,7 @@ export function bustClaimsOverlay(): void {
 export function bustClamoraClaims(): void {
   revalidateTag(TAG.claimsMirror, PROFILE);
 }
+
+export function bustPayouts(): void {
+  revalidateTag(TAG.payouts, PROFILE);
+}

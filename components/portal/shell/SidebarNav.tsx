@@ -33,8 +33,8 @@ const provoz: Item[] = [
   { href: "/portal/contracts", label: "Smlouvy", Icon: FileText },
 ];
 
-// Provize: admini ji vidí v sekci Administrace, obchodníci (ne-admini) ve
-// Franšízingu; ostatní staff vůbec.
+// Provize: v sekci Franšízing, ale jen pro ty, kdo na ni mají vidět (admini +
+// obchodníci Toman/Ebermann); ostatní staff ji nevidí.
 const commissionsItem: Item = {
   href: "/portal/commissions",
   label: "Provize",
@@ -79,8 +79,8 @@ export function SidebarNav({
             active={isActive(pathname, item.href)}
           />
         ))}
-        {/* Obchodníci (ne-admini) vidí Provize tady; admini až v Administraci. */}
-        {!isAdmin && canSeeCommissions && (
+        {/* Provize ve Franšízingu - jen pro adminy + obchodníky (canSeeCommissions). */}
+        {canSeeCommissions && (
           <NavItem
             {...commissionsItem}
             active={isActive(pathname, commissionsItem.href)}
@@ -90,10 +90,6 @@ export function SidebarNav({
 
       {isAdmin && (
         <NavSection label="Administrace">
-          <NavItem
-            {...commissionsItem}
-            active={isActive(pathname, commissionsItem.href)}
-          />
           {admin.map((item) => (
             <NavItem
               key={item.href}

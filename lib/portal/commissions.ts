@@ -1,18 +1,21 @@
 // Provize obchodníků (dashboard + stránka /portal/commissions).
 //
 // Pravidla (zadání): provize jsou VŽDY 50:50 mezi oba obchodníky (Toman,
-// Ebermann). Není třeba označovat, kdo smlouvu dojednal - nárok mají vždy oba
-// děleno 2. Proto se ke smlouvám nic nepřiřazuje; každá podepsaná franšíza
-// (20 000 Kč) i každé kvalifikující uplatnění pohledávky (0,1 %) se rozdělí napůl.
-//   - Franšíza: 20 000 Kč za každou PODEPSANOU franšízu (clientSignedAt).
+// Ebermann). Není třeba označovat, kdo dojednal - nárok mají vždy oba děleno 2.
+//   - "Smluvní" provize (franšíza / spolupráce / provozování) - DATEM ŘÍZENO
+//     podle clientSignedAt (viz contractCommission):
+//       * STARÉ pravidlo (podpis < 20.6.2026): každá z těch tří smluv = 10 000 Kč.
+//       * NOVÉ pravidlo (podpis >= 20.6.2026): počítá se JEN franšíza - 20 000 Kč
+//         pokud na její lokalitě NENÍ podepsaná spolupráce/provozování, jinak
+//         10 000 Kč. Spolupráce/provozování pod novým pravidlem samostatně 0 Kč.
 //   - Postoupení (claim-bundle): 0,1 % z částky (vč. DPH) za KAŽDÉ uplatnění u 3
 //     klíčových firem (BBI/TD1/Flowers) - dlužník i každé potvrzené ručení jednou
 //     z nich. Logika uplatnění shodná s dlaždicí (forEachContractClaimApplication).
 //     NEpočítají se ruční pohledávky ani zrcadlené z Clamory (externí).
 //
-// Čísla se drží přesná; zaokrouhlení až při zobrazení (formatCzkRounded).
+// Vždy 50:50 mezi oba obchodníky. Čísla přesná, zaokrouhlení až při zobrazení.
 
-import type { Contract, ContractStatus } from "./contracts-db";
+import type { Contract } from "./contracts-db";
 import type { ClaimsOverlay } from "./claims-overlay";
 import { forEachContractClaimApplication, isKeyCompany } from "./assigned-claims";
 
@@ -29,8 +32,32 @@ export const SALESPEOPLE: readonly Salesperson[] = [
   { id: "ebermann", name: "Ebermann", email: "krystof.ebermann@boservices.cz" },
 ] as const;
 
-export const FRANCHISE_COMMISSION_CZK = 20_000;
+export const CONTRACT_COMMISSION_CZK = 10_000;
+export const FRANCHISE_SOLO_COMMISSION_CZK = 20_000; // nové pravidlo: franšíza bez doprovodné
 export const CLAIM_COMMISSION_RATE = 0.001; // 0,1 % z částky vč. DPH
+
+// Od tohoto okamžiku (dle clientSignedAt) platí nové pravidlo u smluvní provize.
+export const NEW_RULES_FROM = "2026-06-20T00:00:00.000Z";
+
+// Provize CELÉ smlouvy (před dělením 50:50). 0 = nezakládá provizi.
+// accompaniedLocations = lokality s podepsanou spoluprací/provozováním.
+function contractCommission(
+  c: Contract,
+  accompaniedLocations: ReadonlySet<string>,
+): number {
+  if (!c.clientSignedAt) return 0;
+  const isNew = c.clientSignedAt >= NEW_RULES_FROM;
+  if (c.type === "franchise") {
+    if (!isNew) return CONTRACT_COMMISSION_CZK;
+    const accompanied = !!c.locationId && accompaniedLocations.has(c.locationId);
+    return accompanied ? CONTRACT_COMMISSION_CZK : FRANCHISE_SOLO_COMMISSION_CZK;
+  }
+  if (c.type === "cooperation" || c.type === "operation") {
+    // Pod novým pravidlem samostatně neplatí (počítá se jen franšíza).
+    return isNew ? 0 : CONTRACT_COMMISSION_CZK;
+  }
+  return 0;
+}
 
 export function salespersonName(id: string): string {
   return SALESPEOPLE.find((s) => s.id === id)?.name ?? id;
@@ -58,32 +85,18 @@ export function salespersonByEmail(
 export interface SalespersonCommission {
   id: SalespersonId;
   name: string;
-  franchiseCount: number; // počet podepsaných franšíz (oba se podílejí na všech)
-  franchiseCommission: number; // = franchiseTotal / 2
+  contractsCount: number; // počet podepsaných smluv (franšíza/spolupráce/provozování)
+  contractsCommission: number; // = contractsTotal / 2
   claimCommission: number; // = claimTotal / 2
-  total: number; // = (franchiseTotal + claimTotal) / 2
-}
-
-// Per-smlouva řádek - read-only přehled toho, co provizi tvoří.
-export interface CommissionContractRow {
-  id: string;
-  type: "franchise" | "claim-bundle";
-  clientName: string;
-  number?: string;
-  status: ContractStatus;
-  signed: boolean;
-  signedAt?: string;
-  debtor?: string; // jen claim-bundle
-  commission: number; // provize CELÉ smlouvy (před dělením 50:50)
+  total: number; // = (contractsTotal + claimTotal) / 2
 }
 
 export interface CommissionsView {
   total: number; // celková provize (plná, nedělená)
-  franchiseTotal: number;
+  contractsTotal: number;
   claimTotal: number;
-  franchiseCount: number; // počet podepsaných franšíz
+  contractsCount: number; // počet podepsaných smluv (franšíza/spolupráce/provozování)
   bySalesperson: SalespersonCommission[]; // každý = total/2
-  contracts: CommissionContractRow[];
 }
 
 export function buildCommissionsView(
@@ -108,64 +121,44 @@ export function buildCommissionsView(
     }
   });
 
-  const rows: CommissionContractRow[] = [];
-  let franchiseTotal = 0;
-  let claimTotal = 0;
-  let franchiseCount = 0;
-
+  // Lokality s podepsanou spoluprací/provozováním (pro nové pravidlo u franšízy).
+  const accompaniedLocations = new Set<string>();
   for (const c of contracts) {
-    if (c.type === "franchise") {
-      const signed = !!c.clientSignedAt;
-      const commission = signed ? FRANCHISE_COMMISSION_CZK : 0;
-      if (signed) {
-        franchiseTotal += commission;
-        franchiseCount++;
-      }
-      rows.push({
-        id: c.id,
-        type: "franchise",
-        clientName: c.clientName,
-        number: c.number,
-        status: c.status,
-        signed,
-        signedAt: c.clientSignedAt,
-        commission,
-      });
-    } else if (c.type === "claim-bundle") {
-      const signed = !!(c.clientSignedAt || c.signedAt || c.scanUploadedAt);
-      const base = claimBaseByContract.get(c.id) ?? 0; // jen podepsané mají base
-      const commission = base * CLAIM_COMMISSION_RATE;
-      claimTotal += commission;
-      rows.push({
-        id: c.id,
-        type: "claim-bundle",
-        clientName: c.clientName,
-        number: c.number,
-        status: c.status,
-        signed,
-        signedAt: c.clientSignedAt ?? c.signedAt ?? c.scanUploadedAt,
-        debtor: c.variables?.debtorName?.trim() || undefined,
-        commission,
-      });
+    if (
+      (c.type === "cooperation" || c.type === "operation") &&
+      c.clientSignedAt &&
+      c.locationId
+    ) {
+      accompaniedLocations.add(c.locationId);
     }
   }
 
-  const total = franchiseTotal + claimTotal;
+  let contractsTotal = 0;
+  let claimTotal = 0;
+  let contractsCount = 0;
+
+  for (const c of contracts) {
+    if (c.type === "claim-bundle") {
+      const base = claimBaseByContract.get(c.id) ?? 0; // jen podepsané mají base
+      claimTotal += base * CLAIM_COMMISSION_RATE;
+      continue;
+    }
+    const fee = contractCommission(c, accompaniedLocations);
+    if (fee > 0) {
+      contractsTotal += fee;
+      contractsCount++;
+    }
+  }
+
+  const total = contractsTotal + claimTotal;
   const bySalesperson: SalespersonCommission[] = SALESPEOPLE.map((s) => ({
     id: s.id,
     name: s.name,
-    franchiseCount,
-    franchiseCommission: franchiseTotal / 2,
+    contractsCount,
+    contractsCommission: contractsTotal / 2,
     claimCommission: claimTotal / 2,
     total: total / 2,
   }));
 
-  return {
-    total,
-    franchiseTotal,
-    claimTotal,
-    franchiseCount,
-    bySalesperson,
-    contracts: rows,
-  };
+  return { total, contractsTotal, claimTotal, contractsCount, bySalesperson };
 }

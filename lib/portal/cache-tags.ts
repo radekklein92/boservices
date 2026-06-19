@@ -11,6 +11,7 @@ export const TAG = {
   tasks: "tasks",
   claimsOverlay: "claims-overlay",
   claimsMirror: "claims-mirror",
+  payouts: "payouts",
 } as const;
 
 export type CacheTag = (typeof TAG)[keyof typeof TAG];
