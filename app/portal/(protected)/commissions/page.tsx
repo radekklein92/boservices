@@ -23,6 +23,7 @@ import {
   type PayoutSalespersonRow,
 } from "@/components/portal/commissions/CommissionsPayoutsClient";
 import { CommissionsBreakdownClient } from "@/components/portal/commissions/CommissionsBreakdownClient";
+import { CommissionsExportClient } from "@/components/portal/commissions/CommissionsExportClient";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Provizní výsledky" };
@@ -113,6 +114,9 @@ export default async function CommissionsPage() {
 
       {/* Výběry provize (payouty) - nad rozpisem */}
       <CommissionsPayoutsClient rows={payoutRows} isAdmin={isAdmin} />
+
+      {/* Export pro účetní (XLSX) - jen admin, navazuje na výběry */}
+      {isAdmin && <CommissionsExportClient />}
 
       {/* Rozpis jednotlivých provizí (read-only, celé částky před 50:50) -
           s filtrem na postoupení pohledávek vs. ostatní smlouvy. */}
