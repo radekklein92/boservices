@@ -34,7 +34,10 @@ type BillingState = {
   bankAccount: string;
   isVatPayer: boolean;
 };
-type CustomerState = { name: string; ico: string; dic: string; address: string };
+
+// Odběratel je vždy stejný (plátce provize) - jen pro zobrazení; skutečná data
+// nastavuje server (COMMISSION_PAYER).
+const PAYER_NAME = "Business Operations Services s.r.o.";
 
 export function PayoutManagerModal({
   row,
@@ -55,12 +58,6 @@ export function PayoutManagerModal({
     address: row.lastBilling?.address ?? "",
     bankAccount: row.lastBilling?.bankAccount ?? "",
     isVatPayer: row.lastBilling?.isVatPayer ?? false,
-  });
-  const [customer, setCustomer] = useState<CustomerState>({
-    name: row.lastCustomer?.name ?? "",
-    ico: row.lastCustomer?.ico ?? "",
-    dic: row.lastCustomer?.dic ?? "",
-    address: row.lastCustomer?.address ?? "",
   });
   const [busy, setBusy] = useState(false);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
@@ -85,8 +82,8 @@ export function PayoutManagerModal({
       setError(`Lze vybrat nejvýše ${formatCzkRounded(row.available)}.`);
       return;
     }
-    if (!billing.name.trim() || !customer.name.trim()) {
-      setError("Vyplňte název dodavatele i odběratele.");
+    if (!billing.name.trim()) {
+      setError("Vyplňte název dodavatele.");
       return;
     }
     setBusy(true);
@@ -99,7 +96,6 @@ export function PayoutManagerModal({
           salespersonId: row.id,
           amount: amountNum,
           billing,
-          customer,
         }),
       });
       const data = await res.json();
@@ -259,24 +255,11 @@ export function PayoutManagerModal({
                 Plátce DPH (na fakturu se připočte 21 %)
               </label>
 
-              <div className="mt-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-soft">
-                Odběratel (plátce provize)
-              </div>
-              <div className="mt-2 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                <Field label="Název">
-                  <input className={INPUT} value={customer.name} onChange={(e) => setCustomer({ ...customer, name: e.target.value })} />
-                </Field>
-                <Field label="IČO">
-                  <input className={INPUT} value={customer.ico} onChange={(e) => setCustomer({ ...customer, ico: e.target.value })} />
-                </Field>
-                <Field label="DIČ">
-                  <input className={INPUT} value={customer.dic} onChange={(e) => setCustomer({ ...customer, dic: e.target.value })} />
-                </Field>
-                <div className="sm:col-span-2">
-                  <Field label="Adresa">
-                    <input className={INPUT} value={customer.address} onChange={(e) => setCustomer({ ...customer, address: e.target.value })} />
-                  </Field>
-                </div>
+              <div className="mt-4 flex flex-col gap-0.5 rounded-lg border border-edge bg-paper px-3 py-2.5">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-soft">
+                  Odběratel (plátce provize)
+                </span>
+                <span className="text-[13px] font-medium text-ink-deep">{PAYER_NAME}</span>
               </div>
 
               <div className="mt-4 flex items-center gap-2">

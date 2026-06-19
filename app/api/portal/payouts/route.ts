@@ -12,6 +12,7 @@ import {
   type SalespersonId,
 } from "@/lib/portal/commissions";
 import {
+  COMMISSION_PAYER,
   getNextPayoutVs,
   listPayoutsBySalesperson,
   newPayoutId,
@@ -29,17 +30,11 @@ const billingSchema = z.object({
   address: z.string().trim().max(300).optional(),
   bankAccount: z.string().trim().max(60).optional(),
 });
-const customerSchema = z.object({
-  name: z.string().trim().min(1).max(200),
-  ico: z.string().trim().max(20).optional(),
-  dic: z.string().trim().max(20).optional(),
-  address: z.string().trim().max(300).optional(),
-});
 const createSchema = z.object({
   salespersonId: z.enum(["toman", "ebermann"]).optional(), // jen admin pro někoho jiného
   amount: z.number().finite().positive(),
   billing: billingSchema,
-  customer: customerSchema,
+  // Odběratel se nezadává - je vždy COMMISSION_PAYER.
 });
 
 // Vytvoření výběru provize. Obchodník vybírá pro sebe; admin může zadat
@@ -99,7 +94,7 @@ export async function POST(req: Request) {
     variableSymbol: await getNextPayoutVs(),
     status: "podklad",
     billing: parsed.data.billing,
-    customer: parsed.data.customer,
+    customer: COMMISSION_PAYER,
     createdBy: email,
     createdAt: now,
     updatedAt: now,

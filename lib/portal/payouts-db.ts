@@ -47,6 +47,15 @@ export interface PayoutCustomerSnapshot {
   address?: string;
 }
 
+// Odběratel je vždy stejný - plátce provize. Snapshotuje se na payout při
+// vytvoření (obchodník ho nezadává).
+export const COMMISSION_PAYER: PayoutCustomerSnapshot = {
+  name: "Business Operations Services s.r.o.",
+  ico: "24520039",
+  dic: "CZ24520039",
+  address: "Uhelný trh 414/9, Staré Město, 110 00 Praha",
+};
+
 export interface PayoutAiCheck {
   ok: boolean;
   skipped?: boolean; // true = AI kontrola neproběhla (chybí klíč / chyba) → ruční ověření

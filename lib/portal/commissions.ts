@@ -91,12 +91,24 @@ export interface SalespersonCommission {
   total: number; // = (contractsTotal + claimTotal) / 2
 }
 
+// Jeden řádek rozpisu - co konkrétně provizi tvoří (celá částka před 50:50).
+export interface CommissionRow {
+  id: string;
+  label: string; // "Franšíza" | "Spolupráce" | "Provozování" | "Postoupení pohledávek"
+  clientName: string;
+  number?: string;
+  signedAt?: string;
+  commission: number; // provize CELÉ smlouvy (před dělením 50:50)
+  note?: string; // "samostatná franšíza" | "s doprovodnou smlouvou" | "0,1 % z pohledávek"
+}
+
 export interface CommissionsView {
   total: number; // celková provize (plná, nedělená)
   contractsTotal: number;
   claimTotal: number;
   contractsCount: number; // počet podepsaných smluv (franšíza/spolupráce/provozování)
   bySalesperson: SalespersonCommission[]; // každý = total/2
+  rows: CommissionRow[]; // rozpis jednotlivých provizí (jen položky s provizí > 0)
 }
 
 export function buildCommissionsView(
@@ -133,6 +145,7 @@ export function buildCommissionsView(
     }
   }
 
+  const rows: CommissionRow[] = [];
   let contractsTotal = 0;
   let claimTotal = 0;
   let contractsCount = 0;
@@ -140,15 +153,52 @@ export function buildCommissionsView(
   for (const c of contracts) {
     if (c.type === "claim-bundle") {
       const base = claimBaseByContract.get(c.id) ?? 0; // jen podepsané mají base
-      claimTotal += base * CLAIM_COMMISSION_RATE;
+      const fee = base * CLAIM_COMMISSION_RATE;
+      claimTotal += fee;
+      if (fee > 0) {
+        rows.push({
+          id: c.id,
+          label: "Postoupení pohledávek",
+          clientName: c.clientName,
+          number: c.number,
+          signedAt: c.clientSignedAt ?? c.signedAt ?? c.scanUploadedAt,
+          commission: fee,
+          note: "0,1 % z pohledávek",
+        });
+      }
       continue;
     }
     const fee = contractCommission(c, accompaniedLocations);
     if (fee > 0) {
       contractsTotal += fee;
       contractsCount++;
+      const isNew = !!c.clientSignedAt && c.clientSignedAt >= NEW_RULES_FROM;
+      const label =
+        c.type === "franchise"
+          ? "Franšíza"
+          : c.type === "cooperation"
+            ? "Spolupráce"
+            : "Provozování";
+      const note =
+        c.type === "franchise" && isNew
+          ? !!c.locationId && accompaniedLocations.has(c.locationId)
+            ? "s doprovodnou smlouvou"
+            : "samostatná franšíza"
+          : undefined;
+      rows.push({
+        id: c.id,
+        label,
+        clientName: c.clientName,
+        number: c.number,
+        signedAt: c.clientSignedAt,
+        commission: fee,
+        note,
+      });
     }
   }
+
+  // Nejnovější podpis první.
+  rows.sort((a, b) => (b.signedAt ?? "").localeCompare(a.signedAt ?? ""));
 
   const total = contractsTotal + claimTotal;
   const bySalesperson: SalespersonCommission[] = SALESPEOPLE.map((s) => ({
@@ -160,5 +210,5 @@ export function buildCommissionsView(
     total: total / 2,
   }));
 
-  return { total, contractsTotal, claimTotal, contractsCount, bySalesperson };
+  return { total, contractsTotal, claimTotal, contractsCount, bySalesperson, rows };
 }
