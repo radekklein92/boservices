@@ -3,12 +3,14 @@ import {
   getContract,
   listContracts,
   listContractsByClient,
+  listLocationFranchiseContracts,
 } from "./contracts-db";
 import { getClient, listClients } from "./clients-db";
 import {
   getLocation,
   getLocationsSyncMeta,
   listLocations,
+  listLocationIdsWithAttachments,
 } from "./locations-db";
 import { listUsers } from "./users-db";
 import {
@@ -151,4 +153,19 @@ export const cachedListPayouts = unstable_cache(
   () => listPayouts(),
   ["cached:listPayouts"],
   { tags: [TAG.payouts], revalidate: ONE_HOUR },
+);
+
+// Lokality: dříve necachované plné scany na každý render stránky Lokality.
+// Závisí na smlouvách (franšíza) i lokalitách (přílohy) → invalidace přes
+// bustContracts/bustLocations zajistí, že se badge i filtr projeví okamžitě.
+export const cachedListLocationFranchiseContracts = unstable_cache(
+  () => listLocationFranchiseContracts(),
+  ["cached:listLocationFranchiseContracts"],
+  { tags: [TAG.contracts, TAG.locations], revalidate: ONE_HOUR },
+);
+
+export const cachedListLocationIdsWithAttachments = unstable_cache(
+  () => listLocationIdsWithAttachments(),
+  ["cached:listLocationIdsWithAttachments"],
+  { tags: [TAG.locations], revalidate: ONE_HOUR },
 );

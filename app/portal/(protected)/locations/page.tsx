@@ -1,9 +1,9 @@
 import {
   cachedListLocations,
   cachedGetLocationsSyncMeta,
+  cachedListLocationIdsWithAttachments,
+  cachedListLocationFranchiseContracts,
 } from "@/lib/portal/cached-db";
-import { listLocationIdsWithAttachments } from "@/lib/portal/locations-db";
-import { listLocationFranchiseContracts } from "@/lib/portal/contracts-db";
 import { LocationsPageClient } from "@/components/portal/locations/LocationsPageClient";
 
 export const metadata = { title: "Lokality" };
@@ -14,10 +14,11 @@ export default async function LocationsPage() {
     await Promise.all([
       cachedListLocations(),
       cachedGetLocationsSyncMeta(),
-      // Nekešujeme - ať se filtr „nájemní smlouva" hned projeví po nahrání přílohy.
-      listLocationIdsWithAttachments(),
-      // Nekešujeme - ať se badge „franšíza" projeví hned po podpisu.
-      listLocationFranchiseContracts(),
+      // Cachované (unstable_cache) - invalidace přes bustLocations při nahrání/
+      // smazání přílohy, takže filtr „nájemní smlouva" se projeví okamžitě.
+      cachedListLocationIdsWithAttachments(),
+      // Invalidace přes bustContracts/bustLocations - badge „franšíza" hned po podpisu.
+      cachedListLocationFranchiseContracts(),
     ]);
 
   return (
