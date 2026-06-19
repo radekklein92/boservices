@@ -16,6 +16,7 @@ import {
 import {
   bundleHtmlToPdfBuffer,
   htmlToPdfBuffer,
+  launchPdfBrowser,
 } from "@/lib/portal/pdf-generator";
 import { getCoverForType } from "@/lib/portal/pdf-styles";
 import { getUser } from "@/lib/portal/users-db";
@@ -73,17 +74,17 @@ export async function POST(req: Request) {
     return s;
   }
 
-  for (const id of parsed.data.ids) {
+  // Vygeneruje jedno finální PDF (s validací). Vrací buď soubor, nebo chybu.
+  async function generateOne(
+    id: string,
+    browser: Awaited<ReturnType<typeof launchPdfBrowser>>,
+  ): Promise<{ filename: string; pdf: Buffer } | { error: string }> {
     const contract = await getContract(id);
-    if (!contract) {
-      errors.push(`${id}: nenalezeno`);
-      continue;
-    }
+    if (!contract) return { error: `${id}: nenalezeno` };
     // Finální PDF vyžaduje krok „K podpisu" (signerPickedAt) - platí pro všechny
     // typy (odstoupení k němu dojde přes „Připravit k podpisu").
     if (!contract.signerPickedAt) {
-      errors.push(`${contract.number ?? id}: musí být ve stavu K podpisu nebo dál`);
-      continue;
+      return { error: `${contract.number ?? id}: musí být ve stavu K podpisu nebo dál` };
     }
 
     // Finální PDF: bez watermarku, s signer override.
@@ -116,6 +117,7 @@ export async function POST(req: Request) {
           letterhead,
           watermark: false,
           number: contract.number,
+          browser,
         });
       } else {
         const rendered = renderTemplate(prep(contract.html), variables);
@@ -125,6 +127,7 @@ export async function POST(req: Request) {
           letterhead,
           watermark: false,
           number: contract.number,
+          browser,
         });
       }
 
@@ -132,11 +135,28 @@ export async function POST(req: Request) {
       const namePart = slugify(contract.clientName);
       const typePart = slugify(CONTRACT_TYPE_META[contract.type].shortName);
       const filename = `${numberPart}-${typePart}-${namePart}.pdf`;
-      zip.file(filename, pdf);
+      return { filename, pdf };
     } catch (err) {
       console.error("[bulk-pdf] PDF render failed", { id, err });
-      errors.push(`${contract.number ?? id}: generování selhalo`);
+      return { error: `${contract.number ?? id}: generování selhalo` };
     }
+  }
+
+  // Jeden sdílený browser pro celou dávku (místo launch-per-smlouva) + generování
+  // s omezenou paralelizací. Dřív: až 50 cold-startů Chromia sekvenčně.
+  const CONCURRENCY = 3;
+  const browser = await launchPdfBrowser();
+  try {
+    for (let i = 0; i < parsed.data.ids.length; i += CONCURRENCY) {
+      const batch = parsed.data.ids.slice(i, i + CONCURRENCY);
+      const settled = await Promise.all(batch.map((id) => generateOne(id, browser)));
+      for (const r of settled) {
+        if ("error" in r) errors.push(r.error);
+        else zip.file(r.filename, r.pdf);
+      }
+    }
+  } finally {
+    await browser.close().catch(() => undefined);
   }
 
   const fileCount = Object.keys(zip.files).length;

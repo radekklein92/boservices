@@ -1,4 +1,5 @@
 import chromium from "@sparticuz/chromium-min";
+import type { Browser } from "puppeteer-core";
 import {
   buildServerPdfDocument,
   buildServerBundlePdfDocument,
@@ -53,6 +54,8 @@ export async function htmlToPdfBuffer(
     watermarkText?: string;
     // Číslo smlouvy - zobrazí se v záhlaví vpravo nahoře na každé stránce.
     number?: string;
+    // Sdílený browser pro dávkové generování (bulk-pdf); jinak se launchne vlastní.
+    browser?: Browser;
   },
 ): Promise<Buffer> {
   const cover = opts.cover ?? getCoverForType(opts.type);
@@ -63,7 +66,7 @@ export async function htmlToPdfBuffer(
     watermarkText: opts.watermarkText,
     letterhead: opts.letterhead,
   });
-  return renderHtmlToPdf(fullHtml, opts.type, opts.letterhead, opts.number);
+  return renderHtmlToPdf(fullHtml, opts.type, opts.letterhead, opts.number, opts.browser);
 }
 
 // Bundle (claim-bundle): konkatenuje N renderovaných HTML do jednoho PDF
@@ -78,6 +81,8 @@ export async function bundleHtmlToPdfBuffer(
     watermark?: boolean;
     watermarkText?: string;
     number?: string;
+    // Sdílený browser pro dávkové generování (bulk-pdf); jinak se launchne vlastní.
+    browser?: Browser;
   },
 ): Promise<Buffer> {
   const cover = opts.cover ?? getCoverForType(opts.type);
@@ -88,20 +93,16 @@ export async function bundleHtmlToPdfBuffer(
     watermarkText: opts.watermarkText,
     letterhead: opts.letterhead,
   });
-  return renderHtmlToPdf(fullHtml, opts.type, opts.letterhead, opts.number);
+  return renderHtmlToPdf(fullHtml, opts.type, opts.letterhead, opts.number, opts.browser);
 }
 
-async function renderHtmlToPdf(
-  fullHtml: string,
-  type: ContractType,
-  letterhead: boolean = true,
-  contractNumber?: string,
-): Promise<Buffer> {
-
+// Sdílená launch konfigurace. Pro dávkové generování (bulk-pdf) lze browser
+// vytvořit jednou přes launchPdfBrowser() a předat render funkcím (sharedBrowser)
+// - ušetří se opakovaný cold-start Chromia (~1-3 s na každý launch).
+export async function launchPdfBrowser(): Promise<Browser> {
   const puppeteer = (await import("puppeteer-core")).default;
   const executablePath = await getExecutablePath();
-
-  const browser = await puppeteer.launch({
+  return puppeteer.launch({
     args: [
       ...chromium.args,
       "--hide-scrollbars",
@@ -112,9 +113,19 @@ async function renderHtmlToPdf(
     headless: true,
     defaultViewport: { width: 1240, height: 1754, deviceScaleFactor: 1 },
   });
+}
 
+async function renderHtmlToPdf(
+  fullHtml: string,
+  type: ContractType,
+  letterhead: boolean = true,
+  contractNumber?: string,
+  sharedBrowser?: Browser,
+): Promise<Buffer> {
+  const browser = sharedBrowser ?? (await launchPdfBrowser());
+  let page: Awaited<ReturnType<Browser["newPage"]>> | undefined;
   try {
-    const page = await browser.newPage();
+    page = await browser.newPage();
     await page.setContent(fullHtml, { waitUntil: "load" });
 
     // Force-load font weights a počkat na fonts.ready. Manrope se používá vždy
@@ -162,7 +173,10 @@ async function renderHtmlToPdf(
     });
     return Buffer.from(pdf);
   } finally {
-    await browser.close().catch(() => undefined);
+    // Stránku zavíráme vždy; vlastní browser jen když není sdílený
+    // (sdílenou dávku zavírá volající, který ho přes launchPdfBrowser vytvořil).
+    await page?.close().catch(() => undefined);
+    if (!sharedBrowser) await browser.close().catch(() => undefined);
   }
 }
 
