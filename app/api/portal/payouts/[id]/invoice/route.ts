@@ -115,6 +115,8 @@ export async function POST(
     customerName: payout.customer.name,
     aiOk: aiClean,
     aiNote: aiClean ? undefined : aiCheck.reasons[0],
+    invoicePdf: buffer,
+    invoiceFilename: `faktura-${payout.variableSymbol.replace(/\//g, "-")}.pdf`,
   }).catch((err) => console.error("[payouts] notify failed", err));
 
   return NextResponse.json({ ok: true, aiCheck });

@@ -57,6 +57,8 @@ export async function notifyPayoutInvoice(opts: {
   customerName: string;
   aiOk: boolean;
   aiNote?: string;
+  invoicePdf?: Buffer; // nahraná faktura - přiloží se k e-mailu (admin ověří ručně)
+  invoiceFilename?: string;
 }): Promise<void> {
   const resend = getResend();
   if (!resend) return;
@@ -80,7 +82,18 @@ export async function notifyPayoutInvoice(opts: {
     </div>
   `;
 
-  await resend.emails.send({ from: FROM, to: [NOTIFY], subject, html });
+  const attachments = opts.invoicePdf
+    ? [
+        {
+          filename:
+            opts.invoiceFilename ??
+            `faktura-${opts.variableSymbol.replace(/\//g, "-")}.pdf`,
+          content: opts.invoicePdf,
+        },
+      ]
+    : undefined;
+
+  await resend.emails.send({ from: FROM, to: [NOTIFY], subject, html, attachments });
 }
 
 function escapeHtml(s: string): string {
