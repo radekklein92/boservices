@@ -96,6 +96,41 @@ export async function notifyPayoutInvoice(opts: {
   await resend.emails.send({ from: FROM, to: [NOTIFY], subject, html, attachments });
 }
 
+// Notifikace obchodníkovi (vlastníkovi výběru), že se změnil stav jeho výběru
+// provize - typicky když admin zadá k úhradě nebo označí jako uhrazené.
+export async function notifyPayoutStatus(opts: {
+  to: string; // e-mail obchodníka
+  amount: number; // bez DPH
+  variableSymbol: string;
+  statusLabel: string;
+  paid: boolean; // true = stav "uhrazeno"
+}): Promise<void> {
+  const resend = getResend();
+  if (!resend) return;
+
+  const subject = `Výběr provize: ${opts.statusLabel} - VS ${opts.variableSymbol}`;
+  const html = `
+    <div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#0E0E0E">
+      <div style="font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#6F7672">BOServices · výběr provize</div>
+      <h1 style="font-size:22px;font-weight:800;letter-spacing:-.02em;margin:6px 0 24px">${escapeHtml(opts.statusLabel)}</h1>
+      <table style="border-collapse:collapse;width:100%;font-size:14px">
+        <tr><td style="padding:6px 0;color:#6F7672;width:160px">Stav</td><td>${escapeHtml(opts.statusLabel)}</td></tr>
+        <tr><td style="padding:6px 0;color:#6F7672">Částka (bez DPH)</td><td>${escapeHtml(formatCzkRounded(opts.amount))}</td></tr>
+        <tr><td style="padding:6px 0;color:#6F7672">Variabilní symbol</td><td>${escapeHtml(opts.variableSymbol)}</td></tr>
+      </table>
+      <hr style="border:none;border-top:1px solid #E8ECE9;margin:20px 0"/>
+      <div style="font-size:13.5px;line-height:1.55;color:#2A2A2A">${
+        opts.paid
+          ? "Vaše provize byla označena jako uhrazená."
+          : "Stav vašeho výběru provize se změnil."
+      }</div>
+      <div style="font-size:13px;line-height:1.55;color:#6F7672;margin-top:12px">Detail najdete v portálu (Provize).</div>
+    </div>
+  `;
+
+  await resend.emails.send({ from: FROM, to: [opts.to], subject, html });
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")

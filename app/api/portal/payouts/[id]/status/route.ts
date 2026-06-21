@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/portal/auth-guard";
-import { getPayout, upsertPayout } from "@/lib/portal/payouts-db";
+import {
+  getPayout,
+  upsertPayout,
+  PAYOUT_STATUS_LABEL,
+} from "@/lib/portal/payouts-db";
+import { salespersonEmailById } from "@/lib/portal/commissions";
+import { notifyPayoutStatus } from "@/lib/email";
 import { bustPayouts } from "@/lib/portal/revalidate";
 
 const schema = z.object({
@@ -46,5 +52,22 @@ export async function POST(
     updatedAt: now,
   });
   bustPayouts();
+
+  // E-mail obchodníkovi (vlastníkovi výběru) při skutečné změně stavu.
+  if (payout.status !== parsed.data.status) {
+    const to = salespersonEmailById(payout.salespersonId);
+    if (to) {
+      notifyPayoutStatus({
+        to,
+        amount: payout.amount,
+        variableSymbol: payout.variableSymbol,
+        statusLabel: PAYOUT_STATUS_LABEL[parsed.data.status],
+        paid: parsed.data.status === "uhrazeno",
+      }).catch((err) =>
+        console.error("[payouts] notify salesperson failed", err),
+      );
+    }
+  }
+
   return NextResponse.json({ ok: true });
 }

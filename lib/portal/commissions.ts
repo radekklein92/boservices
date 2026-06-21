@@ -86,6 +86,10 @@ export function salespersonName(id: string): string {
   return SALESPEOPLE.find((s) => s.id === id)?.name ?? id;
 }
 
+export function salespersonEmailById(id: string): string | undefined {
+  return SALESPEOPLE.find((s) => s.id === id)?.email;
+}
+
 export function isSalespersonId(v: string): v is SalespersonId {
   return SALESPEOPLE.some((s) => s.id === v);
 }
