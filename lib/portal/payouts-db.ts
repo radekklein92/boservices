@@ -83,6 +83,9 @@ export interface Payout {
   updatedAt: string;
   paidAt?: string;
   paidBy?: string;
+  // Poslední připomínka "Zadáno k úhradě déle než 48 h" (ISO). Kotva pro
+  // opakování cronem; status route ji při každé změně stavu vyčistí.
+  overdueRemindedAt?: string;
 }
 
 const INDEX = "portal:payouts:index";

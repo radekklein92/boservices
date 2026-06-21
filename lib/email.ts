@@ -131,6 +131,48 @@ export async function notifyPayoutStatus(opts: {
   await resend.emails.send({ from: FROM, to: [opts.to], subject, html });
 }
 
+// Notifikace adminovi: výběry provize, které "visí" ve stavu Zadáno k úhradě
+// déle než 48 h, aniž by je někdo označil jako uhrazené. Cron opakuje à 48 h.
+export async function notifyPayoutOverdue(
+  items: {
+    merchantName: string;
+    amount: number; // bez DPH
+    variableSymbol: string;
+    queuedSince: string; // ISO - od kdy je ve stavu Zadáno k úhradě
+  }[],
+): Promise<void> {
+  const resend = getResend();
+  if (!resend || items.length === 0) return;
+
+  const subject =
+    items.length === 1
+      ? `Čeká na úhradu >48 h - ${items[0]!.merchantName} (VS ${items[0]!.variableSymbol})`
+      : `${items.length} výběry provize čekají na úhradu déle než 48 h`;
+
+  const rows = items
+    .map(
+      (it) => `
+        <tr>
+          <td style="padding:8px 0;border-top:1px solid #E8ECE9">${escapeHtml(it.merchantName)} <span style="color:#6F7672">· VS ${escapeHtml(it.variableSymbol)}</span><br/><span style="font-size:12px;color:#6F7672">od ${escapeHtml(it.queuedSince.slice(0, 10))}</span></td>
+          <td style="padding:8px 0;border-top:1px solid #E8ECE9;text-align:right;white-space:nowrap;vertical-align:top">${escapeHtml(formatCzkRounded(it.amount))}</td>
+        </tr>`,
+    )
+    .join("");
+
+  const html = `
+    <div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#0E0E0E">
+      <div style="font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#6F7672">BOServices · čeká na úhradu</div>
+      <h1 style="font-size:22px;font-weight:800;letter-spacing:-.02em;margin:6px 0 16px">Zadáno k úhradě déle než 48 hodin</h1>
+      <div style="font-size:14px;line-height:1.55;color:#2A2A2A;margin-bottom:16px">Následující výběry provize jsou ve stavu „Zadáno k úhradě" víc než 48 hodin a nikdo je neoznačil jako uhrazené:</div>
+      <table style="border-collapse:collapse;width:100%;font-size:14px">${rows}</table>
+      <hr style="border:none;border-top:1px solid #E8ECE9;margin:20px 0"/>
+      <div style="font-size:13px;line-height:1.55;color:#6F7672">Připomínka se opakuje každých 48 h, dokud stav nezměníte na „Uhrazeno". Portál → Provize → Spravovat.</div>
+    </div>
+  `;
+
+  await resend.emails.send({ from: FROM, to: [NOTIFY], subject, html });
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")

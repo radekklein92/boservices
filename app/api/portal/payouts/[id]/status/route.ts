@@ -49,6 +49,7 @@ export async function POST(
     ...payout,
     status: parsed.data.status,
     ...paid,
+    overdueRemindedAt: undefined, // nový stav = čerstvý timer pro 48h připomínku
     updatedAt: now,
   });
   bustPayouts();

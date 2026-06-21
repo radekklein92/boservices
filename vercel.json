@@ -24,6 +24,10 @@
     {
       "path": "/api/cron/tasks-notify",
       "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/payouts-overdue",
+      "schedule": "0 */12 * * *"
     }
   ]
 }
