@@ -1,13 +1,17 @@
 import { put } from "@vercel/blob";
 import type { Contract } from "./contracts-db";
-import { CONTRACT_TYPE_META, isBundleType } from "./contract-types";
+import {
+  CONTRACT_TYPE_META,
+  isBundleType,
+  isDigisignType,
+} from "./contract-types";
 import {
   applySignerOverride,
   groupSignatureUnits,
   renderTemplate,
   stripPlaceholderSpans,
   watermarkRecipient,
-  wrapNdaSignatureUnits,
+  wrapSignatureUnits,
   wrapSignatures,
 } from "./contract-render";
 import { bundleHtmlToPdfBuffer, htmlToPdfBuffer } from "./pdf-generator";
@@ -110,9 +114,10 @@ export async function renderContractPdfBuffer(contract: Contract): Promise<Buffe
     });
   } else {
     let rendered = renderTemplate(prep(contract.html), variables);
-    // NDA: doplnit DigiSign kotvy + mezery a zabalit podpisy do .sign-unit
-    // (drží pohromadě přes stránky). Kotvy jsou neviditelné, jen v PDF.
-    if (contract.type === "nda") rendered = wrapNdaSignatureUnits(rendered);
+    // DigiSign typy (NDA + franchise/cooperation/operation): doplnit kotvy +
+    // mezery a zabalit podpisy do .sign-unit (drží pohromadě přes stránky).
+    // Kotvy jsou neviditelné, jen v PDF; na ruční podpis (sken) nemají vliv.
+    if (isDigisignType(contract.type)) rendered = wrapSignatureUnits(rendered);
     pdf = await htmlToPdfBuffer(rendered, {
       type: contract.type,
       cover,

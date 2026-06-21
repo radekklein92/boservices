@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import {
+  Check,
   CheckCircle2,
   PenLine,
   Undo2,
@@ -22,6 +23,7 @@ import {
 } from "@/lib/portal/contracts-db";
 import {
   isApprovalGated,
+  isDigisignType,
   requiresAdminToApproveDraft,
 } from "@/lib/portal/contract-types";
 import { getApprovalView, type NewcoSummary } from "@/lib/portal/contract-approval";
@@ -71,6 +73,7 @@ export function ContractCurrentActionPanel({
   changeCount = 0,
   currentUserName = "",
   locationNewco = null,
+  clientNda = null,
 }: {
   contract: Contract;
   onChanged: (next: Contract) => void;
@@ -89,11 +92,15 @@ export function ContractCurrentActionPanel({
   currentUserName?: string;
   // NewCo souhrn lokality - pro přesnou predikci klíče v Konceptu.
   locationNewco?: NewcoSummary | null;
+  // Má klient uzavřenou (podepsanou) NDA? null = nemá / neřeší se (NDA samotná).
+  // Tvrdá podmínka pro el. podpis franchise/cooperation/operation.
+  clientNda?: { id: string; number?: string } | null;
 }) {
   const [pending, setPending] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [noteModalOpen, setNoteModalOpen] = useState(false);
   const [checklistOpen, setChecklistOpen] = useState(false);
+  const [dsConfirmed, setDsConfirmed] = useState(false);
   const [responsibilityMode, setResponsibilityMode] = useState<
     "submit" | "approve" | null
   >(null);
@@ -223,20 +230,27 @@ export function ContractCurrentActionPanel({
     await callMilestone("DELETE", "client-signed", "Označení zrušeno.");
   }
 
-  // NDA: odeslání k elektronickému podpisu přes DigiSign (oběma stranám).
+  // Odeslání k elektronickému podpisu přes DigiSign (oběma stranám). U ne-NDA typů
+  // je potvrzení vědomě řešeno checkboxem (NDA klienta) + server-side hard-gate.
   async function sendDigisign() {
+    await callMilestone(
+      "POST",
+      "digisign-send",
+      "Smlouva odeslána k podpisu přes DigiSign.",
+    );
+    setDsConfirmed(false);
+  }
+
+  // Zrušení odeslání k podpisu (storno obálky) - smlouva zpět do stavu K podpisu.
+  async function cancelDigisign() {
     if (
       !window.confirm(
-        "Odeslat NDA k elektronickému podpisu přes DigiSign? Obě strany dostanou e-mail s odkazem k podpisu.",
+        "Zrušit odeslání k podpisu? Obálka v DigiSign se stornuje a smlouva se vrátí do stavu K podpisu.",
       )
     ) {
       return;
     }
-    await callMilestone(
-      "POST",
-      "digisign-send",
-      "NDA odeslána k podpisu přes DigiSign.",
-    );
+    await callMilestone("POST", "digisign-cancel", "Odeslání k podpisu zrušeno.");
   }
 
   async function uploadScan(e: React.ChangeEvent<HTMLInputElement>) {
@@ -300,6 +314,11 @@ export function ContractCurrentActionPanel({
   // NDA se podepisuje elektronicky přes DigiSign (ne ručně + sken).
   const isNda = contract.type === "nda";
   const dsStatus = contract.digisignStatus;
+  // DigiSign je k dispozici pro NDA + franchise/cooperation/operation. U ne-NDA je
+  // alternativa k ručnímu podpisu, podmíněná uzavřenou NDA klienta.
+  const isDigisign = isDigisignType(contract.type);
+  const dsActive = dsStatus === "sent" || dsStatus === "signed";
+  const clientHasNda = isNda ? true : !!clientNda;
   const isGated = isApprovalGated(contract.type);
   // Odstoupení a Postoupení smí z konceptu schválit jen admin - běžnému
   // uživateli skryjeme tlačítko (server to navíc tvrdě odmítne).
@@ -526,10 +545,10 @@ export function ContractCurrentActionPanel({
 
       {/* Mezikroky podpisů - akce se řídí dalším krokem ve flow daného typu
           (standard: BOS→klient, postoupení: klient→BOS, odstoupení: jen klient). */}
-      {!isNda && nextStatus === "podepsano-bos" && (
+      {!isNda && !dsActive && nextStatus === "podepsano-bos" && (
         <ActionRow
           headline="Čeká na podpis BOS"
-          description="Stáhni finální PDF, podepiš za BOS a označ jako Podepsáno BOS."
+          description="Stáhni finální PDF, podepiš za BOS a označ jako Podepsáno BOS. U franšízingové, spolupráce a provozování lze místo toho použít elektronický podpis (DigiSign) níže."
           primary={
             <div className="flex flex-wrap items-center gap-2">
               <PrimaryButton onClick={markSignedBos} pending={pending === "POST:signed"} Icon={Stamp}>
@@ -542,37 +561,87 @@ export function ContractCurrentActionPanel({
         />
       )}
 
-      {isNda && status === "k-podpisu" && dsStatus !== "sent" && dsStatus !== "signed" && (
+      {isDigisign && status === "k-podpisu" && !dsActive && (
         <ActionRow
-          headline="Připraveno k elektronickému podpisu"
-          description="Odešle NDA přes DigiSign oběma stranám (BOServices i protistraně). Po podpisu se smlouva archivuje automaticky."
+          headline={
+            dsStatus === "declined"
+              ? "Podpis odmítnut - lze odeslat znovu"
+              : dsStatus === "voided"
+                ? "Obálka zrušena - lze odeslat znovu"
+                : isNda
+                  ? "Připraveno k elektronickému podpisu"
+                  : clientHasNda
+                    ? "Elektronický podpis přes DigiSign"
+                    : "Elektronický podpis - chybí NDA"
+          }
+          description={
+            !clientHasNda
+              ? "Klient nemá uzavřenou NDA o mlčenlivosti. Elektronický podpis přes DigiSign lze použít až po jejím podpisu - ruční podpis výše je možný i bez ní."
+              : isNda
+                ? "Odešle NDA přes DigiSign oběma stranám (BOServices i protistraně). Po podpisu se smlouva archivuje automaticky."
+                : "Odešle smlouvu přes DigiSign oběma stranám - alternativa k ručnímu podpisu výše. Po podpisu obou stran se smlouva archivuje automaticky."
+          }
           primary={
-            <div className="flex flex-wrap items-center gap-2">
-              <PrimaryButton
-                onClick={sendDigisign}
-                pending={pending === "POST:digisign-send"}
-                Icon={Send}
-              >
-                Odeslat k podpisu (DigiSign)
-              </PrimaryButton>
-              {downloadFinal}
+            <div className="flex flex-col gap-2.5">
+              {!isNda && clientNda && (
+                <div className="text-[12.5px] text-ink-mid">
+                  Uzavřená NDA:{" "}
+                  <a
+                    href={`/portal/contracts/${clientNda.id}`}
+                    className="font-medium text-ink-base underline underline-offset-2"
+                  >
+                    {clientNda.number ? `č. ${clientNda.number}` : "zobrazit"}
+                  </a>
+                </div>
+              )}
+              {!isNda && clientHasNda && (
+                <DigisignNdaConfirm checked={dsConfirmed} onChange={setDsConfirmed} />
+              )}
+              <div className="flex flex-wrap items-center gap-2">
+                <PrimaryButton
+                  onClick={sendDigisign}
+                  pending={pending === "POST:digisign-send"}
+                  Icon={Send}
+                  disabled={!clientHasNda || (!isNda && !dsConfirmed)}
+                >
+                  Odeslat k podpisu (DigiSign)
+                </PrimaryButton>
+                {downloadFinal}
+              </div>
             </div>
           }
-          rollback={rollbackFor(status)}
+          rollback={isNda ? rollbackFor(status) : undefined}
         />
       )}
 
-      {isNda && dsStatus === "sent" && (
+      {isDigisign && dsStatus === "sent" && (
         <ActionRow
-          headline="Odesláno k podpisu (DigiSign)"
-          description="Čeká se na elektronický podpis obou stran. Po dokončení se podepsané PDF uloží a smlouva se archivuje automaticky."
+          headline={
+            contract.digisignClientSignedAt
+              ? "Klient podepsal - čeká se na dokončení"
+              : "Odesláno k podpisu (DigiSign)"
+          }
+          description={
+            contract.digisignClientSignedAt
+              ? "Klient smlouvu elektronicky podepsal. Po podpisu druhé strany se podepsané PDF uloží a smlouva se archivuje automaticky."
+              : "Čeká se na elektronický podpis obou stran. Po dokončení se podepsané PDF uloží a smlouva se archivuje automaticky."
+          }
           primary={
             <div className="flex flex-wrap items-center gap-2">{downloadFinal}</div>
           }
+          rollback={
+            <SubtleButton
+              onClick={cancelDigisign}
+              pending={pending === "POST:digisign-cancel"}
+              Icon={Undo2}
+            >
+              Zrušit odeslání
+            </SubtleButton>
+          }
         />
       )}
 
-      {!isNda && nextStatus === "podepsano-klientem" && (
+      {!isNda && !dsActive && nextStatus === "podepsano-klientem" && (
         <ActionRow
           headline={
             isWithdrawalLike ? "Připraveno k podpisu klientem" : "Čeká na podpis klienta"
@@ -594,7 +663,7 @@ export function ContractCurrentActionPanel({
         />
       )}
 
-      {nextStatus === "archivovano" && (
+      {!dsActive && nextStatus === "archivovano" && (
         <ActionRow
           headline="Podepsáno - nahraj sken"
           description="Naskenuj podepsanou smlouvu a nahraj sken. Smlouva se tím archivuje."
@@ -780,6 +849,39 @@ function SubtleButton({
     >
       <Icon className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden={true} />
       {pending ? "…" : children}
+    </button>
+  );
+}
+
+// Vědomé potvrzení uživatele před odesláním ne-NDA smlouvy k el. podpisu. Samotnou
+// existenci NDA hlídá server (hard-gate) i disabled stav tlačítka; tento checkbox
+// je explicitní potvrzení (compliance). Vzor: ApprovalChecklistModal.
+function DigisignNdaConfirm({
+  checked,
+  onChange,
+}: {
+  checked: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!checked)}
+      className="flex max-w-[440px] items-start gap-2.5 text-left"
+    >
+      <span
+        className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md border transition-colors ${
+          checked
+            ? "border-ink-base bg-ink-base text-paper"
+            : "border-edge bg-paper text-transparent"
+        }`}
+      >
+        <Check className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden={true} />
+      </span>
+      <span className="text-[12.5px] leading-relaxed text-ink-mid">
+        Potvrzuji, že klient má uzavřenou NDA o mlčenlivosti a smlouva je připravena
+        k elektronickému podpisu.
+      </span>
     </button>
   );
 }

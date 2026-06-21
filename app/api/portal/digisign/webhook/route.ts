@@ -8,7 +8,7 @@ import {
   upsertContract,
   type Contract,
 } from "@/lib/portal/contracts-db";
-import { downloadSignedPdf } from "@/lib/portal/digisign";
+import { downloadSignedPdf, getEnvelope } from "@/lib/portal/digisign";
 import { getRedis } from "@/lib/redis";
 import { bustContracts } from "@/lib/portal/revalidate";
 
@@ -37,6 +37,22 @@ function findEventName(body: Body): string | null {
     if (typeof v === "string" && v.length) return v;
   }
   return null;
+}
+
+// Best-effort: e-mail recipienta z payloadu. Když chybí, doptá se getEnvelope().
+function findRecipientEmail(body: Body): string | null {
+  const rec = body.recipient as Record<string, unknown> | undefined;
+  if (rec && typeof rec.email === "string") return rec.email;
+  const data = body.data as Record<string, unknown> | undefined;
+  const dataRec = data?.recipient as Record<string, unknown> | undefined;
+  if (dataRec && typeof dataRec.email === "string") return dataRec.email;
+  return null;
+}
+
+function isRecipientSignedEvent(event: string | undefined): boolean {
+  if (!event) return false;
+  const e = event.toLowerCase();
+  return e.includes("recipient") && e.includes("signed");
 }
 
 function verifySecret(req: NextRequest): boolean {
@@ -120,15 +136,75 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, ignored: "unmapped-event", eventName });
   }
 
-  // Idempotence: z finálního stavu (signed) už neměníme, no-op stavy ignorujeme.
+  // Stale-envelope guard: event patří jiné (staré/zrušené) obálce než aktuální -
+  // bez něj by eventy po opakovaném odeslání přepsaly stav. (Převzato z Clamory.)
+  if (contract.digisignEnvelopeId && contract.digisignEnvelopeId !== envelopeId) {
+    return NextResponse.json({ ok: true, ignored: "stale-envelope", envelopeId });
+  }
+
+  // Idempotence: z finálního stavu (signed) už neměníme.
   if (contract.digisignStatus === "signed") {
     return NextResponse.json({ ok: true, ignored: "already-signed" });
   }
+
+  const now = new Date().toISOString();
+
+  // ── Mezistav: některý recipient podepsal (před envelope.completed) ──
+  // Zaznamenáme KDO: klient → digisignClientSignedAt (informativní, status zůstává
+  // „k-podpisu"); BOS → signedAt + status „podepsano-bos". Vlastní idempotence,
+  // protože status „sent" se opakuje pro oba podpisy (obecný no-change guard by
+  // druhý podpis spolkl).
+  if (isRecipientSignedEvent(eventName ?? undefined)) {
+    let email = findRecipientEmail(body);
+    if (!email) {
+      try {
+        const env = await getEnvelope(envelopeId);
+        const signed = (env.recipients ?? []).filter(
+          (r) =>
+            !!r.signedAt ||
+            (r.status ?? "").toLowerCase().includes("signed") ||
+            (r.status ?? "").toLowerCase() === "completed",
+        );
+        if (signed.length === 1) email = signed[0]!.email;
+      } catch (err) {
+        console.warn("[digisign/webhook] getEnvelope pro recipienta selhal:", err);
+      }
+    }
+    const e = (email ?? "").trim().toLowerCase();
+    const clientEmail = (contract.variables?.clientEmail ?? "").trim().toLowerCase();
+    const bosEmail = (contract.signerEmail ?? "").trim().toLowerCase();
+
+    const updated: Contract = { ...contract, digisignStatus: "sent", updatedAt: now };
+    let signedParty: "client" | "bos" | "unknown" = "unknown";
+    if (e && clientEmail && e === clientEmail) {
+      if (contract.digisignClientSignedAt) {
+        return NextResponse.json({ ok: true, ignored: "client-already-signed" });
+      }
+      updated.digisignClientSignedAt = now;
+      signedParty = "client";
+    } else if (e && bosEmail && e === bosEmail) {
+      if (contract.signedAt) {
+        return NextResponse.json({ ok: true, ignored: "bos-already-signed" });
+      }
+      updated.signedAt = now;
+      updated.signedBy = "DigiSign";
+      updated.status = computeContractStatus(updated);
+      signedParty = "bos";
+    } else if (contract.digisignStatus === "sent") {
+      // Neznámý recipient a stav už „sent" - nic nového.
+      return NextResponse.json({ ok: true, ignored: "recipient-unrecognized" });
+    }
+
+    await upsertContract(updated);
+    bustContracts();
+    return NextResponse.json({ ok: true, status: "sent", signedParty });
+  }
+
+  // Obecná idempotence pro ne-recipient eventy (declined/voided/sent/completed).
   if (contract.digisignStatus === newStatus) {
     return NextResponse.json({ ok: true, ignored: "no-change" });
   }
 
-  const now = new Date().toISOString();
   const updated: Contract = { ...contract, digisignStatus: newStatus, updatedAt: now };
 
   if (newStatus === "signed") {
@@ -136,7 +212,7 @@ export async function POST(req: NextRequest) {
     // /download/scan). Doplnit oba podpisy -> status archivováno.
     try {
       const pdf = await downloadSignedPdf(envelopeId);
-      const path = `portal/contracts/${contract.id}/scans/${Date.now()}-nda-podepsano.pdf`;
+      const path = `portal/contracts/${contract.id}/scans/${Date.now()}-${contract.type}-podepsano.pdf`;
       const uploaded = await put(path, pdf, {
         access: "private",
         contentType: "application/pdf",

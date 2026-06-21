@@ -9,7 +9,9 @@ import {
   CONTRACT_TYPE_META,
   isApprovalGated,
   isBundleType,
+  isDigisignType,
 } from "@/lib/portal/contract-types";
+import { getClientSignedNda } from "@/lib/portal/client-nda";
 import {
   getOrSeedContractTemplate,
   isTemplateApproved,
@@ -150,6 +152,14 @@ export default async function ContractDetailPage({
     }
   }
 
+  // Tvrdá podmínka el. podpisu: franchise/cooperation/operation lze odeslat do
+  // DigiSign jen když má klient uzavřenou NDA. Pro UI gate na detailu smlouvy
+  // (server ji navíc tvrdě ověřuje i v digisign-send).
+  let clientNda: { id: string; number?: string } | null = null;
+  if (isDigisignType(contract.type) && contract.type !== "nda") {
+    clientNda = await getClientSignedNda(contract.clientId);
+  }
+
   // Schvalovatelé šablon - smí schválit smlouvu ve stavu Ke schválení.
   const [session, approvers, users] = await Promise.all([
     getSession(),
@@ -181,6 +191,7 @@ export default async function ContractDetailPage({
         currentUserEmail={currentUserEmail}
         currentUserName={currentUserName}
         userOptions={userOptions}
+        clientNda={clientNda}
         tasksSlot={<EntityTasks kind="contract" id={id} />}
       />
     </div>

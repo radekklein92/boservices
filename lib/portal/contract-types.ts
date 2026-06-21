@@ -172,6 +172,21 @@ export function isApprovalGated(type: ContractType): boolean {
   return APPROVAL_GATED_TYPES.has(type);
 }
 
+// Typy, které lze podepsat elektronicky přes DigiSign. NDA má el. podpis vždy;
+// franchise/cooperation/operation ho mají jako alternativu k ručnímu podpisu,
+// navíc s tvrdou podmínkou uzavřené NDA klienta (gate řeší digisign-send route
+// a UI). Jeden zdroj pravdy pro route, webhook i UI.
+export const DIGISIGN_TYPES: ReadonlySet<ContractType> = new Set([
+  "nda",
+  "franchise",
+  "cooperation",
+  "operation",
+]);
+
+export function isDigisignType(type: ContractType): boolean {
+  return DIGISIGN_TYPES.has(type);
+}
+
 // Typy, jejichž schválení / odeslání ke schválení z Konceptu smí provést jen
 // administrátor (role admin / superadmin). Ostatní typy smí z konceptu poslat
 // ke schválení kterýkoli přihlášený uživatel.

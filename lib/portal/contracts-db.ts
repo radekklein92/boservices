@@ -272,13 +272,17 @@ export interface Contract {
   cancelledByName?: string;
   cancelReason?: string;
   number?: string;
-  // DigiSign (zatím jen typ "nda"): obálka odeslaná k el. podpisu. Po dokončení
-  // webhook stáhne podepsané PDF a doplní signedAt/clientSignedAt + scanPdf.
+  // DigiSign (typ "nda" + franchise/cooperation/operation): obálka odeslaná k el.
+  // podpisu. Po dokončení webhook stáhne podepsané PDF a doplní
+  // signedAt/clientSignedAt + scanPdf.
   digisignEnvelopeId?: string;
   digisignDocumentId?: string;
   digisignStatus?: "sent" | "signed" | "declined" | "voided";
   digisignSentAt?: string;
   digisignSentBy?: string;
+  // Mezistav: klient podepsal v DigiSign, čeká se na druhou stranu (převzato
+  // z ClamoraPortalu). Informativní - status se počítá dál z clientSignedAt.
+  digisignClientSignedAt?: string;
   // Uživatelský zámek úprav konceptu: jen `by` + `allowed` smí upravovat, ostatní
   // jen prohlížet. Nezávislé na status-zámku (schváleno+). Mění/ruší jen `by` nebo
   // superadmin. Bez tohoto pole je smlouva editovatelná dle statusu (jako dosud).

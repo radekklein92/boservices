@@ -124,6 +124,9 @@ type Props = {
   currentUserName?: string;
   // Seznam uživatelů (e-mail + jméno) pro picker u zámku konceptu.
   userOptions?: { email: string; name: string }[];
+  // Má klient uzavřenou (podepsanou) NDA? Tvrdá podmínka el. podpisu pro
+  // franchise/cooperation/operation. null = nemá / neřeší se (NDA samotná).
+  clientNda?: { id: string; number?: string } | null;
 };
 
 function formatDateTime(iso: string): string {
@@ -155,6 +158,7 @@ export function ContractDetailClient({
   currentUserEmail = "",
   currentUserName = "",
   userOptions = [],
+  clientNda = null,
 }: Props) {
   const router = useRouter();
   const [contract, setContract] = useState(initial);
@@ -978,6 +982,7 @@ export function ContractDetailClient({
         changeCount={templateChangeCount}
         currentUserName={currentUserName}
         locationNewco={locationNewco}
+        clientNda={clientNda}
       />
 
       {/* Lokalita a schválení (jen typy posuzované podle lokality) */}

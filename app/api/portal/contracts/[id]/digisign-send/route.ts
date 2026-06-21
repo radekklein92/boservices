@@ -5,17 +5,26 @@ import {
   setEnvelopeContractId,
   upsertContract,
 } from "@/lib/portal/contracts-db";
+import { CONTRACT_TYPE_META, isDigisignType } from "@/lib/portal/contract-types";
+import { getClientSignedNda } from "@/lib/portal/client-nda";
 import { getUser } from "@/lib/portal/users-db";
 import { renderContractPdfBuffer } from "@/lib/portal/pdf-flow";
-import { sendForSigning, type DigiSignSigner } from "@/lib/portal/digisign";
+import {
+  cancelEnvelope,
+  sendForSigning,
+  type DigiSignSigner,
+} from "@/lib/portal/digisign";
 import { bustContracts } from "@/lib/portal/revalidate";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-// Odeslání NDA k elektronickému podpisu přes DigiSign. Obálka má dva podepisující:
-// Poskytující stranu (BOServices = vybraný uživatel-podepisující s telefonem) a
-// Přijímající stranu (protistrana = klient). Po dokončení doplní webhook podpisy.
+// Odeslání smlouvy k elektronickému podpisu přes DigiSign. Podporované typy: NDA
+// a - jako alternativa k ručnímu podpisu - franchise/cooperation/operation.
+// Obálka má dva podepisující: Poskytující stranu (BOServices = vybraný uživatel-
+// podepisující s telefonem) a Přijímající stranu (protistrana = klient). U ne-NDA
+// typů je TVRDÁ podmínka: klient musí mít uzavřenou NDA. Po dokončení doplní
+// webhook podpisy.
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -28,9 +37,9 @@ export async function POST(
   if (!contract) {
     return NextResponse.json({ ok: false, error: "Smlouva nenalezena." }, { status: 404 });
   }
-  if (contract.type !== "nda") {
+  if (!isDigisignType(contract.type)) {
     return NextResponse.json(
-      { ok: false, error: "Odeslání přes DigiSign je zatím jen pro NDA." },
+      { ok: false, error: "Tento typ smlouvy nelze podepsat přes DigiSign." },
       { status: 400 },
     );
   }
@@ -46,6 +55,22 @@ export async function POST(
       { ok: false, error: "Nejdřív vyberte podepisujícího za BOServices (krok K podpisu)." },
       { status: 409 },
     );
+  }
+
+  // Tvrdá NDA podmínka pro ne-NDA typy: klient musí mít uzavřenou (podepsanou)
+  // NDA. Server-side pojistka i kdyby UI checkbox/disabled obešli přímým voláním.
+  if (contract.type !== "nda") {
+    const nda = await getClientSignedNda(contract.clientId);
+    if (!nda) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Klient nemá uzavřenou (podepsanou) NDA. Bez ní nelze odeslat smlouvu k elektronickému podpisu.",
+        },
+        { status: 409 },
+      );
+    }
   }
 
   const signer = await getUser(contract.signerEmail);
@@ -75,8 +100,9 @@ export async function POST(
     );
   }
 
-  // Kotvy (anchor) odpovídají skrytým markerům v podpisovém bloku NDA šablony,
-  // ať podpisové pole sedne přesně nad jméno (ne plovoucí dole). Viz ndaHtml().
+  // Kotvy (anchor) odpovídají skrytým markerům v podpisovém bloku šablony
+  // (wrapSignatureUnits), ať podpisové pole sedne přesně nad jméno. Bez kotev
+  // (ručně upravená šablona) DigiSign použije vypočtené pozice na poslední straně.
   const signers: DigiSignSigner[] = [
     {
       name: signer.signerDisplayName?.trim() || signer.name,
@@ -100,8 +126,27 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "Generování PDF selhalo." }, { status: 500 });
   }
 
-  const fileName = `nda-${(contract.number ?? contract.id).replace(/\//g, "-")}.pdf`;
-  const envelopeName = `Dohoda o mlčenlivosti - ${contract.clientName}`;
+  // Opakované odeslání po odmítnutí/zrušení: zkusit zrušit starou obálku
+  // (best-effort, neblokuje nové odeslání).
+  if (
+    (contract.digisignStatus === "declined" ||
+      contract.digisignStatus === "voided") &&
+    contract.digisignEnvelopeId
+  ) {
+    try {
+      await cancelEnvelope(contract.digisignEnvelopeId, "Opakované odeslání k podpisu");
+    } catch (err) {
+      console.warn("[digisign-send] storno staré obálky selhalo:", err);
+    }
+  }
+
+  const meta = CONTRACT_TYPE_META[contract.type];
+  const docLabel = meta.fullName;
+  const numberSuffix = (contract.number ?? contract.id).replace(/\//g, "-");
+  const numberTag = contract.number ? ` (${contract.number})` : "";
+  const fileName = `${contract.type}-${numberSuffix}.pdf`;
+  // Unikátní předmět (typ + číslo), ať e-mailový klient nesdružuje vlákna.
+  const envelopeName = `${docLabel} - ${contract.clientName}${numberTag}`;
 
   let result;
   try {
@@ -109,12 +154,11 @@ export async function POST(
       pdfBuffer,
       fileName,
       envelopeName,
-      emailSubject: `Dohoda o mlčenlivosti k podpisu - ${contract.clientName}`,
+      emailSubject: `${docLabel} k podpisu - ${contract.clientName}${numberTag}`,
       emailBody:
-        `<p>Dobrý den,</p><p>k elektronickému podpisu Vám byla zaslána <strong>Dohoda o mlčenlivosti</strong> ` +
+        `<p>Dobrý den,</p><p>k elektronickému podpisu Vám byla zaslána smlouva <strong>${docLabel}</strong> ` +
         `se společností Business Operations Services s.r.o. Dokument prosím podepište kliknutím na tlačítko níže.</p>`,
-      emailBodyCompleted:
-        `<p>Děkujeme. Dohoda o mlčenlivosti byla úspěšně podepsána všemi stranami.</p>`,
+      emailBodyCompleted: `<p>Děkujeme. Smlouva ${docLabel} byla úspěšně podepsána všemi stranami.</p>`,
       signers,
     });
   } catch (err) {
@@ -125,14 +169,16 @@ export async function POST(
     );
   }
 
+  const now = new Date().toISOString();
   const updated = {
     ...contract,
     digisignEnvelopeId: result.envelopeId,
     digisignDocumentId: result.documentId,
     digisignStatus: "sent" as const,
-    digisignSentAt: new Date().toISOString(),
+    digisignSentAt: now,
     digisignSentBy: g.session.user?.email ?? undefined,
-    updatedAt: new Date().toISOString(),
+    digisignClientSignedAt: undefined, // reset mezistavu při (opakovaném) odeslání
+    updatedAt: now,
   };
   await upsertContract(updated);
   await setEnvelopeContractId(result.envelopeId, contract.id);
