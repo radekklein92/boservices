@@ -26,6 +26,7 @@ import {
   canEditContractLock,
   canManageContractLock,
   isContractEditable,
+  statusOrder,
   type BundleSection,
   type Contract,
 } from "@/lib/portal/contracts-db";
@@ -917,7 +918,11 @@ export function ContractDetailClient({
                   <LockOpen className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
                 </button>
               ))}
-            {isAdmin && (
+            {/* Zrušit smlouvu (klient odstoupil) dává smysl až u podepsané smlouvy -
+                ikona se proto zobrazí od stavu „Podepsáno klientem" výš; pro již
+                zrušenou (statusOrder zrusena je nad archivovano) zůstává obnovení. */}
+            {isAdmin &&
+              statusOrder(contract.status) >= statusOrder("podepsano-klientem") && (
               <button
                 type="button"
                 onClick={() =>
