@@ -14,6 +14,7 @@ import {
   listLocationLocalMap,
 } from "./locations-db";
 import { listUsers } from "./users-db";
+import { listReFlags } from "./re-flags-db";
 import {
   getAllTasks,
   listTasksByClient,
@@ -186,3 +187,12 @@ const cachedLocationLocalEntries = unstable_cache(
 export async function cachedListLocationLocalMap() {
   return new Map(await cachedLocationLocalEntries());
 }
+
+// Katalog uživatelských flagů (sdílený). Invalidace přes bustReFlags
+// (create/edit/delete flagu). Přiřazení flagů k lokalitám visí na LocationLocal,
+// takže ta se invaliduje existujícím bustLocations.
+export const cachedListReFlags = unstable_cache(
+  () => listReFlags(),
+  ["cached:listReFlags"],
+  { tags: [TAG.reFlags], revalidate: ONE_HOUR },
+);

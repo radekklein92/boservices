@@ -31,6 +31,9 @@ export type RealEstateRow = {
   reNote: string;
   // RE agent z Transition (zdroj pravdy). Edituje se write-through do Transition.
   reAgent: ReAgent | null;
+  // Id přiřazených uživatelských flagů (lokální v BOServices, LocationLocal.flagIds).
+  // Definice flagů (label+barva) drží katalog ReFlag[] předaný do tabulky zvlášť.
+  flagIds: string[];
   leaseCurrent: LeaseStatus;
   leaseTarget: LeaseStatus;
   // Id podepsané franšízingové smlouvy (status „podepsáno klientem"+ vč. DigiSign
@@ -127,6 +130,7 @@ export function businessPlanView(
 export type ColumnId =
   | "location"
   | "reAgent"
+  | "flags"
   | "ceip1"
   | "ceip2"
   | "businessPlan"
@@ -151,6 +155,7 @@ export type ColumnDef = {
 export const COLUMNS: ColumnDef[] = [
   { id: "location", label: "Lokalita", defaultVisible: true, always: true },
   { id: "reAgent", label: "RE agent", defaultVisible: true },
+  { id: "flags", label: "Flagy", defaultVisible: true },
   { id: "ceip1", label: "Entita CEIP 1", defaultVisible: true },
   { id: "ceip2", label: "Entita CEIP 2", defaultVisible: false },
   { id: "businessPlan", label: "Business plán", defaultVisible: true },
@@ -165,4 +170,6 @@ export const COLUMNS: ColumnDef[] = [
   { id: "note", label: "Poznámka", defaultVisible: true },
 ];
 
-export const COLUMN_STORAGE_KEY = "re-table-cols-v1";
+// v2: přibyl sloupec "flags" — bump resetuje uloženou sadu na defaulty, ať se
+// nový sloupec zobrazí i uživatelům s dříve uloženým výběrem.
+export const COLUMN_STORAGE_KEY = "re-table-cols-v2";

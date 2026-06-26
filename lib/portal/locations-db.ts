@@ -142,6 +142,9 @@ export interface LocationLocal {
   // obecné `note` — má vlastní sloupec v Real Estate tabulce. Seed z Google
   // Sheetu (scripts/import-re-sheet.ts), dál editovatelná inline.
   reNote?: string;
+  // Přiřazené uživatelské flagy (id z katalogu portal:re-flag:*). Sdílený
+  // štítkovací systém na stránce Real Estate. Katalog: lib/portal/re-flags-db.
+  flagIds?: string[];
   attachments: LocationAttachment[];
   newco?: LocationNewCo;
   updatedBy: string;
@@ -319,9 +322,12 @@ export async function listLocationNewcoMap(): Promise<
 // (note + reNote + newco). Jeden pipeline scan místo N getů
 // (vzor listLocationIdsWithAttachments / listLocationNewcoMap).
 export async function listLocationLocalMap(): Promise<
-  Map<string, Pick<LocationLocal, "note" | "reNote" | "newco">>
+  Map<string, Pick<LocationLocal, "note" | "reNote" | "newco" | "flagIds">>
 > {
-  const out = new Map<string, Pick<LocationLocal, "note" | "reNote" | "newco">>();
+  const out = new Map<
+    string,
+    Pick<LocationLocal, "note" | "reNote" | "newco" | "flagIds">
+  >();
   const r = getRedis();
   if (!r) return out;
   const ids = (await r.smembers(ALL_KEY)) as string[];
@@ -335,10 +341,44 @@ export async function listLocationLocalMap(): Promise<
         note: local.note,
         reNote: local.reNote,
         newco: local.newco,
+        flagIds: local.flagIds,
       });
     }
   });
   return out;
+}
+
+// Odebere daný flag id ze všech lokalit, které ho mají přiřazený (orphan cleanup
+// po smazání flagu z katalogu). Jeden pipeline scan + cílené přepisy jen těch
+// LocationLocal, kde se pole skutečně mění. Vrací počet dotčených lokalit.
+export async function removeFlagIdFromAllLocations(
+  flagId: string,
+  updatedBy: string,
+): Promise<number> {
+  const r = getRedis();
+  if (!r) return 0;
+  const ids = (await r.smembers(ALL_KEY)) as string[];
+  if (!ids.length) return 0;
+  const readPipe = r.pipeline();
+  ids.forEach((id) => readPipe.get<LocationLocal>(localKey(id)));
+  const results = (await readPipe.exec()) as (LocationLocal | null)[];
+
+  const writePipe = r.pipeline();
+  let touched = 0;
+  results.forEach((local, i) => {
+    if (local?.flagIds?.includes(flagId)) {
+      const next: LocationLocal = {
+        ...local,
+        flagIds: local.flagIds.filter((f) => f !== flagId),
+        updatedBy,
+        updatedAt: new Date().toISOString(),
+      };
+      writePipe.set(localKey(ids[i]!), next);
+      touched++;
+    }
+  });
+  if (touched) await writePipe.exec();
+  return touched;
 }
 
 export async function saveLocationLocal(local: LocationLocal): Promise<void> {
