@@ -1,5 +1,5 @@
 import { buildXlsx, type XlsxColumn, type XlsxSheet } from "@/lib/portal/xlsx-writer";
-import { RE_AGENT_LABEL } from "./locations-shared";
+import { CATEGORY_LABEL, RE_AGENT_LABEL } from "./locations-shared";
 import {
   businessPlanView,
   LEASE_HOLDER_LABEL,
@@ -64,7 +64,7 @@ function rowCells(
     r.newco?.entitaCeip2 ?? "",
     bp ? bp.label : "",
     r.newco?.operationalType ?? "",
-    r.newco?.category ?? "",
+    r.category ? CATEGORY_LABEL[r.category] : "",
     newcoFlag(r, Boolean(r.newco?.flaggedRed)),
     r.franchiseContractId ? "Podepsáno" : "Ne",
     LEASE_HOLDER_LABEL[r.leaseCurrent],

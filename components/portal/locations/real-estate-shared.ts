@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import type {
   LeaseStatus,
+  LocationCategory,
   LocationNewCo,
   LocationStatus,
   ReAgent,
@@ -30,6 +31,10 @@ export type RealEstateRow = {
   reAgent: ReAgent | null;
   // Stav prodejny dle Transition (otevřená/zavřená/...). Read-only, zrcadlí se.
   locationStatus: LocationStatus | null;
+  // Kategorie lokality dle Transition (core/nice/soso/...). Zdroj pravdy je
+  // Transition, read-only zrcadlo. NEZAMĚŇOVAT s `newco.category` (volný string
+  // z NewCo Excelu) — sloupec „Kategorie" ukazuje tuhle Transition hodnotu.
+  category: LocationCategory | null;
   // Id přiřazených uživatelských flagů (lokální v BOServices, LocationLocal.flagIds).
   // Definice flagů (label+barva) drží katalog ReFlag[] předaný do tabulky zvlášť.
   flagIds: string[];
@@ -187,7 +192,7 @@ export const COLUMNS: ColumnDef[] = [
   { id: "ceip2", label: "Entita CEIP 2", defaultVisible: false },
   { id: "businessPlan", label: "Business plán", defaultVisible: true },
   { id: "operationalType", label: "Operational type", defaultVisible: true },
-  { id: "category", label: "Kategorie", defaultVisible: false },
+  { id: "category", label: "Kategorie", defaultVisible: true },
   { id: "flaggedRed", label: "Červeně", defaultVisible: true },
   { id: "franchise", label: "Franšíza", defaultVisible: true },
   { id: "leaseCurrent", label: "Nájem aktuálně", defaultVisible: true },
@@ -196,6 +201,7 @@ export const COLUMNS: ColumnDef[] = [
   { id: "note", label: "Poznámka", defaultVisible: true },
 ];
 
-// v2: přibyl sloupec "flags" (a dříve "storeStatus") — bump resetuje uloženou
-// sadu na defaulty, ať se nové sloupce zobrazí i uživatelům s dříve uloženým výběrem.
-export const COLUMN_STORAGE_KEY = "re-table-cols-v2";
+// v3: sloupec "category" (Kategorie z Transition) je nově default-visible — bump
+// resetuje uloženou sadu na defaulty, ať se nové sloupce zobrazí i uživatelům
+// s dříve uloženým výběrem.
+export const COLUMN_STORAGE_KEY = "re-table-cols-v3";
