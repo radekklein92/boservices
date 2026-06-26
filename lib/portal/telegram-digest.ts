@@ -136,13 +136,21 @@ export async function runTelegramLocationDigest(
 
   for (const agent of configured) {
     const chatId = groups[agent]!;
-    // Pozornost = nájem ještě není vyřešený (reconcile === "needs"); pokrývá i
-    // neurčený cíl. Vyřešené lokality se neposílají (méně šumu).
-    const attention = locations.filter(
-      (l) =>
-        l.re_agent === agent &&
-        reconcile(l.lease_current_status, l.lease_target_status) === "needs",
-    );
+    // "K řešení" definujeme STEJNĚ jako Real Estate tabulka (default pohled), ať
+    // počty sedí s portálem:
+    //  - jen lokality z NewCo importu (local.newco) — ostatní se v tabulce neřeší,
+    //  - červené (flaggedRed) jsou samostatná kategorie → jdou sem jen s příznakem
+    //    "stejně řešit" (solveDespiteRed),
+    //  - ostatní podle reconcile nájmu (needs).
+    // Bez tohoto sladění by digest počítal i lokality mimo NewCo a všechny červené
+    // (řádově víc, než kolik je v portálu "k řešení").
+    const attention = locations.filter((l) => {
+      if (l.re_agent !== agent) return false;
+      const local = localMap.get(l.id);
+      if (!local?.newco) return false;
+      if (local.newco.flaggedRed) return Boolean(local.solveDespiteRed);
+      return reconcile(l.lease_current_status, l.lease_target_status) === "needs";
+    });
 
     const digest: AgentDigest = {
       agent,
