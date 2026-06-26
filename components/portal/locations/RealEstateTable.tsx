@@ -35,6 +35,10 @@ type Sort = { key: ColumnId; dir: "asc" | "desc" } | null;
 const FLAG_RED_TONE = "border-red-300 bg-red-50 text-red-700";
 const FLAG_NEUTRAL_TONE = "border-edge bg-edge-warm text-ink-mid";
 
+// Výchozí pohled cílí na "co je potřeba řešit": skryje vyřešené (recon=resolved)
+// i lokality označené v NewCo červeně. Obojí jde zase odkrýt chipy níž.
+const DEFAULT_RECON: ReconStatus[] = ["needs", "unclear"];
+
 export function RealEstateTable({
   rows,
   onAgentApplied,
@@ -46,7 +50,11 @@ export function RealEstateTable({
 }) {
   const [query, setQuery] = useState("");
   const [showAll, setShowAll] = useState(false);
-  const [reconFilter, setReconFilter] = useState<Set<ReconStatus>>(new Set());
+  const [reconFilter, setReconFilter] = useState<Set<ReconStatus>>(
+    () => new Set(DEFAULT_RECON),
+  );
+  // Defaultně skryté: lokality označené v NewCo červeně (flaggedRed). false = skryté.
+  const [showRed, setShowRed] = useState(false);
   const [sort, setSort] = useState<Sort>(null);
   const [colMenuOpen, setColMenuOpen] = useState(false);
   const colMenuRef = useRef<HTMLDivElement | null>(null);
@@ -125,9 +133,15 @@ export function RealEstateTable({
     return m;
   }, [base]);
 
+  const redCount = useMemo(
+    () => base.reduce((n, r) => n + (r.newco?.flaggedRed ? 1 : 0), 0),
+    [base],
+  );
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return base.filter((r) => {
+      if (!showRed && r.newco?.flaggedRed) return false;
       if (
         reconFilter.size &&
         !reconFilter.has(reconcile(r.leaseCurrent, r.leaseTarget))
@@ -153,7 +167,7 @@ export function RealEstateTable({
         .toLowerCase();
       return hay.includes(q);
     });
-  }, [base, query, reconFilter]);
+  }, [base, query, reconFilter, showRed]);
 
   const sorted = useMemo(() => {
     const arr = [...filtered];
@@ -185,7 +199,12 @@ export function RealEstateTable({
   }, [filtered, sort]);
 
   const cols = COLUMNS.filter((c) => visibleCols.has(c.id));
-  const anyFilter = query.trim() !== "" || reconFilter.size > 0;
+  // "Zrušit filtr" se ukáže jen když se pohled liší od defaultu (resolved + červené
+  // skryté, ostatní viditelné) — reset proto vrací do defaultu, ne do prázdna.
+  const reconIsDefault =
+    reconFilter.size === DEFAULT_RECON.length &&
+    DEFAULT_RECON.every((s) => reconFilter.has(s));
+  const isFiltered = query.trim() !== "" || showAll || showRed || !reconIsDefault;
 
   return (
     <div className="flex flex-col gap-4">
@@ -258,6 +277,15 @@ export function RealEstateTable({
           />
         ))}
 
+        <FilterChip
+          active={showRed}
+          onClick={() => setShowRed((v) => !v)}
+          dotClass="bg-red-500"
+          label="Červeně"
+          count={redCount}
+          title="Lokality označené v NewCo červeně jsou ve výchozím stavu skryté — kliknutím je zobrazíte."
+        />
+
         <span className="mx-1 h-5 w-px shrink-0 bg-edge" aria-hidden="true" />
 
         <FilterChip
@@ -268,12 +296,13 @@ export function RealEstateTable({
           title="Včetně lokalit, které nejsou v importu NewCo"
         />
 
-        {(anyFilter || showAll) && (
+        {isFiltered && (
           <button
             type="button"
             onClick={() => {
               setQuery("");
-              setReconFilter(new Set());
+              setReconFilter(new Set(DEFAULT_RECON));
+              setShowRed(false);
               setShowAll(false);
             }}
             className="ml-1 text-[12px] font-medium text-ink-mid underline-offset-2 hover:text-ink-base hover:underline"
