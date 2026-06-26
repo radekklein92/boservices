@@ -3,7 +3,6 @@ import {
   cachedListLocationLocalMap,
   cachedListLocationFranchiseContracts,
 } from "@/lib/portal/cached-db";
-import { effectiveReAgent } from "@/lib/portal/locations-db";
 import { RealEstatePageClient } from "@/components/portal/locations/RealEstatePageClient";
 import type { RealEstateRow } from "@/components/portal/locations/real-estate-shared";
 
@@ -18,8 +17,8 @@ export default async function RealEstatePage() {
     cachedListLocationFranchiseContracts(),
   ]);
 
-  // Sloučení do plain řádků — Map se neserializuje přes RSC boundary do klienta,
-  // a effectiveReAgent počítáme na serveru (lokální volba má přednost).
+  // Sloučení do plain řádků — Map se neserializuje přes RSC boundary do klienta.
+  // re_agent + lease statusy jsou z Transition (editují se write-through zpět).
   const rows: RealEstateRow[] = locations.map((l) => {
     const local = localMap.get(l.id) ?? null;
     return {
@@ -29,9 +28,7 @@ export default async function RealEstatePage() {
       hasNewco: Boolean(local?.newco),
       newco: local?.newco ?? null,
       note: local?.note ?? "",
-      localReAgent: local?.reAgent ?? null,
-      transitionReAgent: l.re_agent,
-      effectiveReAgent: effectiveReAgent(l, local),
+      reAgent: l.re_agent,
       leaseCurrent: l.lease_current_status,
       leaseTarget: l.lease_target_status,
       franchiseContractId: franchiseByLocation[l.id] ?? null,

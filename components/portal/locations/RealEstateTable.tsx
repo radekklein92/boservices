@@ -8,12 +8,15 @@ import {
   ChevronUp,
   ChevronsUpDown,
   Columns3,
+  FileSpreadsheet,
+  Loader2,
   MapPin,
   Search,
   Store,
 } from "lucide-react";
 import { Chip } from "@/components/portal/ui/Chip";
 import { FilterChip } from "@/components/portal/ui/FilterChip";
+import type { LeaseStatus, ReAgent } from "@/lib/portal/locations-db";
 import { RE_AGENT_LABEL } from "./locations-shared";
 import {
   businessPlanView,
@@ -28,10 +31,30 @@ import {
   type RealEstateRow,
   type ReconStatus,
 } from "./real-estate-shared";
-import { ReAgentCell } from "./ReAgentCell";
+import {
+  TransitionSelectCell,
+  type SelectOption,
+  type TransitionField,
+} from "./TransitionSelectCell";
 import { NoteCell } from "./NoteCell";
 
 type Sort = { key: ColumnId; dir: "asc" | "desc" } | null;
+
+// Volby pro editovatelné dropdowny (zdroj pravdy Transition).
+const AGENT_OPTIONS: SelectOption[] = (
+  ["Krampera", "Siarik", "Kholova", "Gransky", "Neuzil"] as ReAgent[]
+).map((a) => ({ value: a, label: RE_AGENT_LABEL[a] }));
+
+const LEASE_OPTIONS: SelectOption[] = (
+  [
+    "prepis_na_fransizanta",
+    "prepis_na_ceip",
+    "prepis_jinam",
+    "uzavrena_na_twist",
+    "nemame_reseni",
+    "neznamy",
+  ] as LeaseStatus[]
+).map((s) => ({ value: s, label: LEASE_HOLDER_LABEL[s] }));
 
 const FLAG_RED_TONE = "border-red-300 bg-red-50 text-red-700";
 const FLAG_NEUTRAL_TONE = "border-edge bg-edge-warm text-ink-mid";
@@ -42,11 +65,11 @@ const DEFAULT_RECON: ReconStatus[] = ["needs", "unclear"];
 
 export function RealEstateTable({
   rows,
-  onAgentApplied,
+  onFieldApplied,
   onNoteApplied,
 }: {
   rows: RealEstateRow[];
-  onAgentApplied: (id: string, local: string | null, effective: string | null) => void;
+  onFieldApplied: (id: string, field: TransitionField, value: string | null) => void;
   onNoteApplied: (id: string, note: string) => void;
 }) {
   const [query, setQuery] = useState("");
@@ -59,6 +82,7 @@ export function RealEstateTable({
   const [sort, setSort] = useState<Sort>(null);
   const [colMenuOpen, setColMenuOpen] = useState(false);
   const colMenuRef = useRef<HTMLDivElement | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   // Init z defaultVisible (deterministic kvůli hydrataci), pak přepiš z localStorage.
   const [visibleCols, setVisibleCols] = useState<Set<ColumnId>>(
@@ -153,7 +177,7 @@ export function RealEstateTable({
       const hay = [
         r.name,
         r.code,
-        r.effectiveReAgent ? RE_AGENT_LABEL[r.effectiveReAgent] : "",
+        r.reAgent ? RE_AGENT_LABEL[r.reAgent] : "",
         r.newco?.entitaCeip1,
         r.newco?.entitaCeip2,
         r.newco?.operationalType,
@@ -200,6 +224,35 @@ export function RealEstateTable({
     return arr;
   }, [filtered, sort]);
 
+  // Export do .xlsx přesně toho, co je vidět (sorted = po filtru + řazení).
+  // buildRealEstateXlsx (a s ním JSZip) se natáhne lazy až při kliknutí.
+  async function exportXlsx() {
+    if (exporting || sorted.length === 0) return;
+    setExporting(true);
+    try {
+      const { buildRealEstateXlsx } = await import("./real-estate-export");
+      const bytes = await buildRealEstateXlsx(sorted);
+      // Kopie do Uint8Array nad plain ArrayBuffer - JSZip typuje buffer jako
+      // ArrayBufferLike (i SharedArrayBuffer), což BlobPart nepřijme.
+      const blob = new Blob([new Uint8Array(bytes)], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD (ASCII)
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `real-estate-${today}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("[real-estate] XLSX export selhal", err);
+    } finally {
+      setExporting(false);
+    }
+  }
+
   const cols = COLUMNS.filter((c) => visibleCols.has(c.id));
   // "Zrušit filtr" se ukáže jen když se pohled liší od defaultu (resolved + červené
   // skryté, ostatní viditelné) — reset proto vrací do defaultu, ne do prázdna.
@@ -229,6 +282,20 @@ export function RealEstateTable({
           <span className="font-mono text-[12px] text-ink-soft">
             {sorted.length.toString().padStart(2, "0")} / {base.length}
           </span>
+          <button
+            type="button"
+            onClick={exportXlsx}
+            disabled={exporting || sorted.length === 0}
+            title="Stáhne zobrazené řádky (po filtru) do Excelu (.xlsx)"
+            className="inline-flex h-9 items-center gap-2 rounded-full border border-edge bg-paper px-3.5 text-[12.5px] font-medium text-ink-deep transition-colors hover:border-ink-soft disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {exporting ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} aria-hidden="true" />
+            ) : (
+              <FileSpreadsheet className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+            )}
+            Excel
+          </button>
           <div className="relative" ref={colMenuRef}>
             <button
               type="button"
@@ -378,7 +445,7 @@ export function RealEstateTable({
                             : ""
                         }`}
                       >
-                        {renderCell(r, c.id, onAgentApplied, onNoteApplied)}
+                        {renderCell(r, c.id, onFieldApplied, onNoteApplied)}
                       </td>
                     );
                   })}
@@ -397,7 +464,7 @@ export function RealEstateTable({
 function renderCell(
   r: RealEstateRow,
   id: ColumnId,
-  onAgentApplied: (id: string, local: string | null, effective: string | null) => void,
+  onFieldApplied: (id: string, field: TransitionField, value: string | null) => void,
   onNoteApplied: (id: string, note: string) => void,
 ) {
   switch (id) {
@@ -424,11 +491,15 @@ function renderCell(
       );
     case "reAgent":
       return (
-        <ReAgentCell
+        <TransitionSelectCell
           id={r.id}
-          value={r.effectiveReAgent}
-          fromTransition={r.localReAgent === null}
-          onApplied={(local, eff) => onAgentApplied(r.id, local, eff)}
+          field="re_agent"
+          value={r.reAgent}
+          options={AGENT_OPTIONS}
+          placeholder="Nepřiřazeno"
+          allowClear
+          clearLabel="Nepřiřazeno"
+          onApplied={(v) => onFieldApplied(r.id, "re_agent", v)}
         />
       );
     case "ceip1":
@@ -465,9 +536,27 @@ function renderCell(
         <Chip tone={FLAG_NEUTRAL_TONE}>Ne</Chip>
       );
     case "leaseCurrent":
-      return <span className="whitespace-nowrap text-ink-deep">{LEASE_HOLDER_LABEL[r.leaseCurrent]}</span>;
+      return (
+        <TransitionSelectCell
+          id={r.id}
+          field="lease_current_status"
+          value={r.leaseCurrent}
+          options={LEASE_OPTIONS}
+          placeholder="—"
+          onApplied={(v) => onFieldApplied(r.id, "lease_current_status", v)}
+        />
+      );
     case "leaseTarget":
-      return <span className="whitespace-nowrap text-ink-deep">{LEASE_HOLDER_LABEL[r.leaseTarget]}</span>;
+      return (
+        <TransitionSelectCell
+          id={r.id}
+          field="lease_target_status"
+          value={r.leaseTarget}
+          options={LEASE_OPTIONS}
+          placeholder="—"
+          onApplied={(v) => onFieldApplied(r.id, "lease_target_status", v)}
+        />
+      );
     case "recon": {
       const s = reconcile(r.leaseCurrent, r.leaseTarget);
       const m = RECON_META[s];
@@ -507,7 +596,7 @@ function sortValue(r: RealEstateRow, key: ColumnId): string | number {
       return r.name.toLowerCase();
     case "reAgent":
       // null agent na konec (asc)
-      return r.effectiveReAgent ? RE_AGENT_LABEL[r.effectiveReAgent].toLowerCase() : "￿";
+      return r.reAgent ? RE_AGENT_LABEL[r.reAgent].toLowerCase() : "￿";
     case "ceip1":
       return (r.newco?.entitaCeip1 ?? "").toLowerCase();
     case "ceip2":

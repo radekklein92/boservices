@@ -26,12 +26,8 @@ export type RealEstateRow = {
   hasNewco: boolean;
   newco: LocationNewCo | null;
   note: string;
-  // Lokální volba (BOServices) — null = nenastaveno; má přednost.
-  localReAgent: ReAgent | null;
-  // Hodnota z Transition (fallback).
-  transitionReAgent: ReAgent | null;
-  // localReAgent ?? transitionReAgent ?? null (předpočítáno na serveru).
-  effectiveReAgent: ReAgent | null;
+  // RE agent z Transition (zdroj pravdy). Edituje se write-through do Transition.
+  reAgent: ReAgent | null;
   leaseCurrent: LeaseStatus;
   leaseTarget: LeaseStatus;
   // Id podepsané franšízingové smlouvy (status „podepsáno klientem"+ vč. DigiSign
@@ -51,10 +47,13 @@ const VAGUE_TARGET: ReadonlySet<LeaseStatus> = new Set<LeaseStatus>([
 ]);
 
 // - unclear: cíl není určený (testuje se PRVNÍ — kryje i current=target=neznamy)
+// - needs: aktuální === TWIST → vždy je co řešit (přepsat jinam), i kdyby se to
+//   shodovalo s cílem — TWIST je tranzitní entita, ne přípustný cílový stav
 // - resolved: aktuální === cílový a cíl je konkrétní → hotovo, nemakat
 // - needs: aktuální !== cílový → je co řešit, makat
 export function reconcile(current: LeaseStatus, target: LeaseStatus): ReconStatus {
   if (VAGUE_TARGET.has(target)) return "unclear";
+  if (current === "uzavrena_na_twist") return "needs";
   if (current === target) return "resolved";
   return "needs";
 }

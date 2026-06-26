@@ -139,8 +139,10 @@ function workbookRelsXml(sheetCount: number): string {
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheetRels}${stylesRel}</Relationships>`;
 }
 
-// Sestaví .xlsx soubor (ZIP) z listů. Vrací Buffer připravený k odeslání.
-export async function buildXlsx(sheets: XlsxSheet[]): Promise<Buffer> {
+// Sestaví .xlsx soubor (ZIP) z listů. Vrací Uint8Array - izomorfní (Node i
+// prohlížeč): server ho zabalí do Response, klient do Blobu ke stažení.
+// Záměrně NE "nodebuffer" (chybí v browseru) - uint8array funguje všude.
+export async function buildXlsx(sheets: XlsxSheet[]): Promise<Uint8Array> {
   if (!sheets.length) throw new Error("buildXlsx: alespoň jeden list je potřeba");
   const names = sheets.map((s, i) => sanitizeSheetName(s.name, `List ${i + 1}`));
 
@@ -154,5 +156,5 @@ export async function buildXlsx(sheets: XlsxSheet[]): Promise<Buffer> {
     zip.file(`xl/worksheets/sheet${i + 1}.xml`, sheetXml(sheet));
   });
 
-  return zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
+  return zip.generateAsync({ type: "uint8array", compression: "DEFLATE" });
 }
