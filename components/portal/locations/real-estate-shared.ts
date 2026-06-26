@@ -1,7 +1,6 @@
 import {
   AlertTriangle,
   CheckCircle2,
-  CircleDashed,
   type LucideIcon,
 } from "lucide-react";
 import type {
@@ -44,21 +43,22 @@ export type RealEstateRow = {
 
 // ── Stav řešení nájmu (porovnání aktuální vs cílový) ──────────────────────────
 
-export type ReconStatus = "resolved" | "needs" | "unclear";
+export type ReconStatus = "resolved" | "needs";
 
-// Cíl, který není konkrétní → nelze říct, jestli je hotovo.
+// Cíl, který není konkrétní → spadá pod „Řešit" (je co dořešit, ať už chybí
+// určení cíle, nebo se aktuální stav liší od cílového).
 const VAGUE_TARGET: ReadonlySet<LeaseStatus> = new Set<LeaseStatus>([
   "neznamy",
   "nemame_reseni",
 ]);
 
-// - unclear: cíl není určený (testuje se PRVNÍ — kryje i current=target=neznamy)
+// - needs: cíl není určený (testuje se PRVNÍ — kryje i current=target=neznamy)
 // - needs: aktuální === TWIST → vždy je co řešit (přepsat jinam), i kdyby se to
 //   shodovalo s cílem — TWIST je tranzitní entita, ne přípustný cílový stav
 // - resolved: aktuální === cílový a cíl je konkrétní → hotovo, nemakat
 // - needs: aktuální !== cílový → je co řešit, makat
 export function reconcile(current: LeaseStatus, target: LeaseStatus): ReconStatus {
-  if (VAGUE_TARGET.has(target)) return "unclear";
+  if (VAGUE_TARGET.has(target)) return "needs";
   if (current === "uzavrena_na_twist") return "needs";
   if (current === target) return "resolved";
   return "needs";
@@ -73,7 +73,7 @@ export const RECON_META: Record<
     tone: "border-amber-300 bg-amber-50 text-amber-700",
     dot: "bg-amber-500",
     Icon: AlertTriangle,
-    hint: "Aktuální nájem se liší od cílového — je co řešit.",
+    hint: "Aktuální nájem se liší od cílového, nebo cíl ještě není určený — je co řešit.",
   },
   resolved: {
     label: "Vyřešeno",
@@ -82,21 +82,13 @@ export const RECON_META: Record<
     Icon: CheckCircle2,
     hint: "Aktuální nájem už odpovídá cílovému.",
   },
-  unclear: {
-    label: "Cíl nejasný",
-    tone: "border-edge bg-edge-warm text-ink-mid",
-    dot: "bg-zinc-400",
-    Icon: CircleDashed,
-    hint: "Cílový stav nájmu není určený (neznámý / nemáme řešení).",
-  },
 };
 
 // Pořadí pro filtrovací chipy i default sort (needs-attention first).
-export const RECON_ORDER: ReconStatus[] = ["needs", "unclear", "resolved"];
+export const RECON_ORDER: ReconStatus[] = ["needs", "resolved"];
 export const RECON_SORT_WEIGHT: Record<ReconStatus, number> = {
   needs: 0,
-  unclear: 1,
-  resolved: 2,
+  resolved: 1,
 };
 
 // ── Krátké labely "na koho je nájem" (sloupce Nájem aktuálně/cílově) ──────────
