@@ -25,6 +25,7 @@ const COLUMNS: XlsxColumn[] = [
   { header: "Kód", width: 14 },
   { header: "Stav prodejny", width: 16 },
   { header: "RE agent", width: 14 },
+  { header: "Flagy", width: 30 },
   { header: "Entita CEIP 1", width: 22 },
   { header: "Entita CEIP 2", width: 22 },
   { header: "Business plán", width: 14 },
@@ -44,13 +45,21 @@ function newcoFlag(r: RealEstateRow, value: boolean): string {
   return r.newco ? (value ? "Ano" : "Ne") : "";
 }
 
-function rowCells(r: RealEstateRow): (string | number)[] {
+function rowCells(
+  r: RealEstateRow,
+  flagLabelById: Map<string, string>,
+): (string | number)[] {
   const bp = businessPlanView(r.newco?.includeInBusinessPlan);
+  const flagLabels = r.flagIds
+    .map((id) => flagLabelById.get(id))
+    .filter((l): l is string => Boolean(l))
+    .join(", ");
   return [
     r.name,
     r.code ?? "",
     r.locationStatus ? STORE_STATUS_META[r.locationStatus].label : "",
     r.reAgent ? RE_AGENT_LABEL[r.reAgent] : "",
+    flagLabels,
     r.newco?.entitaCeip1 ?? "",
     r.newco?.entitaCeip2 ?? "",
     bp ? bp.label : "",
@@ -67,12 +76,16 @@ function rowCells(r: RealEstateRow): (string | number)[] {
 }
 
 // Sestaví .xlsx (Uint8Array) z předaných řádků - voláno z tabulky s aktuálně
-// zobrazenou (filtrovanou + seřazenou) sadou řádků.
-export async function buildRealEstateXlsx(rows: RealEstateRow[]): Promise<Uint8Array> {
+// zobrazenou (filtrovanou + seřazenou) sadou řádků. flagLabelById mapuje id flagů
+// na jejich názvy (řádek drží jen flagIds, katalog je vedle).
+export async function buildRealEstateXlsx(
+  rows: RealEstateRow[],
+  flagLabelById: Map<string, string>,
+): Promise<Uint8Array> {
   const sheet: XlsxSheet = {
     name: "Real Estate",
     columns: COLUMNS,
-    rows: rows.map(rowCells),
+    rows: rows.map((r) => rowCells(r, flagLabelById)),
   };
   return buildXlsx([sheet]);
 }

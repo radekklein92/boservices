@@ -39,6 +39,9 @@ import {
   type TransitionField,
 } from "./TransitionSelectCell";
 import { NoteCell } from "./NoteCell";
+import { FlagsCell } from "./FlagsCell";
+import { flagTone } from "./re-flags-shared";
+import type { ReFlag } from "@/lib/portal/re-flags-shared";
 
 type Sort = { key: ColumnId; dir: "asc" | "desc" } | null;
 
@@ -65,20 +68,44 @@ const FLAG_NEUTRAL_TONE = "border-edge bg-edge-warm text-ink-mid";
 // i lokality označené v NewCo červeně. Obojí jde zase odkrýt chipy níž.
 const DEFAULT_RECON: ReconStatus[] = ["needs", "unclear"];
 
+// Kontext flagů prostrčený do renderCell (jeden objekt místo pěti parametrů).
+type FlagCtx = {
+  flags: ReFlag[];
+  currentUserEmail: string;
+  isAdmin: boolean;
+  onFlagsApplied: (id: string, flagIds: string[]) => void;
+  onCatalogChanged: (next: ReFlag[]) => void;
+  onFlagDeleted: (flagId: string) => void;
+};
+
 export function RealEstateTable({
   rows,
+  flags,
+  currentUserEmail,
+  isAdmin,
   onFieldApplied,
   onNoteApplied,
+  onFlagsApplied,
+  onCatalogChanged,
+  onFlagDeleted,
 }: {
   rows: RealEstateRow[];
+  flags: ReFlag[];
+  currentUserEmail: string;
+  isAdmin: boolean;
   onFieldApplied: (id: string, field: TransitionField, value: string | null) => void;
   onNoteApplied: (id: string, note: string) => void;
+  onFlagsApplied: (id: string, flagIds: string[]) => void;
+  onCatalogChanged: (next: ReFlag[]) => void;
+  onFlagDeleted: (flagId: string) => void;
 }) {
   const [query, setQuery] = useState("");
   const [showAll, setShowAll] = useState(false);
   const [reconFilter, setReconFilter] = useState<Set<ReconStatus>>(
     () => new Set(DEFAULT_RECON),
   );
+  // Filtr podle flagů (OR — řádek projde, má-li aspoň jeden z vybraných flagů).
+  const [flagFilter, setFlagFilter] = useState<Set<string>>(() => new Set());
   // Defaultně skryté: lokality označené v NewCo červeně (flaggedRed). false = skryté.
   const [showRed, setShowRed] = useState(false);
   const [sort, setSort] = useState<Sort>(null);
@@ -141,6 +168,15 @@ export function RealEstateTable({
     });
   }
 
+  function toggleFlag(id: string) {
+    setFlagFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
   function toggleSort(key: ColumnId) {
     setSort((prev) => {
       if (!prev || prev.key !== key) return { key, dir: "asc" };
@@ -154,29 +190,32 @@ export function RealEstateTable({
     [rows, showAll],
   );
 
-  // Řádky po textovém hledání, ale PŘED facetovými filtry (recon, červené).
+  // Katalog id → flag (pro labely ve fulltextu i počty u filtrů).
+  const flagById = useMemo(() => new Map(flags.map((f) => [f.id, f])), [flags]);
+
+  // Řádky po textovém hledání, ale PŘED facetovými filtry (recon, červené, flagy).
   // Sdílí ho `filtered` i počty na chipech, aby čísla seděla s tabulkou.
   const queried = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return base;
-    return base.filter((r) => matchesQuery(r, q));
-  }, [base, query]);
+    return base.filter((r) => matchesQuery(r, q, flagById));
+  }, [base, query, flagById]);
 
   // Facetové počty: každý chip počítá řádky, které projdou OSTATNÍMI aktivními
   // filtry (a hledáním), ne sebou samým. Recon počty proto respektují červený
-  // filtr — jinak by chip svítil číslem, které po kliknutí v tabulce není
-  // (skryté červené lokality).
+  // i flagový filtr — jinak by chip svítil číslem, které po kliknutí v tabulce
+  // není.
   const reconCounts = useMemo(() => {
     const m: Record<ReconStatus, number> = { needs: 0, unclear: 0, resolved: 0 };
     for (const r of queried) {
       if (!showRed && r.newco?.flaggedRed) continue;
+      if (flagFilter.size && !r.flagIds.some((id) => flagFilter.has(id))) continue;
       m[reconcile(r.leaseCurrent, r.leaseTarget)]++;
     }
     return m;
-  }, [queried, showRed]);
+  }, [queried, showRed, flagFilter]);
 
-  // Červený počet respektuje recon filtr (ne sebe sama) — číslo = kolik červených
-  // se po zapnutí v aktuálním recon výběru reálně odkryje.
+  // Červený počet respektuje recon + flag filtr (ne sebe sama).
   const redCount = useMemo(() => {
     let n = 0;
     for (const r of queried) {
@@ -187,10 +226,27 @@ export function RealEstateTable({
       ) {
         continue;
       }
+      if (flagFilter.size && !r.flagIds.some((id) => flagFilter.has(id))) continue;
       n++;
     }
     return n;
-  }, [queried, reconFilter]);
+  }, [queried, reconFilter, flagFilter]);
+
+  // Počty u flag chipů respektují červený + recon filtr (ne flag filtr sebe sama).
+  const flagCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of queried) {
+      if (!showRed && r.newco?.flaggedRed) continue;
+      if (
+        reconFilter.size &&
+        !reconFilter.has(reconcile(r.leaseCurrent, r.leaseTarget))
+      ) {
+        continue;
+      }
+      for (const id of r.flagIds) m.set(id, (m.get(id) ?? 0) + 1);
+    }
+    return m;
+  }, [queried, showRed, reconFilter]);
 
   const filtered = useMemo(() => {
     return queried.filter((r) => {
@@ -201,9 +257,13 @@ export function RealEstateTable({
       ) {
         return false;
       }
+      // OR mezi vybranými flagy: projde řádek s aspoň jedním z nich.
+      if (flagFilter.size && !r.flagIds.some((id) => flagFilter.has(id))) {
+        return false;
+      }
       return true;
     });
-  }, [queried, reconFilter, showRed]);
+  }, [queried, reconFilter, showRed, flagFilter]);
 
   const sorted = useMemo(() => {
     const arr = [...filtered];
@@ -241,7 +301,8 @@ export function RealEstateTable({
     setExporting(true);
     try {
       const { buildRealEstateXlsx } = await import("./real-estate-export");
-      const bytes = await buildRealEstateXlsx(sorted);
+      const flagLabelById = new Map(flags.map((f) => [f.id, f.label]));
+      const bytes = await buildRealEstateXlsx(sorted, flagLabelById);
       // Kopie do Uint8Array nad plain ArrayBuffer - JSZip typuje buffer jako
       // ArrayBufferLike (i SharedArrayBuffer), což BlobPart nepřijme.
       const blob = new Blob([new Uint8Array(bytes)], {
@@ -269,7 +330,17 @@ export function RealEstateTable({
   const reconIsDefault =
     reconFilter.size === DEFAULT_RECON.length &&
     DEFAULT_RECON.every((s) => reconFilter.has(s));
-  const isFiltered = query.trim() !== "" || showAll || showRed || !reconIsDefault;
+  const isFiltered =
+    query.trim() !== "" || showAll || showRed || !reconIsDefault || flagFilter.size > 0;
+
+  const flagCtx: FlagCtx = {
+    flags,
+    currentUserEmail,
+    isAdmin,
+    onFlagsApplied,
+    onCatalogChanged,
+    onFlagDeleted,
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -329,6 +400,7 @@ export function RealEstateTable({
               setReconFilter(new Set(DEFAULT_RECON));
               setShowRed(false);
               setShowAll(false);
+              setFlagFilter(new Set());
             }}
             className="ml-1 text-[12px] font-medium text-ink-mid underline-offset-2 hover:text-ink-base hover:underline"
           >
@@ -390,6 +462,26 @@ export function RealEstateTable({
         </div>
       </div>
 
+      {/* Filtr podle flagů (sdílený katalog) */}
+      {flags.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="mr-1 text-[11px] font-semibold uppercase tracking-[0.07em] text-ink-soft">
+            Flagy
+          </span>
+          {flags.map((f) => (
+            <FilterChip
+              key={f.id}
+              active={flagFilter.has(f.id)}
+              onClick={() => toggleFlag(f.id)}
+              dotClass={flagTone(f.color).dot}
+              label={f.label}
+              count={flagCounts.get(f.id) ?? 0}
+              title={`Lokality s flagem „${f.label}"`}
+            />
+          ))}
+        </div>
+      )}
+
       {/* Tabulka / empty */}
       {base.length === 0 ? (
         <EmptyState hasAnyLocations={rows.length > 0} onShowAll={() => setShowAll(true)} />
@@ -399,7 +491,7 @@ export function RealEstateTable({
             <thead>
               <tr>
                 {cols.map((c) => {
-                  const sortable = c.id !== "note";
+                  const sortable = c.id !== "note" && c.id !== "flags";
                   const isFirst = c.id === "location";
                   const active = sort?.key === c.id;
                   return (
@@ -454,7 +546,7 @@ export function RealEstateTable({
                             : ""
                         }`}
                       >
-                        {renderCell(r, c.id, onFieldApplied, onNoteApplied)}
+                        {renderCell(r, c.id, onFieldApplied, onNoteApplied, flagCtx)}
                       </td>
                     );
                   })}
@@ -475,6 +567,7 @@ function renderCell(
   id: ColumnId,
   onFieldApplied: (id: string, field: TransitionField, value: string | null) => void,
   onNoteApplied: (id: string, note: string) => void,
+  flagCtx: FlagCtx,
 ) {
   switch (id) {
     case "location":
@@ -518,6 +611,19 @@ function renderCell(
           allowClear
           clearLabel="Nepřiřazeno"
           onApplied={(v) => onFieldApplied(r.id, "re_agent", v)}
+        />
+      );
+    case "flags":
+      return (
+        <FlagsCell
+          locationId={r.id}
+          flagIds={r.flagIds}
+          flags={flagCtx.flags}
+          currentUserEmail={flagCtx.currentUserEmail}
+          isAdmin={flagCtx.isAdmin}
+          onFlagsApplied={flagCtx.onFlagsApplied}
+          onCatalogChanged={flagCtx.onCatalogChanged}
+          onFlagDeleted={flagCtx.onFlagDeleted}
         />
       );
     case "ceip1":
@@ -608,7 +714,14 @@ function Dash() {
 
 // ── Textové hledání nad řádkem ───────────────────────────────────────────────
 // `q` je už trimnuté + lowercase (volá se z memoizovaného `queried`).
-function matchesQuery(r: RealEstateRow, q: string): boolean {
+function matchesQuery(
+  r: RealEstateRow,
+  q: string,
+  flagById: Map<string, ReFlag>,
+): boolean {
+  const flagLabels = r.flagIds
+    .map((id) => flagById.get(id)?.label ?? "")
+    .join(" ");
   const hay = [
     r.name,
     r.code,
@@ -623,6 +736,7 @@ function matchesQuery(r: RealEstateRow, q: string): boolean {
     LEASE_HOLDER_LABEL[r.leaseCurrent],
     LEASE_HOLDER_LABEL[r.leaseTarget],
     r.note,
+    flagLabels,
   ]
     .filter(Boolean)
     .join(" ")

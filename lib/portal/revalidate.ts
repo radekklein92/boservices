@@ -47,3 +47,7 @@ export function bustClamoraClaims(): void {
 export function bustPayouts(): void {
   revalidateTag(TAG.payouts, PROFILE);
 }
+
+export function bustReFlags(): void {
+  revalidateTag(TAG.reFlags, PROFILE);
+}
