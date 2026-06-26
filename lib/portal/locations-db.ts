@@ -135,10 +135,6 @@ export interface LocationLocal {
   note: string;
   attachments: LocationAttachment[];
   newco?: LocationNewCo;
-  // Lokální přiřazení RE agenta (BOServices). Přednost před Transition re_agent.
-  // null = uživatel lokální volbu smazal → spadne zpět na Transition.
-  // undefined = nikdy nenastaveno (legacy záznam).
-  reAgent?: ReAgent | null;
   updatedBy: string;
   updatedAt: string;
 }
@@ -146,16 +142,6 @@ export interface LocationLocal {
 // Spojený pohled pro detail.
 export interface LocationView extends MirroredLocation {
   local: LocationLocal | null;
-}
-
-// Efektivní RE agent: lokální přiřazení (BOServices) má přednost před hodnotou
-// z Transition. local.reAgent > mirrored.re_agent > null. Čistá funkce
-// (server pipeline i klient). Vzor stejný jako clientSignedAtEffective u smluv.
-export function effectiveReAgent(
-  mirrored: Pick<MirroredLocation, "re_agent">,
-  local: Pick<LocationLocal, "reAgent"> | null | undefined,
-): ReAgent | null {
-  return local?.reAgent ?? mirrored.re_agent ?? null;
 }
 
 export interface LocationsSyncMeta {
@@ -250,6 +236,19 @@ export async function replaceMirroredLocations(
   return { synced: locations.length, removed };
 }
 
+// Zapíše jednu lokalitu do zrcadla. Volá write-through z BOServices po úspěšné
+// editaci v Transition (Transition vrátí aktualizovanou lokalitu) — aby ji
+// všichni v BOServices viděli hned, ne až po hodinovém full-replace syncu
+// (ten to jen potvrdí). Drží i index ALL_KEY.
+export async function setMirroredLocation(loc: MirroredLocation): Promise<void> {
+  const r = getRedis();
+  if (!r) throw new Error("Redis not configured");
+  const pipe = r.pipeline();
+  pipe.set(locKey(loc.id), loc);
+  pipe.sadd(ALL_KEY, loc.id);
+  await pipe.exec();
+}
+
 // ── Lokální data ──────────────────────────────────────────────────────────────
 
 export async function getLocationLocal(id: string): Promise<LocationLocal | null> {
@@ -308,12 +307,12 @@ export async function listLocationNewcoMap(): Promise<
 }
 
 // Mapa id lokality → lokální data potřebná pro Real Estate tabulku
-// (note + reAgent + newco). Jeden pipeline scan místo N getů
+// (note + newco). Jeden pipeline scan místo N getů
 // (vzor listLocationIdsWithAttachments / listLocationNewcoMap).
 export async function listLocationLocalMap(): Promise<
-  Map<string, Pick<LocationLocal, "note" | "reAgent" | "newco">>
+  Map<string, Pick<LocationLocal, "note" | "newco">>
 > {
-  const out = new Map<string, Pick<LocationLocal, "note" | "reAgent" | "newco">>();
+  const out = new Map<string, Pick<LocationLocal, "note" | "newco">>();
   const r = getRedis();
   if (!r) return out;
   const ids = (await r.smembers(ALL_KEY)) as string[];
@@ -325,7 +324,6 @@ export async function listLocationLocalMap(): Promise<
     if (local) {
       out.set(ids[i]!, {
         note: local.note,
-        reAgent: local.reAgent,
         newco: local.newco,
       });
     }

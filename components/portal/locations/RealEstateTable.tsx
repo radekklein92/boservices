@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Chip } from "@/components/portal/ui/Chip";
 import { FilterChip } from "@/components/portal/ui/FilterChip";
+import type { LeaseStatus, ReAgent } from "@/lib/portal/locations-db";
 import { RE_AGENT_LABEL } from "./locations-shared";
 import {
   businessPlanView,
@@ -28,10 +29,30 @@ import {
   type RealEstateRow,
   type ReconStatus,
 } from "./real-estate-shared";
-import { ReAgentCell } from "./ReAgentCell";
+import {
+  TransitionSelectCell,
+  type SelectOption,
+  type TransitionField,
+} from "./TransitionSelectCell";
 import { NoteCell } from "./NoteCell";
 
 type Sort = { key: ColumnId; dir: "asc" | "desc" } | null;
+
+// Volby pro editovatelné dropdowny (zdroj pravdy Transition).
+const AGENT_OPTIONS: SelectOption[] = (
+  ["Krampera", "Siarik", "Kholova", "Gransky", "Neuzil"] as ReAgent[]
+).map((a) => ({ value: a, label: RE_AGENT_LABEL[a] }));
+
+const LEASE_OPTIONS: SelectOption[] = (
+  [
+    "prepis_na_fransizanta",
+    "prepis_na_ceip",
+    "prepis_jinam",
+    "uzavrena_na_twist",
+    "nemame_reseni",
+    "neznamy",
+  ] as LeaseStatus[]
+).map((s) => ({ value: s, label: LEASE_HOLDER_LABEL[s] }));
 
 const FLAG_RED_TONE = "border-red-300 bg-red-50 text-red-700";
 const FLAG_NEUTRAL_TONE = "border-edge bg-edge-warm text-ink-mid";
@@ -42,11 +63,11 @@ const DEFAULT_RECON: ReconStatus[] = ["needs", "unclear"];
 
 export function RealEstateTable({
   rows,
-  onAgentApplied,
+  onFieldApplied,
   onNoteApplied,
 }: {
   rows: RealEstateRow[];
-  onAgentApplied: (id: string, local: string | null, effective: string | null) => void;
+  onFieldApplied: (id: string, field: TransitionField, value: string | null) => void;
   onNoteApplied: (id: string, note: string) => void;
 }) {
   const [query, setQuery] = useState("");
@@ -153,7 +174,7 @@ export function RealEstateTable({
       const hay = [
         r.name,
         r.code,
-        r.effectiveReAgent ? RE_AGENT_LABEL[r.effectiveReAgent] : "",
+        r.reAgent ? RE_AGENT_LABEL[r.reAgent] : "",
         r.newco?.entitaCeip1,
         r.newco?.entitaCeip2,
         r.newco?.operationalType,
@@ -378,7 +399,7 @@ export function RealEstateTable({
                             : ""
                         }`}
                       >
-                        {renderCell(r, c.id, onAgentApplied, onNoteApplied)}
+                        {renderCell(r, c.id, onFieldApplied, onNoteApplied)}
                       </td>
                     );
                   })}
@@ -397,7 +418,7 @@ export function RealEstateTable({
 function renderCell(
   r: RealEstateRow,
   id: ColumnId,
-  onAgentApplied: (id: string, local: string | null, effective: string | null) => void,
+  onFieldApplied: (id: string, field: TransitionField, value: string | null) => void,
   onNoteApplied: (id: string, note: string) => void,
 ) {
   switch (id) {
@@ -424,11 +445,15 @@ function renderCell(
       );
     case "reAgent":
       return (
-        <ReAgentCell
+        <TransitionSelectCell
           id={r.id}
-          value={r.effectiveReAgent}
-          fromTransition={r.localReAgent === null}
-          onApplied={(local, eff) => onAgentApplied(r.id, local, eff)}
+          field="re_agent"
+          value={r.reAgent}
+          options={AGENT_OPTIONS}
+          placeholder="Nepřiřazeno"
+          allowClear
+          clearLabel="Nepřiřazeno"
+          onApplied={(v) => onFieldApplied(r.id, "re_agent", v)}
         />
       );
     case "ceip1":
@@ -465,9 +490,27 @@ function renderCell(
         <Chip tone={FLAG_NEUTRAL_TONE}>Ne</Chip>
       );
     case "leaseCurrent":
-      return <span className="whitespace-nowrap text-ink-deep">{LEASE_HOLDER_LABEL[r.leaseCurrent]}</span>;
+      return (
+        <TransitionSelectCell
+          id={r.id}
+          field="lease_current_status"
+          value={r.leaseCurrent}
+          options={LEASE_OPTIONS}
+          placeholder="—"
+          onApplied={(v) => onFieldApplied(r.id, "lease_current_status", v)}
+        />
+      );
     case "leaseTarget":
-      return <span className="whitespace-nowrap text-ink-deep">{LEASE_HOLDER_LABEL[r.leaseTarget]}</span>;
+      return (
+        <TransitionSelectCell
+          id={r.id}
+          field="lease_target_status"
+          value={r.leaseTarget}
+          options={LEASE_OPTIONS}
+          placeholder="—"
+          onApplied={(v) => onFieldApplied(r.id, "lease_target_status", v)}
+        />
+      );
     case "recon": {
       const s = reconcile(r.leaseCurrent, r.leaseTarget);
       const m = RECON_META[s];
@@ -507,7 +550,7 @@ function sortValue(r: RealEstateRow, key: ColumnId): string | number {
       return r.name.toLowerCase();
     case "reAgent":
       // null agent na konec (asc)
-      return r.effectiveReAgent ? RE_AGENT_LABEL[r.effectiveReAgent].toLowerCase() : "￿";
+      return r.reAgent ? RE_AGENT_LABEL[r.reAgent].toLowerCase() : "￿";
     case "ceip1":
       return (r.newco?.entitaCeip1 ?? "").toLowerCase();
     case "ceip2":

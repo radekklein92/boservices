@@ -26,12 +26,8 @@ export type RealEstateRow = {
   hasNewco: boolean;
   newco: LocationNewCo | null;
   note: string;
-  // Lokální volba (BOServices) — null = nenastaveno; má přednost.
-  localReAgent: ReAgent | null;
-  // Hodnota z Transition (fallback).
-  transitionReAgent: ReAgent | null;
-  // localReAgent ?? transitionReAgent ?? null (předpočítáno na serveru).
-  effectiveReAgent: ReAgent | null;
+  // RE agent z Transition (zdroj pravdy). Edituje se write-through do Transition.
+  reAgent: ReAgent | null;
   leaseCurrent: LeaseStatus;
   leaseTarget: LeaseStatus;
   // Id podepsané franšízingové smlouvy (status „podepsáno klientem"+ vč. DigiSign
