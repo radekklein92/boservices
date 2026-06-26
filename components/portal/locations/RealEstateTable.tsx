@@ -63,7 +63,7 @@ const FLAG_NEUTRAL_TONE = "border-edge bg-edge-warm text-ink-mid";
 
 // Výchozí pohled cílí na "co je potřeba řešit": skryje vyřešené (recon=resolved)
 // i lokality označené v NewCo červeně. Obojí jde zase odkrýt chipy níž.
-const DEFAULT_RECON: ReconStatus[] = ["needs", "unclear"];
+const DEFAULT_RECON: ReconStatus[] = ["needs"];
 
 export function RealEstateTable({
   rows,
@@ -167,7 +167,7 @@ export function RealEstateTable({
   // filtr — jinak by chip svítil číslem, které po kliknutí v tabulce není
   // (skryté červené lokality).
   const reconCounts = useMemo(() => {
-    const m: Record<ReconStatus, number> = { needs: 0, unclear: 0, resolved: 0 };
+    const m: Record<ReconStatus, number> = { needs: 0, resolved: 0 };
     for (const r of queried) {
       if (!showRed && r.newco?.flaggedRed) continue;
       m[reconcile(r.leaseCurrent, r.leaseTarget)]++;
