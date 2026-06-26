@@ -154,20 +154,46 @@ export function RealEstateTable({
     [rows, showAll],
   );
 
+  // Řádky po textovém hledání, ale PŘED facetovými filtry (recon, červené).
+  // Sdílí ho `filtered` i počty na chipech, aby čísla seděla s tabulkou.
+  const queried = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return base;
+    return base.filter((r) => matchesQuery(r, q));
+  }, [base, query]);
+
+  // Facetové počty: každý chip počítá řádky, které projdou OSTATNÍMI aktivními
+  // filtry (a hledáním), ne sebou samým. Recon počty proto respektují červený
+  // filtr — jinak by chip svítil číslem, které po kliknutí v tabulce není
+  // (skryté červené lokality).
   const reconCounts = useMemo(() => {
     const m: Record<ReconStatus, number> = { needs: 0, unclear: 0, resolved: 0 };
-    for (const r of base) m[reconcile(r.leaseCurrent, r.leaseTarget)]++;
+    for (const r of queried) {
+      if (!showRed && r.newco?.flaggedRed) continue;
+      m[reconcile(r.leaseCurrent, r.leaseTarget)]++;
+    }
     return m;
-  }, [base]);
+  }, [queried, showRed]);
 
-  const redCount = useMemo(
-    () => base.reduce((n, r) => n + (r.newco?.flaggedRed ? 1 : 0), 0),
-    [base],
-  );
+  // Červený počet respektuje recon filtr (ne sebe sama) — číslo = kolik červených
+  // se po zapnutí v aktuálním recon výběru reálně odkryje.
+  const redCount = useMemo(() => {
+    let n = 0;
+    for (const r of queried) {
+      if (!r.newco?.flaggedRed) continue;
+      if (
+        reconFilter.size &&
+        !reconFilter.has(reconcile(r.leaseCurrent, r.leaseTarget))
+      ) {
+        continue;
+      }
+      n++;
+    }
+    return n;
+  }, [queried, reconFilter]);
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return base.filter((r) => {
+    return queried.filter((r) => {
       if (!showRed && r.newco?.flaggedRed) return false;
       if (
         reconFilter.size &&
@@ -175,28 +201,9 @@ export function RealEstateTable({
       ) {
         return false;
       }
-      if (!q) return true;
-      const hay = [
-        r.name,
-        r.code,
-        r.locationStatus ? STORE_STATUS_META[r.locationStatus].label : "",
-        r.reAgent ? RE_AGENT_LABEL[r.reAgent] : "",
-        r.newco?.entitaCeip1,
-        r.newco?.entitaCeip2,
-        r.newco?.operationalType,
-        r.newco?.category,
-        r.newco?.includeInBusinessPlan,
-        r.franchiseContractId ? "franšíza podepsáno" : "",
-        LEASE_HOLDER_LABEL[r.leaseCurrent],
-        LEASE_HOLDER_LABEL[r.leaseTarget],
-        r.note,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      return hay.includes(q);
+      return true;
     });
-  }, [base, query, reconFilter, showRed]);
+  }, [queried, reconFilter, showRed]);
 
   const sorted = useMemo(() => {
     const arr = [...filtered];
@@ -597,6 +604,30 @@ function Txt({ v }: { v: string | null | undefined }) {
 
 function Dash() {
   return <span className="text-ink-soft">—</span>;
+}
+
+// ── Textové hledání nad řádkem ───────────────────────────────────────────────
+// `q` je už trimnuté + lowercase (volá se z memoizovaného `queried`).
+function matchesQuery(r: RealEstateRow, q: string): boolean {
+  const hay = [
+    r.name,
+    r.code,
+    r.locationStatus ? STORE_STATUS_META[r.locationStatus].label : "",
+    r.reAgent ? RE_AGENT_LABEL[r.reAgent] : "",
+    r.newco?.entitaCeip1,
+    r.newco?.entitaCeip2,
+    r.newco?.operationalType,
+    r.newco?.category,
+    r.newco?.includeInBusinessPlan,
+    r.franchiseContractId ? "franšíza podepsáno" : "",
+    LEASE_HOLDER_LABEL[r.leaseCurrent],
+    LEASE_HOLDER_LABEL[r.leaseTarget],
+    r.note,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return hay.includes(q);
 }
 
 // ── Sort hodnota podle sloupce ───────────────────────────────────────────────
