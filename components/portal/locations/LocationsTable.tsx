@@ -77,6 +77,7 @@ export function LocationsTable({
         l.name,
         l.code,
         CONCEPT_LABEL[l.concept],
+        l.current_client_name,
         l.new_client_name,
         l.target_franchisee,
         l.client_ico,
@@ -241,10 +242,15 @@ export function LocationsTable({
                 <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12.5px] text-ink-mid">
                   {l.code && <span className="font-mono">{l.code}</span>}
                   <span>{CONCEPT_LABEL[l.concept]}</span>
-                  {l.new_client_name && (
+                  {/* Aktuální klient (obsazeno) má přednost; pak kandidát na
+                      převzetí (nový klient); pak cílový franšízant. */}
+                  {l.current_client_name && (
+                    <span className="truncate text-ink-deep">{l.current_client_name}</span>
+                  )}
+                  {!l.current_client_name && l.new_client_name && (
                     <span className="truncate text-ink-deep">{l.new_client_name}</span>
                   )}
-                  {!l.new_client_name && l.target_franchisee && (
+                  {!l.current_client_name && !l.new_client_name && l.target_franchisee && (
                     <span className="truncate">{l.target_franchisee}</span>
                   )}
                 </div>

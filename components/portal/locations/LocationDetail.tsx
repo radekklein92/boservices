@@ -134,6 +134,7 @@ export function LocationDetail({ location }: { location: LocationView }) {
         </Section>
 
         <Section title="Klient a obsazení">
+          <Row label="Aktuální klient" value={l.current_client_name} />
           <Row label="Nový klient" value={l.new_client_name} />
           <Row label="Cílový franšízant" value={l.target_franchisee} />
           <Row
