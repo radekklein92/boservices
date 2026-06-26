@@ -9,6 +9,7 @@ import type {
   LocationNewCo,
   LocationStatus,
   ReAgent,
+  ReCheckInStatus,
 } from "@/lib/portal/locations-db";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -49,6 +50,10 @@ export type RealEstateRow = {
   // mezistavu, bez zrušených) — null = lokalita ji nemá. Stejný zdroj jako badge
   // „franšíza" na stránce Lokality (listLocationFranchiseContracts).
   franchiseContractId: string | null;
+  // Poslední check-in RE agenta z Telegramu (lokální, LocationLocal.reCheckIn).
+  // Hlášení postupu agenta — oddělené od systémové reconciliace nájmu. Když agent
+  // hlásí „Vyřešeno", ale recon je pořád „Řešit", je to viditelný nesoulad.
+  reCheckIn: { status: ReCheckInStatus; at: string } | null;
 };
 
 // ── Stav řešení nájmu (porovnání aktuální vs cílový) ──────────────────────────
@@ -99,6 +104,35 @@ export const RECON_ORDER: ReconStatus[] = ["needs", "resolved"];
 export const RECON_SORT_WEIGHT: Record<ReconStatus, number> = {
   needs: 0,
   resolved: 1,
+};
+
+// ── Hlášení RE agenta (check-in z Telegramu) ─────────────────────────────────
+// Sebehlášený postup agenta na lokalitě (LocationLocal.reCheckIn). NEZAMĚŇOVAT
+// s reconcile() — to je systémové porovnání nájmu. Tóny: vyřešeno = emerald,
+// řeším = sky, problém = red.
+export const RE_CHECKIN_META: Record<
+  ReCheckInStatus,
+  { label: string; tone: string }
+> = {
+  resolved: {
+    label: "Vyřešeno",
+    tone: "border-emerald-300 bg-emerald-50 text-emerald-700",
+  },
+  in_progress: {
+    label: "Řeším",
+    tone: "border-sky-300 bg-sky-50 text-sky-700",
+  },
+  problem: {
+    label: "Problém",
+    tone: "border-red-300 bg-red-50 text-red-700",
+  },
+};
+
+// Řazení sloupce „Hlášení agenta": problém nahoře → řeším → vyřešeno → bez hlášení.
+export const RE_CHECKIN_SORT_WEIGHT: Record<ReCheckInStatus, number> = {
+  problem: 0,
+  in_progress: 1,
+  resolved: 2,
 };
 
 // ── Krátké labely "na koho je nájem" (sloupce Nájem aktuálně/cílově) ──────────
@@ -209,6 +243,7 @@ export type ColumnId =
   | "leaseCurrent"
   | "leaseTarget"
   | "recon"
+  | "reCheckIn"
   | "note";
 
 export type ColumnDef = {
@@ -233,12 +268,11 @@ export const COLUMNS: ColumnDef[] = [
   { id: "leaseCurrent", label: "Nájem aktuálně", defaultVisible: true },
   { id: "leaseTarget", label: "Nájem cílově", defaultVisible: true },
   { id: "recon", label: "Stav řešení", defaultVisible: true },
+  { id: "reCheckIn", label: "Hlášení agenta", defaultVisible: true },
   { id: "note", label: "Poznámka", defaultVisible: true },
 ];
 
-// v3: dvě změny naráz vůči v2 — (a) sloupec "category" (Kategorie z Transition)
-// je nově default-visible, (b) sloupec "Flagy" zrušen (flagy se zobrazují jako
-// ikonky vedle názvu prodejny, FlagsCell v buňce "location"). Bump resetuje
-// uloženou sadu na defaulty, ať se nové sloupce zobrazí a nezůstane neexistující
-// "flags" ve výběru.
-export const COLUMN_STORAGE_KEY = "re-table-cols-v3";
+// v4: přibyl sloupec "reCheckIn" (Hlášení agenta z Telegramu), default-visible.
+// Bump resetuje uloženou sadu na defaulty, ať se nový sloupec u všech zobrazí.
+// (v3: category default-visible + zrušený sloupec "Flagy" → ikonky u názvu.)
+export const COLUMN_STORAGE_KEY = "re-table-cols-v4";

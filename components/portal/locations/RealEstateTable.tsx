@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
+  AlertTriangle,
   ArrowUpRight,
   ChevronDown,
   ChevronUp,
@@ -30,6 +31,8 @@ import {
   LEASE_HOLDER_LABEL,
   LEASE_TARGET_SUMMARY,
   RE_AGENT_SUMMARY,
+  RE_CHECKIN_META,
+  RE_CHECKIN_SORT_WEIGHT,
   RECON_META,
   RECON_ORDER,
   RECON_SORT_WEIGHT,
@@ -806,6 +809,36 @@ function renderCell(
         </Chip>
       );
     }
+    case "reCheckIn": {
+      if (!r.reCheckIn) return <Dash />;
+      const m = RE_CHECKIN_META[r.reCheckIn.status];
+      // Nesoulad: agent hlásí Vyřešeno, ale systémový stav nájmu je pořád Řešit.
+      const mismatch =
+        r.reCheckIn.status === "resolved" &&
+        reconcile(r.leaseCurrent, r.leaseTarget) === "needs";
+      const when = new Date(r.reCheckIn.at).toLocaleDateString("cs-CZ", {
+        day: "numeric",
+        month: "numeric",
+      });
+      return (
+        <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+          <Chip tone={m.tone}>{m.label}</Chip>
+          <span className="font-mono text-[11px] text-ink-soft">{when}</span>
+          {mismatch && (
+            <span
+              title="Agent hlásí Vyřešeno, ale systémový stav nájmu je pořád Řešit"
+              className="inline-flex"
+            >
+              <AlertTriangle
+                className="h-3.5 w-3.5 text-amber-500"
+                strokeWidth={2}
+                aria-hidden="true"
+              />
+            </span>
+          )}
+        </span>
+      );
+    }
     case "note":
       return (
         <NoteCell id={r.id} value={r.note} onApplied={(note) => onNoteApplied(r.id, note)} />
@@ -962,6 +995,9 @@ function sortValue(r: RealEstateRow, key: ColumnId): string | number {
       return LEASE_HOLDER_LABEL[r.leaseTarget].toLowerCase();
     case "recon":
       return RECON_SORT_WEIGHT[reconcile(r.leaseCurrent, r.leaseTarget)];
+    case "reCheckIn":
+      // Bez hlášení na konec (asc); jinak problém → řeším → vyřešeno.
+      return r.reCheckIn ? RE_CHECKIN_SORT_WEIGHT[r.reCheckIn.status] : 99;
     case "note":
       return (r.note ?? "").toLowerCase();
     default:
