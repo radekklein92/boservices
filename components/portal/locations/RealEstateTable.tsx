@@ -534,7 +534,7 @@ export function RealEstateTable({
                         <button
                           type="button"
                           onClick={() => toggleSort(c.id)}
-                          className="inline-flex items-center gap-1 transition-colors hover:text-ink-base"
+                          className="inline-flex items-center gap-1 uppercase transition-colors hover:text-ink-base"
                         >
                           {c.label}
                           {active ? (
