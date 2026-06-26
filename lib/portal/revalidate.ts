@@ -2,12 +2,18 @@ import { revalidateTag } from "next/cache";
 import { TAG } from "./cache-tags";
 
 // Tag bust helpery. Volat z mutation endpointů PO úspěšné mutaci.
-// Cached* read helpery se okamžitě obnoví na další request.
+// Cached* read helpery se obnoví HNED na další request (read-your-writes).
 //
-// Next.js 16 vyžaduje druhý argument 'profile' u revalidateTag. "max" zruší
-// všechny vrstvy cache (in-memory + Vercel edge), což je to, co chceme po
-// mutaci dat.
-const PROFILE = "max";
+// Next.js 16 vyžaduje druhý argument 'profile' u revalidateTag a jeho hodnota
+// rozhoduje o tom, jak tvrdá invalidace je:
+//   - "max" (a ostatní pojmenované profily) = stale-while-revalidate: tag se jen
+//     označí jako "starý", PŘÍŠTÍ request ale ještě dostane stará data a čerstvá
+//     se dotáhnou až na pozadí. Důsledek: po editaci je nutné refreshnout dvakrát.
+//   - { expire: 0 } = okamžitá (hard) expirace: příští čtení je cache miss a
+//     vrátí čerstvá data hned. To je to, co po mutaci chceme.
+// (updateTag dělá totéž, ale jde volat jen ze Server Action - naše mutace běží
+// v Route Handlerech, takže používáme objektový profil { expire: 0 }.)
+const PROFILE = { expire: 0 };
 
 export function bustContracts(): void {
   revalidateTag(TAG.contracts, PROFILE);
