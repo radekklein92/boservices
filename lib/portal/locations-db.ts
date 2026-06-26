@@ -138,6 +138,10 @@ export interface LocationNewCo {
 export interface LocationLocal {
   locationId: string;
   note: string;
+  // Poznámka RE (stav řešení nájmu z pohledu RE týmu). Lokální, oddělená od
+  // obecné `note` — má vlastní sloupec v Real Estate tabulce. Seed z Google
+  // Sheetu (scripts/import-re-sheet.ts), dál editovatelná inline.
+  reNote?: string;
   attachments: LocationAttachment[];
   newco?: LocationNewCo;
   updatedBy: string;
@@ -312,12 +316,12 @@ export async function listLocationNewcoMap(): Promise<
 }
 
 // Mapa id lokality → lokální data potřebná pro Real Estate tabulku
-// (note + newco). Jeden pipeline scan místo N getů
+// (note + reNote + newco). Jeden pipeline scan místo N getů
 // (vzor listLocationIdsWithAttachments / listLocationNewcoMap).
 export async function listLocationLocalMap(): Promise<
-  Map<string, Pick<LocationLocal, "note" | "newco">>
+  Map<string, Pick<LocationLocal, "note" | "reNote" | "newco">>
 > {
-  const out = new Map<string, Pick<LocationLocal, "note" | "newco">>();
+  const out = new Map<string, Pick<LocationLocal, "note" | "reNote" | "newco">>();
   const r = getRedis();
   if (!r) return out;
   const ids = (await r.smembers(ALL_KEY)) as string[];
@@ -329,6 +333,7 @@ export async function listLocationLocalMap(): Promise<
     if (local) {
       out.set(ids[i]!, {
         note: local.note,
+        reNote: local.reNote,
         newco: local.newco,
       });
     }
@@ -343,9 +348,9 @@ export async function saveLocationLocal(local: LocationLocal): Promise<void> {
 }
 
 // Merge-safe částečný zápis lokálních dat. Načte existující záznam, přepíše jen
-// dodaná pole a ZACHOVÁ vše ostatní (note, attachments, newco, reAgent) — žádný
+// dodaná pole a ZACHOVÁ vše ostatní (note, reNote, attachments, newco) — žádný
 // zápis tak nikdy nezahodí cizí pole. updatedBy/updatedAt se nastaví vždy.
-// Kanonický helper pro skalární patche (poznámka, RE agent).
+// Kanonický helper pro skalární patche (poznámka, Poznámka RE).
 export async function patchLocationLocal(
   id: string,
   patch: Partial<Omit<LocationLocal, "locationId" | "updatedBy" | "updatedAt">>,

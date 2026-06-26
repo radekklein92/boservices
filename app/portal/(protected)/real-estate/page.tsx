@@ -28,6 +28,7 @@ export default async function RealEstatePage() {
       hasNewco: Boolean(local?.newco),
       newco: local?.newco ?? null,
       note: local?.note ?? "",
+      reNote: local?.reNote ?? "",
       reAgent: l.re_agent,
       leaseCurrent: l.lease_current_status,
       leaseTarget: l.lease_target_status,
