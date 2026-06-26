@@ -196,23 +196,6 @@ export function RealEstateTable({
     [rows, showAll],
   );
 
-  // Přehled „Nájem cílově": rozpad celé sady (base) podle držitele cílového
-  // nájmu. ZÁMĚRNĚ nereaguje na recon/červené/flag filtry — je to strategický
-  // snímek „kam co míří", ne facet. Každý řádek má právě jeden leaseTarget,
-  // takže součet všech dlaždic = base.length.
-  const targetCounts = useMemo(() => {
-    const m: Record<LeaseStatus, number> = {
-      prepis_na_fransizanta: 0,
-      prepis_na_ceip: 0,
-      prepis_jinam: 0,
-      uzavrena_na_twist: 0,
-      nemame_reseni: 0,
-      neznamy: 0,
-    };
-    for (const r of base) m[r.leaseTarget]++;
-    return m;
-  }, [base]);
-
   // Katalog id → flag (pro labely ve fulltextu i počty u filtrů).
   const flagById = useMemo(() => new Map(flags.map((f) => [f.id, f])), [flags]);
 
@@ -287,6 +270,23 @@ export function RealEstateTable({
       return true;
     });
   }, [queried, reconFilter, showRed, flagFilter]);
+
+  // Přehled „Nájem cílově": rozpad PRÁVĚ ZOBRAZENÉ podmnožiny (filtered) podle
+  // držitele cílového nájmu — reaguje na hledání i všechny chip filtry
+  // (Řešit/Vyřešeno, Červeně, flagy). Každý řádek má právě jeden leaseTarget,
+  // takže součet všech dlaždic = filtered.length (= číslo vpravo nad tabulkou).
+  const targetCounts = useMemo(() => {
+    const m: Record<LeaseStatus, number> = {
+      prepis_na_fransizanta: 0,
+      prepis_na_ceip: 0,
+      prepis_jinam: 0,
+      uzavrena_na_twist: 0,
+      nemame_reseni: 0,
+      neznamy: 0,
+    };
+    for (const r of filtered) m[r.leaseTarget]++;
+    return m;
+  }, [filtered]);
 
   const sorted = useMemo(() => {
     const arr = [...filtered];
@@ -368,9 +368,10 @@ export function RealEstateTable({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Přehled „Nájem cílově" — strategický rozpad nad tabulkou. */}
+      {/* Přehled „Nájem cílově" — rozpad právě zobrazené podmnožiny (reaguje
+          na hledání i chip filtry) nad tabulkou. */}
       {base.length > 0 && (
-        <LeaseTargetSummary counts={targetCounts} total={base.length} />
+        <LeaseTargetSummary counts={targetCounts} total={filtered.length} />
       )}
 
       {/* Toolbar */}
