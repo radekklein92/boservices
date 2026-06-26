@@ -30,6 +30,7 @@ export default async function RealEstatePage() {
       note: local?.note ?? "",
       reNote: local?.reNote ?? "",
       reAgent: l.re_agent,
+      locationStatus: l.location_status,
       leaseCurrent: l.lease_current_status,
       leaseTarget: l.lease_target_status,
       franchiseContractId: franchiseByLocation[l.id] ?? null,

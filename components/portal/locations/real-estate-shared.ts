@@ -7,6 +7,7 @@ import {
 import type {
   LeaseStatus,
   LocationNewCo,
+  LocationStatus,
   ReAgent,
 } from "@/lib/portal/locations-db";
 
@@ -31,6 +32,8 @@ export type RealEstateRow = {
   reNote: string;
   // RE agent z Transition (zdroj pravdy). Edituje se write-through do Transition.
   reAgent: ReAgent | null;
+  // Stav prodejny dle Transition (otevřená/zavřená/...). Read-only, zrcadlí se.
+  locationStatus: LocationStatus | null;
   leaseCurrent: LeaseStatus;
   leaseTarget: LeaseStatus;
   // Id podepsané franšízingové smlouvy (status „podepsáno klientem"+ vč. DigiSign
@@ -122,10 +125,45 @@ export function businessPlanView(
   return { label: v, tone: "border-edge bg-paper text-ink-deep" };
 }
 
+// ── Stav prodejny dle Transition (location_status) ───────────────────────────
+// Otevřená/zavřená je to, co uživatel primárně chce vidět; mezistavy (výstavba,
+// zavírání) ukazujeme taky, ať pohled odpovídá Transition 1:1.
+
+export const STORE_STATUS_META: Record<
+  LocationStatus,
+  { label: string; tone: string }
+> = {
+  open: {
+    label: "Otevřená",
+    tone: "border-emerald-300 bg-emerald-50 text-emerald-700",
+  },
+  closing: {
+    label: "Zavírá se",
+    tone: "border-amber-300 bg-amber-50 text-amber-700",
+  },
+  construction: {
+    label: "Ve výstavbě",
+    tone: "border-sky-300 bg-sky-50 text-sky-700",
+  },
+  closed: {
+    label: "Zavřená",
+    tone: "border-edge bg-edge-warm text-ink-soft",
+  },
+};
+
+// Řazení: provozní stavy nahoře, zavřené dolů; null (neznámý) úplně poslední.
+export const STORE_STATUS_SORT_WEIGHT: Record<LocationStatus, number> = {
+  open: 0,
+  closing: 1,
+  construction: 2,
+  closed: 3,
+};
+
 // ── Sloupce (pro přepínání viditelnosti) ──────────────────────────────────────
 
 export type ColumnId =
   | "location"
+  | "storeStatus"
   | "reAgent"
   | "ceip1"
   | "ceip2"
@@ -150,6 +188,7 @@ export type ColumnDef = {
 
 export const COLUMNS: ColumnDef[] = [
   { id: "location", label: "Lokalita", defaultVisible: true, always: true },
+  { id: "storeStatus", label: "Stav prodejny", defaultVisible: true },
   { id: "reAgent", label: "RE agent", defaultVisible: true },
   { id: "ceip1", label: "Entita CEIP 1", defaultVisible: true },
   { id: "ceip2", label: "Entita CEIP 2", defaultVisible: false },

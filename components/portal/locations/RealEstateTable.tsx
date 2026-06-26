@@ -27,6 +27,8 @@ import {
   RECON_ORDER,
   RECON_SORT_WEIGHT,
   reconcile,
+  STORE_STATUS_META,
+  STORE_STATUS_SORT_WEIGHT,
   type ColumnId,
   type RealEstateRow,
   type ReconStatus,
@@ -179,6 +181,7 @@ export function RealEstateTable({
       const hay = [
         r.name,
         r.code,
+        r.locationStatus ? STORE_STATUS_META[r.locationStatus].label : "",
         r.reAgent ? RE_AGENT_LABEL[r.reAgent] : "",
         r.newco?.entitaCeip1,
         r.newco?.entitaCeip2,
@@ -492,6 +495,15 @@ function renderCell(
           </span>
         </Link>
       );
+    case "storeStatus": {
+      if (!r.locationStatus) return <Dash />;
+      const m = STORE_STATUS_META[r.locationStatus];
+      return (
+        <Chip tone={m.tone} className="whitespace-nowrap">
+          {m.label}
+        </Chip>
+      );
+    }
     case "reAgent":
       return (
         <TransitionSelectCell
@@ -606,6 +618,9 @@ function sortValue(r: RealEstateRow, key: ColumnId): string | number {
   switch (key) {
     case "location":
       return r.name.toLowerCase();
+    case "storeStatus":
+      // Neznámý stav (null) na konec (asc).
+      return r.locationStatus ? STORE_STATUS_SORT_WEIGHT[r.locationStatus] : 99;
     case "reAgent":
       // null agent na konec (asc)
       return r.reAgent ? RE_AGENT_LABEL[r.reAgent].toLowerCase() : "￿";
