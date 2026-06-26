@@ -12,6 +12,7 @@ import {
   ListChecks,
   MapPin,
   Palette,
+  Send,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -46,6 +47,7 @@ const commissionsItem: Item = {
 const admin: Item[] = [
   { href: "/portal/templates", label: "Šablony smluv", Icon: FilePenLine },
   { href: "/portal/design-system", label: "Design system", Icon: Palette },
+  { href: "/portal/admin/telegram", label: "Telegram", Icon: Send },
   { href: "/portal/users", label: "Uživatelé", Icon: Users },
 ];
 

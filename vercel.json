@@ -28,6 +28,10 @@
     {
       "path": "/api/cron/payouts-overdue",
       "schedule": "0 */12 * * *"
+    },
+    {
+      "path": "/api/cron/telegram-location-digest",
+      "schedule": "0 6 * * 2,4"
     }
   ]
 }

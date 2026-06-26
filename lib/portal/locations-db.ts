@@ -135,6 +135,18 @@ export interface LocationNewCo {
   importedAt: string;
 }
 
+// Check-in stavu lokality nahlášený RE agentem přes Telegram. LOKÁLNÍ pole
+// (sync se ho nedotýká) — hlásí postup agenta, NE autoritativní nájemní stav
+// (ten řídí Transition). Kde se hlášení rozchází se systémovou reconciliací
+// (agent „Vyřešeno" vs lease_current != lease_target), je to viditelný signál.
+export type ReCheckInStatus = "resolved" | "in_progress" | "problem";
+
+export interface LocationReCheckIn {
+  status: ReCheckInStatus;
+  by: ReAgent; // odvozeno z chat_id dedikované skupiny agenta
+  at: string; // ISO čas kliknutí
+}
+
 export interface LocationLocal {
   locationId: string;
   note: string;
@@ -147,6 +159,8 @@ export interface LocationLocal {
   solveDespiteRed?: boolean;
   attachments: LocationAttachment[];
   newco?: LocationNewCo;
+  // Poslední check-in od RE agenta přes Telegram (viz LocationReCheckIn).
+  reCheckIn?: LocationReCheckIn;
   updatedBy: string;
   updatedAt: string;
 }
@@ -319,14 +333,23 @@ export async function listLocationNewcoMap(): Promise<
 }
 
 // Mapa id lokality → lokální data potřebná pro Real Estate tabulku
-// (note + newco + flagIds + solveDespiteRed). Jeden pipeline scan místo N getů
-// (vzor listLocationIdsWithAttachments / listLocationNewcoMap).
+// (note + newco + flagIds + solveDespiteRed + reCheckIn). Jeden pipeline scan
+// místo N getů (vzor listLocationIdsWithAttachments / listLocationNewcoMap).
 export async function listLocationLocalMap(): Promise<
-  Map<string, Pick<LocationLocal, "note" | "newco" | "flagIds" | "solveDespiteRed">>
+  Map<
+    string,
+    Pick<
+      LocationLocal,
+      "note" | "newco" | "flagIds" | "solveDespiteRed" | "reCheckIn"
+    >
+  >
 > {
   const out = new Map<
     string,
-    Pick<LocationLocal, "note" | "newco" | "flagIds" | "solveDespiteRed">
+    Pick<
+      LocationLocal,
+      "note" | "newco" | "flagIds" | "solveDespiteRed" | "reCheckIn"
+    >
   >();
   const r = getRedis();
   if (!r) return out;
@@ -342,6 +365,7 @@ export async function listLocationLocalMap(): Promise<
         newco: local.newco,
         flagIds: local.flagIds,
         solveDespiteRed: local.solveDespiteRed,
+        reCheckIn: local.reCheckIn,
       });
     }
   });
