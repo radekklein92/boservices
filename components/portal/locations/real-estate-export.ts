@@ -5,6 +5,7 @@ import {
   LEASE_HOLDER_LABEL,
   RECON_META,
   reconcile,
+  STORE_STATUS_META,
   type RealEstateRow,
 } from "./real-estate-shared";
 
@@ -22,6 +23,7 @@ import {
 const COLUMNS: XlsxColumn[] = [
   { header: "Lokalita", width: 30 },
   { header: "Kód", width: 14 },
+  { header: "Stav prodejny", width: 16 },
   { header: "RE agent", width: 14 },
   { header: "Entita CEIP 1", width: 22 },
   { header: "Entita CEIP 2", width: 22 },
@@ -47,6 +49,7 @@ function rowCells(r: RealEstateRow): (string | number)[] {
   return [
     r.name,
     r.code ?? "",
+    r.locationStatus ? STORE_STATUS_META[r.locationStatus].label : "",
     r.reAgent ? RE_AGENT_LABEL[r.reAgent] : "",
     r.newco?.entitaCeip1 ?? "",
     r.newco?.entitaCeip2 ?? "",

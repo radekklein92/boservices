@@ -32,6 +32,7 @@ export default async function RealEstatePage() {
       newco: local?.newco ?? null,
       note: local?.note ?? "",
       reAgent: l.re_agent,
+      locationStatus: l.location_status,
       leaseCurrent: l.lease_current_status,
       leaseTarget: l.lease_target_status,
       franchiseContractId: franchiseByLocation[l.id] ?? null,
