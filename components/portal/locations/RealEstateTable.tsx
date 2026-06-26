@@ -29,6 +29,7 @@ import {
   COLUMNS,
   LEASE_HOLDER_LABEL,
   LEASE_TARGET_SUMMARY,
+  RE_AGENT_SUMMARY,
   RECON_META,
   RECON_ORDER,
   RECON_SORT_WEIGHT,
@@ -308,6 +309,25 @@ export function RealEstateTable({
     return m;
   }, [filtered]);
 
+  // Přehled „Po agentech": rozpad PRÁVĚ ZOBRAZENÉ podmnožiny (filtered) podle RE
+  // agenta — reaguje na hledání i chip filtry stejně jako souhrn nájmu. Lokality
+  // bez přiřazeného agenta padají do `none` (dlaždice „Bez agenta", jen když > 0).
+  const agentCounts = useMemo(() => {
+    const m: Record<ReAgent, number> = {
+      Krampera: 0,
+      Siarik: 0,
+      Kholova: 0,
+      Gransky: 0,
+      Neuzil: 0,
+    };
+    let none = 0;
+    for (const r of filtered) {
+      if (r.reAgent) m[r.reAgent]++;
+      else none++;
+    }
+    return { byAgent: m, none };
+  }, [filtered]);
+
   const sorted = useMemo(() => {
     const arr = [...filtered];
     if (!sort) {
@@ -389,10 +409,47 @@ export function RealEstateTable({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Přehled „Nájem cílově" — rozpad právě zobrazené podmnožiny (reaguje
-          na hledání i chip filtry) nad tabulkou. */}
+      {/* Přehledy nad tabulkou — rozpad právě zobrazené podmnožiny (reagují na
+          hledání i chip filtry): kam míří nájem cílově a kolik lokalit drží který
+          RE agent. Stejný `total` (= zobrazené řádky) v obou, ať jsou procenta
+          srovnatelná. */}
       {base.length > 0 && (
-        <LeaseTargetSummary counts={targetCounts} total={filtered.length} />
+        <div className="flex flex-col gap-4">
+          <SummaryCard
+            title="Nájem cílově"
+            total={filtered.length}
+            gridClass="grid-cols-3"
+            items={LEASE_TARGET_SUMMARY.map(({ status, label, dot }) => ({
+              key: status,
+              label,
+              dot,
+              count: targetCounts[status] ?? 0,
+            }))}
+          />
+          <SummaryCard
+            title="Po agentech"
+            total={filtered.length}
+            gridClass="grid-cols-2 sm:grid-cols-3 lg:grid-cols-6"
+            items={[
+              ...RE_AGENT_SUMMARY.map(({ agent, dot }) => ({
+                key: agent,
+                label: RE_AGENT_LABEL[agent],
+                dot,
+                count: agentCounts.byAgent[agent],
+              })),
+              ...(agentCounts.none > 0
+                ? [
+                    {
+                      key: "none",
+                      label: "Bez agenta",
+                      dot: "bg-zinc-400",
+                      count: agentCounts.none,
+                    },
+                  ]
+                : []),
+            ]}
+          />
+        </div>
       )}
 
       {/* Toolbar */}
@@ -783,10 +840,12 @@ function Dash() {
   return <span className="text-ink-soft">—</span>;
 }
 
-// ── Přehled „Nájem cílově" ───────────────────────────────────────────────────
-// Strategický snímek nad tabulkou: kolik lokalit míří nájmem cílově na koho.
-// Informativní (ne filtr) — vizuálně je to stat-karta, ne pill chip, aby bylo
-// jasné, že se nekliká. Součet dlaždic = total (každý řádek právě jeden cíl).
+// ── Souhrnná stat-karta nad tabulkou ─────────────────────────────────────────
+// Strategický snímek nad tabulkou (nájem cílově, po agentech): kolik zobrazených
+// lokalit padá do které kategorie. Informativní (ne filtr) — vizuálně je to
+// stat-karta, ne pill chip, aby bylo jasné, že se nekliká. Procenta se počítají
+// proti `total` (= všechny zobrazené řádky); součet dlaždic nemusí dát 100 %,
+// pokud karta záměrně neukazuje všechny kategorie.
 
 function locWord(n: number): string {
   if (n === 1) return "lokalita";
@@ -794,12 +853,16 @@ function locWord(n: number): string {
   return "lokalit";
 }
 
-function LeaseTargetSummary({
-  counts,
+function SummaryCard({
+  title,
   total,
+  items,
+  gridClass,
 }: {
-  counts: Record<LeaseStatus, number>;
+  title: string;
   total: number;
+  items: ReadonlyArray<{ key: string; label: string; dot: string; count: number }>;
+  gridClass: string;
 }) {
   return (
     <section className="rounded-[24px] border border-edge bg-paper p-4 sm:p-5">
@@ -809,18 +872,17 @@ function LeaseTargetSummary({
             aria-hidden="true"
             className="mr-3 inline-block h-px w-6 translate-y-[-3px] bg-ink-base/50 align-middle"
           />
-          Nájem cílově
+          {title}
         </div>
         <span className="shrink-0 font-mono text-[11px] text-ink-soft">
           {total} {locWord(total)}
         </span>
       </div>
-      <div className="grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-3 lg:grid-cols-6">
-        {LEASE_TARGET_SUMMARY.map(({ status, label, dot }) => {
-          const n = counts[status] ?? 0;
-          const pct = total > 0 ? Math.round((n / total) * 100) : 0;
+      <div className={`grid gap-x-4 gap-y-5 ${gridClass}`}>
+        {items.map(({ key, label, dot, count }) => {
+          const pct = total > 0 ? Math.round((count / total) * 100) : 0;
           return (
-            <div key={status} className="flex flex-col">
+            <div key={key} className="flex flex-col">
               <span className="flex items-center gap-1.5 text-[10.5px] font-medium uppercase tracking-[0.1em] text-ink-mid">
                 <span
                   className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`}
@@ -831,12 +893,12 @@ function LeaseTargetSummary({
               <div className="mt-1.5 flex items-baseline gap-1.5">
                 <span
                   className={`text-[1.7rem] font-extrabold leading-none tracking-[-0.03em] tabular-nums ${
-                    n === 0 ? "text-ink-soft" : "text-ink-base"
+                    count === 0 ? "text-ink-soft" : "text-ink-base"
                   }`}
                 >
-                  {n}
+                  {count}
                 </span>
-                {n > 0 && (
+                {count > 0 && (
                   <span className="text-[11px] font-medium text-ink-soft">{pct} %</span>
                 )}
               </div>
