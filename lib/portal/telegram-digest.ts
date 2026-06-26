@@ -164,8 +164,9 @@ export async function runTelegramLocationDigest(
     for (const loc of attention) {
       const last = localMap.get(loc.id)?.reCheckIn;
       const lines = [
+        "Stav převodu nájemní smlouvy",
         `Lokalita: ${loc.name}${loc.code ? ` (${loc.code})` : ""}`,
-        `Nájem: ${LEASE_HOLDER_LABEL[loc.lease_current_status]} -> cíl ${LEASE_HOLDER_LABEL[loc.lease_target_status]}`,
+        `Nájem: aktuálně ${LEASE_HOLDER_LABEL[loc.lease_current_status]}, cíl ${LEASE_HOLDER_LABEL[loc.lease_target_status]}`,
         `Klient: ${loc.current_client_name || "-"}`,
       ];
       if (last) {
@@ -173,7 +174,7 @@ export async function runTelegramLocationDigest(
           `Naposledy nahlášeno: ${CHECKIN_LABEL[last.status]} (${shortDate(last.at)})`,
         );
       }
-      lines.push("", "Jaký je stav?");
+      lines.push("", "V jakém stavu je převod nájemní smlouvy?");
       const text = lines.join("\n");
 
       if (dryRun) {
