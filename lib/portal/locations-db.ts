@@ -93,6 +93,11 @@ export interface MirroredLocation {
   new_deal_id: string | null;
   new_client_id: string | null;
   new_client_name: string | null;
+  // Aktuální klient (klienti) na lokaci - denormalizovaný snapshot z Transition
+  // (aktivní, neuvolněné dealy matchnuté sem; víc klientů spojeno čárkou).
+  // Location v Transition klienta jinak nedrží, odvozuje se z dealů - proto je
+  // to samostatné pole vedle new_client_name (kandidát na převzetí).
+  current_client_name: string | null;
   current_mode: LocationMode | null;
   new_mode: LocationMode | null;
   new_mode_start_date: string | null;
