@@ -131,9 +131,10 @@ export const LEASE_TARGET_SUMMARY: ReadonlyArray<{
 
 // ── Přehled „Po agentech" nad tabulkou ───────────────────────────────────────
 // Druhá souhrnná karta vedle „Nájem cílově": kolik zobrazených lokalit připadá
-// na kterého RE agenta. Pořadí + barevné tečky; labely se berou z RE_AGENT_LABEL
-// (locations-shared). Lokality bez přiřazeného agenta jdou do dlaždice „Bez
-// agenta", která se zobrazí jen když nějaké jsou.
+// na kterého RE agenta. ZÁMĚRNĚ jen tři aktivní agenti (Krampera, Šiarik,
+// Kholová) — Granský/Neužil a lokality bez agenta se v souhrnu nezobrazují, takže
+// součet dlaždic může být < total. Barevné tečky; labely z RE_AGENT_LABEL
+// (locations-shared).
 export const RE_AGENT_SUMMARY: ReadonlyArray<{
   agent: ReAgent;
   dot: string;
@@ -141,8 +142,6 @@ export const RE_AGENT_SUMMARY: ReadonlyArray<{
   { agent: "Krampera", dot: "bg-sky-500" },
   { agent: "Siarik", dot: "bg-emerald-500" },
   { agent: "Kholova", dot: "bg-violet-500" },
-  { agent: "Gransky", dot: "bg-amber-500" },
-  { agent: "Neuzil", dot: "bg-rose-500" },
 ];
 
 // ── V business plánu (Y/N) — hodnota je volný string z NewCo Excelu ──────────
