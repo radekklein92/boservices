@@ -225,42 +225,39 @@ export function RealEstateTable({
   }, [base, query, flagById]);
 
   // Facetové počty: každý chip počítá řádky, které projdou OSTATNÍMI aktivními
-  // filtry (a hledáním), ne sebou samým. Recon počty proto respektují červený
-  // i flagový filtr — jinak by chip svítil číslem, které po kliknutí v tabulce
-  // není.
+  // filtry (a hledáním), ne sebou samým. Červené jsou ale SAMOSTATNÁ kategorie —
+  // do Řešit/Vyřešeno se nepočítají vůbec (ani když je „Červeně" zapnuté) a recon
+  // filtr se na ně nevztahuje.
   const reconCounts = useMemo(() => {
     const m: Record<ReconStatus, number> = { needs: 0, resolved: 0 };
     for (const r of queried) {
-      if (!showRed && r.newco?.flaggedRed) continue;
+      if (r.newco?.flaggedRed) continue; // červené = vlastní kategorie, mimo recon
       if (flagFilter.size && !r.flagIds.some((id) => flagFilter.has(id))) continue;
       m[reconcile(r.leaseCurrent, r.leaseTarget)]++;
     }
     return m;
-  }, [queried, showRed, flagFilter]);
+  }, [queried, flagFilter]);
 
-  // Červený počet respektuje recon + flag filtr (ne sebe sama).
+  // Červený počet respektuje jen flag filtr (ne recon — červené stojí mimo něj).
   const redCount = useMemo(() => {
     let n = 0;
     for (const r of queried) {
       if (!r.newco?.flaggedRed) continue;
-      if (
-        reconFilter.size &&
-        !reconFilter.has(reconcile(r.leaseCurrent, r.leaseTarget))
-      ) {
-        continue;
-      }
       if (flagFilter.size && !r.flagIds.some((id) => flagFilter.has(id))) continue;
       n++;
     }
     return n;
-  }, [queried, reconFilter, flagFilter]);
+  }, [queried, flagFilter]);
 
-  // Počty u flag chipů respektují červený + recon filtr (ne flag filtr sebe sama).
+  // Počty u flag chipů respektují červenou kategorii + recon filtr (ne flag filtr
+  // sebe sama). Červené řádky se započtou jen když je „Červeně" zapnuté a recon
+  // filtr se na ně neaplikuje (jsou mimo něj).
   const flagCounts = useMemo(() => {
     const m = new Map<string, number>();
     for (const r of queried) {
-      if (!showRed && r.newco?.flaggedRed) continue;
-      if (
+      if (r.newco?.flaggedRed) {
+        if (!showRed) continue;
+      } else if (
         reconFilter.size &&
         !reconFilter.has(reconcile(r.leaseCurrent, r.leaseTarget))
       ) {
@@ -273,8 +270,11 @@ export function RealEstateTable({
 
   const filtered = useMemo(() => {
     return queried.filter((r) => {
-      if (!showRed && r.newco?.flaggedRed) return false;
-      if (
+      if (r.newco?.flaggedRed) {
+        // Červené = samostatná kategorie: řídí je výhradně chip „Červeně",
+        // recon filtr (Řešit/Vyřešeno) se na ně nevztahuje.
+        if (!showRed) return false;
+      } else if (
         reconFilter.size &&
         !reconFilter.has(reconcile(r.leaseCurrent, r.leaseTarget))
       ) {
@@ -291,14 +291,15 @@ export function RealEstateTable({
   const sorted = useMemo(() => {
     const arr = [...filtered];
     if (!sort) {
-      // Default: needs-attention nahoře → flaggedRed → název.
+      // Default: červené až dolů (samostatná kategorie mimo Řešit/Vyřešeno),
+      // uvnitř každé skupiny needs-attention nahoře → název.
       arr.sort((a, b) => {
+        const ra = a.newco?.flaggedRed ? 1 : 0;
+        const rb = b.newco?.flaggedRed ? 1 : 0;
+        if (ra !== rb) return ra - rb;
         const wa = RECON_SORT_WEIGHT[reconcile(a.leaseCurrent, a.leaseTarget)];
         const wb = RECON_SORT_WEIGHT[reconcile(b.leaseCurrent, b.leaseTarget)];
         if (wa !== wb) return wa - wb;
-        const fa = a.newco?.flaggedRed ? 0 : 1;
-        const fb = b.newco?.flaggedRed ? 0 : 1;
-        if (fa !== fb) return fa - fb;
         return a.name.localeCompare(b.name, "cs");
       });
       return arr;
@@ -407,7 +408,7 @@ export function RealEstateTable({
           dotClass="bg-red-500"
           label="Červeně"
           count={redCount}
-          title="Lokality označené v NewCo červeně jsou ve výchozím stavu skryté — kliknutím je zobrazíte."
+          title="Lokality označené v NewCo červeně jsou samostatná kategorie (nepočítají se do Řešit ani Vyřešeno) a ve výchozím stavu skryté — kliknutím je zobrazíte."
         />
 
         <span className="mx-1 h-5 w-px shrink-0 bg-edge" aria-hidden="true" />
