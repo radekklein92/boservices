@@ -113,8 +113,11 @@ export const LEASE_HOLDER_LABEL: Record<LeaseStatus, string> = {
 };
 
 // ── Přehled „Nájem cílově" nad tabulkou ──────────────────────────────────────
-// Pořadí + krátké labely dlaždic (kam nájem cílově míří). Destinace nejdřív
-// (franšízant → BOS → třetí strana), pak tranzitní TWIST a neurčené stavy.
+// Pořadí + krátké labely dlaždic (kam nájem cílově míří). ZÁMĚRNĚ jen tři cílové
+// destinace (franšízant → BOS → třetí strana) — tranzitní TWIST a neurčené stavy
+// (nevyřešeno/neznámé) se v souhrnu nezobrazují; ke „kolik ještě zbývá dořešit"
+// slouží chip „Řešit". Procenta se počítají proti celkovému `total` (všechny
+// zobrazené řádky), takže součet těchto tří dlaždic může být < 100 %.
 // Tečka = stejný barevný klíč jako jinde v portálu (emerald = cíl/hotovo).
 export const LEASE_TARGET_SUMMARY: ReadonlyArray<{
   status: LeaseStatus;
@@ -124,9 +127,22 @@ export const LEASE_TARGET_SUMMARY: ReadonlyArray<{
   { status: "prepis_na_fransizanta", label: "Franšízant", dot: "bg-emerald-500" },
   { status: "prepis_na_ceip", label: "BOS", dot: "bg-sky-500" },
   { status: "prepis_jinam", label: "Třetí strana", dot: "bg-violet-500" },
-  { status: "uzavrena_na_twist", label: "TWIST", dot: "bg-amber-500" },
-  { status: "nemame_reseni", label: "Nevyřešeno", dot: "bg-rose-500" },
-  { status: "neznamy", label: "Neznámé", dot: "bg-zinc-400" },
+];
+
+// ── Přehled „Po agentech" nad tabulkou ───────────────────────────────────────
+// Druhá souhrnná karta vedle „Nájem cílově": kolik zobrazených lokalit připadá
+// na kterého RE agenta. Pořadí + barevné tečky; labely se berou z RE_AGENT_LABEL
+// (locations-shared). Lokality bez přiřazeného agenta jdou do dlaždice „Bez
+// agenta", která se zobrazí jen když nějaké jsou.
+export const RE_AGENT_SUMMARY: ReadonlyArray<{
+  agent: ReAgent;
+  dot: string;
+}> = [
+  { agent: "Krampera", dot: "bg-sky-500" },
+  { agent: "Siarik", dot: "bg-emerald-500" },
+  { agent: "Kholova", dot: "bg-violet-500" },
+  { agent: "Gransky", dot: "bg-amber-500" },
+  { agent: "Neuzil", dot: "bg-rose-500" },
 ];
 
 // ── V business plánu (Y/N) — hodnota je volný string z NewCo Excelu ──────────
