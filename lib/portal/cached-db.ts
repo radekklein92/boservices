@@ -174,8 +174,15 @@ export const cachedListLocationIdsWithAttachments = unstable_cache(
 // Lokální data (note + reAgent + newco) pro celý seznam lokalit najednou —
 // podklad pro Real Estate tabulku. Invalidace přes bustLocations (editace
 // agenta/poznámky, import NewCo, sync) zajistí čerstvost.
-export const cachedListLocationLocalMap = unstable_cache(
-  () => listLocationLocalMap(),
+// POZOR: unstable_cache serializuje výsledek do JSON, takže Map by se zploštila
+// na prázdný objekt (a .get by spadlo). Cachujeme proto serializovatelné
+// entries a Map rekonstruujeme až po načtení z cache.
+const cachedLocationLocalEntries = unstable_cache(
+  async () => Array.from((await listLocationLocalMap()).entries()),
   ["cached:listLocationLocalMap"],
   { tags: [TAG.locations], revalidate: ONE_HOUR },
 );
+
+export async function cachedListLocationLocalMap() {
+  return new Map(await cachedLocationLocalEntries());
+}
