@@ -2,15 +2,23 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireSession } from "@/lib/portal/auth-guard";
 import { bustLocations } from "@/lib/portal/revalidate";
-import { getLocation, patchLocationLocal } from "@/lib/portal/locations-db";
+import {
+  effectiveReAgent,
+  getLocation,
+  patchLocationLocal,
+} from "@/lib/portal/locations-db";
 
-// Lokální poznámka k lokalitě (žije jen v BOServices, sync se jí nedotýká).
-// Sdílená s Real Estate tabulkou. Zápis přes patchLocationLocal, aby se
-// nezahodila ostatní lokální pole (newco, reAgent, přílohy).
+// Lokální přiřazení RE agenta k lokalitě (žije jen v BOServices, sync se jí
+// nedotýká, má přednost před Transition re_agent). null = smazat lokální volbu
+// → spadne zpět na Transition. Hodnoty enumu musí ladit s typem ReAgent.
 
-const schema = z.object({ note: z.string().max(8000) });
+const schema = z.object({
+  reAgent: z
+    .enum(["Krampera", "Siarik", "Kholova", "Gransky", "Neuzil"])
+    .nullable(),
+});
 
-export async function PUT(
+export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -36,10 +44,16 @@ export async function PUT(
 
   const updated = await patchLocationLocal(
     id,
-    { note: parsed.data.note },
+    { reAgent: parsed.data.reAgent },
     g.session.user!.email!,
   );
   bustLocations();
 
-  return NextResponse.json({ ok: true, updatedAt: updated.updatedAt });
+  return NextResponse.json({
+    ok: true,
+    reAgent: updated.reAgent ?? null,
+    // Autoritativní hodnota pro klienta (lokální volba ?? Transition ?? null).
+    effectiveReAgent: effectiveReAgent(loc, updated),
+    updatedAt: updated.updatedAt,
+  });
 }

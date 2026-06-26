@@ -135,6 +135,10 @@ export interface LocationLocal {
   note: string;
   attachments: LocationAttachment[];
   newco?: LocationNewCo;
+  // Lokální přiřazení RE agenta (BOServices). Přednost před Transition re_agent.
+  // null = uživatel lokální volbu smazal → spadne zpět na Transition.
+  // undefined = nikdy nenastaveno (legacy záznam).
+  reAgent?: ReAgent | null;
   updatedBy: string;
   updatedAt: string;
 }
@@ -142,6 +146,16 @@ export interface LocationLocal {
 // Spojený pohled pro detail.
 export interface LocationView extends MirroredLocation {
   local: LocationLocal | null;
+}
+
+// Efektivní RE agent: lokální přiřazení (BOServices) má přednost před hodnotou
+// z Transition. local.reAgent > mirrored.re_agent > null. Čistá funkce
+// (server pipeline i klient). Vzor stejný jako clientSignedAtEffective u smluv.
+export function effectiveReAgent(
+  mirrored: Pick<MirroredLocation, "re_agent">,
+  local: Pick<LocationLocal, "reAgent"> | null | undefined,
+): ReAgent | null {
+  return local?.reAgent ?? mirrored.re_agent ?? null;
 }
 
 export interface LocationsSyncMeta {
@@ -293,10 +307,66 @@ export async function listLocationNewcoMap(): Promise<
   return out;
 }
 
+// Mapa id lokality → lokální data potřebná pro Real Estate tabulku
+// (note + reAgent + newco). Jeden pipeline scan místo N getů
+// (vzor listLocationIdsWithAttachments / listLocationNewcoMap).
+export async function listLocationLocalMap(): Promise<
+  Map<string, Pick<LocationLocal, "note" | "reAgent" | "newco">>
+> {
+  const out = new Map<string, Pick<LocationLocal, "note" | "reAgent" | "newco">>();
+  const r = getRedis();
+  if (!r) return out;
+  const ids = (await r.smembers(ALL_KEY)) as string[];
+  if (!ids.length) return out;
+  const pipe = r.pipeline();
+  ids.forEach((id) => pipe.get<LocationLocal>(localKey(id)));
+  const results = (await pipe.exec()) as (LocationLocal | null)[];
+  results.forEach((local, i) => {
+    if (local) {
+      out.set(ids[i]!, {
+        note: local.note,
+        reAgent: local.reAgent,
+        newco: local.newco,
+      });
+    }
+  });
+  return out;
+}
+
 export async function saveLocationLocal(local: LocationLocal): Promise<void> {
   const r = getRedis();
   if (!r) throw new Error("Redis not configured");
   await r.set(localKey(local.locationId), local);
+}
+
+// Merge-safe částečný zápis lokálních dat. Načte existující záznam, přepíše jen
+// dodaná pole a ZACHOVÁ vše ostatní (note, attachments, newco, reAgent) — žádný
+// zápis tak nikdy nezahodí cizí pole. updatedBy/updatedAt se nastaví vždy.
+// Kanonický helper pro skalární patche (poznámka, RE agent).
+export async function patchLocationLocal(
+  id: string,
+  patch: Partial<Omit<LocationLocal, "locationId" | "updatedBy" | "updatedAt">>,
+  updatedBy: string,
+): Promise<LocationLocal> {
+  const r = getRedis();
+  if (!r) throw new Error("Redis not configured");
+  const existing = await r.get<LocationLocal>(localKey(id));
+  const base: LocationLocal = existing ?? {
+    locationId: id,
+    note: "",
+    attachments: [],
+    updatedBy,
+    updatedAt: new Date().toISOString(),
+  };
+  const next: LocationLocal = {
+    ...base,
+    ...patch,
+    locationId: id,
+    updatedBy,
+    updatedAt: new Date().toISOString(),
+  };
+  await r.set(localKey(id), next);
+  return next;
 }
 
 // Uloží NewCo data k lokalitě (zachová note/přílohy). Vrací false, pokud Redis

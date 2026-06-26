@@ -8,6 +8,7 @@ import {
   FileText,
   FilePenLine,
   HandCoins,
+  KeyRound,
   ListChecks,
   MapPin,
   Palette,
@@ -30,6 +31,7 @@ const main: Item[] = [
 const provoz: Item[] = [
   { href: "/portal/clients", label: "Klienti", Icon: Building2 },
   { href: "/portal/locations", label: "Lokality", Icon: MapPin },
+  { href: "/portal/real-estate", label: "Real Estate", Icon: KeyRound },
   { href: "/portal/contracts", label: "Smlouvy", Icon: FileText },
 ];
 

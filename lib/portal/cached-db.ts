@@ -11,6 +11,7 @@ import {
   getLocationsSyncMeta,
   listLocations,
   listLocationIdsWithAttachments,
+  listLocationLocalMap,
 } from "./locations-db";
 import { listUsers } from "./users-db";
 import {
@@ -167,5 +168,14 @@ export const cachedListLocationFranchiseContracts = unstable_cache(
 export const cachedListLocationIdsWithAttachments = unstable_cache(
   () => listLocationIdsWithAttachments(),
   ["cached:listLocationIdsWithAttachments"],
+  { tags: [TAG.locations], revalidate: ONE_HOUR },
+);
+
+// Lokální data (note + reAgent + newco) pro celý seznam lokalit najednou —
+// podklad pro Real Estate tabulku. Invalidace přes bustLocations (editace
+// agenta/poznámky, import NewCo, sync) zajistí čerstvost.
+export const cachedListLocationLocalMap = unstable_cache(
+  () => listLocationLocalMap(),
+  ["cached:listLocationLocalMap"],
   { tags: [TAG.locations], revalidate: ONE_HOUR },
 );

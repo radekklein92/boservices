@@ -1,0 +1,532 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import {
+  ArrowUpRight,
+  ChevronDown,
+  ChevronUp,
+  ChevronsUpDown,
+  Columns3,
+  MapPin,
+  Search,
+} from "lucide-react";
+import { Chip } from "@/components/portal/ui/Chip";
+import { FilterChip } from "@/components/portal/ui/FilterChip";
+import { RE_AGENT_LABEL } from "./locations-shared";
+import {
+  businessPlanView,
+  COLUMN_STORAGE_KEY,
+  COLUMNS,
+  LEASE_HOLDER_LABEL,
+  RECON_META,
+  RECON_ORDER,
+  RECON_SORT_WEIGHT,
+  reconcile,
+  type ColumnId,
+  type RealEstateRow,
+  type ReconStatus,
+} from "./real-estate-shared";
+import { ReAgentCell } from "./ReAgentCell";
+import { NoteCell } from "./NoteCell";
+
+type Sort = { key: ColumnId; dir: "asc" | "desc" } | null;
+
+const FLAG_RED_TONE = "border-red-300 bg-red-50 text-red-700";
+const FLAG_NEUTRAL_TONE = "border-edge bg-edge-warm text-ink-mid";
+
+export function RealEstateTable({
+  rows,
+  onAgentApplied,
+  onNoteApplied,
+}: {
+  rows: RealEstateRow[];
+  onAgentApplied: (id: string, local: string | null, effective: string | null) => void;
+  onNoteApplied: (id: string, note: string) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [showAll, setShowAll] = useState(false);
+  const [reconFilter, setReconFilter] = useState<Set<ReconStatus>>(new Set());
+  const [sort, setSort] = useState<Sort>(null);
+  const [colMenuOpen, setColMenuOpen] = useState(false);
+  const colMenuRef = useRef<HTMLDivElement | null>(null);
+
+  // Init z defaultVisible (deterministic kvůli hydrataci), pak přepiš z localStorage.
+  const [visibleCols, setVisibleCols] = useState<Set<ColumnId>>(
+    () => new Set(COLUMNS.filter((c) => c.defaultVisible).map((c) => c.id)),
+  );
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(COLUMN_STORAGE_KEY);
+      if (!raw) return;
+      const ids = JSON.parse(raw) as ColumnId[];
+      const valid = new Set(COLUMNS.map((c) => c.id));
+      const next = new Set(ids.filter((i) => valid.has(i)));
+      COLUMNS.forEach((c) => {
+        if (c.always) next.add(c.id);
+      });
+      if (next.size) setVisibleCols(next);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!colMenuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (!colMenuRef.current?.contains(e.target as Node)) setColMenuOpen(false);
+    };
+    window.addEventListener("mousedown", onDown);
+    return () => window.removeEventListener("mousedown", onDown);
+  }, [colMenuOpen]);
+
+  function toggleCol(id: ColumnId) {
+    setVisibleCols((prev) => {
+      const col = COLUMNS.find((c) => c.id === id);
+      if (col?.always) return prev;
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      try {
+        localStorage.setItem(COLUMN_STORAGE_KEY, JSON.stringify([...next]));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }
+
+  function toggleRecon(s: ReconStatus) {
+    setReconFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(s)) next.delete(s);
+      else next.add(s);
+      return next;
+    });
+  }
+
+  function toggleSort(key: ColumnId) {
+    setSort((prev) => {
+      if (!prev || prev.key !== key) return { key, dir: "asc" };
+      if (prev.dir === "asc") return { key, dir: "desc" };
+      return null;
+    });
+  }
+
+  const base = useMemo(
+    () => (showAll ? rows : rows.filter((r) => r.hasNewco)),
+    [rows, showAll],
+  );
+
+  const reconCounts = useMemo(() => {
+    const m: Record<ReconStatus, number> = { needs: 0, unclear: 0, resolved: 0 };
+    for (const r of base) m[reconcile(r.leaseCurrent, r.leaseTarget)]++;
+    return m;
+  }, [base]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return base.filter((r) => {
+      if (
+        reconFilter.size &&
+        !reconFilter.has(reconcile(r.leaseCurrent, r.leaseTarget))
+      ) {
+        return false;
+      }
+      if (!q) return true;
+      const hay = [
+        r.name,
+        r.code,
+        r.effectiveReAgent ? RE_AGENT_LABEL[r.effectiveReAgent] : "",
+        r.newco?.entitaCeip1,
+        r.newco?.entitaCeip2,
+        r.newco?.operationalType,
+        r.newco?.category,
+        r.newco?.includeInBusinessPlan,
+        LEASE_HOLDER_LABEL[r.leaseCurrent],
+        LEASE_HOLDER_LABEL[r.leaseTarget],
+        r.note,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return hay.includes(q);
+    });
+  }, [base, query, reconFilter]);
+
+  const sorted = useMemo(() => {
+    const arr = [...filtered];
+    if (!sort) {
+      // Default: needs-attention nahoře → flaggedRed → název.
+      arr.sort((a, b) => {
+        const wa = RECON_SORT_WEIGHT[reconcile(a.leaseCurrent, a.leaseTarget)];
+        const wb = RECON_SORT_WEIGHT[reconcile(b.leaseCurrent, b.leaseTarget)];
+        if (wa !== wb) return wa - wb;
+        const fa = a.newco?.flaggedRed ? 0 : 1;
+        const fb = b.newco?.flaggedRed ? 0 : 1;
+        if (fa !== fb) return fa - fb;
+        return a.name.localeCompare(b.name, "cs");
+      });
+      return arr;
+    }
+    const { key, dir } = sort;
+    arr.sort((a, b) => {
+      const va = sortValue(a, key);
+      const vb = sortValue(b, key);
+      let c =
+        typeof va === "number" && typeof vb === "number"
+          ? va - vb
+          : String(va).localeCompare(String(vb), "cs");
+      if (c === 0) c = a.name.localeCompare(b.name, "cs");
+      return dir === "asc" ? c : -c;
+    });
+    return arr;
+  }, [filtered, sort]);
+
+  const cols = COLUMNS.filter((c) => visibleCols.has(c.id));
+  const anyFilter = query.trim() !== "" || reconFilter.size > 0;
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Toolbar */}
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="relative max-w-[400px] flex-1">
+          <Search
+            className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mid"
+            strokeWidth={1.5}
+          />
+          <input
+            type="search"
+            placeholder="Hledat podle lokality, agenta, entity, nájmu…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="h-11 w-full rounded-full border border-edge bg-paper pl-11 pr-4 text-[14px] text-ink-base outline-none transition-colors placeholder:text-ink-soft focus:border-ink-base"
+          />
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="font-mono text-[12px] text-ink-soft">
+            {sorted.length.toString().padStart(2, "0")} / {base.length}
+          </span>
+          <div className="relative" ref={colMenuRef}>
+            <button
+              type="button"
+              onClick={() => setColMenuOpen((v) => !v)}
+              className="inline-flex h-9 items-center gap-2 rounded-full border border-edge bg-paper px-3.5 text-[12.5px] font-medium text-ink-deep transition-colors hover:border-ink-soft"
+            >
+              <Columns3 className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+              Sloupce
+            </button>
+            {colMenuOpen && (
+              <div className="absolute right-0 z-40 mt-2 w-56 rounded-xl border border-edge bg-paper py-1 shadow-[0_12px_28px_-12px_rgba(14,14,14,0.3)]">
+                {COLUMNS.map((c) => (
+                  <label
+                    key={c.id}
+                    className={`flex items-center gap-2.5 px-3 py-1.5 text-[12.5px] transition-colors ${
+                      c.always
+                        ? "cursor-not-allowed text-ink-soft"
+                        : "cursor-pointer text-ink-deep hover:bg-paper-warm"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={visibleCols.has(c.id)}
+                      disabled={c.always}
+                      onChange={() => toggleCol(c.id)}
+                      className="h-3.5 w-3.5 accent-ink-base"
+                    />
+                    {c.label}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Filtry */}
+      <div className="flex flex-wrap items-center gap-2">
+        {RECON_ORDER.map((s) => (
+          <FilterChip
+            key={s}
+            active={reconFilter.has(s)}
+            onClick={() => toggleRecon(s)}
+            dotClass={RECON_META[s].dot}
+            label={RECON_META[s].label}
+            count={reconCounts[s]}
+            title={RECON_META[s].hint}
+          />
+        ))}
+
+        <span className="mx-1 h-5 w-px shrink-0 bg-edge" aria-hidden="true" />
+
+        <FilterChip
+          active={showAll}
+          onClick={() => setShowAll((v) => !v)}
+          Icon={MapPin}
+          label="Zobrazit všechny lokality"
+          title="Včetně lokalit, které nejsou v importu NewCo"
+        />
+
+        {(anyFilter || showAll) && (
+          <button
+            type="button"
+            onClick={() => {
+              setQuery("");
+              setReconFilter(new Set());
+              setShowAll(false);
+            }}
+            className="ml-1 text-[12px] font-medium text-ink-mid underline-offset-2 hover:text-ink-base hover:underline"
+          >
+            Zrušit filtr
+          </button>
+        )}
+      </div>
+
+      {/* Tabulka / empty */}
+      {base.length === 0 ? (
+        <EmptyState hasAnyLocations={rows.length > 0} onShowAll={() => setShowAll(true)} />
+      ) : (
+        <div className="overflow-auto rounded-[24px] border border-edge bg-paper max-h-[calc(100dvh-260px)]">
+          <table className="w-full min-w-[1180px] border-collapse text-[13px]">
+            <thead>
+              <tr>
+                {cols.map((c) => {
+                  const sortable = c.id !== "note";
+                  const isFirst = c.id === "location";
+                  const active = sort?.key === c.id;
+                  return (
+                    <th
+                      key={c.id}
+                      className={`whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.07em] text-ink-mid ${
+                        isFirst
+                          ? "sticky left-0 top-0 z-30 border-r border-edge bg-paper"
+                          : "sticky top-0 z-20 bg-paper"
+                      }`}
+                    >
+                      {sortable ? (
+                        <button
+                          type="button"
+                          onClick={() => toggleSort(c.id)}
+                          className="inline-flex items-center gap-1 transition-colors hover:text-ink-base"
+                        >
+                          {c.label}
+                          {active ? (
+                            sort!.dir === "asc" ? (
+                              <ChevronUp className="h-3 w-3" strokeWidth={2} />
+                            ) : (
+                              <ChevronDown className="h-3 w-3" strokeWidth={2} />
+                            )
+                          ) : (
+                            <ChevronsUpDown className="h-3 w-3 opacity-40" strokeWidth={2} />
+                          )}
+                        </button>
+                      ) : (
+                        c.label
+                      )}
+                    </th>
+                  );
+                })}
+              </tr>
+              {/* hairline pod hlavičkou (border-collapse + sticky ji jinak ukrojí) */}
+            </thead>
+            <tbody>
+              {sorted.map((r) => (
+                <tr
+                  key={r.id}
+                  className="group border-t border-edge transition-colors hover:bg-paper-warm"
+                >
+                  {cols.map((c) => {
+                    const isFirst = c.id === "location";
+                    return (
+                      <td
+                        key={c.id}
+                        className={`px-3 py-2 align-middle ${
+                          isFirst
+                            ? "sticky left-0 z-10 border-r border-edge bg-paper group-hover:bg-paper-warm"
+                            : ""
+                        }`}
+                      >
+                        {renderCell(r, c.id, onAgentApplied, onNoteApplied)}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Render jedné buňky podle sloupce ─────────────────────────────────────────
+
+function renderCell(
+  r: RealEstateRow,
+  id: ColumnId,
+  onAgentApplied: (id: string, local: string | null, effective: string | null) => void,
+  onNoteApplied: (id: string, note: string) => void,
+) {
+  switch (id) {
+    case "location":
+      return (
+        <Link
+          href={`/portal/locations/${r.id}`}
+          className="group/loc flex items-center gap-2"
+        >
+          <span className="flex flex-col">
+            <span className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold tracking-[-0.01em] text-ink-base">
+              <span className="max-w-[200px] truncate">{r.name}</span>
+              <ArrowUpRight
+                className="h-3 w-3 shrink-0 text-ink-soft transition-transform group-hover/loc:-translate-y-0.5 group-hover/loc:translate-x-0.5"
+                strokeWidth={1.5}
+                aria-hidden="true"
+              />
+            </span>
+            {r.code && (
+              <span className="font-mono text-[11px] text-ink-soft">{r.code}</span>
+            )}
+          </span>
+        </Link>
+      );
+    case "reAgent":
+      return (
+        <ReAgentCell
+          id={r.id}
+          value={r.effectiveReAgent}
+          fromTransition={r.localReAgent === null}
+          onApplied={(local, eff) => onAgentApplied(r.id, local, eff)}
+        />
+      );
+    case "ceip1":
+      return <Txt v={r.newco?.entitaCeip1} />;
+    case "ceip2":
+      return <Txt v={r.newco?.entitaCeip2} />;
+    case "businessPlan": {
+      const v = businessPlanView(r.newco?.includeInBusinessPlan);
+      return v ? <Chip tone={v.tone}>{v.label}</Chip> : <Dash />;
+    }
+    case "operationalType":
+      return <Txt v={r.newco?.operationalType} />;
+    case "category":
+      return <Txt v={r.newco?.category} />;
+    case "flaggedRed":
+      return r.newco ? (
+        <Chip tone={r.newco.flaggedRed ? FLAG_RED_TONE : FLAG_NEUTRAL_TONE}>
+          {r.newco.flaggedRed ? "Ano" : "Ne"}
+        </Chip>
+      ) : (
+        <Dash />
+      );
+    case "leaseCurrent":
+      return <span className="whitespace-nowrap text-ink-deep">{LEASE_HOLDER_LABEL[r.leaseCurrent]}</span>;
+    case "leaseTarget":
+      return <span className="whitespace-nowrap text-ink-deep">{LEASE_HOLDER_LABEL[r.leaseTarget]}</span>;
+    case "recon": {
+      const s = reconcile(r.leaseCurrent, r.leaseTarget);
+      const m = RECON_META[s];
+      return (
+        <Chip tone={m.tone} className="whitespace-nowrap">
+          <m.Icon className="h-3 w-3" strokeWidth={2} aria-hidden="true" />
+          {m.label}
+        </Chip>
+      );
+    }
+    case "note":
+      return (
+        <NoteCell id={r.id} value={r.note} onApplied={(note) => onNoteApplied(r.id, note)} />
+      );
+    default:
+      return null;
+  }
+}
+
+function Txt({ v }: { v: string | null | undefined }) {
+  return v && v.trim() ? (
+    <span className="whitespace-nowrap text-ink-deep">{v}</span>
+  ) : (
+    <Dash />
+  );
+}
+
+function Dash() {
+  return <span className="text-ink-soft">—</span>;
+}
+
+// ── Sort hodnota podle sloupce ───────────────────────────────────────────────
+
+function sortValue(r: RealEstateRow, key: ColumnId): string | number {
+  switch (key) {
+    case "location":
+      return r.name.toLowerCase();
+    case "reAgent":
+      // null agent na konec (asc)
+      return r.effectiveReAgent ? RE_AGENT_LABEL[r.effectiveReAgent].toLowerCase() : "￿";
+    case "ceip1":
+      return (r.newco?.entitaCeip1 ?? "").toLowerCase();
+    case "ceip2":
+      return (r.newco?.entitaCeip2 ?? "").toLowerCase();
+    case "businessPlan":
+      return (r.newco?.includeInBusinessPlan ?? "").toLowerCase();
+    case "operationalType":
+      return (r.newco?.operationalType ?? "").toLowerCase();
+    case "category":
+      return (r.newco?.category ?? "").toLowerCase();
+    case "flaggedRed":
+      return r.newco?.flaggedRed ? 0 : 1; // červené první (asc)
+    case "leaseCurrent":
+      return LEASE_HOLDER_LABEL[r.leaseCurrent].toLowerCase();
+    case "leaseTarget":
+      return LEASE_HOLDER_LABEL[r.leaseTarget].toLowerCase();
+    case "recon":
+      return RECON_SORT_WEIGHT[reconcile(r.leaseCurrent, r.leaseTarget)];
+    case "note":
+      return (r.note ?? "").toLowerCase();
+    default:
+      return "";
+  }
+}
+
+function EmptyState({
+  hasAnyLocations,
+  onShowAll,
+}: {
+  hasAnyLocations: boolean;
+  onShowAll: () => void;
+}) {
+  return (
+    <div className="rounded-[24px] border border-dashed border-edge bg-paper p-12 text-center">
+      <div className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-edge-warm text-ink-mid">
+        <MapPin className="h-5 w-5" strokeWidth={1.5} />
+      </div>
+      <h3 className="mt-4 text-[1.05rem] font-bold tracking-[-0.02em] text-ink-base">
+        {hasAnyLocations ? "Žádné lokality z importu NewCo" : "Zatím žádné lokality"}
+      </h3>
+      <p className="mx-auto mt-2 max-w-[46ch] text-[13.5px] text-ink-mid">
+        {hasAnyLocations ? (
+          <>
+            Tabulka ukazuje lokality z importu NewCo. Naimportujte data na stránce{" "}
+            <Link href="/portal/locations" className="font-medium text-ink-base underline underline-offset-2">
+              Lokality
+            </Link>{" "}
+            (tlačítko „Import NewCo“), nebo zobrazte všechny lokality.
+          </>
+        ) : (
+          "Lokality se synchronizují z projektu Transition. Po první synchronizaci se zde objeví."
+        )}
+      </p>
+      {hasAnyLocations && (
+        <button
+          type="button"
+          onClick={onShowAll}
+          className="mt-5 inline-flex h-9 items-center gap-2 rounded-full border border-edge bg-paper px-4 text-[12.5px] font-medium text-ink-deep transition-colors hover:border-ink-base"
+        >
+          <MapPin className="h-3.5 w-3.5" strokeWidth={1.5} />
+          Zobrazit všechny lokality
+        </button>
+      )}
+    </div>
+  );
+}
