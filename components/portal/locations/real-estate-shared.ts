@@ -38,6 +38,11 @@ export type RealEstateRow = {
   // Id přiřazených uživatelských flagů (lokální v BOServices, LocationLocal.flagIds).
   // Definice flagů (label+barva) drží katalog ReFlag[] předaný do tabulky zvlášť.
   flagIds: string[];
+  // „Stejně řešit" navzdory červené (lokální v BOServices, LocationLocal.solveDespiteRed).
+  // Červené jsou jinak samostatná kategorie mimo Řešit/Vyřešeno; s tímto příznakem
+  // lokalita zůstane v „Červeně" a NAVÍC se vždy započítá do „Řešit". Bez efektu,
+  // když lokalita není flaggedRed.
+  solveDespiteRed: boolean;
   leaseCurrent: LeaseStatus;
   leaseTarget: LeaseStatus;
   // Id podepsané franšízingové smlouvy (status „podepsáno klientem"+ vč. DigiSign

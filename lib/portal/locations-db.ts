@@ -141,6 +141,10 @@ export interface LocationLocal {
   // Přiřazené uživatelské flagy (id z katalogu portal:re-flag:*). Sdílený
   // štítkovací systém na stránce Real Estate. Katalog: lib/portal/re-flags-db.
   flagIds?: string[];
+  // „Stejně řešit" navzdory červené (flaggedRed). Červené jsou jinak samostatná
+  // kategorie mimo Řešit/Vyřešeno; s tímto příznakem lokalita zůstane v „Červeně"
+  // a NAVÍC se vždy započítá do filtru „Řešit". Bez efektu, když není flaggedRed.
+  solveDespiteRed?: boolean;
   attachments: LocationAttachment[];
   newco?: LocationNewCo;
   updatedBy: string;
@@ -315,12 +319,15 @@ export async function listLocationNewcoMap(): Promise<
 }
 
 // Mapa id lokality → lokální data potřebná pro Real Estate tabulku
-// (note + newco + flagIds). Jeden pipeline scan místo N getů
+// (note + newco + flagIds + solveDespiteRed). Jeden pipeline scan místo N getů
 // (vzor listLocationIdsWithAttachments / listLocationNewcoMap).
 export async function listLocationLocalMap(): Promise<
-  Map<string, Pick<LocationLocal, "note" | "newco" | "flagIds">>
+  Map<string, Pick<LocationLocal, "note" | "newco" | "flagIds" | "solveDespiteRed">>
 > {
-  const out = new Map<string, Pick<LocationLocal, "note" | "newco" | "flagIds">>();
+  const out = new Map<
+    string,
+    Pick<LocationLocal, "note" | "newco" | "flagIds" | "solveDespiteRed">
+  >();
   const r = getRedis();
   if (!r) return out;
   const ids = (await r.smembers(ALL_KEY)) as string[];
@@ -334,6 +341,7 @@ export async function listLocationLocalMap(): Promise<
         note: local.note,
         newco: local.newco,
         flagIds: local.flagIds,
+        solveDespiteRed: local.solveDespiteRed,
       });
     }
   });

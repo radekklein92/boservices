@@ -41,6 +41,7 @@ export default async function RealEstatePage() {
       locationStatus: l.location_status,
       category: l.category,
       flagIds: local?.flagIds ?? [],
+      solveDespiteRed: local?.solveDespiteRed ?? false,
       leaseCurrent: l.lease_current_status,
       leaseTarget: l.lease_target_status,
       franchiseContractId: franchiseByLocation[l.id] ?? null,

@@ -40,9 +40,13 @@ const COLUMNS: XlsxColumn[] = [
   { header: "Poznámka", width: 44 },
 ];
 
-// Ano/Ne jen když lokalita má NewCo data - jinak prázdno (hodnota není známá).
-function newcoFlag(r: RealEstateRow, value: boolean): string {
-  return r.newco ? (value ? "Ano" : "Ne") : "";
+// Sloupec „Označeno červeně": Ano/Ne jen když lokalita má NewCo data (jinak
+// prázdno - hodnota není známá). U červené s lokální výjimkou „stejně řešit"
+// se to vyznačí jako „Ano (+ řešit)".
+function redFlagExport(r: RealEstateRow): string {
+  if (!r.newco) return "";
+  if (!r.newco.flaggedRed) return "Ne";
+  return r.solveDespiteRed ? "Ano (+ řešit)" : "Ano";
 }
 
 function rowCells(
@@ -65,7 +69,7 @@ function rowCells(
     bp ? bp.label : "",
     r.newco?.operationalType ?? "",
     r.category ? CATEGORY_LABEL[r.category] : "",
-    newcoFlag(r, Boolean(r.newco?.flaggedRed)),
+    redFlagExport(r),
     r.franchiseContractId ? "Podepsáno" : "Ne",
     LEASE_HOLDER_LABEL[r.leaseCurrent],
     LEASE_HOLDER_LABEL[r.leaseTarget],
