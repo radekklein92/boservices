@@ -1,6 +1,14 @@
 import { notFound } from "next/navigation";
-import { cachedGetLocation } from "@/lib/portal/cached-db";
-import { LocationDetail } from "@/components/portal/locations/LocationDetail";
+import {
+  cachedGetLocation,
+  cachedListContracts,
+  cachedListReFlags,
+} from "@/lib/portal/cached-db";
+import { statusOrder } from "@/lib/portal/contracts-db";
+import {
+  LocationDetail,
+  type LocationContractRow,
+} from "@/components/portal/locations/LocationDetail";
 import { EntityTasks } from "@/components/portal/tasks/EntityTasks";
 
 export const dynamic = "force-dynamic";
@@ -21,12 +29,43 @@ export default async function LocationDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const location = await cachedGetLocation(id);
+  const [location, allContracts, flagCatalog] = await Promise.all([
+    cachedGetLocation(id),
+    cachedListContracts(),
+    cachedListReFlags(),
+  ]);
   if (!location) notFound();
+
+  // Přiřazené flagy z RE tabulky (LocationLocal.flagIds) přeložené přes katalog.
+  // Pořadí katalogu (stabilní), jen flagy, které pořád existují.
+  const assigned = new Set(location.local?.flagIds ?? []);
+  const flags = flagCatalog.filter((f) => assigned.has(f.id));
+
+  // Smlouvy navázané na tuto lokalitu (franšíza / spolupráce / provozování mají
+  // povinný locationId). Plné objekty Contract jsou těžké (HTML, claims…) — přes
+  // RSC boundary do klienta posíláme jen lehký řádek. Pořadí: aktivní podle
+  // pokročilosti stavu (nejdál v podpisovém flow nahoře), zrušené na konci.
+  const contracts: LocationContractRow[] = allContracts
+    .filter((c) => c.locationId === id)
+    .map((c) => ({
+      id: c.id,
+      type: c.type,
+      status: c.status,
+      clientName: c.clientName,
+      number: c.number ?? null,
+      cancelled: Boolean(c.cancelledAt),
+      createdAt: c.createdAt,
+    }))
+    .sort((a, b) => {
+      if (a.cancelled !== b.cancelled) return a.cancelled ? 1 : -1;
+      const so = statusOrder(b.status) - statusOrder(a.status);
+      if (so !== 0) return so;
+      return b.createdAt.localeCompare(a.createdAt);
+    });
 
   return (
     <div className="flex flex-col gap-10">
-      <LocationDetail location={location} />
+      <LocationDetail location={location} contracts={contracts} flags={flags} />
       <EntityTasks kind="location" id={id} />
     </div>
   );

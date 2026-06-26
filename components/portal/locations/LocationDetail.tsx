@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
 import {
@@ -11,13 +12,25 @@ import {
   FileText,
   ExternalLink,
   AlertTriangle,
+  ArrowUpRight,
 } from "lucide-react";
 import type { LocationView } from "@/lib/portal/locations-db";
+import type { ContractStatus } from "@/lib/portal/contracts-db";
+import {
+  CONTRACT_STATUS_LABEL,
+  CONTRACT_STATUS_STYLE,
+} from "@/lib/portal/contracts-db";
+import type { ContractType } from "@/lib/portal/contract-types";
+import { CONTRACT_TYPE_META } from "@/lib/portal/contract-types";
+import type { ReFlag } from "@/lib/portal/re-flags-shared";
+import { CONTRACT_STATUS_ICON } from "@/components/portal/contracts/contract-status-meta";
 import { Section } from "@/components/portal/ui/Section";
 import { InfoRow as Row } from "@/components/portal/ui/InfoRow";
 import { BackLink } from "@/components/portal/ui/BackLink";
 import { Chip } from "@/components/portal/ui/Chip";
 import { BTN_PRIMARY, BTN_ROW, BTN_ICON } from "@/components/portal/ui/buttons";
+import { reconcile, RECON_META, RE_CHECKIN_META } from "./real-estate-shared";
+import { flagIconComp, flagTone } from "./re-flags-shared";
 import {
   CATEGORY_HINT,
   CATEGORY_LABEL,
@@ -39,8 +52,32 @@ import {
   formatMoney,
 } from "./locations-shared";
 
-export function LocationDetail({ location }: { location: LocationView }) {
+// Lehký řádek smlouvy navázané na lokalitu (server v page.tsx mapuje plný
+// Contract na tento tvar — plné objekty jsou těžké a přes RSC boundary jdou
+// jen plain data).
+export type LocationContractRow = {
+  id: string;
+  type: ContractType;
+  status: ContractStatus;
+  clientName: string;
+  number: string | null;
+  cancelled: boolean;
+  createdAt: string;
+};
+
+export function LocationDetail({
+  location,
+  contracts,
+  flags,
+}: {
+  location: LocationView;
+  contracts: LocationContractRow[];
+  // Flagy přiřazené této lokalitě (LocationLocal.flagIds přeložené přes katalog).
+  flags: ReFlag[];
+}) {
   const l = location;
+  const recon = RECON_META[reconcile(l.lease_current_status, l.lease_target_status)];
+  const checkIn = l.local?.reCheckIn ?? null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -66,6 +103,16 @@ export function LocationDetail({ location }: { location: LocationView }) {
               {TRANSITION_STATUS_LABEL[l.transition_status]}
             </span>
           )}
+          {/* Flagy z RE tabulky (read-only). Editují se v Real Estate tabulce. */}
+          {flags.map((f) => {
+            const Ico = flagIconComp(f.icon);
+            return (
+              <span key={f.id} className={`${CHIP_BASE} ${flagTone(f.color).chip}`}>
+                <Ico className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+                {f.label}
+              </span>
+            );
+          })}
         </div>
         <div>
           <h1 className="font-extrabold text-[clamp(1.6rem,3vw,2.2rem)] tracking-[-0.02em] text-ink-base">
@@ -82,7 +129,8 @@ export function LocationDetail({ location }: { location: LocationView }) {
         <Lock className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} aria-hidden="true" />
         <span>
           Data lokality jsou zrcadlo z Transition a needitují se zde. Upravit lze
-          jen lokální poznámku a přílohy níže.
+          jen lokální poznámku a přílohy níže; flagy a Poznámku se stejně promítají
+          do Real Estate tabulky.
         </span>
       </div>
 
@@ -90,6 +138,15 @@ export function LocationDetail({ location }: { location: LocationView }) {
         <Section title="Nájem a přepis">
           <Row label="Aktuální stav nájmu" value={LEASE_STATUS_LABEL[l.lease_current_status]} />
           <Row label="Cílový stav nájmu" value={LEASE_STATUS_LABEL[l.lease_target_status]} />
+          <Row
+            label="Stav řešení"
+            value={
+              <Chip tone={recon.tone}>
+                <recon.Icon className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+                {recon.label}
+              </Chip>
+            }
+          />
           <Row label="Stav přechodu" value={TRANSITION_STATUS_LABEL[l.transition_status]} />
           <Row label="Zodpovědná osoba" value={l.responsible} />
           <Row label="Výjimku schválil" value={l.exception_approved_by} />
@@ -97,6 +154,21 @@ export function LocationDetail({ location }: { location: LocationView }) {
 
         <Section title="Realitní operativa">
           <Row label="RE agent" value={l.re_agent ? RE_AGENT_LABEL[l.re_agent] : null} />
+          <Row
+            label="Hlášení agenta"
+            value={
+              checkIn ? (
+                <span className="inline-flex items-center gap-2">
+                  <Chip tone={RE_CHECKIN_META[checkIn.status].tone}>
+                    {RE_CHECKIN_META[checkIn.status].label}
+                  </Chip>
+                  <span className="text-[11.5px] text-ink-soft">
+                    {RE_AGENT_LABEL[checkIn.by]} · {formatDate(checkIn.at)}
+                  </span>
+                </span>
+              ) : null
+            }
+          />
           <Row
             label="Dohoda s pronajímatelem"
             value={l.landlord_agreement ? LANDLORD_LABEL[l.landlord_agreement] : l.landlord_agreement_raw}
@@ -106,7 +178,7 @@ export function LocationDetail({ location }: { location: LocationView }) {
           <Row label="Hrozí výpověď" value={l.eviction_risk ? "Ano" : null} />
           <Row label="Aktivně řešeno" value={l.re_active ? "Ano" : null} />
           <Row label="Další krok" value={l.next_step} />
-          <Row label="Poznámka k RE" value={l.re_status_note} />
+          <Row label="Poznámka k RE (Transition)" value={l.re_status_note} />
         </Section>
 
         <Section title="Provoz a stav">
@@ -164,12 +236,20 @@ export function LocationDetail({ location }: { location: LocationView }) {
                 {l.local.newco.flaggedRed ? "Ano" : "Ne"}
               </Chip>
             </div>
+            {l.local.newco.flaggedRed && (
+              <Row
+                label="Řešit i přes červenou"
+                value={l.local.solveDespiteRed ? "Ano" : "Ne"}
+              />
+            )}
             <p className="mt-3 text-[11.5px] text-ink-soft">
               Importováno {formatDate(l.local.newco.importedAt)} · {l.local.newco.importedBy}
             </p>
           </Section>
         )}
       </div>
+
+      <LocationContracts contracts={contracts} />
 
       {l.note && (
         <Section title="Poznámka z Transition">
@@ -187,6 +267,60 @@ export function LocationDetail({ location }: { location: LocationView }) {
       <LocalNote location={l} />
       <Attachments location={l} />
     </div>
+  );
+}
+
+// ── Smlouvy k lokalitě ──────────────────────────────────────────────────────
+
+function LocationContracts({ contracts }: { contracts: LocationContractRow[] }) {
+  return (
+    <Section
+      title="Smlouvy k lokalitě"
+      hint="Franšízingové, o spolupráci a o provozování navázané na tuto lokalitu."
+    >
+      {contracts.length === 0 ? (
+        <div className="flex items-center gap-2.5 rounded-xl border border-dashed border-edge px-4 py-5 text-[13px] text-ink-mid">
+          <FileText className="h-4 w-4 shrink-0" strokeWidth={1.5} aria-hidden="true" />
+          K této lokalitě zatím není navázaná žádná smlouva.
+        </div>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {contracts.map((c) => {
+            const StatusIcon = CONTRACT_STATUS_ICON[c.status];
+            return (
+              <li key={c.id}>
+                <Link
+                  href={`/portal/contracts/${c.id}`}
+                  className="group flex items-center gap-3 rounded-xl border border-edge bg-paper px-4 py-3 transition-colors hover:border-ink-base"
+                >
+                  <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-edge-warm text-ink-deep">
+                    <FileText className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 text-[13.5px] font-medium text-ink-base">
+                      <span className="truncate">{CONTRACT_TYPE_META[c.type].shortName}</span>
+                      <ArrowUpRight
+                        className="h-3.5 w-3.5 shrink-0 text-ink-soft transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+                        strokeWidth={1.5}
+                        aria-hidden="true"
+                      />
+                    </div>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11.5px] text-ink-soft">
+                      <span className="truncate">{c.clientName}</span>
+                      {c.number && <span className="font-mono">{c.number}</span>}
+                    </div>
+                  </div>
+                  <Chip tone={CONTRACT_STATUS_STYLE[c.status]}>
+                    <StatusIcon className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+                    {CONTRACT_STATUS_LABEL[c.status]}
+                  </Chip>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </Section>
   );
 }
 
@@ -223,8 +357,8 @@ function LocalNote({ location }: { location: LocationView }) {
 
   return (
     <Section
-      title="Lokální poznámka"
-      hint="Jen v BOServices — synchronizace z Transition se jí nedotkne."
+      title="Poznámka"
+      hint="Jen v BOServices — stejné pole jako sloupec Poznámka v Real Estate tabulce. Synchronizace z Transition se jí nedotkne."
     >
       <textarea
         value={note}
