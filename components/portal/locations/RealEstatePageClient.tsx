@@ -76,7 +76,7 @@ export function RealEstatePageClient({
       <PageHeader
         eyebrow="Franšízing"
         title="Real Estate"
-        lede="Lokality z importu NewCo: kdo je má na starost, klíčové NewCo údaje a hlavně jestli aktuální nájem už odpovídá cílovému. RE agenta i stav nájmu upravíte přímo v tabulce (uloží se zpět do Transition), poznámka a flagy zůstávají lokální. Flagy jsou sdílené napříč týmem."
+        lede="Lokality z importu NewCo: kdo je má na starost a jestli aktuální nájem odpovídá cílovému. RE agenta i stav nájmu upravíte přímo v tabulce."
       />
       <RealEstateTable
         rows={rows}
