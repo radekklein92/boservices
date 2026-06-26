@@ -17,7 +17,12 @@ import {
 import { Chip } from "@/components/portal/ui/Chip";
 import { FilterChip } from "@/components/portal/ui/FilterChip";
 import type { LeaseStatus, ReAgent } from "@/lib/portal/locations-db";
-import { RE_AGENT_LABEL } from "./locations-shared";
+import {
+  CATEGORY_LABEL,
+  CATEGORY_ORDER,
+  CATEGORY_STYLE,
+  RE_AGENT_LABEL,
+} from "./locations-shared";
 import {
   businessPlanView,
   COLUMN_STORAGE_KEY,
@@ -637,7 +642,13 @@ function renderCell(
     case "operationalType":
       return <Txt v={r.newco?.operationalType} />;
     case "category":
-      return <Txt v={r.newco?.category} />;
+      return r.category ? (
+        <Chip tone={CATEGORY_STYLE[r.category]} className="whitespace-nowrap">
+          {CATEGORY_LABEL[r.category]}
+        </Chip>
+      ) : (
+        <Dash />
+      );
     case "flaggedRed":
       return r.newco ? (
         <Chip tone={r.newco.flaggedRed ? FLAG_RED_TONE : FLAG_NEUTRAL_TONE}>
@@ -730,7 +741,7 @@ function matchesQuery(
     r.newco?.entitaCeip1,
     r.newco?.entitaCeip2,
     r.newco?.operationalType,
-    r.newco?.category,
+    r.category ? CATEGORY_LABEL[r.category] : "",
     r.newco?.includeInBusinessPlan,
     r.franchiseContractId ? "franšíza podepsáno" : "",
     LEASE_HOLDER_LABEL[r.leaseCurrent],
@@ -765,7 +776,8 @@ function sortValue(r: RealEstateRow, key: ColumnId): string | number {
     case "operationalType":
       return (r.newco?.operationalType ?? "").toLowerCase();
     case "category":
-      return (r.newco?.category ?? "").toLowerCase();
+      // Sémantické pořadí core→exit (ne abecedně); null (neznámá) na konec.
+      return r.category ? CATEGORY_ORDER.indexOf(r.category) : 99;
     case "flaggedRed":
       return r.newco?.flaggedRed ? 0 : 1; // červené první (asc)
     case "franchise":
