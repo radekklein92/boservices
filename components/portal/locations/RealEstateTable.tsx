@@ -23,6 +23,7 @@ import {
   COLUMN_STORAGE_KEY,
   COLUMNS,
   LEASE_HOLDER_LABEL,
+  LEASE_TARGET_SUMMARY,
   RECON_META,
   RECON_ORDER,
   RECON_SORT_WEIGHT,
@@ -190,6 +191,23 @@ export function RealEstateTable({
     [rows, showAll],
   );
 
+  // Přehled „Nájem cílově": rozpad celé sady (base) podle držitele cílového
+  // nájmu. ZÁMĚRNĚ nereaguje na recon/červené/flag filtry — je to strategický
+  // snímek „kam co míří", ne facet. Každý řádek má právě jeden leaseTarget,
+  // takže součet všech dlaždic = base.length.
+  const targetCounts = useMemo(() => {
+    const m: Record<LeaseStatus, number> = {
+      prepis_na_fransizanta: 0,
+      prepis_na_ceip: 0,
+      prepis_jinam: 0,
+      uzavrena_na_twist: 0,
+      nemame_reseni: 0,
+      neznamy: 0,
+    };
+    for (const r of base) m[r.leaseTarget]++;
+    return m;
+  }, [base]);
+
   // Katalog id → flag (pro labely ve fulltextu i počty u filtrů).
   const flagById = useMemo(() => new Map(flags.map((f) => [f.id, f])), [flags]);
 
@@ -344,6 +362,11 @@ export function RealEstateTable({
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Přehled „Nájem cílově" — strategický rozpad nad tabulkou. */}
+      {base.length > 0 && (
+        <LeaseTargetSummary counts={targetCounts} total={base.length} />
+      )}
+
       {/* Toolbar */}
       <div className="relative max-w-[400px]">
         <Search
@@ -710,6 +733,71 @@ function Txt({ v }: { v: string | null | undefined }) {
 
 function Dash() {
   return <span className="text-ink-soft">—</span>;
+}
+
+// ── Přehled „Nájem cílově" ───────────────────────────────────────────────────
+// Strategický snímek nad tabulkou: kolik lokalit míří nájmem cílově na koho.
+// Informativní (ne filtr) — vizuálně je to stat-karta, ne pill chip, aby bylo
+// jasné, že se nekliká. Součet dlaždic = total (každý řádek právě jeden cíl).
+
+function locWord(n: number): string {
+  if (n === 1) return "lokalita";
+  if (n >= 2 && n <= 4) return "lokality";
+  return "lokalit";
+}
+
+function LeaseTargetSummary({
+  counts,
+  total,
+}: {
+  counts: Record<LeaseStatus, number>;
+  total: number;
+}) {
+  return (
+    <section className="rounded-[24px] border border-edge bg-paper p-4 sm:p-5">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="text-[10.5px] font-medium uppercase tracking-[0.22em] text-ink-mid">
+          <span
+            aria-hidden="true"
+            className="mr-3 inline-block h-px w-6 translate-y-[-3px] bg-ink-base/50 align-middle"
+          />
+          Nájem cílově
+        </div>
+        <span className="shrink-0 font-mono text-[11px] text-ink-soft">
+          {total} {locWord(total)}
+        </span>
+      </div>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-3 lg:grid-cols-6">
+        {LEASE_TARGET_SUMMARY.map(({ status, label, dot }) => {
+          const n = counts[status] ?? 0;
+          const pct = total > 0 ? Math.round((n / total) * 100) : 0;
+          return (
+            <div key={status} className="flex flex-col">
+              <span className="flex items-center gap-1.5 text-[10.5px] font-medium uppercase tracking-[0.1em] text-ink-mid">
+                <span
+                  className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`}
+                  aria-hidden="true"
+                />
+                <span className="truncate">{label}</span>
+              </span>
+              <div className="mt-1.5 flex items-baseline gap-1.5">
+                <span
+                  className={`text-[1.7rem] font-extrabold leading-none tracking-[-0.03em] tabular-nums ${
+                    n === 0 ? "text-ink-soft" : "text-ink-base"
+                  }`}
+                >
+                  {n}
+                </span>
+                {n > 0 && (
+                  <span className="text-[11px] font-medium text-ink-soft">{pct} %</span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
 }
 
 // ── Textové hledání nad řádkem ───────────────────────────────────────────────

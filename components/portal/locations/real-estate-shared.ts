@@ -102,6 +102,23 @@ export const LEASE_HOLDER_LABEL: Record<LeaseStatus, string> = {
   neznamy: "neznámé",
 };
 
+// ── Přehled „Nájem cílově" nad tabulkou ──────────────────────────────────────
+// Pořadí + krátké labely dlaždic (kam nájem cílově míří). Destinace nejdřív
+// (franšízant → BOS → třetí strana), pak tranzitní TWIST a neurčené stavy.
+// Tečka = stejný barevný klíč jako jinde v portálu (emerald = cíl/hotovo).
+export const LEASE_TARGET_SUMMARY: ReadonlyArray<{
+  status: LeaseStatus;
+  label: string;
+  dot: string;
+}> = [
+  { status: "prepis_na_fransizanta", label: "Franšízant", dot: "bg-emerald-500" },
+  { status: "prepis_na_ceip", label: "BOS", dot: "bg-sky-500" },
+  { status: "prepis_jinam", label: "Třetí strana", dot: "bg-violet-500" },
+  { status: "uzavrena_na_twist", label: "TWIST", dot: "bg-amber-500" },
+  { status: "nemame_reseni", label: "Nevyřešeno", dot: "bg-rose-500" },
+  { status: "neznamy", label: "Neznámé", dot: "bg-zinc-400" },
+];
+
 // ── V business plánu (Y/N) — hodnota je volný string z NewCo Excelu ──────────
 const BP_YES = new Set(["Y", "YES", "ANO", "A", "TRUE", "1"]);
 const BP_NO = new Set(["N", "NO", "NE", "FALSE", "0"]);
