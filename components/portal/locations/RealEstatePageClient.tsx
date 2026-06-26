@@ -43,10 +43,6 @@ export function RealEstatePageClient({
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, note } : r)));
   }
 
-  function applyReNote(id: string, reNote: string) {
-    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, reNote } : r)));
-  }
-
   function applyFlags(id: string, flagIds: string[]) {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, flagIds } : r)));
   }
@@ -83,7 +79,6 @@ export function RealEstatePageClient({
         isAdmin={isAdmin}
         onFieldApplied={applyField}
         onNoteApplied={applyNote}
-        onReNoteApplied={applyReNote}
         onFlagsApplied={applyFlags}
         onCatalogChanged={applyCatalog}
         onFlagDeleted={applyFlagDeleted}

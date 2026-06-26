@@ -7,6 +7,7 @@ import {
 import type {
   LeaseStatus,
   LocationNewCo,
+  LocationStatus,
   ReAgent,
 } from "@/lib/portal/locations-db";
 
@@ -26,11 +27,10 @@ export type RealEstateRow = {
   hasNewco: boolean;
   newco: LocationNewCo | null;
   note: string;
-  // Poznámka RE (lokální v BOServices, edituje se inline). Oddělená od obecné
-  // `note` — vlastní sloupec, seed z Google Sheetu.
-  reNote: string;
   // RE agent z Transition (zdroj pravdy). Edituje se write-through do Transition.
   reAgent: ReAgent | null;
+  // Stav prodejny dle Transition (otevřená/zavřená/...). Read-only, zrcadlí se.
+  locationStatus: LocationStatus | null;
   // Id přiřazených uživatelských flagů (lokální v BOServices, LocationLocal.flagIds).
   // Definice flagů (label+barva) drží katalog ReFlag[] předaný do tabulky zvlášť.
   flagIds: string[];
@@ -125,10 +125,45 @@ export function businessPlanView(
   return { label: v, tone: "border-edge bg-paper text-ink-deep" };
 }
 
+// ── Stav prodejny dle Transition (location_status) ───────────────────────────
+// Otevřená/zavřená je to, co uživatel primárně chce vidět; mezistavy (výstavba,
+// zavírání) ukazujeme taky, ať pohled odpovídá Transition 1:1.
+
+export const STORE_STATUS_META: Record<
+  LocationStatus,
+  { label: string; tone: string }
+> = {
+  open: {
+    label: "Otevřená",
+    tone: "border-emerald-300 bg-emerald-50 text-emerald-700",
+  },
+  closing: {
+    label: "Zavírá se",
+    tone: "border-amber-300 bg-amber-50 text-amber-700",
+  },
+  construction: {
+    label: "Ve výstavbě",
+    tone: "border-sky-300 bg-sky-50 text-sky-700",
+  },
+  closed: {
+    label: "Zavřená",
+    tone: "border-edge bg-edge-warm text-ink-soft",
+  },
+};
+
+// Řazení: provozní stavy nahoře, zavřené dolů; null (neznámý) úplně poslední.
+export const STORE_STATUS_SORT_WEIGHT: Record<LocationStatus, number> = {
+  open: 0,
+  closing: 1,
+  construction: 2,
+  closed: 3,
+};
+
 // ── Sloupce (pro přepínání viditelnosti) ──────────────────────────────────────
 
 export type ColumnId =
   | "location"
+  | "storeStatus"
   | "reAgent"
   | "flags"
   | "ceip1"
@@ -141,8 +176,7 @@ export type ColumnId =
   | "leaseCurrent"
   | "leaseTarget"
   | "recon"
-  | "note"
-  | "reNote";
+  | "note";
 
 export type ColumnDef = {
   id: ColumnId;
@@ -154,6 +188,7 @@ export type ColumnDef = {
 
 export const COLUMNS: ColumnDef[] = [
   { id: "location", label: "Lokalita", defaultVisible: true, always: true },
+  { id: "storeStatus", label: "Stav prodejny", defaultVisible: true },
   { id: "reAgent", label: "RE agent", defaultVisible: true },
   { id: "flags", label: "Flagy", defaultVisible: true },
   { id: "ceip1", label: "Entita CEIP 1", defaultVisible: true },
@@ -166,10 +201,9 @@ export const COLUMNS: ColumnDef[] = [
   { id: "leaseCurrent", label: "Nájem aktuálně", defaultVisible: true },
   { id: "leaseTarget", label: "Nájem cílově", defaultVisible: true },
   { id: "recon", label: "Stav řešení", defaultVisible: true },
-  { id: "reNote", label: "Poznámka RE", defaultVisible: true },
   { id: "note", label: "Poznámka", defaultVisible: true },
 ];
 
-// v2: přibyl sloupec "flags" — bump resetuje uloženou sadu na defaulty, ať se
-// nový sloupec zobrazí i uživatelům s dříve uloženým výběrem.
+// v2: přibyl sloupec "flags" (a dříve "storeStatus") — bump resetuje uloženou
+// sadu na defaulty, ať se nové sloupce zobrazí i uživatelům s dříve uloženým výběrem.
 export const COLUMN_STORAGE_KEY = "re-table-cols-v2";

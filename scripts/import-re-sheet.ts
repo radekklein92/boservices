@@ -3,22 +3,18 @@
  * Jednorázový import RE dat z Google Sheets (NewCo RE rozpis).
  *
  * Pro každou lokalitu (párováno přes KÓD, case-insensitive):
- *   - "Poznámka RE" → lokální pole `reNote` v BOServices (patchLocationLocal),
- *     vlastní sloupec v Real Estate tabulce. OVERWRITE (idempotentní). Navíc
- *     SELF-HEAL: pokud starší verze tohoto skriptu Poznámku RE připojila do
- *     obecné `note`, odtud se odebere (ať není dvakrát). Pouze Redis.
- *   - "Kdo řeší za RE" → re_agent v Transition (zdroj pravdy), přes PATCH
- *     {TRANSITION_LOCATIONS_URL}/[id]. Mapování: Roman→Siarik, Lenka→Kholova,
+ *   - "Kdo řeší za RE" → re_agent v Transition (zdroj pravdy), přes public
+ *     PATCH /api/public/locations/[id]. Mapování: Roman→Siarik, Lenka→Kholova,
  *     "Někdo jiný"/prázdné → přeskočit. Po úspěchu se aktualizuje i lokální
- *     zrcadlo (setMirroredLocation). Proběhne JEN když jsou Transition tokeny;
- *     bez nich se agent přeskočí a naimportuje se pouze Poznámka RE.
+ *     zrcadlo (setMirroredLocation).
+ *   - "Poznámka RE" → lokální poznámka v BOServices (patchLocationLocal),
+ *     PŘIPOJENO k případné stávající poznámce (na nový řádek).
  *
- * Použití:
+ * Použití (vyžaduje nasazený Transition write endpoint):
  *   npx tsx scripts/import-re-sheet.ts          # dry-run (jen vypíše, nic nezapíše)
  *   npx tsx scripts/import-re-sheet.ts --apply  # provede zápis
  *
- * Čte .env.local: UPSTASH_REDIS_REST_* (povinné), TRANSITION_LOCATIONS_URL +
- * TRANSITION_API_TOKEN (volitelné, jen pro zápis agenta).
+ * Čte .env.local: UPSTASH_REDIS_REST_*, TRANSITION_LOCATIONS_URL, TRANSITION_API_TOKEN.
  */
 import { config } from "dotenv";
 
@@ -83,14 +79,12 @@ async function main() {
     console.error("Chybí UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN v .env.local");
     process.exit(1);
   }
-  // Agent (re_agent) se zapisuje do Transition — bez tokenů se přeskočí a
-  // naimportuje se jen Poznámka RE (reNote) do Redisu.
-  const canAgent = Boolean(txUrl && txToken);
-  if (apply && !canAgent) {
-    console.warn(
-      "Pozor: chybí TRANSITION_LOCATIONS_URL / TRANSITION_API_TOKEN — RE agent se NEzapíše, " +
-        "naimportuje se jen Poznámka RE.\n",
+  // Transition URL/token jsou potřeba jen pro skutečný zápis agenta (--apply).
+  if (apply && (!txUrl || !txToken)) {
+    console.error(
+      "Pro --apply chybí TRANSITION_LOCATIONS_URL / TRANSITION_API_TOKEN v .env.local.",
     );
+    process.exit(1);
   }
 
   const { listLocations, getLocationLocal, patchLocationLocal, setMirroredLocation } =
@@ -106,9 +100,7 @@ async function main() {
 
   let agentOk = 0;
   let agentFail = 0;
-  let agentSkipped = 0;
-  let reNoteOk = 0;
-  let healedOk = 0;
+  let noteOk = 0;
   const unmatched: string[] = [];
 
   for (const row of rows) {
@@ -120,9 +112,7 @@ async function main() {
     const agent = AGENT_MAP[row.agentRaw] ?? null;
 
     if (agent) {
-      if (!canAgent) {
-        agentSkipped++;
-      } else if (!apply) {
+      if (!apply) {
         agentOk++;
       } else {
         try {
@@ -155,49 +145,23 @@ async function main() {
     }
 
     if (row.note) {
-      // Poznámka RE → reNote (overwrite, idempotentní) + self-heal obecné note.
-      // getLocationLocal je čtení (i v dry-run), zápis až pod --apply.
-      const existing = await getLocationLocal(id);
-      const patch: { reNote?: string; note?: string } = {};
-
-      if ((existing?.reNote ?? "") !== row.note) {
-        patch.reNote = row.note;
-      }
-
-      // Self-heal: starší běh připojoval Poznámku RE do obecné `note`
-      // (`prev ? prev + "\n" + row.note : row.note`). Odeber přesně ten výskyt,
-      // jinak `note` nech být (mohl ji ručně upravit někdo jiný).
-      const prevNote = existing?.note ?? "";
-      let cleanedNote: string | null = null;
-      if (prevNote === row.note) {
-        cleanedNote = "";
-      } else if (prevNote.endsWith(`\n${row.note}`)) {
-        cleanedNote = prevNote.slice(0, prevNote.length - row.note.length - 1);
-      }
-      if (cleanedNote !== null && cleanedNote !== prevNote) {
-        patch.note = cleanedNote;
-      }
-
-      if (patch.reNote !== undefined || patch.note !== undefined) {
-        if (apply) {
-          await patchLocationLocal(id, patch, "import:google-sheet");
+      if (!apply) {
+        noteOk++;
+      } else {
+        const existing = await getLocationLocal(id);
+        const prev = existing?.note ?? "";
+        const next = prev ? `${prev}\n${row.note}` : row.note;
+        if (next !== prev) {
+          await patchLocationLocal(id, { note: next }, "import:google-sheet");
+          noteOk++;
         }
-        if (patch.reNote !== undefined) reNoteOk++;
-        if (patch.note !== undefined) healedOk++;
       }
     }
   }
 
   console.log(`\nNapárováno: ${rows.length - unmatched.length}/${rows.length}`);
-  if (canAgent) {
-    console.log(
-      `RE agent ${apply ? "zapsán" : "k zápisu"}: ${agentOk}${agentFail ? ` (chyb: ${agentFail})` : ""}`,
-    );
-  } else {
-    console.log(`RE agent přeskočen (bez Transition tokenů): ${agentSkipped}`);
-  }
-  console.log(`Poznámka RE ${apply ? "zapsána" : "k zápisu"} (reNote): ${reNoteOk}`);
-  console.log(`Obecná Poznámka ${apply ? "vyčištěna" : "k vyčištění"} (self-heal): ${healedOk}`);
+  console.log(`Agent ${apply ? "zapsán" : "k zápisu"}: ${agentOk}${agentFail ? ` (chyb: ${agentFail})` : ""}`);
+  console.log(`Poznámka ${apply ? "připojena" : "k připojení"}: ${noteOk}`);
   if (unmatched.length) {
     console.log(`\nNespárované kódy (${unmatched.length}): ${unmatched.join(", ")}`);
   }

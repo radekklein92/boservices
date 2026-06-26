@@ -27,6 +27,8 @@ import {
   RECON_ORDER,
   RECON_SORT_WEIGHT,
   reconcile,
+  STORE_STATUS_META,
+  STORE_STATUS_SORT_WEIGHT,
   type ColumnId,
   type RealEstateRow,
   type ReconStatus,
@@ -66,7 +68,7 @@ const FLAG_NEUTRAL_TONE = "border-edge bg-edge-warm text-ink-mid";
 // i lokality označené v NewCo červeně. Obojí jde zase odkrýt chipy níž.
 const DEFAULT_RECON: ReconStatus[] = ["needs", "unclear"];
 
-// Kontext flagů prostrčený do renderCell (jeden objekt místo šesti parametrů).
+// Kontext flagů prostrčený do renderCell (jeden objekt místo pěti parametrů).
 type FlagCtx = {
   flags: ReFlag[];
   currentUserEmail: string;
@@ -83,7 +85,6 @@ export function RealEstateTable({
   isAdmin,
   onFieldApplied,
   onNoteApplied,
-  onReNoteApplied,
   onFlagsApplied,
   onCatalogChanged,
   onFlagDeleted,
@@ -94,7 +95,6 @@ export function RealEstateTable({
   isAdmin: boolean;
   onFieldApplied: (id: string, field: TransitionField, value: string | null) => void;
   onNoteApplied: (id: string, note: string) => void;
-  onReNoteApplied: (id: string, reNote: string) => void;
   onFlagsApplied: (id: string, flagIds: string[]) => void;
   onCatalogChanged: (next: ReFlag[]) => void;
   onFlagDeleted: (flagId: string) => void;
@@ -190,32 +190,66 @@ export function RealEstateTable({
     [rows, showAll],
   );
 
-  const reconCounts = useMemo(() => {
-    const m: Record<ReconStatus, number> = { needs: 0, unclear: 0, resolved: 0 };
-    for (const r of base) m[reconcile(r.leaseCurrent, r.leaseTarget)]++;
-    return m;
-  }, [base]);
-
-  const redCount = useMemo(
-    () => base.reduce((n, r) => n + (r.newco?.flaggedRed ? 1 : 0), 0),
-    [base],
-  );
-
   // Katalog id → flag (pro labely ve fulltextu i počty u filtrů).
   const flagById = useMemo(() => new Map(flags.map((f) => [f.id, f])), [flags]);
 
-  // Kolik lokalit (v base) má daný flag — pro počty u filtrovacích chipů.
+  // Řádky po textovém hledání, ale PŘED facetovými filtry (recon, červené, flagy).
+  // Sdílí ho `filtered` i počty na chipech, aby čísla seděla s tabulkou.
+  const queried = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return base;
+    return base.filter((r) => matchesQuery(r, q, flagById));
+  }, [base, query, flagById]);
+
+  // Facetové počty: každý chip počítá řádky, které projdou OSTATNÍMI aktivními
+  // filtry (a hledáním), ne sebou samým. Recon počty proto respektují červený
+  // i flagový filtr — jinak by chip svítil číslem, které po kliknutí v tabulce
+  // není.
+  const reconCounts = useMemo(() => {
+    const m: Record<ReconStatus, number> = { needs: 0, unclear: 0, resolved: 0 };
+    for (const r of queried) {
+      if (!showRed && r.newco?.flaggedRed) continue;
+      if (flagFilter.size && !r.flagIds.some((id) => flagFilter.has(id))) continue;
+      m[reconcile(r.leaseCurrent, r.leaseTarget)]++;
+    }
+    return m;
+  }, [queried, showRed, flagFilter]);
+
+  // Červený počet respektuje recon + flag filtr (ne sebe sama).
+  const redCount = useMemo(() => {
+    let n = 0;
+    for (const r of queried) {
+      if (!r.newco?.flaggedRed) continue;
+      if (
+        reconFilter.size &&
+        !reconFilter.has(reconcile(r.leaseCurrent, r.leaseTarget))
+      ) {
+        continue;
+      }
+      if (flagFilter.size && !r.flagIds.some((id) => flagFilter.has(id))) continue;
+      n++;
+    }
+    return n;
+  }, [queried, reconFilter, flagFilter]);
+
+  // Počty u flag chipů respektují červený + recon filtr (ne flag filtr sebe sama).
   const flagCounts = useMemo(() => {
     const m = new Map<string, number>();
-    for (const r of base) {
+    for (const r of queried) {
+      if (!showRed && r.newco?.flaggedRed) continue;
+      if (
+        reconFilter.size &&
+        !reconFilter.has(reconcile(r.leaseCurrent, r.leaseTarget))
+      ) {
+        continue;
+      }
       for (const id of r.flagIds) m.set(id, (m.get(id) ?? 0) + 1);
     }
     return m;
-  }, [base]);
+  }, [queried, showRed, reconFilter]);
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return base.filter((r) => {
+    return queried.filter((r) => {
       if (!showRed && r.newco?.flaggedRed) return false;
       if (
         reconFilter.size &&
@@ -227,32 +261,9 @@ export function RealEstateTable({
       if (flagFilter.size && !r.flagIds.some((id) => flagFilter.has(id))) {
         return false;
       }
-      if (!q) return true;
-      const flagLabels = r.flagIds
-        .map((id) => flagById.get(id)?.label ?? "")
-        .join(" ");
-      const hay = [
-        r.name,
-        r.code,
-        r.reAgent ? RE_AGENT_LABEL[r.reAgent] : "",
-        r.newco?.entitaCeip1,
-        r.newco?.entitaCeip2,
-        r.newco?.operationalType,
-        r.newco?.category,
-        r.newco?.includeInBusinessPlan,
-        r.franchiseContractId ? "franšíza podepsáno" : "",
-        LEASE_HOLDER_LABEL[r.leaseCurrent],
-        LEASE_HOLDER_LABEL[r.leaseTarget],
-        r.note,
-        r.reNote,
-        flagLabels,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      return hay.includes(q);
+      return true;
     });
-  }, [base, query, reconFilter, showRed, flagFilter, flagById]);
+  }, [queried, reconFilter, showRed, flagFilter]);
 
   const sorted = useMemo(() => {
     const arr = [...filtered];
@@ -480,8 +491,7 @@ export function RealEstateTable({
             <thead>
               <tr>
                 {cols.map((c) => {
-                  const sortable =
-                    c.id !== "note" && c.id !== "reNote" && c.id !== "flags";
+                  const sortable = c.id !== "note" && c.id !== "flags";
                   const isFirst = c.id === "location";
                   const active = sort?.key === c.id;
                   return (
@@ -536,7 +546,7 @@ export function RealEstateTable({
                             : ""
                         }`}
                       >
-                        {renderCell(r, c.id, onFieldApplied, onNoteApplied, onReNoteApplied, flagCtx)}
+                        {renderCell(r, c.id, onFieldApplied, onNoteApplied, flagCtx)}
                       </td>
                     );
                   })}
@@ -557,7 +567,6 @@ function renderCell(
   id: ColumnId,
   onFieldApplied: (id: string, field: TransitionField, value: string | null) => void,
   onNoteApplied: (id: string, note: string) => void,
-  onReNoteApplied: (id: string, reNote: string) => void,
   flagCtx: FlagCtx,
 ) {
   switch (id) {
@@ -582,6 +591,15 @@ function renderCell(
           </span>
         </Link>
       );
+    case "storeStatus": {
+      if (!r.locationStatus) return <Dash />;
+      const m = STORE_STATUS_META[r.locationStatus];
+      return (
+        <Chip tone={m.tone} className="whitespace-nowrap">
+          {m.label}
+        </Chip>
+      );
+    }
     case "reAgent":
       return (
         <TransitionSelectCell
@@ -673,15 +691,6 @@ function renderCell(
         </Chip>
       );
     }
-    case "reNote":
-      return (
-        <NoteCell
-          id={r.id}
-          field="reNote"
-          value={r.reNote}
-          onApplied={(v) => onReNoteApplied(r.id, v)}
-        />
-      );
     case "note":
       return (
         <NoteCell id={r.id} value={r.note} onApplied={(note) => onNoteApplied(r.id, note)} />
@@ -703,12 +712,47 @@ function Dash() {
   return <span className="text-ink-soft">—</span>;
 }
 
+// ── Textové hledání nad řádkem ───────────────────────────────────────────────
+// `q` je už trimnuté + lowercase (volá se z memoizovaného `queried`).
+function matchesQuery(
+  r: RealEstateRow,
+  q: string,
+  flagById: Map<string, ReFlag>,
+): boolean {
+  const flagLabels = r.flagIds
+    .map((id) => flagById.get(id)?.label ?? "")
+    .join(" ");
+  const hay = [
+    r.name,
+    r.code,
+    r.locationStatus ? STORE_STATUS_META[r.locationStatus].label : "",
+    r.reAgent ? RE_AGENT_LABEL[r.reAgent] : "",
+    r.newco?.entitaCeip1,
+    r.newco?.entitaCeip2,
+    r.newco?.operationalType,
+    r.newco?.category,
+    r.newco?.includeInBusinessPlan,
+    r.franchiseContractId ? "franšíza podepsáno" : "",
+    LEASE_HOLDER_LABEL[r.leaseCurrent],
+    LEASE_HOLDER_LABEL[r.leaseTarget],
+    r.note,
+    flagLabels,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return hay.includes(q);
+}
+
 // ── Sort hodnota podle sloupce ───────────────────────────────────────────────
 
 function sortValue(r: RealEstateRow, key: ColumnId): string | number {
   switch (key) {
     case "location":
       return r.name.toLowerCase();
+    case "storeStatus":
+      // Neznámý stav (null) na konec (asc).
+      return r.locationStatus ? STORE_STATUS_SORT_WEIGHT[r.locationStatus] : 99;
     case "reAgent":
       // null agent na konec (asc)
       return r.reAgent ? RE_AGENT_LABEL[r.reAgent].toLowerCase() : "￿";
@@ -734,8 +778,6 @@ function sortValue(r: RealEstateRow, key: ColumnId): string | number {
       return RECON_SORT_WEIGHT[reconcile(r.leaseCurrent, r.leaseTarget)];
     case "note":
       return (r.note ?? "").toLowerCase();
-    case "reNote":
-      return (r.reNote ?? "").toLowerCase();
     default:
       return "";
   }

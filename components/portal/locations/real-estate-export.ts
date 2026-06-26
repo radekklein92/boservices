@@ -5,6 +5,7 @@ import {
   LEASE_HOLDER_LABEL,
   RECON_META,
   reconcile,
+  STORE_STATUS_META,
   type RealEstateRow,
 } from "./real-estate-shared";
 
@@ -22,6 +23,7 @@ import {
 const COLUMNS: XlsxColumn[] = [
   { header: "Lokalita", width: 30 },
   { header: "Kód", width: 14 },
+  { header: "Stav prodejny", width: 16 },
   { header: "RE agent", width: 14 },
   { header: "Flagy", width: 30 },
   { header: "Entita CEIP 1", width: 22 },
@@ -35,7 +37,6 @@ const COLUMNS: XlsxColumn[] = [
   { header: "Nájem cílově", width: 18 },
   { header: "Stav řešení", width: 14 },
   { header: "V importu NewCo", width: 16 },
-  { header: "Poznámka RE", width: 44 },
   { header: "Poznámka", width: 44 },
 ];
 
@@ -56,6 +57,7 @@ function rowCells(
   return [
     r.name,
     r.code ?? "",
+    r.locationStatus ? STORE_STATUS_META[r.locationStatus].label : "",
     r.reAgent ? RE_AGENT_LABEL[r.reAgent] : "",
     flagLabels,
     r.newco?.entitaCeip1 ?? "",
@@ -69,7 +71,6 @@ function rowCells(
     LEASE_HOLDER_LABEL[r.leaseTarget],
     RECON_META[reconcile(r.leaseCurrent, r.leaseTarget)].label,
     r.hasNewco ? "Ano" : "Ne",
-    r.reNote ?? "",
     r.note ?? "",
   ];
 }
