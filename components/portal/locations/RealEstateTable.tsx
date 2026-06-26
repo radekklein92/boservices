@@ -310,8 +310,9 @@ export function RealEstateTable({
   }, [filtered]);
 
   // Přehled „Po agentech": rozpad PRÁVĚ ZOBRAZENÉ podmnožiny (filtered) podle RE
-  // agenta — reaguje na hledání i chip filtry stejně jako souhrn nájmu. Lokality
-  // bez přiřazeného agenta padají do `none` (dlaždice „Bez agenta", jen když > 0).
+  // agenta — reaguje na hledání i chip filtry stejně jako souhrn nájmu. Zobrazují
+  // se jen agenti z RE_AGENT_SUMMARY; ostatní (a lokality bez agenta) se nepočítají
+  // do žádné dlaždice, takže součet může být < total.
   const agentCounts = useMemo(() => {
     const m: Record<ReAgent, number> = {
       Krampera: 0,
@@ -320,12 +321,10 @@ export function RealEstateTable({
       Gransky: 0,
       Neuzil: 0,
     };
-    let none = 0;
     for (const r of filtered) {
       if (r.reAgent) m[r.reAgent]++;
-      else none++;
     }
-    return { byAgent: m, none };
+    return m;
   }, [filtered]);
 
   const sorted = useMemo(() => {
@@ -414,7 +413,7 @@ export function RealEstateTable({
           RE agent. Stejný `total` (= zobrazené řádky) v obou, ať jsou procenta
           srovnatelná. */}
       {base.length > 0 && (
-        <div className="flex flex-col gap-4">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <SummaryCard
             title="Nájem cílově"
             total={filtered.length}
@@ -429,25 +428,13 @@ export function RealEstateTable({
           <SummaryCard
             title="Po agentech"
             total={filtered.length}
-            gridClass="grid-cols-2 sm:grid-cols-3 lg:grid-cols-6"
-            items={[
-              ...RE_AGENT_SUMMARY.map(({ agent, dot }) => ({
-                key: agent,
-                label: RE_AGENT_LABEL[agent],
-                dot,
-                count: agentCounts.byAgent[agent],
-              })),
-              ...(agentCounts.none > 0
-                ? [
-                    {
-                      key: "none",
-                      label: "Bez agenta",
-                      dot: "bg-zinc-400",
-                      count: agentCounts.none,
-                    },
-                  ]
-                : []),
-            ]}
+            gridClass="grid-cols-3"
+            items={RE_AGENT_SUMMARY.map(({ agent, dot }) => ({
+              key: agent,
+              label: RE_AGENT_LABEL[agent],
+              dot,
+              count: agentCounts[agent],
+            }))}
           />
         </div>
       )}
