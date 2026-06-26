@@ -179,7 +179,6 @@ export type ColumnId =
   | "location"
   | "storeStatus"
   | "reAgent"
-  | "flags"
   | "ceip1"
   | "ceip2"
   | "businessPlan"
@@ -204,7 +203,6 @@ export const COLUMNS: ColumnDef[] = [
   { id: "location", label: "Lokalita", defaultVisible: true, always: true },
   { id: "storeStatus", label: "Stav prodejny", defaultVisible: true },
   { id: "reAgent", label: "RE agent", defaultVisible: true },
-  { id: "flags", label: "Flagy", defaultVisible: true },
   { id: "ceip1", label: "Entita CEIP 1", defaultVisible: true },
   { id: "ceip2", label: "Entita CEIP 2", defaultVisible: false },
   { id: "businessPlan", label: "Business plán", defaultVisible: true },
@@ -218,7 +216,9 @@ export const COLUMNS: ColumnDef[] = [
   { id: "note", label: "Poznámka", defaultVisible: true },
 ];
 
-// v3: sloupec "category" (Kategorie z Transition) je nově default-visible — bump
-// resetuje uloženou sadu na defaulty, ať se nové sloupce zobrazí i uživatelům
-// s dříve uloženým výběrem.
+// v3: dvě změny naráz vůči v2 — (a) sloupec "category" (Kategorie z Transition)
+// je nově default-visible, (b) sloupec "Flagy" zrušen (flagy se zobrazují jako
+// ikonky vedle názvu prodejny, FlagsCell v buňce "location"). Bump resetuje
+// uloženou sadu na defaulty, ať se nové sloupce zobrazí a nezůstane neexistující
+// "flags" ve výběru.
 export const COLUMN_STORAGE_KEY = "re-table-cols-v3";

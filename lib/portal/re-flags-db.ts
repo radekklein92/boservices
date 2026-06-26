@@ -1,6 +1,11 @@
 import { getRedis } from "@/lib/redis";
 import { removeFlagIdFromAllLocations } from "./locations-db";
-import type { ReFlag, ReFlagColor } from "./re-flags-shared";
+import {
+  DEFAULT_FLAG_ICON,
+  type ReFlag,
+  type ReFlagColor,
+  type ReFlagIcon,
+} from "./re-flags-shared";
 
 // Katalog uživatelských flagů (barevné štítky lokalit). Sdílený napříč týmem.
 // Konvence prefixů jako u úkolů/klientů (portal:*):
@@ -39,7 +44,7 @@ export async function getReFlag(id: string): Promise<ReFlag | null> {
 }
 
 export async function createReFlag(
-  input: { label: string; color: ReFlagColor },
+  input: { label: string; color: ReFlagColor; icon?: ReFlagIcon },
   createdBy: string,
 ): Promise<ReFlag> {
   const r = getRedis();
@@ -49,6 +54,7 @@ export async function createReFlag(
     id: newFlagId(),
     label: input.label.trim(),
     color: input.color,
+    icon: input.icon ?? DEFAULT_FLAG_ICON,
     createdBy,
     createdAt: now.toISOString(),
   };
@@ -59,11 +65,12 @@ export async function createReFlag(
   return flag;
 }
 
-// Merge update (label a/nebo barva). Vrací null, pokud flag neexistuje.
-// createdBy/createdAt se nemění (autorství zůstává).
+// Merge update (label, barva a/nebo ikona). Vrací null, pokud flag neexistuje.
+// createdBy/createdAt se nemění (autorství zůstává). Starší flag bez ikony
+// dostane default, jakmile se poprvé uloží.
 export async function updateReFlag(
   id: string,
-  patch: { label?: string; color?: ReFlagColor },
+  patch: { label?: string; color?: ReFlagColor; icon?: ReFlagIcon },
 ): Promise<ReFlag | null> {
   const r = getRedis();
   if (!r) throw new Error("Redis not configured");
@@ -71,8 +78,10 @@ export async function updateReFlag(
   if (!existing) return null;
   const next: ReFlag = {
     ...existing,
+    icon: existing.icon ?? DEFAULT_FLAG_ICON,
     ...(patch.label !== undefined ? { label: patch.label.trim() } : {}),
     ...(patch.color !== undefined ? { color: patch.color } : {}),
+    ...(patch.icon !== undefined ? { icon: patch.icon } : {}),
   };
   await r.set(flagKey(id), next);
   return next;

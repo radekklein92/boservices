@@ -1,15 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Check, Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
 import {
   DEFAULT_FLAG_COLOR,
+  DEFAULT_FLAG_ICON,
   FLAG_COLORS,
   FLAG_COLOR_ORDER,
+  FLAG_ICONS,
+  FLAG_ICON_KEYS,
+  flagIconComp,
   flagTone,
 } from "./re-flags-shared";
-import type { ReFlag, ReFlagColor } from "@/lib/portal/re-flags-shared";
+import type { ReFlag, ReFlagColor, ReFlagIcon } from "@/lib/portal/re-flags-shared";
 
 // Buňka flagů v Real Estate tabulce. Zavřená ukazuje přiřazené flagy jako barevné
 // chipy; po kliknutí otevře popover (createPortal na body, ať se neořízne v
@@ -47,12 +51,14 @@ export function FlagsCell({
   const [creating, setCreating] = useState(false);
   const [newLabel, setNewLabel] = useState("");
   const [newColor, setNewColor] = useState<ReFlagColor>(DEFAULT_FLAG_COLOR);
+  const [newIcon, setNewIcon] = useState<ReFlagIcon>(DEFAULT_FLAG_ICON);
   const [createBusy, setCreateBusy] = useState(false);
 
   // Inline editace existujícího flagu.
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState("");
   const [editColor, setEditColor] = useState<ReFlagColor>(DEFAULT_FLAG_COLOR);
+  const [editIcon, setEditIcon] = useState<ReFlagIcon>(DEFAULT_FLAG_ICON);
   const [editBusy, setEditBusy] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
@@ -96,6 +102,7 @@ export function FlagsCell({
     setCreating(false);
     setNewLabel("");
     setNewColor(DEFAULT_FLAG_COLOR);
+    setNewIcon(DEFAULT_FLAG_ICON);
     setEditingId(null);
     setConfirmDeleteId(null);
   }, [open]);
@@ -146,7 +153,7 @@ export function FlagsCell({
       const res = await fetch("/api/portal/re-flags", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ label, color: newColor }),
+        body: JSON.stringify({ label, color: newColor, icon: newIcon }),
       });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || "create failed");
@@ -154,6 +161,7 @@ export function FlagsCell({
       onCatalogChanged([...flags, flag]);
       setNewLabel("");
       setNewColor(DEFAULT_FLAG_COLOR);
+      setNewIcon(DEFAULT_FLAG_ICON);
       setCreating(false);
       // Nový flag rovnou přiřadit této lokalitě.
       persistAssign([...flagIds, flag.id], flagIds);
@@ -168,6 +176,7 @@ export function FlagsCell({
     setEditingId(flag.id);
     setEditLabel(flag.label);
     setEditColor(flag.color);
+    setEditIcon(flag.icon ?? DEFAULT_FLAG_ICON);
     setConfirmDeleteId(null);
   }
 
@@ -180,7 +189,7 @@ export function FlagsCell({
       const res = await fetch(`/api/portal/re-flags/${flag.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ label, color: editColor }),
+        body: JSON.stringify({ label, color: editColor, icon: editIcon }),
       });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || "update failed");
@@ -212,6 +221,14 @@ export function FlagsCell({
     }
   }
 
+  function PickerLabel({ children }: { children: ReactNode }) {
+    return (
+      <span className="block text-[10px] font-semibold uppercase tracking-[0.07em] text-ink-soft">
+        {children}
+      </span>
+    );
+  }
+
   function ColorDots({
     value,
     onPick,
@@ -239,31 +256,80 @@ export function FlagsCell({
     );
   }
 
+  // Mřížka ikon. Vybraná ikona se obarví zvolenou barvou flagu (živý náhled).
+  function IconGrid({
+    value,
+    color,
+    onPick,
+  }: {
+    value: ReFlagIcon;
+    color: ReFlagColor;
+    onPick: (i: ReFlagIcon) => void;
+  }) {
+    const tone = flagTone(color).text;
+    return (
+      <div className="grid grid-cols-8 gap-1">
+        {FLAG_ICON_KEYS.map((key) => {
+          const Ico = FLAG_ICONS[key].Icon;
+          const active = value === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              title={FLAG_ICONS[key].label}
+              onClick={(e) => {
+                e.stopPropagation();
+                onPick(key);
+              }}
+              className={`grid h-7 w-7 place-items-center rounded-md border transition-colors ${
+                active
+                  ? `border-ink-base bg-paper-warm ${tone}`
+                  : "border-transparent text-ink-mid hover:bg-paper-warm"
+              }`}
+            >
+              <Ico className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
   return (
     <>
+      {/* Trigger vedle názvu prodejny: jen ikonky přiřazených flagů (label v
+          tooltipu). Prázdný stav = decentní „+", který se zvýrazní při hoveru řádku. */}
       <button
         ref={btnRef}
         type="button"
+        aria-label="Flagy lokality"
+        title={assigned.length === 0 ? "Přidat flag" : undefined}
         onClick={(e) => {
           e.stopPropagation();
           setOpen((v) => !v);
         }}
-        className="flex min-w-[150px] max-w-[260px] flex-wrap items-center gap-1 rounded-lg px-2 py-1 text-left transition-colors hover:bg-edge-warm"
+        className={`inline-flex max-w-[160px] flex-wrap items-center gap-1 rounded-md px-1.5 py-1 transition-colors hover:bg-edge-warm ${
+          assigned.length === 0 && !pending && !error
+            ? "opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+            : ""
+        }`}
       >
         {assigned.length === 0 ? (
-          <span className="inline-flex items-center gap-1 text-[12px] text-ink-soft">
-            <Plus className="h-3 w-3" strokeWidth={1.5} aria-hidden="true" />
-            Flag
-          </span>
+          <Plus className="h-3.5 w-3.5 text-ink-soft" strokeWidth={1.5} aria-hidden="true" />
         ) : (
-          assigned.map((f) => (
-            <span
-              key={f.id}
-              className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${flagTone(f.color).chip}`}
-            >
-              {f.label}
-            </span>
-          ))
+          assigned.map((f) => {
+            const Ico = flagIconComp(f.icon);
+            return (
+              <span
+                key={f.id}
+                title={f.label}
+                aria-label={f.label}
+                className={`inline-flex ${flagTone(f.color).text}`}
+              >
+                <Ico className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+              </span>
+            );
+          })
         )}
         {pending && (
           <Loader2 className="h-3 w-3 shrink-0 animate-spin text-ink-soft" aria-hidden="true" />
@@ -312,8 +378,11 @@ export function FlagsCell({
                           autoFocus
                           className="mb-2 w-full rounded-lg border border-ink-base bg-paper px-2 py-1 text-[12.5px] text-ink-base outline-none"
                         />
-                        <div className="mb-2">
+                        <div className="mb-2 space-y-2">
+                          <PickerLabel>Barva</PickerLabel>
                           <ColorDots value={editColor} onPick={setEditColor} />
+                          <PickerLabel>Ikona</PickerLabel>
+                          <IconGrid value={editIcon} color={editColor} onPick={setEditIcon} />
                         </div>
                         {confirmDeleteId === f.id ? (
                           <div className="flex items-center justify-between gap-2 text-[12px]">
@@ -398,10 +467,16 @@ export function FlagsCell({
                         }}
                         className="flex flex-1 items-center gap-2 px-3 py-1.5 text-left text-[12.5px] text-ink-base transition-colors hover:bg-paper-warm"
                       >
-                        <span
-                          className={`h-2.5 w-2.5 shrink-0 rounded-full ${flagTone(f.color).dot}`}
-                          aria-hidden="true"
-                        />
+                        {(() => {
+                          const Ico = flagIconComp(f.icon);
+                          return (
+                            <Ico
+                              className={`h-4 w-4 shrink-0 ${flagTone(f.color).text}`}
+                              strokeWidth={1.75}
+                              aria-hidden="true"
+                            />
+                          );
+                        })()}
                         <span className="flex-1 truncate">{f.label}</span>
                         {checked && (
                           <Check className="h-3.5 w-3.5 shrink-0 text-ink-base" strokeWidth={2} aria-hidden="true" />
@@ -443,8 +518,11 @@ export function FlagsCell({
                     placeholder="Název flagu…"
                     className="mb-2 w-full rounded-lg border border-ink-base bg-paper px-2 py-1 text-[12.5px] text-ink-base outline-none placeholder:text-ink-soft"
                   />
-                  <div className="mb-2">
+                  <div className="mb-2 space-y-2">
+                    <PickerLabel>Barva</PickerLabel>
                     <ColorDots value={newColor} onPick={setNewColor} />
+                    <PickerLabel>Ikona</PickerLabel>
+                    <IconGrid value={newIcon} color={newColor} onPick={setNewIcon} />
                   </div>
                   <div className="flex items-center justify-end gap-1.5">
                     <button
