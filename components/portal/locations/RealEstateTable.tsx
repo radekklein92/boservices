@@ -78,9 +78,10 @@ const DEFAULT_RECON: ReconStatus[] = ["needs"];
 // i `flagCounts`, ať čísla na chipech sedí s tabulkou.
 // - Červené jsou samostatná kategorie: standardně je řídí jen chip „Červeně".
 // - Má-li ale červená lokalita „stejně řešit" (solveDespiteRed), chová se NAVÍC
-//   jako Řešit (needs) → projde i přes recon filtr, když je „Řešit" zvolené
-//   (nebo když není zvolený žádný recon chip). Pořád projde i přes „Červeně".
-// - Nečervené řídí výhradně recon filtr (Řešit/Vyřešeno).
+//   jako Řešit (needs) → projde i přes recon filtr, když je „Řešit" zvolené.
+//   Pořád projde i přes „Červeně".
+// - Nečervené řídí výhradně recon filtr. Prázdný výběr stavů = nic nečerveného
+//   (NESMÍ znamenat „zobraz vše", #21).
 function passesReconRed(
   r: RealEstateRow,
   reconFilter: Set<ReconStatus>,
@@ -88,17 +89,9 @@ function passesReconRed(
 ): boolean {
   if (r.newco?.flaggedRed) {
     if (showRed) return true;
-    return (
-      r.solveDespiteRed && (reconFilter.size === 0 || reconFilter.has("needs"))
-    );
+    return r.solveDespiteRed && reconFilter.has("needs");
   }
-  if (
-    reconFilter.size &&
-    !reconFilter.has(reconcile(r.leaseCurrent, r.leaseTarget))
-  ) {
-    return false;
-  }
-  return true;
+  return reconFilter.has(reconcile(r.leaseCurrent, r.leaseTarget));
 }
 
 // Efektivní váha „stavu řešení" pro řazení: červená + „stejně řešit" = vždy Řešit
@@ -549,16 +542,16 @@ export function RealEstateTable({
             <thead>
               <tr>
                 {cols.map((c) => {
-                  const sortable = c.id !== "note" && c.id !== "flags";
+                  const sortable = c.id !== "note";
                   const isFirst = c.id === "location";
                   const active = sort?.key === c.id;
                   return (
                     <th
                       key={c.id}
-                      className={`whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.07em] text-ink-mid ${
+                      className={`whitespace-nowrap px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-mid ${
                         isFirst
-                          ? "sticky left-0 top-0 z-30 border-r border-edge bg-paper"
-                          : "sticky top-0 z-20 bg-paper"
+                          ? "sticky left-0 top-0 z-30 border-r border-edge bg-paper-warm"
+                          : "sticky top-0 z-20 bg-paper-warm"
                       }`}
                     >
                       {sortable ? (
@@ -637,25 +630,40 @@ function renderCell(
 ) {
   switch (id) {
     case "location":
+      // Flagy (FlagsCell) sedí hned vedle názvu jako ikonky s tooltipem —
+      // sourozenec Linku (ne uvnitř, aby se proklik na detail nemíchal s
+      // otevíráním popoveru flagů). Vlastní sloupec „Flagy" už neexistuje.
       return (
-        <Link
-          href={`/portal/locations/${r.id}`}
-          className="group/loc flex items-center gap-2"
-        >
-          <span className="flex flex-col">
-            <span className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold tracking-[-0.01em] text-ink-base">
-              <span className="max-w-[200px] truncate">{r.name}</span>
-              <ArrowUpRight
-                className="h-3 w-3 shrink-0 text-ink-soft transition-transform group-hover/loc:-translate-y-0.5 group-hover/loc:translate-x-0.5"
-                strokeWidth={1.5}
-                aria-hidden="true"
-              />
+        <div className="flex items-center gap-2.5">
+          <Link
+            href={`/portal/locations/${r.id}`}
+            className="group/loc flex min-w-0 items-center gap-2"
+          >
+            <span className="flex min-w-0 flex-col">
+              <span className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold tracking-[-0.01em] text-ink-base">
+                <span className="max-w-[200px] truncate">{r.name}</span>
+                <ArrowUpRight
+                  className="h-3 w-3 shrink-0 text-ink-soft transition-transform group-hover/loc:-translate-y-0.5 group-hover/loc:translate-x-0.5"
+                  strokeWidth={1.5}
+                  aria-hidden="true"
+                />
+              </span>
+              {r.code && (
+                <span className="font-mono text-[11px] text-ink-soft">{r.code}</span>
+              )}
             </span>
-            {r.code && (
-              <span className="font-mono text-[11px] text-ink-soft">{r.code}</span>
-            )}
-          </span>
-        </Link>
+          </Link>
+          <FlagsCell
+            locationId={r.id}
+            flagIds={r.flagIds}
+            flags={flagCtx.flags}
+            currentUserEmail={flagCtx.currentUserEmail}
+            isAdmin={flagCtx.isAdmin}
+            onFlagsApplied={flagCtx.onFlagsApplied}
+            onCatalogChanged={flagCtx.onCatalogChanged}
+            onFlagDeleted={flagCtx.onFlagDeleted}
+          />
+        </div>
       );
     case "storeStatus": {
       if (!r.locationStatus) return <Dash />;
@@ -677,19 +685,6 @@ function renderCell(
           allowClear
           clearLabel="Nepřiřazeno"
           onApplied={(v) => onFieldApplied(r.id, "re_agent", v)}
-        />
-      );
-    case "flags":
-      return (
-        <FlagsCell
-          locationId={r.id}
-          flagIds={r.flagIds}
-          flags={flagCtx.flags}
-          currentUserEmail={flagCtx.currentUserEmail}
-          isAdmin={flagCtx.isAdmin}
-          onFlagsApplied={flagCtx.onFlagsApplied}
-          onCatalogChanged={flagCtx.onCatalogChanged}
-          onFlagDeleted={flagCtx.onFlagDeleted}
         />
       );
     case "ceip1":
