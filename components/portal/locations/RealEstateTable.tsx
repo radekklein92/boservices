@@ -595,10 +595,10 @@ export function RealEstateTable({
                   return (
                     <th
                       key={c.id}
-                      className={`whitespace-nowrap px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-mid ${
+                      className={`whitespace-nowrap py-2.5 text-left text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-mid ${
                         isFirst
-                          ? "sticky left-0 top-0 z-30 border-r border-edge bg-paper-warm"
-                          : "sticky top-0 z-20 bg-paper-warm"
+                          ? "sticky left-0 top-0 z-30 border-r border-edge bg-paper-warm px-2 sm:px-3"
+                          : "sticky top-0 z-20 bg-paper-warm px-3"
                       }`}
                     >
                       {sortable ? (
@@ -638,10 +638,10 @@ export function RealEstateTable({
                     return (
                       <td
                         key={c.id}
-                        className={`px-3 py-2 align-middle ${
+                        className={`py-2 align-middle ${
                           isFirst
-                            ? "sticky left-0 z-10 border-r border-edge bg-paper group-hover:bg-paper-warm"
-                            : ""
+                            ? "sticky left-0 z-10 border-r border-edge bg-paper group-hover:bg-paper-warm px-2 sm:px-3"
+                            : "px-3"
                         }`}
                       >
                         {renderCell(
@@ -681,14 +681,14 @@ function renderCell(
       // sourozenec Linku (ne uvnitř, aby se proklik na detail nemíchal s
       // otevíráním popoveru flagů). Vlastní sloupec „Flagy" už neexistuje.
       return (
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-1.5 sm:gap-2.5">
           <Link
             href={`/portal/locations/${r.id}`}
             className="group/loc flex min-w-0 items-center gap-2"
           >
             <span className="flex min-w-0 flex-col">
               <span className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold tracking-[-0.01em] text-ink-base">
-                <span className="max-w-[200px] truncate">{r.name}</span>
+                <span className="max-w-[112px] truncate sm:max-w-[200px]">{r.name}</span>
                 <ArrowUpRight
                   className="h-3 w-3 shrink-0 text-ink-soft transition-transform group-hover/loc:-translate-y-0.5 group-hover/loc:translate-x-0.5"
                   strokeWidth={1.5}
