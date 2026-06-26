@@ -524,7 +524,7 @@ export function RealEstateTable({
                   return (
                     <th
                       key={c.id}
-                      className={`whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-medium uppercase tracking-[0.16em] text-ink-mid ${
+                      className={`whitespace-nowrap px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-mid ${
                         isFirst
                           ? "sticky left-0 top-0 z-30 border-r border-edge bg-paper-warm"
                           : "sticky top-0 z-20 bg-paper-warm"
