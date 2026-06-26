@@ -46,6 +46,7 @@ import {
 } from "./TransitionSelectCell";
 import { NoteCell } from "./NoteCell";
 import { FlagsCell } from "./FlagsCell";
+import { RedFlagCell } from "./RedFlagCell";
 import { flagTone } from "./re-flags-shared";
 import type { ReFlag } from "@/lib/portal/re-flags-shared";
 
@@ -67,12 +68,45 @@ const LEASE_OPTIONS: SelectOption[] = (
   ] as LeaseStatus[]
 ).map((s) => ({ value: s, label: LEASE_HOLDER_LABEL[s] }));
 
-const FLAG_RED_TONE = "border-red-300 bg-red-50 text-red-700";
 const FLAG_NEUTRAL_TONE = "border-edge bg-edge-warm text-ink-mid";
 
 // Výchozí pohled cílí na "co je potřeba řešit": skryje vyřešené (recon=resolved)
 // i lokality označené v NewCo červeně. Obojí jde zase odkrýt chipy níž.
 const DEFAULT_RECON: ReconStatus[] = ["needs"];
+
+// Projde řádek aktuálním filtrem „stav řešení + Červeně"? Sdílí `filtered`
+// i `flagCounts`, ať čísla na chipech sedí s tabulkou.
+// - Červené jsou samostatná kategorie: standardně je řídí jen chip „Červeně".
+// - Má-li ale červená lokalita „stejně řešit" (solveDespiteRed), chová se NAVÍC
+//   jako Řešit (needs) → projde i přes recon filtr, když je „Řešit" zvolené
+//   (nebo když není zvolený žádný recon chip). Pořád projde i přes „Červeně".
+// - Nečervené řídí výhradně recon filtr (Řešit/Vyřešeno).
+function passesReconRed(
+  r: RealEstateRow,
+  reconFilter: Set<ReconStatus>,
+  showRed: boolean,
+): boolean {
+  if (r.newco?.flaggedRed) {
+    if (showRed) return true;
+    return (
+      r.solveDespiteRed && (reconFilter.size === 0 || reconFilter.has("needs"))
+    );
+  }
+  if (
+    reconFilter.size &&
+    !reconFilter.has(reconcile(r.leaseCurrent, r.leaseTarget))
+  ) {
+    return false;
+  }
+  return true;
+}
+
+// Efektivní váha „stavu řešení" pro řazení: červená + „stejně řešit" = vždy Řešit
+// (needs, nahoru), jinak normální recon dle nájmu.
+function effectiveReconWeight(r: RealEstateRow): number {
+  if (r.newco?.flaggedRed && r.solveDespiteRed) return RECON_SORT_WEIGHT.needs;
+  return RECON_SORT_WEIGHT[reconcile(r.leaseCurrent, r.leaseTarget)];
+}
 
 // Kontext flagů prostrčený do renderCell (jeden objekt místo pěti parametrů).
 type FlagCtx = {
@@ -92,6 +126,7 @@ export function RealEstateTable({
   onFieldApplied,
   onNoteApplied,
   onFlagsApplied,
+  onSolveDespiteRedApplied,
   onCatalogChanged,
   onFlagDeleted,
 }: {
@@ -102,6 +137,7 @@ export function RealEstateTable({
   onFieldApplied: (id: string, field: TransitionField, value: string | null) => void;
   onNoteApplied: (id: string, note: string) => void;
   onFlagsApplied: (id: string, flagIds: string[]) => void;
+  onSolveDespiteRedApplied: (id: string, value: boolean) => void;
   onCatalogChanged: (next: ReFlag[]) => void;
   onFlagDeleted: (flagId: string) => void;
 }) {
@@ -214,8 +250,13 @@ export function RealEstateTable({
   const reconCounts = useMemo(() => {
     const m: Record<ReconStatus, number> = { needs: 0, resolved: 0 };
     for (const r of queried) {
-      if (r.newco?.flaggedRed) continue; // červené = vlastní kategorie, mimo recon
       if (flagFilter.size && !r.flagIds.some((id) => flagFilter.has(id))) continue;
+      if (r.newco?.flaggedRed) {
+        // Červené = vlastní kategorie mimo recon; výjimka „stejně řešit" se
+        // vždy započítá do Řešit (a zůstane i v počtu Červeně níž).
+        if (r.solveDespiteRed) m.needs++;
+        continue;
+      }
       m[reconcile(r.leaseCurrent, r.leaseTarget)]++;
     }
     return m;
@@ -238,14 +279,7 @@ export function RealEstateTable({
   const flagCounts = useMemo(() => {
     const m = new Map<string, number>();
     for (const r of queried) {
-      if (r.newco?.flaggedRed) {
-        if (!showRed) continue;
-      } else if (
-        reconFilter.size &&
-        !reconFilter.has(reconcile(r.leaseCurrent, r.leaseTarget))
-      ) {
-        continue;
-      }
+      if (!passesReconRed(r, reconFilter, showRed)) continue;
       for (const id of r.flagIds) m.set(id, (m.get(id) ?? 0) + 1);
     }
     return m;
@@ -253,16 +287,9 @@ export function RealEstateTable({
 
   const filtered = useMemo(() => {
     return queried.filter((r) => {
-      if (r.newco?.flaggedRed) {
-        // Červené = samostatná kategorie: řídí je výhradně chip „Červeně",
-        // recon filtr (Řešit/Vyřešeno) se na ně nevztahuje.
-        if (!showRed) return false;
-      } else if (
-        reconFilter.size &&
-        !reconFilter.has(reconcile(r.leaseCurrent, r.leaseTarget))
-      ) {
-        return false;
-      }
+      // Červené = samostatná kategorie (chip „Červeně"); výjimka „stejně řešit"
+      // je navíc i v Řešit. Celá logika v passesReconRed (sdílí s flagCounts).
+      if (!passesReconRed(r, reconFilter, showRed)) return false;
       // OR mezi vybranými flagy: projde řádek s aspoň jedním z nich.
       if (flagFilter.size && !r.flagIds.some((id) => flagFilter.has(id))) {
         return false;
@@ -291,14 +318,15 @@ export function RealEstateTable({
   const sorted = useMemo(() => {
     const arr = [...filtered];
     if (!sort) {
-      // Default: červené až dolů (samostatná kategorie mimo Řešit/Vyřešeno),
-      // uvnitř každé skupiny needs-attention nahoře → název.
+      // Default: běžné červené až dolů (samostatná kategorie mimo Řešit/Vyřešeno).
+      // Výjimka „stejně řešit" je nahoře mezi ostatními needs. Uvnitř skupin
+      // needs-attention nahoře → název.
       arr.sort((a, b) => {
-        const ra = a.newco?.flaggedRed ? 1 : 0;
-        const rb = b.newco?.flaggedRed ? 1 : 0;
+        const ra = a.newco?.flaggedRed && !a.solveDespiteRed ? 1 : 0;
+        const rb = b.newco?.flaggedRed && !b.solveDespiteRed ? 1 : 0;
         if (ra !== rb) return ra - rb;
-        const wa = RECON_SORT_WEIGHT[reconcile(a.leaseCurrent, a.leaseTarget)];
-        const wb = RECON_SORT_WEIGHT[reconcile(b.leaseCurrent, b.leaseTarget)];
+        const wa = effectiveReconWeight(a);
+        const wb = effectiveReconWeight(b);
         if (wa !== wb) return wa - wb;
         return a.name.localeCompare(b.name, "cs");
       });
@@ -409,7 +437,7 @@ export function RealEstateTable({
           dotClass="bg-red-500"
           label="Červeně"
           count={redCount}
-          title="Lokality označené v NewCo červeně jsou samostatná kategorie (nepočítají se do Řešit ani Vyřešeno) a ve výchozím stavu skryté — kliknutím je zobrazíte."
+          title="Lokality označené v NewCo červeně jsou samostatná kategorie a ve výchozím stavu skryté - kliknutím je zobrazíte. Výjimka: u konkrétní červené lze ve sloupci Červeně zapnout + řešit, takže se ukáže i ve filtru Řešit."
         />
 
         <span className="mx-1 h-5 w-px shrink-0 bg-edge" aria-hidden="true" />
@@ -576,7 +604,14 @@ export function RealEstateTable({
                             : ""
                         }`}
                       >
-                        {renderCell(r, c.id, onFieldApplied, onNoteApplied, flagCtx)}
+                        {renderCell(
+                          r,
+                          c.id,
+                          onFieldApplied,
+                          onNoteApplied,
+                          onSolveDespiteRedApplied,
+                          flagCtx,
+                        )}
                       </td>
                     );
                   })}
@@ -597,6 +632,7 @@ function renderCell(
   id: ColumnId,
   onFieldApplied: (id: string, field: TransitionField, value: string | null) => void,
   onNoteApplied: (id: string, note: string) => void,
+  onSolveDespiteRedApplied: (id: string, value: boolean) => void,
   flagCtx: FlagCtx,
 ) {
   switch (id) {
@@ -675,12 +711,16 @@ function renderCell(
         <Dash />
       );
     case "flaggedRed":
-      return r.newco ? (
-        <Chip tone={r.newco.flaggedRed ? FLAG_RED_TONE : FLAG_NEUTRAL_TONE}>
-          {r.newco.flaggedRed ? "Ano" : "Ne"}
-        </Chip>
-      ) : (
-        <Dash />
+      if (!r.newco) return <Dash />;
+      // Nečervená: read-only „Ne". Červená: cyklující chip
+      // Červeně ↔ Červeně + řešit (lokální příznak, write-through do BOServices).
+      if (!r.newco.flaggedRed) return <Chip tone={FLAG_NEUTRAL_TONE}>Ne</Chip>;
+      return (
+        <RedFlagCell
+          id={r.id}
+          solveDespiteRed={r.solveDespiteRed}
+          onApplied={(v) => onSolveDespiteRedApplied(r.id, v)}
+        />
       );
     case "franchise":
       return r.franchiseContractId ? (

@@ -47,6 +47,12 @@ export function RealEstatePageClient({
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, flagIds } : r)));
   }
 
+  function applySolveDespiteRed(id: string, value: boolean) {
+    setRows((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, solveDespiteRed: value } : r)),
+    );
+  }
+
   // Katalog flagů po create/edit (smazání řeší applyFlagDeleted níž).
   function applyCatalog(next: ReFlag[]) {
     setFlags(next);
@@ -80,6 +86,7 @@ export function RealEstatePageClient({
         onFieldApplied={applyField}
         onNoteApplied={applyNote}
         onFlagsApplied={applyFlags}
+        onSolveDespiteRedApplied={applySolveDespiteRed}
         onCatalogChanged={applyCatalog}
         onFlagDeleted={applyFlagDeleted}
       />
