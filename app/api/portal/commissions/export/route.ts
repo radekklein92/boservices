@@ -55,7 +55,7 @@ export async function GET(req: Request) {
   const filtered = filterPayouts(allPayouts, filter);
   const sheets = buildCommissionsExportSheets(filtered, view, allPayouts);
 
-  let buf: Buffer;
+  let buf: Uint8Array;
   try {
     buf = await buildXlsx(sheets);
   } catch (err) {

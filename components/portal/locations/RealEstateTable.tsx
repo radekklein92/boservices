@@ -8,6 +8,8 @@ import {
   ChevronUp,
   ChevronsUpDown,
   Columns3,
+  FileSpreadsheet,
+  Loader2,
   MapPin,
   Search,
   Store,
@@ -80,6 +82,7 @@ export function RealEstateTable({
   const [sort, setSort] = useState<Sort>(null);
   const [colMenuOpen, setColMenuOpen] = useState(false);
   const colMenuRef = useRef<HTMLDivElement | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   // Init z defaultVisible (deterministic kvůli hydrataci), pak přepiš z localStorage.
   const [visibleCols, setVisibleCols] = useState<Set<ColumnId>>(
@@ -221,6 +224,35 @@ export function RealEstateTable({
     return arr;
   }, [filtered, sort]);
 
+  // Export do .xlsx přesně toho, co je vidět (sorted = po filtru + řazení).
+  // buildRealEstateXlsx (a s ním JSZip) se natáhne lazy až při kliknutí.
+  async function exportXlsx() {
+    if (exporting || sorted.length === 0) return;
+    setExporting(true);
+    try {
+      const { buildRealEstateXlsx } = await import("./real-estate-export");
+      const bytes = await buildRealEstateXlsx(sorted);
+      // Kopie do Uint8Array nad plain ArrayBuffer - JSZip typuje buffer jako
+      // ArrayBufferLike (i SharedArrayBuffer), což BlobPart nepřijme.
+      const blob = new Blob([new Uint8Array(bytes)], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD (ASCII)
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `real-estate-${today}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("[real-estate] XLSX export selhal", err);
+    } finally {
+      setExporting(false);
+    }
+  }
+
   const cols = COLUMNS.filter((c) => visibleCols.has(c.id));
   // "Zrušit filtr" se ukáže jen když se pohled liší od defaultu (resolved + červené
   // skryté, ostatní viditelné) — reset proto vrací do defaultu, ne do prázdna.
@@ -250,6 +282,20 @@ export function RealEstateTable({
           <span className="font-mono text-[12px] text-ink-soft">
             {sorted.length.toString().padStart(2, "0")} / {base.length}
           </span>
+          <button
+            type="button"
+            onClick={exportXlsx}
+            disabled={exporting || sorted.length === 0}
+            title="Stáhne zobrazené řádky (po filtru) do Excelu (.xlsx)"
+            className="inline-flex h-9 items-center gap-2 rounded-full border border-edge bg-paper px-3.5 text-[12.5px] font-medium text-ink-deep transition-colors hover:border-ink-soft disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {exporting ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} aria-hidden="true" />
+            ) : (
+              <FileSpreadsheet className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+            )}
+            Excel
+          </button>
           <div className="relative" ref={colMenuRef}>
             <button
               type="button"
