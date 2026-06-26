@@ -34,6 +34,7 @@ const COLUMNS: XlsxColumn[] = [
   { header: "Nájem cílově", width: 18 },
   { header: "Stav řešení", width: 14 },
   { header: "V importu NewCo", width: 16 },
+  { header: "Poznámka RE", width: 44 },
   { header: "Poznámka", width: 44 },
 ];
 
@@ -59,6 +60,7 @@ function rowCells(r: RealEstateRow): (string | number)[] {
     LEASE_HOLDER_LABEL[r.leaseTarget],
     RECON_META[reconcile(r.leaseCurrent, r.leaseTarget)].label,
     r.hasNewco ? "Ano" : "Ne",
+    r.reNote ?? "",
     r.note ?? "",
   ];
 }

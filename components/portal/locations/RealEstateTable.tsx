@@ -67,10 +67,12 @@ export function RealEstateTable({
   rows,
   onFieldApplied,
   onNoteApplied,
+  onReNoteApplied,
 }: {
   rows: RealEstateRow[];
   onFieldApplied: (id: string, field: TransitionField, value: string | null) => void;
   onNoteApplied: (id: string, note: string) => void;
+  onReNoteApplied: (id: string, reNote: string) => void;
 }) {
   const [query, setQuery] = useState("");
   const [showAll, setShowAll] = useState(false);
@@ -187,6 +189,7 @@ export function RealEstateTable({
         LEASE_HOLDER_LABEL[r.leaseCurrent],
         LEASE_HOLDER_LABEL[r.leaseTarget],
         r.note,
+        r.reNote,
       ]
         .filter(Boolean)
         .join(" ")
@@ -389,7 +392,7 @@ export function RealEstateTable({
             <thead>
               <tr>
                 {cols.map((c) => {
-                  const sortable = c.id !== "note";
+                  const sortable = c.id !== "note" && c.id !== "reNote";
                   const isFirst = c.id === "location";
                   const active = sort?.key === c.id;
                   return (
@@ -444,7 +447,7 @@ export function RealEstateTable({
                             : ""
                         }`}
                       >
-                        {renderCell(r, c.id, onFieldApplied, onNoteApplied)}
+                        {renderCell(r, c.id, onFieldApplied, onNoteApplied, onReNoteApplied)}
                       </td>
                     );
                   })}
@@ -465,6 +468,7 @@ function renderCell(
   id: ColumnId,
   onFieldApplied: (id: string, field: TransitionField, value: string | null) => void,
   onNoteApplied: (id: string, note: string) => void,
+  onReNoteApplied: (id: string, reNote: string) => void,
 ) {
   switch (id) {
     case "location":
@@ -566,6 +570,15 @@ function renderCell(
         </Chip>
       );
     }
+    case "reNote":
+      return (
+        <NoteCell
+          id={r.id}
+          field="reNote"
+          value={r.reNote}
+          onApplied={(v) => onReNoteApplied(r.id, v)}
+        />
+      );
     case "note":
       return (
         <NoteCell id={r.id} value={r.note} onApplied={(note) => onNoteApplied(r.id, note)} />
@@ -618,6 +631,8 @@ function sortValue(r: RealEstateRow, key: ColumnId): string | number {
       return RECON_SORT_WEIGHT[reconcile(r.leaseCurrent, r.leaseTarget)];
     case "note":
       return (r.note ?? "").toLowerCase();
+    case "reNote":
+      return (r.reNote ?? "").toLowerCase();
     default:
       return "";
   }
