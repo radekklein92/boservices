@@ -344,6 +344,19 @@ export function computeContractStatus(
   return "koncept";
 }
 
+// Klient (efektivně) podepsal: timestamp podpisu klienta včetně DigiSign mezistavu
+// (`digisignClientSignedAt`), kdy klient už v DigiSign podepsal, ale obálka ještě
+// nedoběhla (druhá strana / BOS dosud nepodepsal), takže se `clientSignedAt` zatím
+// neplní a status záměrně zůstává „k-podpisu". Pro počítadla „kolik klientů
+// podepsalo" (dashboard, badge „má franšízu", ikona u klienta) chceme klienta
+// započítat hned po JEHO podpisu. NEpoužívat pro výpočet statusu (mezistav ho
+// schválně neposouvá) ani pro provize (date-gating dle finálního clientSignedAt).
+export function clientSignedAtEffective(
+  c: Pick<Contract, "clientSignedAt" | "digisignClientSignedAt">,
+): string | undefined {
+  return c.clientSignedAt ?? c.digisignClientSignedAt;
+}
+
 // Pole timestampu + „kdo" pro každý milník - pro hromadné dorovnání předchozích
 // kroků.
 const STATUS_MILESTONE_FIELDS: Partial<
@@ -501,7 +514,10 @@ export async function listLocationFranchiseContracts(): Promise<
       c.type === "franchise" &&
       c.locationId &&
       !c.cancelledAt &&
-      statusOrder(c.status) >= threshold
+      // „podepsáno klientem a vyšší" NEBO klient už podepsal v DigiSign (mezistav,
+      // kdy status zůstává „k-podpisu", než dopodepíše druhá strana) - ať badge i
+      // dashboard počítají lokalitu hned, jak ji klient podpisem stvrdil.
+      (statusOrder(c.status) >= threshold || !!c.digisignClientSignedAt)
     ) {
       out[c.locationId] = c.id; // lokalita má max. 1 aktivní FS; poslední vyhrává
     }

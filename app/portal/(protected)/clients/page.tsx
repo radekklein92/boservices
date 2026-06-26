@@ -26,6 +26,7 @@ export default async function ClientsPage() {
       id: c.id,
       type: c.type,
       clientSignedAt: c.clientSignedAt,
+      digisignClientSignedAt: c.digisignClientSignedAt,
       scanUploadedAt: c.scanUploadedAt,
       createdAt: c.createdAt,
     });

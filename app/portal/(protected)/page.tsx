@@ -17,6 +17,7 @@ import {
   cachedGetClamoraClaims,
   cachedListContracts,
 } from "@/lib/portal/cached-db";
+import { clientSignedAtEffective } from "@/lib/portal/contracts-db";
 import {
   buildAssignedClaimsView,
   buildContractClaimRefs,
@@ -33,7 +34,8 @@ import { SalespersonCard } from "@/components/portal/commissions/SalespersonCard
 // Dashboard - jediný story: postup k cíli 100 franšízových lokalit.
 //
 // KPI:
-//   1) Smluvy podepsané klientem (clientSignedAt set)
+//   1) Smluvy podepsané klientem (clientSignedAtEffective - vč. DigiSign mezistavu,
+//      kdy klient už podepsal, ale obálka ještě nedoběhla)
 //   2) Lokality s franšízou = počet franchise smluv podepsaných klientem
 //      (1 smlouva = 1 lokalita)
 //
@@ -56,8 +58,10 @@ function milestoneReachedRecently(
   contracts: Awaited<ReturnType<typeof cachedListContracts>>,
 ): number | null {
   const dates = contracts
-    .filter((c) => c.type === "franchise" && !!c.clientSignedAt && !c.cancelledAt)
-    .map((c) => c.clientSignedAt as string)
+    .filter(
+      (c) => c.type === "franchise" && !!clientSignedAtEffective(c) && !c.cancelledAt,
+    )
+    .map((c) => clientSignedAtEffective(c) as string)
     .sort();
   if (!dates.length) return null;
   const cutoff = Date.now() - CELEBRATION_WINDOW_MS;
@@ -88,10 +92,10 @@ export default async function PortalDashboardPage({
     isAdmin || isSalespersonEmail(session?.user?.email);
 
   const signedByClientCount = contracts.filter(
-    (c) => !!c.clientSignedAt && !c.cancelledAt,
+    (c) => !!clientSignedAtEffective(c) && !c.cancelledAt,
   ).length;
   const franchiseLocationsCount = contracts.filter(
-    (c) => c.type === "franchise" && !!c.clientSignedAt && !c.cancelledAt,
+    (c) => c.type === "franchise" && !!clientSignedAtEffective(c) && !c.cancelledAt,
   ).length;
 
   // Oslavný ohňostroj: dnes padlý milník (pro všechny), nebo náhled přes

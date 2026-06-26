@@ -22,6 +22,9 @@ export type ContractLite = {
   id: string;
   type: ContractType;
   clientSignedAt?: string;
+  // DigiSign mezistav: klient už podepsal, ale obálka ještě nedoběhla (druhá
+  // strana dosud nepodepsala) - počítáme ho jako „podepsáno klientem".
+  digisignClientSignedAt?: string;
   scanUploadedAt?: string;
   createdAt?: string;
 };
@@ -44,7 +47,9 @@ function displayType(t: ContractType): ContractType {
 
 function contractState(c: ContractLite): Exclude<ContractTypeState, "planned"> {
   if (c.scanUploadedAt) return "archived";
-  if (c.clientSignedAt) return "signed";
+  // Podepsáno klientem vč. DigiSign mezistavu (klient podepsal, čeká se na druhou
+  // stranu) - sjednoceno s počítadly na dashboardu (clientSignedAtEffective).
+  if (c.clientSignedAt || c.digisignClientSignedAt) return "signed";
   return "in-progress";
 }
 
