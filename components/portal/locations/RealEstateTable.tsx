@@ -240,10 +240,8 @@ export function RealEstateTable({
     for (const r of queried) {
       if (r.newco?.flaggedRed) {
         if (!showRed) continue;
-      } else if (
-        reconFilter.size &&
-        !reconFilter.has(reconcile(r.leaseCurrent, r.leaseTarget))
-      ) {
+      } else if (!reconFilter.has(reconcile(r.leaseCurrent, r.leaseTarget))) {
+        // Stejné pravidlo jako ve `filtered`: prázdný výběr stavů = nic nečerveného.
         continue;
       }
       for (const id of r.flagIds) m.set(id, (m.get(id) ?? 0) + 1);
@@ -257,10 +255,9 @@ export function RealEstateTable({
         // Červené = samostatná kategorie: řídí je výhradně chip „Červeně",
         // recon filtr (Řešit/Vyřešeno) se na ně nevztahuje.
         if (!showRed) return false;
-      } else if (
-        reconFilter.size &&
-        !reconFilter.has(reconcile(r.leaseCurrent, r.leaseTarget))
-      ) {
+      } else if (!reconFilter.has(reconcile(r.leaseCurrent, r.leaseTarget))) {
+        // Žádný vybraný stav = žádné nečervené řádky. Prázdný výběr NESMÍ
+        // znamenat „zobraz vše" (odznačení Řešit jinak vrátilo i vyřešené).
         return false;
       }
       // OR mezi vybranými flagy: projde řádek s aspoň jedním z nich.
