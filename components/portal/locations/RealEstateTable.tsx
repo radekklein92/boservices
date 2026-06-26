@@ -264,21 +264,69 @@ export function RealEstateTable({
   return (
     <div className="flex flex-col gap-4">
       {/* Toolbar */}
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="relative max-w-[400px] flex-1">
-          <Search
-            className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mid"
-            strokeWidth={1.5}
+      <div className="relative max-w-[400px]">
+        <Search
+          className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mid"
+          strokeWidth={1.5}
+        />
+        <input
+          type="search"
+          placeholder="Hledat podle lokality, agenta, entity, nájmu…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className="h-11 w-full rounded-full border border-edge bg-paper pl-11 pr-4 text-[14px] text-ink-base outline-none transition-colors placeholder:text-ink-soft focus:border-ink-base"
+        />
+      </div>
+
+      {/* Filtry */}
+      <div className="flex flex-wrap items-center gap-2">
+        {RECON_ORDER.map((s) => (
+          <FilterChip
+            key={s}
+            active={reconFilter.has(s)}
+            onClick={() => toggleRecon(s)}
+            dotClass={RECON_META[s].dot}
+            label={RECON_META[s].label}
+            count={reconCounts[s]}
+            title={RECON_META[s].hint}
           />
-          <input
-            type="search"
-            placeholder="Hledat podle lokality, agenta, entity, nájmu…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="h-11 w-full rounded-full border border-edge bg-paper pl-11 pr-4 text-[14px] text-ink-base outline-none transition-colors placeholder:text-ink-soft focus:border-ink-base"
-          />
-        </div>
-        <div className="flex items-center gap-3">
+        ))}
+
+        <FilterChip
+          active={showRed}
+          onClick={() => setShowRed((v) => !v)}
+          dotClass="bg-red-500"
+          label="Červeně"
+          count={redCount}
+          title="Lokality označené v NewCo červeně jsou ve výchozím stavu skryté — kliknutím je zobrazíte."
+        />
+
+        <span className="mx-1 h-5 w-px shrink-0 bg-edge" aria-hidden="true" />
+
+        <FilterChip
+          active={showAll}
+          onClick={() => setShowAll((v) => !v)}
+          Icon={MapPin}
+          label="Zobrazit všechny lokality"
+          title="Včetně lokalit, které nejsou v importu NewCo"
+        />
+
+        {isFiltered && (
+          <button
+            type="button"
+            onClick={() => {
+              setQuery("");
+              setReconFilter(new Set(DEFAULT_RECON));
+              setShowRed(false);
+              setShowAll(false);
+            }}
+            className="ml-1 text-[12px] font-medium text-ink-mid underline-offset-2 hover:text-ink-base hover:underline"
+          >
+            Zrušit filtr
+          </button>
+        )}
+
+        <div className="ml-auto flex shrink-0 items-center gap-3">
           <span className="font-mono text-[12px] text-ink-soft">
             {sorted.length.toString().padStart(2, "0")} / {base.length}
           </span>
@@ -330,55 +378,6 @@ export function RealEstateTable({
             )}
           </div>
         </div>
-      </div>
-
-      {/* Filtry */}
-      <div className="flex flex-wrap items-center gap-2">
-        {RECON_ORDER.map((s) => (
-          <FilterChip
-            key={s}
-            active={reconFilter.has(s)}
-            onClick={() => toggleRecon(s)}
-            dotClass={RECON_META[s].dot}
-            label={RECON_META[s].label}
-            count={reconCounts[s]}
-            title={RECON_META[s].hint}
-          />
-        ))}
-
-        <FilterChip
-          active={showRed}
-          onClick={() => setShowRed((v) => !v)}
-          dotClass="bg-red-500"
-          label="Červeně"
-          count={redCount}
-          title="Lokality označené v NewCo červeně jsou ve výchozím stavu skryté — kliknutím je zobrazíte."
-        />
-
-        <span className="mx-1 h-5 w-px shrink-0 bg-edge" aria-hidden="true" />
-
-        <FilterChip
-          active={showAll}
-          onClick={() => setShowAll((v) => !v)}
-          Icon={MapPin}
-          label="Zobrazit všechny lokality"
-          title="Včetně lokalit, které nejsou v importu NewCo"
-        />
-
-        {isFiltered && (
-          <button
-            type="button"
-            onClick={() => {
-              setQuery("");
-              setReconFilter(new Set(DEFAULT_RECON));
-              setShowRed(false);
-              setShowAll(false);
-            }}
-            className="ml-1 text-[12px] font-medium text-ink-mid underline-offset-2 hover:text-ink-base hover:underline"
-          >
-            Zrušit filtr
-          </button>
-        )}
       </div>
 
       {/* Tabulka / empty */}
