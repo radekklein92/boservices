@@ -26,9 +26,6 @@ export type RealEstateRow = {
   hasNewco: boolean;
   newco: LocationNewCo | null;
   note: string;
-  // Poznámka RE (lokální v BOServices, edituje se inline). Oddělená od obecné
-  // `note` — vlastní sloupec, seed z Google Sheetu.
-  reNote: string;
   // RE agent z Transition (zdroj pravdy). Edituje se write-through do Transition.
   reAgent: ReAgent | null;
   leaseCurrent: LeaseStatus;
@@ -137,8 +134,7 @@ export type ColumnId =
   | "leaseCurrent"
   | "leaseTarget"
   | "recon"
-  | "note"
-  | "reNote";
+  | "note";
 
 export type ColumnDef = {
   id: ColumnId;
@@ -161,7 +157,6 @@ export const COLUMNS: ColumnDef[] = [
   { id: "leaseCurrent", label: "Nájem aktuálně", defaultVisible: true },
   { id: "leaseTarget", label: "Nájem cílově", defaultVisible: true },
   { id: "recon", label: "Stav řešení", defaultVisible: true },
-  { id: "reNote", label: "Poznámka RE", defaultVisible: true },
   { id: "note", label: "Poznámka", defaultVisible: true },
 ];
 

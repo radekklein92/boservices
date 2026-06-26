@@ -29,10 +29,6 @@ export function RealEstatePageClient({ rows: initialRows }: { rows: RealEstateRo
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, note } : r)));
   }
 
-  function applyReNote(id: string, reNote: string) {
-    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, reNote } : r)));
-  }
-
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
@@ -40,12 +36,7 @@ export function RealEstatePageClient({ rows: initialRows }: { rows: RealEstateRo
         title="Real Estate"
         lede="Lokality z importu NewCo: kdo je má na starost, klíčové NewCo údaje a hlavně jestli aktuální nájem už odpovídá cílovému. RE agenta i stav nájmu upravíte přímo v tabulce (uloží se zpět do Transition), poznámka zůstává lokální."
       />
-      <RealEstateTable
-        rows={rows}
-        onFieldApplied={applyField}
-        onNoteApplied={applyNote}
-        onReNoteApplied={applyReNote}
-      />
+      <RealEstateTable rows={rows} onFieldApplied={applyField} onNoteApplied={applyNote} />
     </div>
   );
 }

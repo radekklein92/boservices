@@ -3,25 +3,18 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, Loader2, Pencil } from "lucide-react";
 
-// Inline editor poznámky. Kompaktní náhled, po kliknutí expanduje na textarea.
-// Ukládá on-blur + debounce ~900 ms (ne na každý úhoz). Per-buňka feedback;
-// chyba zůstane viditelná. `field` přepíná, kam se ukládá: obecná poznámka
-// (endpoint /note) nebo Poznámka RE (endpoint /re-note). Body klíč i placeholder
-// se odvodí z `field`.
+// Inline editor poznámky (SDÍLENÁ s lokalitou — endpoint /note). Kompaktní
+// náhled, po kliknutí expanduje na textarea. Ukládá on-blur + debounce ~900 ms
+// (ne na každý úhoz). Per-buňka feedback; chyba zůstane viditelná.
 export function NoteCell({
   id,
   value,
   onApplied,
-  field = "note",
 }: {
   id: string;
   value: string;
   onApplied: (note: string) => void;
-  field?: "note" | "reNote";
 }) {
-  const endpoint = field === "reNote" ? "re-note" : "note";
-  const placeholder =
-    field === "reNote" ? "Poznámka RE k lokalitě…" : "Poznámka k lokalitě…";
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(value);
   const [saving, setSaving] = useState(false);
@@ -50,10 +43,10 @@ export function NoteCell({
     setError(false);
     setSaved(false);
     try {
-      const res = await fetch(`/api/portal/locations/${id}/${endpoint}`, {
+      const res = await fetch(`/api/portal/locations/${id}/note`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ [field]: text }),
+        body: JSON.stringify({ note: text }),
       });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || "save failed");
@@ -117,7 +110,7 @@ export function NoteCell({
         onBlur={onBlur}
         onClick={(e) => e.stopPropagation()}
         rows={2}
-        placeholder={placeholder}
+        placeholder="Poznámka k lokalitě…"
         className="w-full resize-y rounded-lg border border-ink-base bg-paper px-2.5 py-1.5 text-[12.5px] leading-snug text-ink-base outline-none placeholder:text-ink-soft"
       />
       <div className="mt-0.5 flex h-3 items-center gap-1.5 text-[11px]">
