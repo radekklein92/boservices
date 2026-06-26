@@ -6,8 +6,10 @@ import { bustLocations, bustReFlags } from "@/lib/portal/revalidate";
 import { deleteReFlag, getReFlag, updateReFlag } from "@/lib/portal/re-flags-db";
 import {
   FLAG_COLOR_KEYS,
+  FLAG_ICON_KEYS,
   type ReFlag,
   type ReFlagColor,
+  type ReFlagIcon,
 } from "@/lib/portal/re-flags-shared";
 
 // Editace/smazání definice flagu je destruktivní pro celý tým (projeví se všem),
@@ -15,6 +17,7 @@ import {
 // přihlášený) řeší locations/[id]/flags.
 
 const COLOR_VALUES = FLAG_COLOR_KEYS as [ReFlagColor, ...ReFlagColor[]];
+const ICON_VALUES = FLAG_ICON_KEYS as [ReFlagIcon, ...ReFlagIcon[]];
 
 function canManage(session: Session, flag: ReFlag): boolean {
   const email = session.user?.email;
@@ -25,10 +28,12 @@ const patchSchema = z
   .object({
     label: z.string().trim().min(1).max(60).optional(),
     color: z.enum(COLOR_VALUES).optional(),
+    icon: z.enum(ICON_VALUES).optional(),
   })
-  .refine((d) => d.label !== undefined || d.color !== undefined, {
-    message: "Nothing to update",
-  });
+  .refine(
+    (d) => d.label !== undefined || d.color !== undefined || d.icon !== undefined,
+    { message: "Nothing to update" },
+  );
 
 export async function PATCH(
   req: Request,

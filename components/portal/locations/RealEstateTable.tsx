@@ -521,7 +521,7 @@ export function RealEstateTable({
             <thead>
               <tr>
                 {cols.map((c) => {
-                  const sortable = c.id !== "note" && c.id !== "flags";
+                  const sortable = c.id !== "note";
                   const isFirst = c.id === "location";
                   const active = sort?.key === c.id;
                   return (
@@ -601,25 +601,40 @@ function renderCell(
 ) {
   switch (id) {
     case "location":
+      // Flagy (FlagsCell) sedí hned vedle názvu jako ikonky s tooltipem —
+      // sourozenec Linku (ne uvnitř, aby se proklik na detail nemíchal s
+      // otevíráním popoveru flagů). Vlastní sloupec „Flagy" už neexistuje.
       return (
-        <Link
-          href={`/portal/locations/${r.id}`}
-          className="group/loc flex items-center gap-2"
-        >
-          <span className="flex flex-col">
-            <span className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold tracking-[-0.01em] text-ink-base">
-              <span className="max-w-[200px] truncate">{r.name}</span>
-              <ArrowUpRight
-                className="h-3 w-3 shrink-0 text-ink-soft transition-transform group-hover/loc:-translate-y-0.5 group-hover/loc:translate-x-0.5"
-                strokeWidth={1.5}
-                aria-hidden="true"
-              />
+        <div className="flex items-center gap-2.5">
+          <Link
+            href={`/portal/locations/${r.id}`}
+            className="group/loc flex min-w-0 items-center gap-2"
+          >
+            <span className="flex min-w-0 flex-col">
+              <span className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold tracking-[-0.01em] text-ink-base">
+                <span className="max-w-[200px] truncate">{r.name}</span>
+                <ArrowUpRight
+                  className="h-3 w-3 shrink-0 text-ink-soft transition-transform group-hover/loc:-translate-y-0.5 group-hover/loc:translate-x-0.5"
+                  strokeWidth={1.5}
+                  aria-hidden="true"
+                />
+              </span>
+              {r.code && (
+                <span className="font-mono text-[11px] text-ink-soft">{r.code}</span>
+              )}
             </span>
-            {r.code && (
-              <span className="font-mono text-[11px] text-ink-soft">{r.code}</span>
-            )}
-          </span>
-        </Link>
+          </Link>
+          <FlagsCell
+            locationId={r.id}
+            flagIds={r.flagIds}
+            flags={flagCtx.flags}
+            currentUserEmail={flagCtx.currentUserEmail}
+            isAdmin={flagCtx.isAdmin}
+            onFlagsApplied={flagCtx.onFlagsApplied}
+            onCatalogChanged={flagCtx.onCatalogChanged}
+            onFlagDeleted={flagCtx.onFlagDeleted}
+          />
+        </div>
       );
     case "storeStatus": {
       if (!r.locationStatus) return <Dash />;
@@ -641,19 +656,6 @@ function renderCell(
           allowClear
           clearLabel="Nepřiřazeno"
           onApplied={(v) => onFieldApplied(r.id, "re_agent", v)}
-        />
-      );
-    case "flags":
-      return (
-        <FlagsCell
-          locationId={r.id}
-          flagIds={r.flagIds}
-          flags={flagCtx.flags}
-          currentUserEmail={flagCtx.currentUserEmail}
-          isAdmin={flagCtx.isAdmin}
-          onFlagsApplied={flagCtx.onFlagsApplied}
-          onCatalogChanged={flagCtx.onCatalogChanged}
-          onFlagDeleted={flagCtx.onFlagDeleted}
         />
       );
     case "ceip1":
