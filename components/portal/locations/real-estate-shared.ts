@@ -34,6 +34,10 @@ export type RealEstateRow = {
   effectiveReAgent: ReAgent | null;
   leaseCurrent: LeaseStatus;
   leaseTarget: LeaseStatus;
+  // Id podepsané franšízingové smlouvy (status „podepsáno klientem"+ vč. DigiSign
+  // mezistavu, bez zrušených) — null = lokalita ji nemá. Stejný zdroj jako badge
+  // „franšíza" na stránce Lokality (listLocationFranchiseContracts).
+  franchiseContractId: string | null;
 };
 
 // ── Stav řešení nájmu (porovnání aktuální vs cílový) ──────────────────────────
@@ -127,6 +131,7 @@ export type ColumnId =
   | "operationalType"
   | "category"
   | "flaggedRed"
+  | "franchise"
   | "leaseCurrent"
   | "leaseTarget"
   | "recon"
@@ -149,6 +154,7 @@ export const COLUMNS: ColumnDef[] = [
   { id: "operationalType", label: "Operational type", defaultVisible: true },
   { id: "category", label: "Kategorie", defaultVisible: false },
   { id: "flaggedRed", label: "Červeně", defaultVisible: true },
+  { id: "franchise", label: "Franšíza", defaultVisible: true },
   { id: "leaseCurrent", label: "Nájem aktuálně", defaultVisible: true },
   { id: "leaseTarget", label: "Nájem cílově", defaultVisible: true },
   { id: "recon", label: "Stav řešení", defaultVisible: true },

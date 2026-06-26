@@ -1,6 +1,7 @@
 import {
   cachedListLocations,
   cachedListLocationLocalMap,
+  cachedListLocationFranchiseContracts,
 } from "@/lib/portal/cached-db";
 import { effectiveReAgent } from "@/lib/portal/locations-db";
 import { RealEstatePageClient } from "@/components/portal/locations/RealEstatePageClient";
@@ -10,9 +11,11 @@ export const metadata = { title: "Real Estate" };
 export const dynamic = "force-dynamic";
 
 export default async function RealEstatePage() {
-  const [locations, localMap] = await Promise.all([
+  const [locations, localMap, franchiseByLocation] = await Promise.all([
     cachedListLocations(),
     cachedListLocationLocalMap(),
+    // locationId -> id podepsané franšízingové smlouvy (badge „franšíza").
+    cachedListLocationFranchiseContracts(),
   ]);
 
   // Sloučení do plain řádků — Map se neserializuje přes RSC boundary do klienta,
@@ -31,6 +34,7 @@ export default async function RealEstatePage() {
       effectiveReAgent: effectiveReAgent(l, local),
       leaseCurrent: l.lease_current_status,
       leaseTarget: l.lease_target_status,
+      franchiseContractId: franchiseByLocation[l.id] ?? null,
     };
   });
 

@@ -10,6 +10,7 @@ import {
   Columns3,
   MapPin,
   Search,
+  Store,
 } from "lucide-react";
 import { Chip } from "@/components/portal/ui/Chip";
 import { FilterChip } from "@/components/portal/ui/FilterChip";
@@ -158,6 +159,7 @@ export function RealEstateTable({
         r.newco?.operationalType,
         r.newco?.category,
         r.newco?.includeInBusinessPlan,
+        r.franchiseContractId ? "franšíza podepsáno" : "",
         LEASE_HOLDER_LABEL[r.leaseCurrent],
         LEASE_HOLDER_LABEL[r.leaseTarget],
         r.note,
@@ -449,6 +451,19 @@ function renderCell(
       ) : (
         <Dash />
       );
+    case "franchise":
+      return r.franchiseContractId ? (
+        <Link
+          href={`/portal/contracts/${r.franchiseContractId}`}
+          title="Franšízingová smlouva - podepsáno klientem (otevřít smlouvu)"
+          className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-[11.5px] font-medium text-emerald-700 transition-transform hover:-translate-y-0.5"
+        >
+          <Store className="h-3 w-3" strokeWidth={1.5} aria-hidden="true" />
+          Podepsáno
+        </Link>
+      ) : (
+        <Chip tone={FLAG_NEUTRAL_TONE}>Ne</Chip>
+      );
     case "leaseCurrent":
       return <span className="whitespace-nowrap text-ink-deep">{LEASE_HOLDER_LABEL[r.leaseCurrent]}</span>;
     case "leaseTarget":
@@ -505,6 +520,8 @@ function sortValue(r: RealEstateRow, key: ColumnId): string | number {
       return (r.newco?.category ?? "").toLowerCase();
     case "flaggedRed":
       return r.newco?.flaggedRed ? 0 : 1; // červené první (asc)
+    case "franchise":
+      return r.franchiseContractId ? 0 : 1; // podepsané první (asc)
     case "leaseCurrent":
       return LEASE_HOLDER_LABEL[r.leaseCurrent].toLowerCase();
     case "leaseTarget":
