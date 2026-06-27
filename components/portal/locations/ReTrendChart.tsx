@@ -161,7 +161,6 @@ function DeltaBadge({ dir, delta }: { dir: "up" | "down"; delta: number }) {
 const GRID = "rgba(23,23,23,0.07)";
 const AXIS = "rgba(23,23,23,0.42)";
 const TIP_TEXT = "rgba(23,23,23,0.92)";
-const TIP_SUB = "rgba(23,23,23,0.5)";
 const TIP_BORDER = "rgba(23,23,23,0.12)";
 
 function niceScale(maxVal: number): { yMax: number; ticks: number[] } {
@@ -230,15 +229,19 @@ function TrendChart({
   const showXLabel = (i: number) =>
     i === 0 || i === n - 1 || i % labelEvery === 0;
 
+  const activeX = active !== null ? xOf(active) : 0;
+  const placeRight = active === null || activeX < VW / 2;
+  const activePoint = active !== null ? points[active] : null;
+
   return (
     <div
-      ref={wrapRef}
       className={
         bordered ? "rounded-[20px] border border-edge bg-paper p-3 sm:p-4" : ""
       }
     >
-      <svg
-        viewBox={`0 0 ${VW} ${VH}`}
+      <div ref={wrapRef} className="relative">
+        <svg
+          viewBox={`0 0 ${VW} ${VH}`}
         width="100%"
         height={VH}
         preserveAspectRatio="xMidYMid meet"
@@ -261,14 +264,6 @@ function TrendChart({
               <stop offset="100%" stopColor={s.color} stopOpacity={0} />
             </linearGradient>
           ))}
-          <filter id="re-tip-shadow" x="-20%" y="-20%" width="140%" height="160%">
-            <feDropShadow
-              dx="0"
-              dy="4"
-              stdDeviation="6"
-              floodColor="rgba(14,14,14,0.18)"
-            />
-          </filter>
         </defs>
 
         {/* Vodorovné gridlines + y popisky */}
@@ -400,11 +395,6 @@ function TrendChart({
           ) : null,
         )}
 
-        {/* Tooltip */}
-        {active !== null && (
-          <Tooltip point={points[active]} ax={xOf(active)} x1={x1} yTop={yTop} />
-        )}
-
         {/* Neviditelné hover zóny (musí být nahoře) */}
         {points.map((p, i) => {
           const slot = n > 1 ? plotW / (n - 1) : plotW;
@@ -423,67 +413,44 @@ function TrendChart({
             />
           );
         })}
-      </svg>
+        </svg>
+
+        {/* Tooltip = HTML overlay (přesná typografie/zarovnání). Graf kreslí 1:1 px,
+            takže xOf()/VW v px sedí na pozici v tomto relativním kontejneru. */}
+        {activePoint && (
+          <div
+            className="pointer-events-none absolute top-1 z-10 w-[160px] rounded-xl border border-edge bg-paper px-3 py-2.5 shadow-[0_12px_28px_-12px_rgba(14,14,14,0.3)]"
+            style={
+              placeRight ? { left: activeX + 12 } : { right: VW - activeX + 12 }
+            }
+          >
+            <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-soft">
+              {activePoint.live
+                ? "Tento týden"
+                : `Týden do ${fmtDM(activePoint.weekEnd)}`}
+            </div>
+            <div className="flex flex-col gap-2">
+              {SERIES.map((s) => (
+                <div
+                  key={s.key}
+                  className="flex items-center gap-2 text-[12px] leading-none"
+                >
+                  <span
+                    className="h-2 w-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: s.color }}
+                    aria-hidden="true"
+                  />
+                  <span className="text-ink-mid">{s.label}</span>
+                  <span className="ml-auto font-bold tabular-nums text-ink-base">
+                    {activePoint[s.key]}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-function Tooltip({
-  point,
-  ax,
-  x1,
-  yTop,
-}: {
-  point: Point;
-  ax: number;
-  x1: number;
-  yTop: number;
-}) {
-  const boxW = 132;
-  const rowH = 17;
-  const headH = 19;
-  const boxH = headH + SERIES.length * rowH + 12;
-  const placeRight = ax + 14 + boxW <= x1;
-  const tx = placeRight ? ax + 14 : ax - 14 - boxW;
-  const ty = yTop + 2;
-  return (
-    <g pointerEvents="none">
-      <rect
-        x={tx}
-        y={ty}
-        width={boxW}
-        height={boxH}
-        rx={10}
-        fill="#ffffff"
-        stroke={TIP_BORDER}
-        strokeWidth={1}
-        filter="url(#re-tip-shadow)"
-      />
-      <text x={tx + 12} y={ty + 14} fontSize={11} fontWeight={600} fill={TIP_SUB}>
-        {point.live ? "Tento týden" : `Týden do ${fmtDM(point.weekEnd)}`}
-      </text>
-      {SERIES.map((s, idx) => {
-        const ry = ty + headH + idx * rowH + 11;
-        return (
-          <g key={s.key}>
-            <circle cx={tx + 15} cy={ry - 3.5} r={3.5} fill={s.color} />
-            <text x={tx + 25} y={ry} fontSize={11.5} fill={TIP_TEXT}>
-              {s.label}
-            </text>
-            <text
-              x={tx + boxW - 12}
-              y={ry}
-              fontSize={11.5}
-              fontWeight={700}
-              textAnchor="end"
-              fill={TIP_TEXT}
-              className="tabular-nums"
-            >
-              {point[s.key]}
-            </text>
-          </g>
-        );
-      })}
-    </g>
-  );
-}
