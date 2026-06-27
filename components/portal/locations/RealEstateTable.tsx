@@ -441,20 +441,19 @@ export function RealEstateTable({
     return arr;
   }, [filtered, sort]);
 
-  // Export do .xlsx přesně toho, co je vidět (sorted = po filtru + řazení).
-  // buildRealEstateXlsx (a s ním JSZip) se natáhne lazy až při kliknutí.
+  // Master export do .xlsx ze serveru: kompletní tabulka NewCo lokalit ve formátu
+  // NewCo importu + všechny doplňkové systémové sloupce (smlouvy, klient,
+  // Transition metadata) - ne jen to, co je zrovna vidět. Data o smlouvách v
+  // tabulce nejsou, proto se sbírají server-side (/api/portal/real-estate-export).
   async function exportXlsx() {
-    if (exporting || sorted.length === 0) return;
+    if (exporting) return;
     setExporting(true);
     try {
-      const { buildRealEstateXlsx } = await import("./real-estate-export");
-      const flagLabelById = new Map(flags.map((f) => [f.id, f.label]));
-      const bytes = await buildRealEstateXlsx(sorted, flagLabelById);
-      // Kopie do Uint8Array nad plain ArrayBuffer - JSZip typuje buffer jako
-      // ArrayBufferLike (i SharedArrayBuffer), což BlobPart nepřijme.
-      const blob = new Blob([new Uint8Array(bytes)], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      const res = await fetch("/api/portal/real-estate-export", {
+        cache: "no-store",
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
       const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD (ASCII)
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -606,8 +605,8 @@ export function RealEstateTable({
           <button
             type="button"
             onClick={exportXlsx}
-            disabled={exporting || sorted.length === 0}
-            title="Stáhne zobrazené řádky (po filtru) do Excelu (.xlsx)"
+            disabled={exporting}
+            title="Stáhne kompletní tabulku NewCo lokalit (formát NewCo importu + všechna data ze systému) do Excelu (.xlsx)"
             className="inline-flex h-9 items-center gap-2 rounded-full border border-edge bg-paper px-3.5 text-[12.5px] font-medium text-ink-deep transition-colors hover:border-ink-soft disabled:cursor-not-allowed disabled:opacity-50"
           >
             {exporting ? (
