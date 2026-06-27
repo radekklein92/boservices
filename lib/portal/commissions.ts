@@ -3,7 +3,8 @@
 // Pravidla (zadání): provize jsou VŽDY 50:50 mezi oba obchodníky (Toman,
 // Ebermann). Není třeba označovat, kdo dojednal - nárok mají vždy oba děleno 2.
 //   - "Smluvní" provize (franšíza / spolupráce / provozování) - DATEM ŘÍZENO
-//     podle clientSignedAt (viz contractCommission):
+//     podle clientSignedAtEffective (vč. DigiSign mezistavu - viz níže), takže
+//     provize vstupuje hned, jak se smlouva započítá do dashboardu (53):
 //       * STARÉ pravidlo (podpis < 20.6.2026): každá z těch tří smluv = 10 000 Kč.
 //       * NOVÉ pravidlo (podpis >= 20.6.2026): počítá se JEN franšíza - 20 000 Kč
 //         pokud na její lokalitě NENÍ podepsaná spolupráce/provozování, jinak
@@ -16,7 +17,7 @@
 //
 // Vždy 50:50 mezi oba obchodníky. Čísla přesná, zaokrouhlení až při zobrazení.
 
-import type { Contract } from "./contracts-db";
+import { clientSignedAtEffective, type Contract } from "./contracts-db";
 import type { ClaimsOverlay } from "./claims-overlay";
 import { forEachContractClaimApplication, isKeyCompany } from "./assigned-claims";
 
@@ -38,7 +39,7 @@ export const FRANCHISE_SOLO_COMMISSION_CZK = 20_000; // nové pravidlo: franší
 export const CLAIM_COMMISSION_RATE = 0.001; // 0,1 % z částky vč. DPH (dlužník)
 export const CLAIM_GUARANTEE_RATE = 0.0005; // 0,05 % za ručení (poloviční)
 
-// Od tohoto okamžiku (dle clientSignedAt) platí nové pravidlo u smluvní provize.
+// Od tohoto okamžiku (dle clientSignedAtEffective) platí nové pravidlo u smluvní provize.
 export const NEW_RULES_FROM = "2026-06-20T00:00:00.000Z";
 
 // Provize CELÉ smlouvy (před dělením 50:50). 0 = nezakládá provizi.
@@ -48,8 +49,11 @@ function contractCommission(
   accompaniedLocations: ReadonlySet<string>,
 ): number {
   if (c.cancelledAt) return 0; // zrušená smlouva provizi nezakládá
-  if (!c.clientSignedAt) return 0;
-  const isNew = c.clientSignedAt >= NEW_RULES_FROM;
+  // Provize vstupuje už v okamžiku, kdy se smlouva započítá do dashboardu (53) -
+  // tj. i DigiSign mezistav (clientSignedAtEffective), ne až po finálním clientSignedAt.
+  const signedAt = clientSignedAtEffective(c);
+  if (!signedAt) return 0;
+  const isNew = signedAt >= NEW_RULES_FROM;
   if (c.type === "franchise") {
     if (!isNew) return CONTRACT_COMMISSION_CZK;
     const accompanied = !!c.locationId && accompaniedLocations.has(c.locationId);
@@ -184,7 +188,7 @@ export function buildCommissionsView(
   for (const c of contracts) {
     if (
       (c.type === "cooperation" || c.type === "operation") &&
-      c.clientSignedAt &&
+      clientSignedAtEffective(c) &&
       !c.cancelledAt &&
       c.locationId
     ) {
@@ -220,7 +224,8 @@ export function buildCommissionsView(
     if (fee > 0) {
       contractsTotal += fee;
       contractsCount++;
-      const isNew = !!c.clientSignedAt && c.clientSignedAt >= NEW_RULES_FROM;
+      const signedAt = clientSignedAtEffective(c);
+      const isNew = !!signedAt && signedAt >= NEW_RULES_FROM;
       const label =
         c.type === "franchise"
           ? "Franšíza"
@@ -239,7 +244,7 @@ export function buildCommissionsView(
         label,
         clientName: c.clientName,
         number: c.number,
-        signedAt: c.clientSignedAt,
+        signedAt,
         commission: fee,
         note,
       });
