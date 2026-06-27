@@ -1,17 +1,14 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/portal/auth-guard";
-import { setLocationPairing } from "@/lib/portal/pos/pairing-db";
+import { setShopIgnored } from "@/lib/portal/pos/pairing-db";
 import { bustPosPairing } from "@/lib/portal/revalidate";
 
-// Location-primary párování: přiřadí pokladnu (dwShopId) na lokalitu, nebo ji
-// odpojí (dwShopId=null). Admin only. Drží integritu 1 lokalita <-> 1 pokladna.
+// Ignorování pokladny = vyřazení z aktivního seznamu k napárování (cizí provozovny
+// mimo portál, akční/popup kasy, testovací). Vratné. Admin-only.
 const schema = z.object({
-  locationId: z.string().min(1),
-  dwShopId: z.string().min(1).nullable(),
-  city: z.string().trim().max(120).optional(),
-  brandId: z.string().optional(),
-  dwShopName: z.string().max(240).optional(),
+  dwShopId: z.string().min(1),
+  ignore: z.boolean(),
 });
 
 export async function POST(req: Request) {
@@ -29,7 +26,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "Neplatná data" }, { status: 400 });
   }
 
-  await setLocationPairing({ ...parsed.data, pairedBy: g.session.user?.email ?? "system" });
+  await setShopIgnored(parsed.data.dwShopId, parsed.data.ignore);
   bustPosPairing();
   return NextResponse.json({ ok: true });
 }

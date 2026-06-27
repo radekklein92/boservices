@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/portal/auth-guard";
-import { setLocationPairing, upsertShopPair } from "@/lib/portal/pos/pairing-db";
+import { upsertShopPair } from "@/lib/portal/pos/pairing-db";
 import { bustPosPairing } from "@/lib/portal/revalidate";
 
 // Párování pobočka<->lokalita je admin-only (i když POS data vidí manager).
@@ -33,13 +33,17 @@ export async function POST(req: Request) {
 
   const pairedBy = g.session.user?.email ?? "system";
   const { dwShopId, locationId, city, brandId, dwShopName } = parsed.data;
-  // Integrita 1 lokalita <-> 1 pokladna: když pokladna dostane lokalitu, odpojí se
-  // pokladna, která na ní visela dřív (setLocationPairing). Bez lokality = odpojení.
-  if (locationId) {
-    await setLocationPairing({ locationId, dwShopId, city, brandId, dwShopName, pairedBy });
-  } else {
-    await upsertShopPair({ dwShopId, locationId: null, city, brandId, dwShopName, pairedBy, pairedAt: new Date().toISOString() });
-  }
+  // 1 prodejna <-> N pokladen: pokladna se přiřadí na lokalitu (nebo odpojí při
+  // locationId=null), sourozenecké pokladny na téže lokalitě se nedotýkáme.
+  await upsertShopPair({
+    dwShopId,
+    locationId: locationId ?? null,
+    city,
+    brandId,
+    dwShopName,
+    pairedBy,
+    pairedAt: new Date().toISOString(),
+  });
   bustPosPairing();
   return NextResponse.json({ ok: true });
 }
