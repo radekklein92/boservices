@@ -1,10 +1,12 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
   LayoutDashboard,
   Building2,
+  ChevronDown,
   FileText,
   FilePenLine,
   HandCoins,
@@ -29,11 +31,16 @@ const main: Item[] = [
   { href: "/portal/tasks", label: "Úkoly", Icon: ListChecks },
 ];
 
-const provoz: Item[] = [
+// Franšízing: klientská část (klienti, smlouvy, provize).
+const fransizing: Item[] = [
   { href: "/portal/clients", label: "Klienti", Icon: Building2 },
+  { href: "/portal/contracts", label: "Smlouvy", Icon: FileText },
+];
+
+// Provoz: lokality a jejich real estate / nájemní agenda.
+const provoz: Item[] = [
   { href: "/portal/locations", label: "Lokality", Icon: MapPin },
   { href: "/portal/real-estate", label: "Real Estate", Icon: KeyRound },
-  { href: "/portal/contracts", label: "Smlouvy", Icon: FileText },
 ];
 
 // Provize: v sekci Franšízing, ale jen pro ty, kdo na ni mají vidět (admini +
@@ -76,7 +83,7 @@ export function SidebarNav({
       </NavSection>
 
       <NavSection label="Franšízing">
-        {provoz.map((item) => (
+        {fransizing.map((item) => (
           <NavItem
             key={item.href}
             {...item}
@@ -92,8 +99,21 @@ export function SidebarNav({
         )}
       </NavSection>
 
+      <NavSection label="Provoz">
+        {provoz.map((item) => (
+          <NavItem
+            key={item.href}
+            {...item}
+            active={isActive(pathname, item.href)}
+          />
+        ))}
+      </NavSection>
+
       {isAdmin && (
-        <NavSection label="Administrace">
+        <CollapsibleNavSection
+          label="Administrace"
+          storageKey="sidebar:admin-open"
+        >
           {admin.map((item) => (
             <NavItem
               key={item.href}
@@ -101,7 +121,7 @@ export function SidebarNav({
               active={isActive(pathname, item.href)}
             />
           ))}
-        </NavSection>
+        </CollapsibleNavSection>
       )}
     </nav>
   );
@@ -125,6 +145,67 @@ function NavSection({
         {label}
       </div>
       <div className="flex flex-col gap-0.5">{children}</div>
+    </div>
+  );
+}
+
+// Sbalitelná sekce - hlavička je tlačítko, defaultně sbalená, stav se pamatuje
+// v localStorage napříč reloady. uppercase musí být přímo na <button>, protože
+// Tailwind Preflight nastavuje button{text-transform:none} (nedědí se z rodiče).
+function CollapsibleNavSection({
+  label,
+  storageKey,
+  defaultOpen = false,
+  children,
+}: {
+  label: string;
+  storageKey: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  // localStorage není dostupná při SSR - načti uloženou preferenci až po hydrataci.
+  useEffect(() => {
+    const saved = window.localStorage.getItem(storageKey);
+    if (saved === "open") setOpen(true);
+    else if (saved === "closed") setOpen(false);
+  }, [storageKey]);
+
+  function toggle() {
+    setOpen((prev) => {
+      const next = !prev;
+      window.localStorage.setItem(storageKey, next ? "open" : "closed");
+      return next;
+    });
+  }
+
+  return (
+    <div className="mt-7 first:mt-1">
+      <button
+        type="button"
+        onClick={toggle}
+        aria-expanded={open}
+        className="group flex w-full cursor-pointer items-center gap-1.5 rounded-md px-3 pb-2.5 text-[10px] font-medium uppercase tracking-[0.22em] text-ink-mid transition-colors hover:text-ink-base"
+      >
+        <span className="flex-1 text-left">{label}</span>
+        <ChevronDown
+          className={`h-3.5 w-3.5 shrink-0 transition-transform duration-300 ${
+            open ? "rotate-0" : "-rotate-90"
+          }`}
+          strokeWidth={1.75}
+          aria-hidden="true"
+        />
+      </button>
+      <div
+        className={`grid transition-all duration-300 ease-out ${
+          open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+        }`}
+      >
+        <div className="overflow-hidden">
+          <div className="flex flex-col gap-0.5">{children}</div>
+        </div>
+      </div>
     </div>
   );
 }
