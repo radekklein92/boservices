@@ -1,6 +1,6 @@
 import { cachedListLocationFranchiseContracts, cachedListReFlags } from "@/lib/portal/cached-db";
 import { listLocations, listLocationLocalMap } from "@/lib/portal/locations-db";
-import { auth } from "@/auth";
+import { getSession } from "@/lib/portal/get-session";
 import { isAdminRole } from "@/lib/portal/auth-guard";
 import { RealEstatePageClient } from "@/components/portal/locations/RealEstatePageClient";
 import type { RealEstateRow } from "@/components/portal/locations/real-estate-shared";
@@ -23,7 +23,7 @@ export default async function RealEstatePage() {
       cachedListLocationFranchiseContracts(),
       // Sdílený katalog uživatelských flagů (definice label+barva).
       cachedListReFlags(),
-      auth(),
+      getSession(),
     ]);
 
   // Sloučení do plain řádků — Map se neserializuje přes RSC boundary do klienta.
