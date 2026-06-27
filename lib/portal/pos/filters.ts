@@ -38,7 +38,10 @@ export interface PosFilter {
 export const DEFAULT_POS_FILTER: PosFilter = {
   scope: { kind: "all" },
   preset: "tento-tyden",
-  comparison: "predchozi-rok",
+  // Default WoW (předchozí období), NE rok: warehouse je mladý (síť naskočila
+  // Jan 2026), takže YoY srovnává plnou síť s téměř prázdnou historií = zavádějící
+  // +stovky %. WoW dává reálných ~+10 %. Viz [[pos-comparison-weekday-aligned]].
+  comparison: "predchozi-obdobi",
   sameStore: false,
   currency: "CZK",
   vatInclusive: true,

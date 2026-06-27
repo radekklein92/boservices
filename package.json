@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test lib/portal/pos/filters.test.ts lib/portal/pos/guards.test.ts components/portal/pos/pos-shared.test.ts",
     "portal:bootstrap": "tsx scripts/portal-bootstrap.ts"
   },
   "dependencies": {

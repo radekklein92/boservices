@@ -50,6 +50,15 @@ export function pctChange(current: number, previous: number | null | undefined):
   return (current - previous) / Math.abs(previous);
 }
 
+// Sazba DPH z DW je heterogenní: Dotykačka posílá 0.12/0.21, Trdlokafe 1.12/1.21
+// ("1 + sazba"). Sjednotí na čistou sazbu (0.12/0.21/0), aby se řádky nerozpadly
+// na fantomové duplicity. null zůstává null.
+export function normalizeVatRate(rate: number | null | undefined): number | null {
+  if (rate == null) return null;
+  const r = rate >= 1 ? rate - 1 : rate;
+  return Math.round(r * 1000) / 1000;
+}
+
 export const DAYPART_LABEL: Record<Daypart, string> = {
   rano: "Ráno",
   dopoledne: "Dopoledne",
