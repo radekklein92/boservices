@@ -422,7 +422,7 @@ function MilestoneHero({ count, festive = false }: { count: number; festive?: bo
               aria-hidden="true"
             />
           </div>
-          <div className="mt-3 max-w-[42ch] text-[14px] leading-relaxed text-ink-mid underline-offset-4 group-hover:underline">
+          <div className="mt-3 max-w-[42ch] text-[14px] leading-relaxed text-ink-mid">
             Franšízových smluv podepsaných klientem. Každá podepsaná smlouva
             je další lokalita v síti.
           </div>
