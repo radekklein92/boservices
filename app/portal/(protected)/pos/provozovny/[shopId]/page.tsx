@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { canSeePOS } from "@/lib/portal/auth-guard";
@@ -19,6 +20,11 @@ import { PosKpiCard } from "@/components/portal/pos/PosKpiCard";
 import { PosLineChart } from "@/components/portal/pos/PosLineChart";
 import { PosHeatmap } from "@/components/portal/pos/PosHeatmap";
 import { PosBars, type BarRow } from "@/components/portal/pos/PosBars";
+import {
+  BarsRowSkeleton,
+  ChartSkeleton,
+  KpiStripSkeleton,
+} from "@/components/portal/pos/skeletons";
 import {
   DAYPART_LABEL,
   formatPosMoney,
@@ -52,6 +58,9 @@ function pickRow(rows: SummaryRow[] | null, currency: string): SummaryRow | null
   return rows?.find((r) => r.currency === currency) ?? null;
 }
 
+// Detail provozovny - sekce streamují nezávisle pod <Suspense>. Klíčové: heatmapa
+// (DW endpoint ~3,7 s) má vlastní boundary, takže neblokuje hlavičku/KPI/graf,
+// které dostreamují do ~1 s.
 export default async function PosShopDetailPage({
   params,
   searchParams,
@@ -78,86 +87,71 @@ export default async function PosShopDetailPage({
     );
   }
 
+  return (
+    <div className="flex flex-col gap-6">
+      <BackLink href={backHref} />
+
+      <Suspense
+        fallback={
+          <div className="flex flex-col gap-6">
+            <div className="h-7 w-56 animate-pulse rounded-lg bg-edge-warm" />
+            <KpiStripSkeleton />
+            <ChartSkeleton height={240} />
+          </div>
+        }
+      >
+        <DetailHeader shopId={shopId} filter={filter} cur={cur} useNet={useNet} />
+      </Suspense>
+
+      <section className="flex flex-col gap-3">
+        <H2>Hodina x den</H2>
+        <Suspense fallback={<ChartSkeleton height={300} />}>
+          <HeatmapSection filter={filter} cur={cur} />
+        </Suspense>
+      </section>
+
+      <Suspense fallback={<BarsRowSkeleton />}>
+        <BreakdownSection filter={filter} cur={cur} useNet={useNet} />
+      </Suspense>
+
+      <Suspense fallback={<ChartSkeleton height={200} />}>
+        <ProductsSection filter={filter} cur={cur} useNet={useNet} />
+      </Suspense>
+    </div>
+  );
+}
+
+async function DetailHeader({
+  shopId,
+  filter,
+  cur,
+  useNet,
+}: {
+  shopId: string;
+  filter: PosFilter;
+  cur: string;
+  useNet: boolean;
+}) {
   let kpi: Awaited<ReturnType<typeof getKpiSummary>>;
   let trend: Awaited<ReturnType<typeof getDailyTrend>>;
-  let heatmap: Awaited<ReturnType<typeof getHeatmap>>;
-  let daypart: Awaited<ReturnType<typeof getDaypart>>;
-  let paymentMix: Awaited<ReturnType<typeof getPaymentMix>>;
-  let vatSplit: Awaited<ReturnType<typeof getVatSplit>>;
-  let products: Awaited<ReturnType<typeof getTopProducts>>;
   let shopsRaw: Awaited<ReturnType<typeof getAllShops>>;
   try {
-    [kpi, trend, heatmap, daypart, paymentMix, vatSplit, products, shopsRaw] = await Promise.all([
-      getKpiSummary(filter),
-      getDailyTrend(filter),
-      getHeatmap(filter),
-      getDaypart(filter),
-      getPaymentMix(filter),
-      getVatSplit(filter),
-      getTopProducts(filter, "gross", 15),
-      getAllShops(),
-    ]);
+    [kpi, trend, shopsRaw] = await Promise.all([getKpiSummary(filter), getDailyTrend(filter), getAllShops()]);
   } catch {
-    return (
-      <div className="flex flex-col gap-4">
-        <BackLink href={backHref} />
-        <Notice title="Data dočasně nedostupná" body="Nepodařilo se načíst data provozovny z API Data Warehouse." />
-      </div>
-    );
+    return <Notice title="Data dočasně nedostupná" body="Nepodařilo se načíst data provozovny." />;
   }
-
   const shopName = shopsRaw.find((s) => s.id === shopId)?.name ?? "Provozovna";
   const c = pickRow(kpi.current, cur);
   const p = pickRow(kpi.comparison, cur);
-
   const days = trend.current;
   const sparkNet = days.map((d) => d.net);
   const sparkGross = days.map((d) => d.gross);
   const sparkReceipts = days.map((d) => d.receipts);
   const sparkAtv = days.map((d) => (d.receipts > 0 ? d.gross / d.receipts : 0));
 
-  // Daypart bary
-  const dpByKey = new Map(daypart.map((d) => [d.daypart, d]));
-  const daypartRows: BarRow[] = DP_ORDER.filter((k) => dpByKey.has(k)).map((k) => {
-    const d = dpByKey.get(k)!;
-    return { key: k, label: DAYPART_LABEL[k], value: useNet ? d.net : d.gross, sub: `${formatPosNumber(d.receipts)} úč.` };
-  });
-
-  // Payment mix (s caveatem na Dotykačka placeholder)
-  const payRows: BarRow[] = [...paymentMix]
-    .sort((a, b) => b.total - a.total)
-    .map((pm) => ({
-      key: pm.payment_method,
-      label: pm.payment_method_name || pm.payment_method,
-      value: pm.total,
-      sub: `${formatPosNumber(pm.payments)}×`,
-    }));
-  const hasPlaceholder = paymentMix.some((pm) => /placeholder|dotykacka_total/i.test(pm.payment_method));
-
-  // DPH split - normalizace sazby a sloučení
-  const vatMap = new Map<number, { gross: number; vat: number }>();
-  for (const v of vatSplit) {
-    const nr = normalizeVatRate(v.vat_rate) ?? -1;
-    const agg = vatMap.get(nr) ?? { gross: 0, vat: 0 };
-    agg.gross += v.gross;
-    agg.vat += v.vat;
-    vatMap.set(nr, agg);
-  }
-  const vatRows: BarRow[] = [...vatMap.entries()]
-    .sort((a, b) => b[1].gross - a[1].gross)
-    .map(([nr, v]) => ({
-      key: String(nr),
-      label: nr < 0 ? "Neznámá sazba" : `${Math.round(nr * 100)} %`,
-      value: v.gross,
-      sub: `DPH ${formatPosMoneyCompact(v.vat, cur)}`,
-    }));
-
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-2">
-        <BackLink href={backHref} />
-        <h2 className="text-[1.5rem] font-extrabold leading-tight tracking-[-0.025em] text-ink-base">{shopName}</h2>
-      </div>
+      <h2 className="text-[1.5rem] font-extrabold leading-tight tracking-[-0.025em] text-ink-base">{shopName}</h2>
 
       {c ? (
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -204,60 +198,120 @@ export default async function PosShopDetailPage({
         <H2>Vývoj tržeb ({useNet ? "čisté" : "s DPH"})</H2>
         <Trend trend={trend} filter={filter} useNet={useNet} />
       </section>
-
-      <section className="flex flex-col gap-3">
-        <H2>Hodina x den</H2>
-        <PosHeatmap cells={heatmap} currency={cur} />
-      </section>
-
-      <div className="grid gap-5 lg:grid-cols-3">
-        <section className="flex flex-col gap-3">
-          <H2>Denní doba</H2>
-          <PosBars rows={daypartRows} formatValue={(v) => formatPosMoneyCompact(v, cur)} />
-        </section>
-        <section className="flex flex-col gap-3">
-          <H2>Platby</H2>
-          <PosBars rows={payRows} formatValue={(v) => formatPosMoneyCompact(v, cur)} />
-          {hasPlaceholder && (
-            <p className="text-[11px] text-ink-soft">
-              Pozn.: u Dotykačky není rozpad hotovost/karta - většina objemu je v souhrnné položce.
-            </p>
-          )}
-        </section>
-        <section className="flex flex-col gap-3">
-          <H2>DPH</H2>
-          <PosBars rows={vatRows} formatValue={(v) => formatPosMoneyCompact(v, cur)} />
-        </section>
-      </div>
-
-      {products.length > 0 && (
-        <section className="flex flex-col gap-3">
-          <H2>Top produkty</H2>
-          <div className="overflow-x-auto rounded-2xl border border-edge bg-paper">
-            <table className="w-full min-w-[480px] border-collapse text-[13px]">
-              <thead>
-                <tr className="border-b border-edge text-left text-[11px] uppercase tracking-[0.1em] text-ink-mid">
-                  <th className="px-4 py-2.5 font-medium">Produkt</th>
-                  <th className="px-4 py-2.5 text-right font-medium">Množství</th>
-                  <th className="px-4 py-2.5 text-right font-medium">Tržby</th>
-                </tr>
-              </thead>
-              <tbody>
-                {products.map((pr) => (
-                  <tr key={pr.product_id} className="border-b border-edge/60 last:border-0">
-                    <td className="px-4 py-2.5 text-ink-base">{pr.name || "—"}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-ink-mid">{formatPosNumber(pr.qty, 0)}</td>
-                    <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-ink-base">
-                      {formatPosMoney(useNet ? pr.net : pr.gross, cur)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      )}
     </div>
+  );
+}
+
+async function HeatmapSection({ filter, cur }: { filter: PosFilter; cur: string }) {
+  let heatmap: Awaited<ReturnType<typeof getHeatmap>>;
+  try {
+    heatmap = await getHeatmap(filter);
+  } catch {
+    return <WidgetError />;
+  }
+  return <PosHeatmap cells={heatmap} currency={cur} />;
+}
+
+async function BreakdownSection({ filter, cur, useNet }: { filter: PosFilter; cur: string; useNet: boolean }) {
+  let daypart: Awaited<ReturnType<typeof getDaypart>>;
+  let paymentMix: Awaited<ReturnType<typeof getPaymentMix>>;
+  let vatSplit: Awaited<ReturnType<typeof getVatSplit>>;
+  try {
+    [daypart, paymentMix, vatSplit] = await Promise.all([getDaypart(filter), getPaymentMix(filter), getVatSplit(filter)]);
+  } catch {
+    return <WidgetError />;
+  }
+
+  const dpByKey = new Map(daypart.map((d) => [d.daypart, d]));
+  const daypartRows: BarRow[] = DP_ORDER.filter((k) => dpByKey.has(k)).map((k) => {
+    const d = dpByKey.get(k)!;
+    return { key: k, label: DAYPART_LABEL[k], value: useNet ? d.net : d.gross, sub: `${formatPosNumber(d.receipts)} úč.` };
+  });
+
+  const payRows: BarRow[] = [...paymentMix]
+    .sort((a, b) => b.total - a.total)
+    .map((pm) => ({
+      key: pm.payment_method,
+      label: pm.payment_method_name || pm.payment_method,
+      value: pm.total,
+      sub: `${formatPosNumber(pm.payments)}×`,
+    }));
+  const hasPlaceholder = paymentMix.some((pm) => /placeholder|dotykacka_total/i.test(pm.payment_method));
+
+  const vatMap = new Map<number, { gross: number; vat: number }>();
+  for (const v of vatSplit) {
+    const nr = normalizeVatRate(v.vat_rate) ?? -1;
+    const agg = vatMap.get(nr) ?? { gross: 0, vat: 0 };
+    agg.gross += v.gross;
+    agg.vat += v.vat;
+    vatMap.set(nr, agg);
+  }
+  const vatRows: BarRow[] = [...vatMap.entries()]
+    .sort((a, b) => b[1].gross - a[1].gross)
+    .map(([nr, v]) => ({
+      key: String(nr),
+      label: nr < 0 ? "Neznámá sazba" : `${Math.round(nr * 100)} %`,
+      value: v.gross,
+      sub: `DPH ${formatPosMoneyCompact(v.vat, cur)}`,
+    }));
+
+  return (
+    <div className="grid gap-5 lg:grid-cols-3">
+      <section className="flex flex-col gap-3">
+        <H2>Denní doba</H2>
+        <PosBars rows={daypartRows} formatValue={(v) => formatPosMoneyCompact(v, cur)} />
+      </section>
+      <section className="flex flex-col gap-3">
+        <H2>Platby</H2>
+        <PosBars rows={payRows} formatValue={(v) => formatPosMoneyCompact(v, cur)} />
+        {hasPlaceholder && (
+          <p className="text-[11px] text-ink-soft">
+            Pozn.: u Dotykačky není rozpad hotovost/karta - většina objemu je v souhrnné položce.
+          </p>
+        )}
+      </section>
+      <section className="flex flex-col gap-3">
+        <H2>DPH</H2>
+        <PosBars rows={vatRows} formatValue={(v) => formatPosMoneyCompact(v, cur)} />
+      </section>
+    </div>
+  );
+}
+
+async function ProductsSection({ filter, cur, useNet }: { filter: PosFilter; cur: string; useNet: boolean }) {
+  let products: Awaited<ReturnType<typeof getTopProducts>>;
+  try {
+    products = await getTopProducts(filter, "gross", 15);
+  } catch {
+    return null;
+  }
+  if (products.length === 0) return null;
+  return (
+    <section className="flex flex-col gap-3">
+      <H2>Top produkty</H2>
+      <div className="overflow-x-auto rounded-2xl border border-edge bg-paper">
+        <table className="w-full min-w-[480px] border-collapse text-[13px]">
+          <thead>
+            <tr className="border-b border-edge text-left text-[11px] uppercase tracking-[0.1em] text-ink-mid">
+              <th className="px-4 py-2.5 font-medium">Produkt</th>
+              <th className="px-4 py-2.5 text-right font-medium">Množství</th>
+              <th className="px-4 py-2.5 text-right font-medium">Tržby</th>
+            </tr>
+          </thead>
+          <tbody>
+            {products.map((pr) => (
+              <tr key={pr.product_id} className="border-b border-edge/60 last:border-0">
+                <td className="px-4 py-2.5 text-ink-base">{pr.name || "—"}</td>
+                <td className="px-4 py-2.5 text-right tabular-nums text-ink-mid">{formatPosNumber(pr.qty, 0)}</td>
+                <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-ink-base">
+                  {formatPosMoney(useNet ? pr.net : pr.gross, cur)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 
@@ -293,6 +347,14 @@ function Trend({
 
 function H2({ children }: { children: React.ReactNode }) {
   return <h2 className="text-[12px] font-semibold uppercase tracking-[0.14em] text-ink-mid">{children}</h2>;
+}
+
+function WidgetError() {
+  return (
+    <div className="rounded-2xl border border-edge bg-paper px-4 py-6 text-center text-[13px] text-ink-mid">
+      Data dočasně nedostupná.
+    </div>
+  );
 }
 
 function BackLink({ href }: { href: string }) {

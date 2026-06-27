@@ -1,9 +1,11 @@
+import { Suspense } from "react";
 import { canSeePOS } from "@/lib/portal/auth-guard";
 import { getSession } from "@/lib/portal/get-session";
-import { posFilterFromSearchParams } from "@/lib/portal/pos/filters";
+import { posFilterFromSearchParams, type PosFilter } from "@/lib/portal/pos/filters";
 import { getTopProducts } from "@/lib/portal/pos/queries";
 import { isPosApiConfigured } from "@/lib/portal/pos/api";
 import { formatPosMoney, formatPosNumber } from "@/components/portal/pos/pos-shared";
+import { LeaderboardSkeleton } from "@/components/portal/pos/skeletons";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Pokladna - Produkty" };
@@ -16,12 +18,19 @@ export default async function PosProductsPage({
   const session = await getSession();
   if (!canSeePOS(session?.user?.role)) return null;
   const filter = posFilterFromSearchParams(await searchParams);
-  const cur = filter.currency;
-  const useNet = !filter.vatInclusive;
-
   if (!isPosApiConfigured()) {
     return <Notice title="POS data nejsou nakonfigurovaná" body="Nastavte POS_API_BASE a POS_API_KEY v prostředí (Vercel)." />;
   }
+  return (
+    <Suspense fallback={<LeaderboardSkeleton rows={10} />}>
+      <ProductsTable filter={filter} />
+    </Suspense>
+  );
+}
+
+async function ProductsTable({ filter }: { filter: PosFilter }) {
+  const cur = filter.currency;
+  const useNet = !filter.vatInclusive;
 
   let rows: Awaited<ReturnType<typeof getTopProducts>>;
   try {
