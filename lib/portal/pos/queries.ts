@@ -17,6 +17,7 @@ import {
   type PosFilter,
 } from "./filters";
 import type {
+  ApiBrand,
   BrandRevenueRow,
   DailyRevenueRow,
   DaypartRow,
@@ -49,6 +50,13 @@ function aggWindow(filter: PosFilter): DateRange {
 
 function rawWindow(filter: PosFilter): DateRange {
   return clampWindow(resolveDateRange(filter), MAX_RAW_WINDOW_DAYS).range;
+}
+
+// --- Číselníky (pro filtr/scope) ---
+
+const _brands = posQuery(() => api.getBrands(), "brands");
+export async function getBrands(): Promise<ApiBrand[]> {
+  return (await _brands()).data;
 }
 
 // --- KPI souhrn (existující endpoint /v1/revenue/summary) ---

@@ -1,6 +1,6 @@
 import { canSeePOS } from "@/lib/portal/auth-guard";
 import { getSession } from "@/lib/portal/get-session";
-import { DEFAULT_POS_FILTER, COMPARISON_LABEL, DATE_PRESET_LABEL } from "@/lib/portal/pos/filters";
+import { DEFAULT_POS_FILTER, COMPARISON_LABEL, DATE_PRESET_LABEL, parsePosFilter } from "@/lib/portal/pos/filters";
 import { getKpiSummary, getDailyTrend } from "@/lib/portal/pos/queries";
 import { getLastSyncCached } from "@/lib/portal/pos/cache";
 import { isPosApiConfigured } from "@/lib/portal/pos/api";
@@ -12,6 +12,15 @@ import { formatPosMoney, formatPosNumber, formatPct } from "@/components/portal/
 function fmtDayLabel(date: string): string {
   const [, m, d] = date.split("-");
   return `${Number(d)}.${Number(m)}.`;
+}
+
+function searchParamsToUsp(sp: Record<string, string | string[] | undefined>): URLSearchParams {
+  const usp = new URLSearchParams();
+  for (const [k, v] of Object.entries(sp)) {
+    if (typeof v === "string") usp.set(k, v);
+    else if (Array.isArray(v) && typeof v[0] === "string") usp.set(k, v[0]);
+  }
+  return usp;
 }
 
 export const dynamic = "force-dynamic";
@@ -37,11 +46,15 @@ function formatSyncTime(iso: string | undefined): string | null {
   }).format(d);
 }
 
-export default async function PosOverviewPage() {
+export default async function PosOverviewPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const session = await getSession();
   if (!canSeePOS(session?.user?.role)) return null;
 
-  const filter = DEFAULT_POS_FILTER;
+  const filter = parsePosFilter(searchParamsToUsp(await searchParams));
   const cur = filter.currency;
 
   return (
