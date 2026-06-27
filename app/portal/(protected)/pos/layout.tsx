@@ -4,10 +4,12 @@ import { canSeePOS } from "@/lib/portal/auth-guard";
 import { isPosApiConfigured } from "@/lib/portal/pos/api";
 import { getBrands } from "@/lib/portal/pos/queries";
 import { PosFilterBar } from "@/components/portal/pos/PosFilterBar";
+import { PosTabs } from "@/components/portal/pos/PosTabs";
+import { PosSyncBadge } from "@/components/portal/pos/PosSyncBadge";
 
 // POS / pokladní sekce vidí manager + admin + superadmin. Náhled role ("view as")
-// se promítá - getSession vrací efektivní roli, takže gating je věrný.
-// Filtr (PosFilterBar) žije v layoutu -> persistuje napříč POS obrazovkami.
+// se promítá - getSession vrací efektivní roli. Hlavička + taby + filtr žijí
+// v layoutu -> persistují napříč POS obrazovkami.
 export const dynamic = "force-dynamic";
 
 export default async function PosLayout({ children }: { children: React.ReactNode }) {
@@ -25,6 +27,13 @@ export default async function PosLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex flex-col gap-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-[1.9rem] font-extrabold leading-[1.05] tracking-[-0.03em] text-ink-base">
+          Tržby
+        </h1>
+        <PosSyncBadge />
+      </div>
+      <PosTabs />
       <PosFilterBar brands={brands} currencies={["CZK", "EUR", "PLN"]} />
       {children}
     </div>

@@ -222,6 +222,18 @@ export function parsePosFilter(sp: URLSearchParams): PosFilter {
   };
 }
 
+// Pohodlný helper pro RSC: vezme Next `searchParams` (plain record) a vrátí filtr.
+export function posFilterFromSearchParams(
+  sp: Record<string, string | string[] | undefined>,
+): PosFilter {
+  const usp = new URLSearchParams();
+  for (const [k, v] of Object.entries(sp)) {
+    if (typeof v === "string") usp.set(k, v);
+    else if (Array.isArray(v) && typeof v[0] === "string") usp.set(k, v[0]);
+  }
+  return parsePosFilter(usp);
+}
+
 // Serializuje jen ne-defaultní hodnoty -> krátké, čisté URL.
 export function serializePosFilter(f: PosFilter): URLSearchParams {
   const sp = new URLSearchParams();

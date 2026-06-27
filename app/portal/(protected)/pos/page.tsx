@@ -1,13 +1,15 @@
 import { canSeePOS } from "@/lib/portal/auth-guard";
 import { getSession } from "@/lib/portal/get-session";
-import { DEFAULT_POS_FILTER, COMPARISON_LABEL, DATE_PRESET_LABEL, parsePosFilter } from "@/lib/portal/pos/filters";
-import { getKpiSummary, getDailyTrend } from "@/lib/portal/pos/queries";
-import { getLastSyncCached } from "@/lib/portal/pos/cache";
+import { COMPARISON_LABEL, parsePosFilter, type PosFilter } from "@/lib/portal/pos/filters";
+import { getDailyTrend, getKpiSummary } from "@/lib/portal/pos/queries";
 import { isPosApiConfigured } from "@/lib/portal/pos/api";
 import type { SummaryRow } from "@/lib/portal/pos/types";
 import { PosKpiCard } from "@/components/portal/pos/PosKpiCard";
 import { PosLineChart } from "@/components/portal/pos/PosLineChart";
 import { formatPosMoney, formatPosNumber, formatPct } from "@/components/portal/pos/pos-shared";
+
+export const dynamic = "force-dynamic";
+export const metadata = { title: "Pokladna - Přehled" };
 
 function fmtDayLabel(date: string): string {
   const [, m, d] = date.split("-");
@@ -23,27 +25,8 @@ function searchParamsToUsp(sp: Record<string, string | string[] | undefined>): U
   return usp;
 }
 
-export const dynamic = "force-dynamic";
-export const metadata = { title: "Pokladna - Přehled" };
-
-// Pozn.: zatím pevný filtr (DEFAULT_POS_FILTER = tento týden vs předchozí rok, CZK).
-// Interaktivní PosFilterBar + grafy (trend, heatmapa) + leaderboard jsou další krok.
-
 function pickRow(rows: SummaryRow[] | null, currency: string): SummaryRow | null {
   return rows?.find((r) => r.currency === currency) ?? null;
-}
-
-function formatSyncTime(iso: string | undefined): string | null {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  return new Intl.DateTimeFormat("cs-CZ", {
-    timeZone: "Europe/Prague",
-    day: "numeric",
-    month: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(d);
 }
 
 export default async function PosOverviewPage({
@@ -53,75 +36,17 @@ export default async function PosOverviewPage({
 }) {
   const session = await getSession();
   if (!canSeePOS(session?.user?.role)) return null;
-
   const filter = parsePosFilter(searchParamsToUsp(await searchParams));
-  const cur = filter.currency;
 
   return (
     <div className="flex flex-col gap-8">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-[1.9rem] font-extrabold leading-[1.05] tracking-[-0.03em] text-ink-base">
-            Tržby
-          </h1>
-          <p className="mt-1.5 text-[13.5px] text-ink-mid">
-            {DATE_PRESET_LABEL[filter.preset]} · {COMPARISON_LABEL[filter.comparison].toLowerCase()} · {cur}
-          </p>
-        </div>
-        <SyncBadge />
-      </header>
-
       <Kpis filter={filter} />
       <Trend filter={filter} />
     </div>
   );
 }
 
-async function Trend({ filter }: { filter: typeof DEFAULT_POS_FILTER }) {
-  if (!isPosApiConfigured()) return null;
-  let trend: Awaited<ReturnType<typeof getDailyTrend>>;
-  try {
-    trend = await getDailyTrend(filter);
-  } catch {
-    return null;
-  }
-  if (trend.current.length === 0) return null;
-  const current = trend.current.map((d) => ({ label: fmtDayLabel(d.date), value: d.net }));
-  const comparison = trend.comparison ? trend.comparison.map((d) => d.net) : null;
-  return (
-    <section className="flex flex-col gap-3">
-      <h2 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink-mid">
-        Vývoj čistých tržeb
-      </h2>
-      <PosLineChart
-        current={current}
-        comparison={comparison}
-        currency={filter.currency}
-        comparisonLabel={COMPARISON_LABEL[filter.comparison]}
-      />
-    </section>
-  );
-}
-
-async function SyncBadge() {
-  if (!isPosApiConfigured()) return null;
-  let when: string | null = null;
-  try {
-    const s = await getLastSyncCached();
-    when = formatSyncTime(s?.last_successful_run_at);
-  } catch {
-    when = null;
-  }
-  if (!when) return null;
-  return (
-    <div className="inline-flex items-center gap-2 rounded-full border border-edge bg-paper px-3 py-1.5 text-[11.5px] text-ink-mid">
-      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
-      Aktualizováno {when}
-    </div>
-  );
-}
-
-async function Kpis({ filter }: { filter: typeof DEFAULT_POS_FILTER }) {
+async function Kpis({ filter }: { filter: PosFilter }) {
   if (!isPosApiConfigured()) {
     return (
       <Notice
@@ -151,24 +76,25 @@ async function Kpis({ filter }: { filter: typeof DEFAULT_POS_FILTER }) {
     return (
       <Notice
         title={`Pro ${cur} nejsou v tomto období data`}
-        body="Zkuste jiné období nebo měnu (filtr přibude v dalším kroku)."
+        body="Zkuste jiné období nebo měnu ve filtru nahoře."
       />
     );
   }
 
+  const useNet = !filter.vatInclusive;
   return (
     <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
       <PosKpiCard
-        label="Čisté tržby"
-        value={formatPosMoney(c.net, cur)}
-        current={c.net}
-        previous={p?.net ?? null}
+        label={useNet ? "Čisté tržby" : "Tržby (s DPH)"}
+        value={formatPosMoney(useNet ? c.net : c.gross, cur)}
+        current={useNet ? c.net : c.gross}
+        previous={(useNet ? p?.net : p?.gross) ?? null}
       />
       <PosKpiCard
-        label="Hrubé tržby"
-        value={formatPosMoney(c.gross, cur)}
-        current={c.gross}
-        previous={p?.gross ?? null}
+        label={useNet ? "Hrubé tržby" : "Čistá báze"}
+        value={formatPosMoney(useNet ? c.gross : c.net, cur)}
+        current={useNet ? c.gross : c.net}
+        previous={(useNet ? p?.gross : p?.net) ?? null}
       />
       <PosKpiCard
         label="Účtenky"
@@ -196,6 +122,35 @@ async function Kpis({ filter }: { filter: typeof DEFAULT_POS_FILTER }) {
         previous={p?.vat ?? null}
       />
     </div>
+  );
+}
+
+async function Trend({ filter }: { filter: PosFilter }) {
+  if (!isPosApiConfigured()) return null;
+  let trend: Awaited<ReturnType<typeof getDailyTrend>>;
+  try {
+    trend = await getDailyTrend(filter);
+  } catch {
+    return null;
+  }
+  if (trend.current.length === 0) return null;
+  const useNet = !filter.vatInclusive;
+  const current = trend.current.map((d) => ({ label: fmtDayLabel(d.date), value: useNet ? d.net : d.gross }));
+  const comparison = trend.comparison
+    ? trend.comparison.map((d) => (useNet ? d.net : d.gross))
+    : null;
+  return (
+    <section className="flex flex-col gap-3">
+      <h2 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink-mid">
+        Vývoj tržeb ({useNet ? "čisté" : "s DPH"})
+      </h2>
+      <PosLineChart
+        current={current}
+        comparison={comparison}
+        currency={filter.currency}
+        comparisonLabel={COMPARISON_LABEL[filter.comparison]}
+      />
+    </section>
   );
 }
 

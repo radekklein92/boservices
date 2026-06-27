@@ -44,3 +44,13 @@ export const DAYPART_LABEL: Record<Daypart, string> = {
 };
 
 export const DOW_LABEL = ["Ne", "Po", "Út", "St", "Čt", "Pá", "So"];
+
+// "2026-06-27 18:49:12" (shop-local, naivní) -> "27.6. 18:49". NEparsovat přes
+// Date (vyhnout se TZ reinterpretaci) - jen rozdělit string.
+export function formatLocalDateTime(s: string): string {
+  const [datePart, timePart] = s.split(/[ T]/);
+  if (!datePart) return s;
+  const [, m, d] = datePart.split("-");
+  const hm = timePart ? timePart.slice(0, 5) : "";
+  return `${Number(d)}.${Number(m)}.${hm ? ` ${hm}` : ""}`;
+}
