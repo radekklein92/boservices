@@ -53,6 +53,23 @@ export function RealEstatePageClient({
     );
   }
 
+  // Ruční označení „Červeně" (mimo import NewCo). Optimisticky doplníme kdo/kdy
+  // (server vrátí kanonickou hodnotu), ať se chip i red bucket přepočtou hned.
+  function applyManualRed(id: string, value: boolean) {
+    setRows((prev) =>
+      prev.map((r) =>
+        r.id === id
+          ? {
+              ...r,
+              manualRed: value
+                ? { by: currentUserEmail, at: new Date().toISOString() }
+                : null,
+            }
+          : r,
+      ),
+    );
+  }
+
   // Katalog flagů po create/edit (smazání řeší applyFlagDeleted níž).
   function applyCatalog(next: ReFlag[]) {
     setFlags(next);
@@ -87,6 +104,7 @@ export function RealEstatePageClient({
         onNoteApplied={applyNote}
         onFlagsApplied={applyFlags}
         onSolveDespiteRedApplied={applySolveDespiteRed}
+        onManualRedApplied={applyManualRed}
         onCatalogChanged={applyCatalog}
         onFlagDeleted={applyFlagDeleted}
       />

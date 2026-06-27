@@ -2,6 +2,7 @@ import { buildXlsx, type XlsxColumn, type XlsxSheet } from "@/lib/portal/xlsx-wr
 import { CATEGORY_LABEL, RE_AGENT_LABEL } from "./locations-shared";
 import {
   businessPlanView,
+  isRedFlagged,
   LEASE_HOLDER_LABEL,
   RECON_META,
   reconcile,
@@ -40,13 +41,15 @@ const COLUMNS: XlsxColumn[] = [
   { header: "Poznámka", width: 44 },
 ];
 
-// Sloupec „Označeno červeně": Ano/Ne jen když lokalita má NewCo data (jinak
-// prázdno - hodnota není známá). U červené s lokální výjimkou „stejně řešit"
-// se to vyznačí jako „Ano (+ řešit)".
+// Sloupec „Označeno červeně": Ano/Ne jen když je co vykazovat — lokalita má
+// NewCo data NEBO je ručně označená (jinak prázdno, hodnota není známá). Ruční
+// označení (mimo import) se odliší jako „Ano (ručně)". U červené s lokální
+// výjimkou „stejně řešit" se přidá „(+ řešit)".
 function redFlagExport(r: RealEstateRow): string {
-  if (!r.newco) return "";
-  if (!r.newco.flaggedRed) return "Ne";
-  return r.solveDespiteRed ? "Ano (+ řešit)" : "Ano";
+  if (!r.newco && !r.manualRed) return "";
+  if (!isRedFlagged(r)) return "Ne";
+  const base = r.manualRed && !r.newco?.flaggedRed ? "Ano (ručně)" : "Ano";
+  return r.solveDespiteRed ? `${base} (+ řešit)` : base;
 }
 
 function rowCells(
