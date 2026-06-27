@@ -3,7 +3,7 @@ import { getSession } from "@/lib/portal/get-session";
 import { isAdminRole } from "@/lib/portal/auth-guard";
 import { isPosApiConfigured } from "@/lib/portal/pos/api";
 import { getAllShops, getBrands } from "@/lib/portal/pos/queries";
-import { getBrandConceptMap, listShopPairs } from "@/lib/portal/pos/pairing-db";
+import { getBrandConceptMap, listIgnoredShops, listShopPairs } from "@/lib/portal/pos/pairing-db";
 import { cachedListLocations } from "@/lib/portal/cached-db";
 import { CONCEPT_LABEL } from "@/components/portal/locations/locations-shared";
 import type { LocationConcept } from "@/lib/portal/locations-db";
@@ -52,13 +52,15 @@ export default async function PairingPage() {
   let pairsRaw: Awaited<ReturnType<typeof listShopPairs>>;
   let locationsRaw: Awaited<ReturnType<typeof cachedListLocations>>;
   let brandConcept: Awaited<ReturnType<typeof getBrandConceptMap>>;
+  let ignoredRaw: string[];
   try {
-    [shopsRaw, brandsRaw, pairsRaw, locationsRaw, brandConcept] = await Promise.all([
+    [shopsRaw, brandsRaw, pairsRaw, locationsRaw, brandConcept, ignoredRaw] = await Promise.all([
       getAllShops(),
       getBrands(),
       listShopPairs(),
       cachedListLocations(),
       getBrandConceptMap(),
+      listIgnoredShops(),
     ]);
   } catch {
     return <Notice title="Data dočasně nedostupná" body="Nepodařilo se načíst pokladny z API Data Warehouse." />;
@@ -79,18 +81,16 @@ export default async function PairingPage() {
     .map((l) => ({ id: l.id, name: l.name, code: l.code }))
     .sort((a, b) => a.name.localeCompare(b.name, "cs"));
 
-  // Současné párování z pohledu pokladny + obsazené lokality.
+  // Současné párování z pohledu pokladny. Počet pokladen na prodejně (hint
+  // "už N pokladen") si editor dopočítá živě z těchto párů.
   const initialPairs: Record<string, { locationId: string | null; city: string }> = {};
-  const assignedLocationIds = new Set<string>();
   for (const p of pairsRaw) {
-    if (p.locationId) {
-      initialPairs[p.dwShopId] = { locationId: p.locationId, city: p.city };
-      assignedLocationIds.add(p.locationId);
-    }
+    if (p.locationId) initialPairs[p.dwShopId] = { locationId: p.locationId, city: p.city };
   }
 
-  // Našeptávání: pro každou nenapárovanou pokladnu nejlépe sedící VOLNÁ lokalita
-  // podle podobnosti názvů (token match).
+  // Našeptávání: pro každou nenapárovanou pokladnu nejlépe sedící lokalita podle
+  // podobnosti názvů (token match). Obsazené lokality se NEvylučují - jedna
+  // prodejna může mít víc pokladen.
   const locTokens = locations.map((l) => ({ id: l.id, tokens: new Set(tokenize(l.name)) }));
   const suggestions: Record<string, string> = {};
   for (const s of shops) {
@@ -99,7 +99,6 @@ export default async function PairingPage() {
     let best: string | null = null;
     let bestScore = 0;
     for (const lt of locTokens) {
-      if (assignedLocationIds.has(lt.id)) continue;
       const sc = score(st, lt.tokens);
       if (sc > bestScore) {
         bestScore = sc;
@@ -116,8 +115,9 @@ export default async function PairingPage() {
       <div>
         <h2 className="text-[1.3rem] font-extrabold tracking-[-0.02em] text-ink-base">Párování pokladen</h2>
         <p className="mt-1 max-w-[70ch] text-[13px] text-ink-mid">
-          Ke každé pokladně z pokladního systému (Data Warehouse) vyberte odpovídající prodejnu (lokalitu portálu)
-          a doplňte město. U nenapárovaných pokladen je předvyplněný návrh podle podobnosti názvů.
+          Ke každé pokladně z pokladního systému (Data Warehouse) vyberte odpovídající prodejnu (lokalitu portálu).
+          Jedna prodejna může mít i víc pokladen. Město navrhne AI z názvu pokladny a prodejny. Pokladny, které se
+          párovat nemají (cizí provozovny, akční kasy), lze ignorovat.
         </p>
       </div>
 
@@ -127,7 +127,13 @@ export default async function PairingPage() {
         concepts={conceptOptions}
       />
 
-      <PairingEditor shops={shops} locations={locations} initialPairs={initialPairs} suggestions={suggestions} />
+      <PairingEditor
+        shops={shops}
+        locations={locations}
+        initialPairs={initialPairs}
+        suggestions={suggestions}
+        ignoredShopIds={ignoredRaw}
+      />
     </div>
   );
 }
