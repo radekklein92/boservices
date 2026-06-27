@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { TrendingDown, TrendingUp } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -9,9 +9,13 @@ import { TrendingDown, TrendingUp } from "lucide-react";
 // (ReTrendButton) a kartou na Dashboardu. Žádná grafová knihovna — plná kontrola
 // estetiky a nula bundle navíc.
 //
-// `ReTrendPanel` = readout aktuálního týdne (3 velká čísla + delta) + graf +
-// poznámka. Data (points) sestavuje server (buildReTrendPoints) a posílá je sem
-// jako props; poslední bod je vždy ŽIVÝ (aktuální, neuzavřený týden).
+// Graf měří skutečnou šířku (ResizeObserver) a kreslí v poměru 1:1 px s PEVNOU
+// výškou — text i body tak mají normální velikost nezávisle na šířce karty.
+//
+// `ReTrendPanel` má dvě varianty:
+// - "full" (modal): tři velké dlaždice s čísly + vyšší graf.
+// - "compact" (dashboard): štíhlý legend řádek + nižší graf bez vnořeného rámu.
+// Data (points) sestavuje server (buildReTrendPoints); poslední bod je vždy ŽIVÝ.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type Point = {
@@ -36,51 +40,96 @@ const SERIES: ReadonlyArray<{
   { key: "red", label: "Červeně", color: "#ef4444", goodDir: "down" }, // red-500
 ];
 
-export function ReTrendPanel({ points }: { points: Point[] }) {
+export function ReTrendPanel({
+  points,
+  variant = "full",
+}: {
+  points: Point[];
+  variant?: "full" | "compact";
+}) {
   const live = points[points.length - 1];
   // Předchozí týden = poslední uložený snímek před živým bodem.
   const prev = points.length >= 2 ? points[points.length - 2] : null;
+  const compact = variant === "compact";
 
   return (
-    <div className="flex flex-col gap-5">
-      {/* Aktuální týden — velký readout tří kategorií + delta vs minulý týden */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        {SERIES.map((s) => {
-          const cur = live[s.key];
-          const delta = prev ? cur - prev[s.key] : null;
-          return (
-            <div
-              key={s.key}
-              className="rounded-[18px] border border-edge bg-paper-warm px-4 py-3.5"
-            >
-              <span className="flex items-center gap-1.5 text-[10.5px] font-medium uppercase tracking-[0.12em] text-ink-mid">
-                <span
-                  className="h-2 w-2 shrink-0 rounded-full"
-                  style={{ backgroundColor: s.color }}
-                  aria-hidden="true"
-                />
-                {s.label}
-              </span>
-              <div className="mt-1.5 flex items-baseline gap-2">
-                <span className="text-[2rem] font-extrabold leading-none tracking-[-0.03em] tabular-nums text-ink-base">
-                  {cur}
-                </span>
-                {delta !== null && <DeltaBadge dir={s.goodDir} delta={delta} />}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+    <div className="flex flex-col gap-4">
+      {compact ? (
+        <StatLegend live={live} prev={prev} />
+      ) : (
+        <StatTiles live={live} prev={prev} />
+      )}
 
-      <TrendChart points={points} />
+      <TrendChart points={points} height={compact ? 200 : 300} bordered={!compact} />
 
-      <p className="text-[11.5px] leading-relaxed text-ink-soft">
-        Počítáno z lokalit v importu NewCo (stejně jako chipy nad tabulkou Real
-        Estate). Tečkovaný úsek a dutý bod = aktuální, ještě neuzavřený týden
-        (živý odhad).
+      <p className="text-[11px] leading-relaxed text-ink-soft">
+        {compact
+          ? "Z lokalit v importu NewCo. Tečkovaný úsek = aktuální, neuzavřený týden (živý odhad)."
+          : "Počítáno z lokalit v importu NewCo (stejně jako chipy nad tabulkou Real Estate). Tečkovaný úsek a dutý bod = aktuální, ještě neuzavřený týden (živý odhad)."}
         {points.length === 1 &&
           " Křivka se začne tvořit od příštího pondělí, kdy se uloží první týdenní snímek."}
       </p>
+    </div>
+  );
+}
+
+// Tři velké dlaždice (modal) — readout aktuálního týdne.
+function StatTiles({ live, prev }: { live: Point; prev: Point | null }) {
+  return (
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      {SERIES.map((s) => {
+        const cur = live[s.key];
+        const delta = prev ? cur - prev[s.key] : null;
+        return (
+          <div
+            key={s.key}
+            className="rounded-[18px] border border-edge bg-paper-warm px-4 py-3.5"
+          >
+            <span className="flex items-center gap-1.5 text-[10.5px] font-medium uppercase tracking-[0.12em] text-ink-mid">
+              <span
+                className="h-2 w-2 shrink-0 rounded-full"
+                style={{ backgroundColor: s.color }}
+                aria-hidden="true"
+              />
+              {s.label}
+            </span>
+            <div className="mt-1.5 flex items-baseline gap-2">
+              <span className="text-[2rem] font-extrabold leading-none tracking-[-0.03em] tabular-nums text-ink-base">
+                {cur}
+              </span>
+              {delta !== null && <DeltaBadge dir={s.goodDir} delta={delta} />}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// Štíhlý legend řádek (dashboard) — kompaktní readout + zároveň legenda grafu.
+function StatLegend({ live, prev }: { live: Point; prev: Point | null }) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-7 gap-y-3">
+      {SERIES.map((s) => {
+        const cur = live[s.key];
+        const delta = prev ? cur - prev[s.key] : null;
+        return (
+          <div key={s.key} className="flex items-center gap-2">
+            <span
+              className="h-2.5 w-2.5 shrink-0 rounded-full"
+              style={{ backgroundColor: s.color }}
+              aria-hidden="true"
+            />
+            <span className="text-[10.5px] font-medium uppercase tracking-[0.1em] text-ink-mid">
+              {s.label}
+            </span>
+            <span className="text-[1.25rem] font-extrabold leading-none tracking-[-0.02em] tabular-nums text-ink-base">
+              {cur}
+            </span>
+            {delta !== null && <DeltaBadge dir={s.goodDir} delta={delta} />}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -129,12 +178,34 @@ function fmtDM(weekEnd: string): string {
   return `${Number(d)}.${Number(m)}.`;
 }
 
-function TrendChart({ points }: { points: Point[] }) {
+function TrendChart({
+  points,
+  height = 300,
+  bordered = true,
+}: {
+  points: Point[];
+  height?: number;
+  bordered?: boolean;
+}) {
   const [active, setActive] = useState<number | null>(null);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  // Skutečná šířka vykreslené plochy → kreslíme 1:1 px (žádné proporční
+  // nafouknutí textu/bodů). Fallback 760 jen do prvního změření po mountu.
+  const [w, setW] = useState(760);
 
-  const VW = 760;
-  const VH = 320;
-  const PAD = { l: 34, r: 18, t: 18, b: 34 };
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const update = () => setW(el.clientWidth);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const VW = Math.max(320, Math.round(w));
+  const VH = height;
+  const PAD = { l: 34, r: 18, t: 16, b: 30 };
   const x0 = PAD.l;
   const x1 = VW - PAD.r;
   const yTop = PAD.t;
@@ -160,11 +231,16 @@ function TrendChart({ points }: { points: Point[] }) {
     i === 0 || i === n - 1 || i % labelEvery === 0;
 
   return (
-    <div className="rounded-[20px] border border-edge bg-paper p-3 sm:p-4">
+    <div
+      ref={wrapRef}
+      className={
+        bordered ? "rounded-[20px] border border-edge bg-paper p-3 sm:p-4" : ""
+      }
+    >
       <svg
         viewBox={`0 0 ${VW} ${VH}`}
         width="100%"
-        height="auto"
+        height={VH}
         preserveAspectRatio="xMidYMid meet"
         role="img"
         aria-label="Graf vývoje počtů kategorií v čase"
@@ -326,13 +402,7 @@ function TrendChart({ points }: { points: Point[] }) {
 
         {/* Tooltip */}
         {active !== null && (
-          <Tooltip
-            point={points[active]}
-            ax={xOf(active)}
-            x0={x0}
-            x1={x1}
-            yTop={yTop}
-          />
+          <Tooltip point={points[active]} ax={xOf(active)} x1={x1} yTop={yTop} />
         )}
 
         {/* Neviditelné hover zóny (musí být nahoře) */}
@@ -366,7 +436,6 @@ function Tooltip({
 }: {
   point: Point;
   ax: number;
-  x0: number;
   x1: number;
   yTop: number;
 }) {
