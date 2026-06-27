@@ -6,7 +6,14 @@ import { verifyPassword } from "@/lib/portal/passwords";
 declare module "next-auth" {
   interface Session {
     user: {
+      // Efektivní role - to, čím se řídí UI i gating. Při náhledu rolí
+      // (superadmin "view as") je to nasazená role, jinak = realRole.
       role?: UserRole;
+      // Skutečná role z JWT (nikdy přepsaná náhledem). Drží oprávnění
+      // přepnout náhled zpět.
+      realRole?: UserRole;
+      // Vyplněná jen když reálně probíhá náhled (assumedRole !== realRole).
+      assumedRole?: UserRole;
     } & DefaultSession["user"];
   }
   interface User {
@@ -64,7 +71,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
     async session({ session, token }) {
       if (session.user) {
-        session.user.role = (token as { role?: UserRole }).role;
+        const role = (token as { role?: UserRole }).role;
+        session.user.role = role;
+        // realRole = skutečná role z JWT. Náhled rolí ji navrství až později
+        // (applyRoleOverride), tady je vždy = skutečná role.
+        session.user.realRole = role;
       }
       return session;
     },

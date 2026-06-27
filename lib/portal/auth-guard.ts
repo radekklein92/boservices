@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { Session } from "next-auth";
 import { auth } from "@/auth";
+import { applyRoleOverride } from "@/lib/portal/role-override";
 import type { UserRole } from "@/lib/portal/users-db";
 
 export const ADMIN_ROLES: UserRole[] = ["superadmin", "admin"];
@@ -18,7 +19,9 @@ function forbidden(): NextResponse {
 }
 
 export async function requireSession(): Promise<GuardResult> {
-  const session = await auth();
+  // Náhled rolí navrství i na API gating - aby "view as user" reálně dostal
+  // 403 tam, kde user nemá co dělat (věrný test, ne jen kosmetika).
+  const session = await applyRoleOverride(await auth());
   if (!session?.user?.email) {
     return { ok: false, response: unauthorized() };
   }

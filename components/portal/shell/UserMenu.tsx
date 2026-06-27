@@ -1,6 +1,8 @@
 import { LogOut } from "lucide-react";
+import { cookies } from "next/headers";
 import type { Session } from "next-auth";
 import { signOut } from "@/auth";
+import { ASSUME_ROLE_COOKIE } from "@/lib/portal/role-override";
 
 const ROLE_LABELS: Record<string, string> = {
   superadmin: "Superadmin",
@@ -42,6 +44,9 @@ export function UserMenu({ session }: { session: Session }) {
       <form
         action={async () => {
           "use server";
+          // Náhled role je vázaný na session - při odhlášení ho zruš, ať se
+          // po dalším přihlášení nezačne v cizí roli.
+          (await cookies()).delete(ASSUME_ROLE_COOKIE);
           await signOut({ redirectTo: "/portal/login" });
         }}
       >
