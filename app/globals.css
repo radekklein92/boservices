@@ -41,6 +41,52 @@ body {
   color: var(--color-paper);
 }
 
+/* Sjednocené posuvníky napříč celou appkou.
+   macOS/Chrome jinak míchá dva různé vzhledy (tenký overlay vs. tlustý „classic")
+   podle myš/trackpad, takže horizontální posuvník vypadal jinak než vertikální a
+   tlustý pruh ukrajoval poslední řádek scrollovatelných tabulek. Tady je vždy tenký,
+   decentní a STEJNÝ v obou směrech i ve všech kontejnerech.
+   Track je průhledný (thumb plave jako pilulka), takže zaoblené rohy scroll
+   kontejnerů zůstanou vizuálně čisté.
+
+   POZOR (ověřeno v desktop Chrome): scrollbar-width (standard) a ::-webkit-scrollbar
+   (legacy) se VYLUČUJÍ — je-li na elementu scrollbar-width, Chrome ignoruje webkit
+   pseudo-elementy a vrátí se k overlay (vzhled bychom neřídili). Proto webkit řídí
+   Chrome/Safari/Edge a scrollbar-width dáváme jen Firefoxu (přes @supports), kde
+   ::-webkit-scrollbar neexistuje. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--color-ink-soft);
+  border-radius: 9999px;
+  /* Průhledný border + clip = thumb vizuálně užší (~4px) a plave uprostřed dráhy. */
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-ink-mid);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Firefox (a jiné prohlížeče bez ::-webkit-scrollbar) — tenký scrollbar v barvě appky. */
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-ink-soft) transparent;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
