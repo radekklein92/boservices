@@ -357,6 +357,76 @@ export function clientSignedAtEffective(
   return c.clientSignedAt ?? c.digisignClientSignedAt;
 }
 
+// ── Zobrazovaný stav pro UI (chip v seznamu, badge + osa na detailu) ──
+// Liší se od `status` (computed z DB) JEN u DigiSign mezistavu: klient už podepsal
+// (digisignClientSignedAt), ale finální clientSignedAt dorazí až po dokončení
+// obálky, takže status v DB zůstává „k-podpisu"/„podepsano-bos". Pro UI ale chceme
+// ukázat, že klient (efektivně) podepsal - konzistentně s dashboardem (viz
+// clientSignedAtEffective). POZOR: jen ZOBRAZENÍ - provize, Transition sync ani
+// computeContractStatus dál pracují s `status`.
+
+// „Dosažený" milník = jeho vlastní timestamp je vyplněný. U „Podepsáno klientem"
+// počítáme i DigiSign mezistav (digisignClientSignedAt).
+export function isMilestoneReached(c: Contract, status: ContractStatus): boolean {
+  switch (status) {
+    case "koncept":
+      return true;
+    case "ke-schvaleni":
+      return !!c.submittedForApprovalAt;
+    case "schvaleno":
+      return !!c.approvedAt;
+    case "k-podpisu":
+      return !!c.signerPickedAt;
+    case "podepsano-bos":
+      return !!c.signedAt;
+    case "podepsano-klientem":
+      return !!clientSignedAtEffective(c);
+    case "archivovano":
+      return c.status === "archivovano" || !!c.scanUploadedAt;
+    case "zrusena":
+      return !!c.cancelledAt;
+    default:
+      return false;
+  }
+}
+
+// Flow s podpisovými kroky seřazenými podle REÁLNÉHO pořadí podpisů: kdo podepsal
+// dřív, je v ose dřív. Ručně podepisuje BOS první (kanonické pořadí beze změny),
+// přes DigiSign může být první klient → otočí na „Podepsáno klientem → Podepsáno
+// BOS" (bez vizuální mezery ani falešného odškrtnutí BOS).
+export function displayStatusFlow(c: Contract): ContractStatus[] {
+  const flow = getStatusFlowForType(c.type);
+  const bosIdx = flow.indexOf("podepsano-bos");
+  const cliIdx = flow.indexOf("podepsano-klientem");
+  if (bosIdx === -1 || cliIdx === -1) return flow;
+  const tBos = c.signedAt ? new Date(c.signedAt).getTime() : null;
+  const cliIso = clientSignedAtEffective(c);
+  const tCli = cliIso ? new Date(cliIso).getTime() : null;
+  let clientFirst: boolean;
+  if (tBos != null && tCli != null) clientFirst = tCli <= tBos;
+  else if (tCli != null) clientFirst = true;
+  else if (tBos != null) clientFirst = false;
+  else return flow; // zatím nikdo nepodepsal - ponech kanonické pořadí
+  const lo = Math.min(bosIdx, cliIdx);
+  const hi = Math.max(bosIdx, cliIdx);
+  const out = flow.slice();
+  out[lo] = clientFirst ? "podepsano-klientem" : "podepsano-bos";
+  out[hi] = clientFirst ? "podepsano-bos" : "podepsano-klientem";
+  return out;
+}
+
+// Stav pro UI = nejdál DOSAŽENÝ milník v zobrazeném pořadí. U ručního flow je
+// roven computed `status`; u DigiSign mezistavu posune na „Podepsáno klientem".
+export function contractDisplayStatus(c: Contract): ContractStatus {
+  if (c.cancelledAt) return "zrusena";
+  const flow = displayStatusFlow(c);
+  let idx = 0;
+  flow.forEach((status, i) => {
+    if (isMilestoneReached(c, status)) idx = i;
+  });
+  return flow[idx]!;
+}
+
 // Pole timestampu + „kdo" pro každý milník - pro hromadné dorovnání předchozích
 // kroků.
 const STATUS_MILESTONE_FIELDS: Partial<

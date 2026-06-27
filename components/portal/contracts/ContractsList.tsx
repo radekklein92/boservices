@@ -28,6 +28,7 @@ import {
   ALL_CONTRACT_STATUSES,
   canEditContractLock,
   canManageContractLock,
+  contractDisplayStatus,
   CONTRACT_STATUS_LABEL,
   CONTRACT_STATUS_STYLE,
   isContractEditable,
@@ -117,7 +118,10 @@ const ContractRow = memo(function ContractRow({
   onRemove,
 }: ContractRowProps) {
   const meta = CONTRACT_TYPE_META[c.type];
-  const StatusIcon = CONTRACT_STATUS_ICON[c.status];
+  // Chip ukazuje ZOBRAZOVANÝ stav (u DigiSign mezistavu „Podepsáno klientem"),
+  // konzistentně s osou na detailu. Editovatelnost/zámek dál řeší reálný c.status.
+  const displayStatus = contractDisplayStatus(c);
+  const StatusIcon = CONTRACT_STATUS_ICON[displayStatus];
   // Uzamčeno pro mě = zámek existuje a nejsem mezi povolenými.
   const lockedForMe =
     !!c.editLock &&
@@ -199,9 +203,9 @@ const ContractRow = memo(function ContractRow({
           )}
         </div>
       </div>
-      <Chip tone={CONTRACT_STATUS_STYLE[c.status]}>
+      <Chip tone={CONTRACT_STATUS_STYLE[displayStatus]}>
         <StatusIcon className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
-        {CONTRACT_STATUS_LABEL[c.status]}
+        {CONTRACT_STATUS_LABEL[displayStatus]}
       </Chip>
       <div className="hidden flex-col items-end gap-1 md:flex">
         <div className="text-[10.5px] font-medium uppercase tracking-[0.18em] text-ink-mid">
@@ -331,14 +335,17 @@ export function ContractsList({
       archivovano: 0,
       zrusena: 0,
     };
-    for (const c of items) m[c.status]++;
+    // Počty i filtr jedou podle ZOBRAZOVANÉHO stavu (jako chip), ať souhlasí
+    // číslo u facetu s tím, co je v seznamu vidět - vč. DigiSign mezistavu.
+    for (const c of items) m[contractDisplayStatus(c)]++;
     return m;
   }, [items]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return items.filter((c) => {
-      if (statusFilters.size > 0 && !statusFilters.has(c.status)) return false;
+      if (statusFilters.size > 0 && !statusFilters.has(contractDisplayStatus(c)))
+        return false;
       if (!q) return true;
       return [
         c.clientName,

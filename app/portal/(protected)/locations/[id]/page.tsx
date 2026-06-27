@@ -4,7 +4,7 @@ import {
   cachedListContracts,
   cachedListReFlags,
 } from "@/lib/portal/cached-db";
-import { statusOrder } from "@/lib/portal/contracts-db";
+import { contractDisplayStatus, statusOrder } from "@/lib/portal/contracts-db";
 import {
   LocationDetail,
   type LocationContractRow,
@@ -50,7 +50,9 @@ export default async function LocationDetailPage({
     .map((c) => ({
       id: c.id,
       type: c.type,
-      status: c.status,
+      // Zobrazovaný stav (u DigiSign mezistavu „Podepsáno klientem") - konzistentně
+      // s osou na detailu, seznamem i řazením („nejdál ve flow nahoře").
+      status: contractDisplayStatus(c),
       clientName: c.clientName,
       number: c.number ?? null,
       cancelled: Boolean(c.cancelledAt),

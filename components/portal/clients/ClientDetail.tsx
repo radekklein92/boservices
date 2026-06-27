@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowUpRight, FileText } from "lucide-react";
 import type { Client } from "@/lib/portal/clients-db";
 import {
+  contractDisplayStatus,
   CONTRACT_STATUS_LABEL,
   CONTRACT_STATUS_STYLE,
   type Contract,
@@ -143,7 +144,9 @@ function ContractsSection({
       <ul className="divide-y divide-edge">
         {contracts.map((c) => {
           const meta = CONTRACT_TYPE_META[c.type];
-          const StatusIcon = CONTRACT_STATUS_ICON[c.status];
+          // Zobrazovaný stav (u DigiSign mezistavu „Podepsáno klientem").
+          const displayStatus = contractDisplayStatus(c);
+          const StatusIcon = CONTRACT_STATUS_ICON[displayStatus];
           return (
             <li key={c.id}>
               <Link
@@ -164,9 +167,9 @@ function ContractsSection({
                     <span>{formatDate(c.createdAt)}</span>
                   </div>
                 </div>
-                <Chip tone={CONTRACT_STATUS_STYLE[c.status]} className="hidden sm:inline-flex">
+                <Chip tone={CONTRACT_STATUS_STYLE[displayStatus]} className="hidden sm:inline-flex">
                   <StatusIcon className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
-                  {CONTRACT_STATUS_LABEL[c.status]}
+                  {CONTRACT_STATUS_LABEL[displayStatus]}
                 </Chip>
                 <ArrowUpRight
                   className="h-3.5 w-3.5 shrink-0 text-ink-soft transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
