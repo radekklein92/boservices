@@ -9,6 +9,7 @@ const TABS: { href: string; label: string }[] = [
   { href: "/portal/pos", label: "Přehled" },
   { href: "/portal/pos/provozovny", label: "Provozovny" },
   { href: "/portal/pos/znacky", label: "Značky" },
+  { href: "/portal/pos/mesta", label: "Města" },
   { href: "/portal/pos/produkty", label: "Produkty" },
   { href: "/portal/pos/uctenky", label: "Účtenky" },
   { href: "/portal/pos/reporty", label: "Reporty" },

@@ -1,11 +1,12 @@
 import { canSeePOS } from "@/lib/portal/auth-guard";
 import { getSession } from "@/lib/portal/get-session";
 import { COMPARISON_LABEL, parsePosFilter, type PosFilter } from "@/lib/portal/pos/filters";
-import { getDailyTrend, getKpiSummary } from "@/lib/portal/pos/queries";
+import { getAllShops, getDailyTrend, getKpiSummary, getShopLeaderboardFull } from "@/lib/portal/pos/queries";
 import { isPosApiConfigured } from "@/lib/portal/pos/api";
 import type { SummaryRow } from "@/lib/portal/pos/types";
 import { PosKpiCard } from "@/components/portal/pos/PosKpiCard";
 import { PosLineChart } from "@/components/portal/pos/PosLineChart";
+import { PosDeltaBadge } from "@/components/portal/pos/PosDeltaBadge";
 import { formatPosMoney, formatPosNumber, formatPct } from "@/components/portal/pos/pos-shared";
 
 export const dynamic = "force-dynamic";
@@ -42,7 +43,55 @@ export default async function PosOverviewPage({
     <div className="flex flex-col gap-8">
       <Kpis filter={filter} />
       <Trend filter={filter} />
+      <Exceptions filter={filter} />
     </div>
+  );
+}
+
+// Výjimky: pobočky s největším poklesem tržeb vs srovnávací období. Jen když je
+// srovnání zapnuté. Floor 1000 (v měně filtru) odfiltruje šum z drobných poboček.
+async function Exceptions({ filter }: { filter: PosFilter }) {
+  if (!isPosApiConfigured() || filter.comparison === "zadne") return null;
+  let rows: Awaited<ReturnType<typeof getShopLeaderboardFull>>;
+  let shopsRaw: Awaited<ReturnType<typeof getAllShops>>;
+  try {
+    [rows, shopsRaw] = await Promise.all([getShopLeaderboardFull(filter), getAllShops()]);
+  } catch {
+    return null;
+  }
+  const useNet = !filter.vatInclusive;
+  const shopName = new Map(shopsRaw.map((s) => [s.id, s.name]));
+  const decliners = rows
+    .map((r) => {
+      const value = useNet ? r.net : r.gross;
+      const prev = useNet ? r.prevNet : r.prevGross;
+      const delta = prev != null && prev > 0 ? (value - prev) / prev : null;
+      return { id: r.shop_id, name: shopName.get(r.shop_id) ?? r.shop_id, value, prev, delta };
+    })
+    .filter((d) => d.delta != null && d.delta <= -0.15 && (d.prev ?? 0) >= 1000)
+    .sort((a, b) => (a.delta as number) - (b.delta as number))
+    .slice(0, 8);
+
+  if (decliners.length === 0) return null;
+
+  return (
+    <section className="flex flex-col gap-3">
+      <h2 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink-mid">
+        Výjimky - největší pokles vs {COMPARISON_LABEL[filter.comparison].toLowerCase()}
+      </h2>
+      <div className="overflow-hidden rounded-2xl border border-edge bg-paper">
+        {decliners.map((d) => (
+          <div
+            key={d.id}
+            className="flex items-center gap-3 border-b border-edge/60 px-4 py-2.5 text-[13px] last:border-0"
+          >
+            <span className="min-w-0 flex-1 truncate text-ink-base">{d.name}</span>
+            <span className="tabular-nums text-ink-mid">{formatPosMoney(d.value, filter.currency)}</span>
+            <PosDeltaBadge current={d.value} previous={d.prev} goodDir="up" className="w-[68px] justify-end text-[11.5px]" />
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
