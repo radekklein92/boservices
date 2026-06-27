@@ -58,7 +58,9 @@ const CHECKIN_LABEL: Record<ReCheckInStatus, string> = {
   problem: "Problém",
 };
 
-function statusButtons(token: string): TgInlineKeyboard {
+// Exportováno i pro webhook: po kliknutí „Zpět" (z výběru držitele nájmu) se
+// těmito třemi tlačítky obnoví původní volba.
+export function statusButtons(token: string): TgInlineKeyboard {
   return {
     inline_keyboard: [
       [

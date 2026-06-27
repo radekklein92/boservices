@@ -2,11 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireSession } from "@/lib/portal/auth-guard";
 import { bustLocations } from "@/lib/portal/revalidate";
-import {
-  getLocation,
-  setMirroredLocation,
-  type MirroredLocation,
-} from "@/lib/portal/locations-db";
+import { getLocation } from "@/lib/portal/locations-db";
+import { writeTransitionField } from "@/lib/portal/transition";
 
 // Write-through editace vybraných polí lokality. Pole jsou z Transition (zdroj
 // pravdy), proto se zapisují TAM přes jeho public PATCH API; po úspěchu se z
@@ -64,53 +61,24 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "Lokalita nenalezena" }, { status: 404 });
   }
 
-  const baseUrl = process.env.TRANSITION_LOCATIONS_URL;
-  const token = process.env.TRANSITION_API_TOKEN;
-  if (!baseUrl || !token) {
+  const result = await writeTransitionField(
+    id,
+    field,
+    value,
+    g.session.user?.email ?? "portal",
+  );
+  if (!result.ok) {
     return NextResponse.json(
-      { ok: false, error: "Integrace s Transition není nastavená." },
-      { status: 503 },
+      { ok: false, error: result.error },
+      { status: result.status },
     );
   }
-
-  let txRes: Response;
-  try {
-    txRes = await fetch(`${baseUrl}/${id}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ field, value, actor: g.session.user!.email }),
-      cache: "no-store",
-    });
-  } catch {
-    return NextResponse.json(
-      { ok: false, error: "Transition není dostupný." },
-      { status: 502 },
-    );
-  }
-
-  const txData = (await txRes.json().catch(() => null)) as
-    | { ok?: boolean; error?: string; location?: MirroredLocation }
-    | null;
-  if (!txRes.ok || !txData?.ok) {
-    return NextResponse.json(
-      { ok: false, error: txData?.error || `Transition vrátil ${txRes.status}` },
-      { status: 502 },
-    );
-  }
-
-  // Write-through: zapsat vrácenou lokalitu do zrcadla (Transition už má novou
-  // hodnotu, takže příští full-replace sync je konzistentní).
-  const updated = txData.location;
-  if (updated?.id) await setMirroredLocation(updated);
   bustLocations();
 
   return NextResponse.json({
     ok: true,
     field,
     // Autoritativní hodnota z Transition (po případné derivaci).
-    value: updated ? updated[field] : value,
+    value: result.location ? result.location[field] : value,
   });
 }
