@@ -7,6 +7,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 // (searchParams) do odkazů, takže přepnutí tabu zachová rozsah/období/měnu.
 const TABS: { href: string; label: string }[] = [
   { href: "/portal/pos", label: "Přehled" },
+  { href: "/portal/pos/zive", label: "Živě" },
   { href: "/portal/pos/provozovny", label: "Provozovny" },
   { href: "/portal/pos/znacky", label: "Značky" },
   { href: "/portal/pos/mesta", label: "Města" },

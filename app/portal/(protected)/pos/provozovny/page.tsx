@@ -44,21 +44,23 @@ export default async function PosShopsPage({
   const brandName = new Map(brandsRaw.map((b) => [b.id, b.name]));
   const useNet = !filter.vatInclusive;
 
-  const leaderRows: LeaderRow[] = rows.map((r) => {
-    const city = pairing.cityByShop.get(r.shop_id);
-    const sub = [brandName.get(r.brand_id) ?? "", city ?? ""].filter(Boolean).join(" · ");
-    const scoped = serializePosFilter({ ...filter, scope: { kind: "shop", shopId: r.shop_id } }).toString();
-    return {
-      id: r.shop_id,
-      label: shopName.get(r.shop_id) ?? r.shop_id,
-      sublabel: sub || undefined,
-      href: `/portal/pos${scoped ? `?${scoped}` : ""}`,
-      value: useNet ? r.net : r.gross,
-      prev: useNet ? r.prevNet : r.prevGross,
-      receipts: r.receipts,
-      atv: r.receipts > 0 ? r.gross / r.receipts : null,
-    };
-  });
+  const filterQs = serializePosFilter(filter).toString();
+  const leaderRows: LeaderRow[] = rows
+    .filter((r) => shopName.has(r.shop_id))
+    .map((r) => {
+      const city = pairing.cityByShop.get(r.shop_id);
+      const sub = [brandName.get(r.brand_id) ?? "", city ?? ""].filter(Boolean).join(" · ");
+      return {
+        id: r.shop_id,
+        label: shopName.get(r.shop_id) as string,
+        sublabel: sub || undefined,
+        href: `/portal/pos/provozovny/${r.shop_id}${filterQs ? `?${filterQs}` : ""}`,
+        value: useNet ? r.net : r.gross,
+        prev: useNet ? r.prevNet : r.prevGross,
+        receipts: r.receipts,
+        atv: r.receipts > 0 ? r.gross / r.receipts : null,
+      };
+    });
 
   return (
     <section className="flex flex-col gap-3">
