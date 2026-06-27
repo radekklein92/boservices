@@ -9,7 +9,7 @@ import "server-only";
 // - rozsvítí se po jejich nasazení; do té doby vrací PosApiError (UI degraduje).
 import * as api from "./api";
 import { posQuery } from "./cache";
-import { clampWindow, clampLimit, clampPage, MAX_RAW_WINDOW_DAYS } from "./guards";
+import { clampWindow, clampLimit, clampPage, isTestShop, MAX_RAW_WINDOW_DAYS } from "./guards";
 import {
   resolveComparisonRange,
   resolveDateRange,
@@ -73,9 +73,9 @@ async function collectShops(): Promise<ApiShop[]> {
   return out;
 }
 const _allShops = posQuery(() => collectShops(), "all-shops");
-// Všechny pobočky (pro párovací UI). Cachované přes posQuery (sync-stamp).
-export function getAllShops(): Promise<ApiShop[]> {
-  return _allShops();
+// Pobočky pro UI - bez test/neprodejních (Trdlokafe "Test*/VRP"). Cachované.
+export async function getAllShops(): Promise<ApiShop[]> {
+  return (await _allShops()).filter((s) => !isTestShop(s.name));
 }
 
 // --- KPI souhrn (existující endpoint /v1/revenue/summary) ---

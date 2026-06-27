@@ -32,7 +32,7 @@ export default async function PairingPage() {
     return (
       <Notice
         title="POS data nejsou nakonfigurovaná"
-        body="Nastavte POS_API_BASE a POS_API_KEY v prostředí (Vercel), aby šlo načíst pobočky k napárování."
+        body="Nastavte POS_API_BASE a POS_API_KEY v prostředí (Vercel), aby šlo načíst pokladny k napárování."
       />
     );
   }
@@ -51,15 +51,10 @@ export default async function PairingPage() {
       getBrandConceptMap(),
     ]);
   } catch {
-    return <Notice title="Data dočasně nedostupná" body="Nepodařilo se načíst pobočky z API Data Warehouse." />;
+    return <Notice title="Data dočasně nedostupná" body="Nepodařilo se načíst pokladny z API Data Warehouse." />;
   }
 
   const brandName = new Map(brandsRaw.map((b) => [b.id, b.name]));
-  const locations = locationsRaw
-    .map((l) => ({ id: l.id, name: l.name, code: l.code, concept: l.concept as string }))
-    .sort((a, b) => a.name.localeCompare(b.name, "cs"));
-
-  const pairByShop = new Map(pairsRaw.map((p) => [p.dwShopId, p]));
   const shops = shopsRaw
     .map((s) => ({
       id: s.id,
@@ -67,33 +62,38 @@ export default async function PairingPage() {
       brandId: s.brand_id,
       brandName: brandName.get(s.brand_id) ?? s.brand_id,
       city: s.city,
-      code: s.code,
     }))
     .sort((a, b) => a.name.localeCompare(b.name, "cs"));
 
-  // Návrhy: nenapárované pobočky -> lokalita se shodným normalizovaným názvem.
-  const locByNorm = new Map<string, string>();
-  for (const l of locations) {
-    const k = norm(l.name);
-    if (k && !locByNorm.has(k)) locByNorm.set(k, l.id);
-  }
-  const suggestions: Record<string, string> = {};
-  const initialPairs: Record<string, { locationId: string | null; city: string }> = {};
-  for (const s of shops) {
-    const pair = pairByShop.get(s.id);
-    initialPairs[s.id] = { locationId: pair?.locationId ?? null, city: pair?.city ?? "" };
-    if (!pair?.locationId) {
-      const hit = locByNorm.get(norm(s.name));
-      if (hit) suggestions[s.id] = hit;
+  const locations = locationsRaw
+    .map((l) => ({ id: l.id, name: l.name, code: l.code }))
+    .sort((a, b) => a.name.localeCompare(b.name, "cs"));
+
+  // Současné párování z pohledu lokality + množina přiřazených pokladen.
+  const initialPairs: Record<string, { dwShopId: string | null; city: string }> = {};
+  const assignedShopIds = new Set<string>();
+  for (const p of pairsRaw) {
+    if (p.locationId) {
+      initialPairs[p.locationId] = { dwShopId: p.dwShopId, city: p.city };
+      assignedShopIds.add(p.dwShopId);
     }
   }
 
-  // Osiřelé párování = záznam k pobočce, která už v DW není.
-  const shopIds = new Set(shops.map((s) => s.id));
-  const orphaned = pairsRaw
-    .filter((p) => !shopIds.has(p.dwShopId))
-    .map((p) => ({ dwShopId: p.dwShopId, dwShopName: p.dwShopName, city: p.city }));
+  // Návrhy: lokalita bez párování -> nepřiřazená pokladna se shodným názvem.
+  const shopByNorm = new Map<string, string>();
+  for (const s of shops) {
+    if (assignedShopIds.has(s.id)) continue;
+    const k = norm(s.name);
+    if (k && !shopByNorm.has(k)) shopByNorm.set(k, s.id);
+  }
+  const suggestions: Record<string, string> = {};
+  for (const loc of locations) {
+    if (initialPairs[loc.id]?.dwShopId) continue;
+    const hit = shopByNorm.get(norm(loc.name));
+    if (hit) suggestions[loc.id] = hit;
+  }
 
+  const unpairedShops = shops.filter((s) => !assignedShopIds.has(s.id));
   const conceptOptions = CONCEPTS.map((c) => ({ value: c, label: CONCEPT_LABEL[c] }));
 
   return (
@@ -101,19 +101,23 @@ export default async function PairingPage() {
       <div>
         <h2 className="text-[1.3rem] font-extrabold tracking-[-0.02em] text-ink-base">Párování pokladen</h2>
         <p className="mt-1 max-w-[70ch] text-[13px] text-ink-mid">
-          Napárujte pobočky z pokladního systému (Data Warehouse) na lokality portálu a doplňte město.
-          Město a párování jsou autoritativní pro filtr podle měst a propojení s lokalitami.
+          Ke každé lokalitě portálu přiřaďte odpovídající pokladnu z pokladního systému (Data Warehouse)
+          a doplňte město. Párování a město jsou autoritativní pro filtr podle měst a propojení tržeb s lokalitami.
         </p>
       </div>
 
-      <BrandConceptMap brands={brandsRaw.map((b) => ({ id: b.id, name: b.name }))} initialMap={brandConcept} concepts={conceptOptions} />
+      <BrandConceptMap
+        brands={brandsRaw.map((b) => ({ id: b.id, name: b.name }))}
+        initialMap={brandConcept}
+        concepts={conceptOptions}
+      />
 
       <PairingEditor
-        shops={shops}
         locations={locations}
+        shops={shops}
         initialPairs={initialPairs}
         suggestions={suggestions}
-        orphaned={orphaned}
+        unpairedShops={unpairedShops}
       />
     </div>
   );

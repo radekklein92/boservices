@@ -89,6 +89,36 @@ export async function upsertShopPair(
   return merged;
 }
 
+// Párování z pohledu LOKALITY (UI je location-primary): přiřadí pokladnu na
+// lokalitu a drží integritu 1 lokalita <-> 1 pokladna. Když na lokalitě už visí
+// JINÁ pokladna, nejdřív ji odpojí (locationId=null), pak napáruje zvolenou.
+export async function setLocationPairing(input: {
+  locationId: string;
+  dwShopId: string | null;
+  city?: string;
+  brandId?: string;
+  dwShopName?: string;
+  pairedBy: string;
+}): Promise<void> {
+  const r = getRedis();
+  if (!r) throw new Error("Redis not configured");
+  const currentShopId = await r.get<string>(locIndexKey(input.locationId));
+  if (currentShopId && currentShopId !== input.dwShopId) {
+    await upsertShopPair({ dwShopId: currentShopId, locationId: null });
+  }
+  if (input.dwShopId) {
+    await upsertShopPair({
+      dwShopId: input.dwShopId,
+      locationId: input.locationId,
+      city: input.city,
+      brandId: input.brandId,
+      dwShopName: input.dwShopName,
+      pairedBy: input.pairedBy,
+      pairedAt: new Date().toISOString(),
+    });
+  }
+}
+
 export async function removeShopPair(dwShopId: string): Promise<void> {
   const r = getRedis();
   if (!r) throw new Error("Redis not configured");

@@ -59,6 +59,16 @@ export function normalizeVatRate(rate: number | null | undefined): number | null
   return Math.round(r * 1000) / 1000;
 }
 
+// Podepsaná absolutní delta vedle %. Research: absolutní hodnota u procenta
+// pomáhá zkorigovat klamné velké % ("+843 %" vedle "+1,2 mil." se samo upřesní).
+export function signedMoneyCompact(delta: number, currency: string): string {
+  return (delta >= 0 ? "+" : "-") + formatPosMoneyCompact(Math.abs(delta), currency);
+}
+
+export function signedNumber(delta: number): string {
+  return (delta >= 0 ? "+" : "-") + formatPosNumber(Math.abs(delta));
+}
+
 export const DAYPART_LABEL: Record<Daypart, string> = {
   rano: "Ráno",
   dopoledne: "Dopoledne",
