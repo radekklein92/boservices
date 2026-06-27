@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
   LayoutDashboard,
+  BarChart3,
   Building2,
   FileText,
   FilePenLine,
@@ -44,6 +45,11 @@ const commissionsItem: Item = {
   Icon: HandCoins,
 };
 
+// Pokladna: vlastní sekce (manager + admin), pod-obrazovky jsou taby uvnitř /portal/pos.
+const pokladna: Item[] = [
+  { href: "/portal/pos", label: "Tržby", Icon: BarChart3 },
+];
+
 const admin: Item[] = [
   { href: "/portal/templates", label: "Šablony smluv", Icon: FilePenLine },
   { href: "/portal/design-system", label: "Design system", Icon: Palette },
@@ -54,10 +60,12 @@ const admin: Item[] = [
 export function SidebarNav({
   isAdmin,
   canSeeCommissions = false,
+  canSeePOS = false,
   tasksBadge = 0,
 }: {
   isAdmin: boolean;
   canSeeCommissions?: boolean;
+  canSeePOS?: boolean;
   tasksBadge?: number;
 }) {
   const pathname = usePathname() ?? "/portal";
@@ -91,6 +99,18 @@ export function SidebarNav({
           />
         )}
       </NavSection>
+
+      {canSeePOS && (
+        <NavSection label="Pokladna">
+          {pokladna.map((item) => (
+            <NavItem
+              key={item.href}
+              {...item}
+              active={isActive(pathname, item.href)}
+            />
+          ))}
+        </NavSection>
+      )}
 
       {isAdmin && (
         <NavSection label="Administrace">

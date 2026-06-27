@@ -17,11 +17,13 @@ import { SidebarNav } from "./SidebarNav";
 export function MobileTopBar({
   isAdmin,
   canSeeCommissions = false,
+  canSeePOS = false,
   userMenu,
   tasksBadge = 0,
 }: {
   isAdmin: boolean;
   canSeeCommissions?: boolean;
+  canSeePOS?: boolean;
   userMenu: ReactNode;
   tasksBadge?: number;
 }) {
@@ -119,6 +121,7 @@ export function MobileTopBar({
             <SidebarNav
               isAdmin={isAdmin}
               canSeeCommissions={canSeeCommissions}
+              canSeePOS={canSeePOS}
               tasksBadge={tasksBadge}
             />
             <div className="border-t border-edge p-3">{userMenu}</div>
