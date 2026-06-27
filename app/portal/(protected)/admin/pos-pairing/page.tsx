@@ -15,13 +15,23 @@ export const metadata = { title: "Pokladna - Párování pokladen" };
 
 const CONCEPTS = Object.keys(CONCEPT_LABEL) as LocationConcept[];
 
-function norm(s: string): string {
+function tokenize(s: string): string[] {
   return s
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, " ")
-    .trim();
+    .trim()
+    .split(/\s+/)
+    .filter((t) => t.length >= 2);
+}
+
+// Podobnost názvů = sdílené tokeny / max(délka). 0..1.
+function score(a: string[], b: Set<string>): number {
+  if (!a.length || !b.size) return 0;
+  let shared = 0;
+  for (const t of a) if (b.has(t)) shared++;
+  return shared / Math.max(a.length, b.size);
 }
 
 export default async function PairingPage() {
@@ -69,31 +79,36 @@ export default async function PairingPage() {
     .map((l) => ({ id: l.id, name: l.name, code: l.code }))
     .sort((a, b) => a.name.localeCompare(b.name, "cs"));
 
-  // Současné párování z pohledu lokality + množina přiřazených pokladen.
-  const initialPairs: Record<string, { dwShopId: string | null; city: string }> = {};
-  const assignedShopIds = new Set<string>();
+  // Současné párování z pohledu pokladny + obsazené lokality.
+  const initialPairs: Record<string, { locationId: string | null; city: string }> = {};
+  const assignedLocationIds = new Set<string>();
   for (const p of pairsRaw) {
     if (p.locationId) {
-      initialPairs[p.locationId] = { dwShopId: p.dwShopId, city: p.city };
-      assignedShopIds.add(p.dwShopId);
+      initialPairs[p.dwShopId] = { locationId: p.locationId, city: p.city };
+      assignedLocationIds.add(p.locationId);
     }
   }
 
-  // Návrhy: lokalita bez párování -> nepřiřazená pokladna se shodným názvem.
-  const shopByNorm = new Map<string, string>();
-  for (const s of shops) {
-    if (assignedShopIds.has(s.id)) continue;
-    const k = norm(s.name);
-    if (k && !shopByNorm.has(k)) shopByNorm.set(k, s.id);
-  }
+  // Našeptávání: pro každou nenapárovanou pokladnu nejlépe sedící VOLNÁ lokalita
+  // podle podobnosti názvů (token match).
+  const locTokens = locations.map((l) => ({ id: l.id, tokens: new Set(tokenize(l.name)) }));
   const suggestions: Record<string, string> = {};
-  for (const loc of locations) {
-    if (initialPairs[loc.id]?.dwShopId) continue;
-    const hit = shopByNorm.get(norm(loc.name));
-    if (hit) suggestions[loc.id] = hit;
+  for (const s of shops) {
+    if (initialPairs[s.id]?.locationId) continue;
+    const st = tokenize(s.name);
+    let best: string | null = null;
+    let bestScore = 0;
+    for (const lt of locTokens) {
+      if (assignedLocationIds.has(lt.id)) continue;
+      const sc = score(st, lt.tokens);
+      if (sc > bestScore) {
+        bestScore = sc;
+        best = lt.id;
+      }
+    }
+    if (best && bestScore >= 0.3) suggestions[s.id] = best;
   }
 
-  const unpairedShops = shops.filter((s) => !assignedShopIds.has(s.id));
   const conceptOptions = CONCEPTS.map((c) => ({ value: c, label: CONCEPT_LABEL[c] }));
 
   return (
@@ -101,8 +116,8 @@ export default async function PairingPage() {
       <div>
         <h2 className="text-[1.3rem] font-extrabold tracking-[-0.02em] text-ink-base">Párování pokladen</h2>
         <p className="mt-1 max-w-[70ch] text-[13px] text-ink-mid">
-          Ke každé lokalitě portálu přiřaďte odpovídající pokladnu z pokladního systému (Data Warehouse)
-          a doplňte město. Párování a město jsou autoritativní pro filtr podle měst a propojení tržeb s lokalitami.
+          Ke každé pokladně z pokladního systému (Data Warehouse) vyberte odpovídající prodejnu (lokalitu portálu)
+          a doplňte město. U nenapárovaných pokladen je předvyplněný návrh podle podobnosti názvů.
         </p>
       </div>
 
@@ -112,13 +127,7 @@ export default async function PairingPage() {
         concepts={conceptOptions}
       />
 
-      <PairingEditor
-        locations={locations}
-        shops={shops}
-        initialPairs={initialPairs}
-        suggestions={suggestions}
-        unpairedShops={unpairedShops}
-      />
+      <PairingEditor shops={shops} locations={locations} initialPairs={initialPairs} suggestions={suggestions} />
     </div>
   );
 }
