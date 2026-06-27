@@ -13,7 +13,6 @@ import {
   FilePenLine,
   HandCoins,
   KeyRound,
-  KeySquare,
   ListChecks,
   MapPin,
   Palette,
@@ -30,6 +29,8 @@ type Item = {
   disabled?: boolean;
   // external = plný odkaz do jiné aplikace (DW dashboard) → <a>, ne client <Link>.
   external?: boolean;
+  // newTab = otevřít v novém okně/záložce (target="_blank").
+  newTab?: boolean;
 };
 
 const main: Item[] = [
@@ -66,11 +67,16 @@ const admin: Item[] = [
   { href: "/portal/design-system", label: "Design system", Icon: Palette },
   { href: "/portal/admin/telegram", label: "Telegram", Icon: Send },
   { href: "/portal/users", label: "Uživatelé", Icon: Users },
-  // Clouds + API keys žijí v DW dashboardu (dw.boservices.cz). Odkaz jde přes
-  // /api/portal/sso-dw, který razí SSO handoff → admin se dostane dovnitř bez
-  // druhého loginu. external → plný <a> (route handler + 302 na jinou doménu).
-  { href: "/api/portal/sso-dw?to=clouds", label: "Clouds", Icon: Cloud, external: true },
-  { href: "/api/portal/sso-dw?to=api-keys", label: "API keys", Icon: KeySquare, external: true },
+  // Dotykačka = správa cloudů i API klíčů; obojí žije v DW dashboardu
+  // (dw.boservices.cz, vlastní nav). Odkaz jde přes /api/portal/sso-dw (SSO
+  // handoff → bez druhého loginu); external = plný <a>, newTab = nové okno.
+  {
+    href: "/api/portal/sso-dw?to=clouds",
+    label: "Dotykačka",
+    Icon: Cloud,
+    external: true,
+    newTab: true,
+  },
 ];
 
 export function SidebarNav({
@@ -212,6 +218,7 @@ function NavItem({
   active,
   disabled,
   external,
+  newTab,
   badge = 0,
 }: Item & { active: boolean; badge?: number }) {
   const base =
@@ -255,7 +262,11 @@ function NavItem({
   // client-side <Link> (ten by mířil na route handler a selhal).
   if (external) {
     return (
-      <a href={href} className={`${base} ${state}`}>
+      <a
+        href={href}
+        className={`${base} ${state}`}
+        {...(newTab ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+      >
         {inner}
       </a>
     );
