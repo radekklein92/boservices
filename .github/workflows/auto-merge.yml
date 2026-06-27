@@ -1,0 +1,28 @@
+name: Auto-merge pull requests
+
+# Po otevření PR (nebo jeho zveřejnění z draftu) automaticky zapne GitHub
+# auto-merge (squash). GitHub merge dotáhne sám, jakmile projde povinný check
+# Vercel - branch protection na main už nevyžaduje review (count 0).
+#
+# Běží pod default GITHUB_TOKEN (žádný secret není potřeba). Drafty se přeskakují.
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enable auto-merge (squash)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >
+          gh pr merge "${{ github.event.pull_request.number }}"
+          --repo "${{ github.repository }}"
+          --auto --squash
