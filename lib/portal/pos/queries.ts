@@ -18,6 +18,7 @@ import {
 } from "./filters";
 import type {
   ApiBrand,
+  ApiShop,
   BrandRevenueRow,
   DailyRevenueRow,
   DaypartRow,
@@ -57,6 +58,21 @@ function rawWindow(filter: PosFilter): DateRange {
 const _brands = posQuery(() => api.getBrands(), "brands");
 export async function getBrands(): Promise<ApiBrand[]> {
   return (await _brands()).data;
+}
+
+async function collectShops(): Promise<ApiShop[]> {
+  const out: ApiShop[] = [];
+  for (let page = 0; page <= 20; page++) {
+    const res = await api.listShops({ page, limit: 200 });
+    out.push(...res.data);
+    if (res.data.length === 0 || (page + 1) * 200 >= res.meta.total) break;
+  }
+  return out;
+}
+const _allShops = posQuery(() => collectShops(), "all-shops");
+// Všechny pobočky (pro párovací UI). Cachované přes posQuery (sync-stamp).
+export function getAllShops(): Promise<ApiShop[]> {
+  return _allShops();
 }
 
 // --- KPI souhrn (existující endpoint /v1/revenue/summary) ---

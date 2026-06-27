@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   BarChart3,
   Building2,
+  Store,
   FileText,
   FilePenLine,
   HandCoins,
@@ -51,6 +52,7 @@ const pokladna: Item[] = [
 ];
 
 const admin: Item[] = [
+  { href: "/portal/admin/pos-pairing", label: "Párování pokladen", Icon: Store },
   { href: "/portal/templates", label: "Šablony smluv", Icon: FilePenLine },
   { href: "/portal/design-system", label: "Design system", Icon: Palette },
   { href: "/portal/admin/telegram", label: "Telegram", Icon: Send },
