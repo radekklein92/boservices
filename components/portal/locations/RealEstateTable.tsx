@@ -28,6 +28,7 @@ import {
   businessPlanView,
   COLUMN_STORAGE_KEY,
   COLUMNS,
+  isRedFlagged,
   LEASE_HOLDER_LABEL,
   LEASE_TARGET_SUMMARY,
   RE_AGENT_SUMMARY,
@@ -80,13 +81,12 @@ const DEFAULT_RECON: ReconStatus[] = ["needs"];
 
 // Patří řádek do samostatné kategorie „Červeně"? Jen NEVYŘEŠENÁ červená: červená
 // lokalita s vyřešeným nájmem (recon=resolved) přepadá do Vyřešeno a z Červeně
-// mizí — z pohledu nájmu na ní není co řešit. Sdílený predikát pro filtr, počty
-// i řazení (a sladěno s Telegram digestem), ať chipy, čísla a pořadí sedí.
+// mizí — z pohledu nájmu na ní není co řešit. Červená = z importu NewCo
+// (flaggedRed) NEBO ruční označení (manualRed) — viz isRedFlagged. Sdílený
+// predikát pro filtr, počty i řazení (a sladěno s Telegram digestem), ať chipy,
+// čísla a pořadí sedí.
 function isRedBucket(r: RealEstateRow): boolean {
-  return (
-    Boolean(r.newco?.flaggedRed) &&
-    reconcile(r.leaseCurrent, r.leaseTarget) === "needs"
-  );
+  return isRedFlagged(r) && reconcile(r.leaseCurrent, r.leaseTarget) === "needs";
 }
 
 // Projde řádek aktuálním filtrem „stav řešení + Červeně"? Sdílí `filtered`
@@ -116,7 +116,7 @@ function passesReconRed(
 // normální recon dle nájmu.
 function effectiveReconWeight(r: RealEstateRow): number {
   const rec = reconcile(r.leaseCurrent, r.leaseTarget);
-  if (rec === "needs" && r.newco?.flaggedRed && r.solveDespiteRed) {
+  if (rec === "needs" && isRedFlagged(r) && r.solveDespiteRed) {
     return RECON_SORT_WEIGHT.needs;
   }
   return RECON_SORT_WEIGHT[rec];
@@ -141,6 +141,7 @@ export function RealEstateTable({
   onNoteApplied,
   onFlagsApplied,
   onSolveDespiteRedApplied,
+  onManualRedApplied,
   onCatalogChanged,
   onFlagDeleted,
 }: {
@@ -152,6 +153,7 @@ export function RealEstateTable({
   onNoteApplied: (id: string, note: string) => void;
   onFlagsApplied: (id: string, flagIds: string[]) => void;
   onSolveDespiteRedApplied: (id: string, value: boolean) => void;
+  onManualRedApplied: (id: string, value: boolean) => void;
   onCatalogChanged: (next: ReFlag[]) => void;
   onFlagDeleted: (flagId: string) => void;
 }) {
@@ -670,6 +672,7 @@ export function RealEstateTable({
                           onFieldApplied,
                           onNoteApplied,
                           onSolveDespiteRedApplied,
+                          onManualRedApplied,
                           flagCtx,
                         )}
                       </td>
@@ -693,6 +696,7 @@ function renderCell(
   onFieldApplied: (id: string, field: TransitionField, value: string | null) => void,
   onNoteApplied: (id: string, note: string) => void,
   onSolveDespiteRedApplied: (id: string, value: boolean) => void,
+  onManualRedApplied: (id: string, value: boolean) => void,
   flagCtx: FlagCtx,
 ) {
   switch (id) {
@@ -773,15 +777,19 @@ function renderCell(
         <Dash />
       );
     case "flaggedRed":
-      if (!r.newco) return <Dash />;
-      // Nečervená: read-only „Ne". Červená: cyklující chip
-      // Červeně ↔ Červeně + řešit (lokální příznak, write-through do BOServices).
-      if (!r.newco.flaggedRed) return <Chip tone={FLAG_NEUTRAL_TONE}>Ne</Chip>;
+      // Jediný chip pro všechny stavy: nečervená → nabídne ruční označení;
+      // červená z importu (flaggedRed) i ručně (manualRed) → cyklus + řešit,
+      // ruční jde navíc zrušit. Ruční se vizuálně odliší od importu (čárkovaný
+      // okraj + štítek „ručně"). Vše write-through do BOServices.
       return (
         <RedFlagCell
           id={r.id}
+          importRed={Boolean(r.newco?.flaggedRed)}
+          manualRed={r.manualRed}
           solveDespiteRed={r.solveDespiteRed}
-          onApplied={(v) => onSolveDespiteRedApplied(r.id, v)}
+          hasNewco={Boolean(r.newco)}
+          onSolveApplied={(v) => onSolveDespiteRedApplied(r.id, v)}
+          onManualRedApplied={(v) => onManualRedApplied(r.id, v)}
         />
       );
     case "franchise":
@@ -1006,7 +1014,7 @@ function sortValue(r: RealEstateRow, key: ColumnId): string | number {
       // Sémantické pořadí core→exit (ne abecedně); null (neznámá) na konec.
       return r.category ? CATEGORY_ORDER.indexOf(r.category) : 99;
     case "flaggedRed":
-      return r.newco?.flaggedRed ? 0 : 1; // červené první (asc)
+      return isRedFlagged(r) ? 0 : 1; // červené první (asc)
     case "franchise":
       return r.franchiseContractId ? 0 : 1; // podepsané první (asc)
     case "leaseCurrent":

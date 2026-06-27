@@ -157,6 +157,12 @@ export interface LocationLocal {
   // kategorie mimo Řešit/Vyřešeno; s tímto příznakem lokalita zůstane v „Červeně"
   // a NAVÍC se vždy započítá do filtru „Řešit". Bez efektu, když není flaggedRed.
   solveDespiteRed?: boolean;
+  // Ruční označení „Červeně" (mimo import NewCo). Když lokalita NENÍ červená
+  // z importu (newco.flaggedRed), lze ji takto označit ručně — chová se pak
+  // stejně (samostatná kategorie „Červeně", + řešit přes solveDespiteRed). Drží
+  // kdo/kdy, aby šlo v UI odlišit ruční označení od importu. Import
+  // (setLocationNewCo) se ho NEDOTÝKÁ → ruční příznak přežije reimport.
+  manualRed?: { by: string; at: string };
   attachments: LocationAttachment[];
   newco?: LocationNewCo;
   // Poslední check-in od RE agenta přes Telegram (viz LocationReCheckIn).
@@ -333,14 +339,14 @@ export async function listLocationNewcoMap(): Promise<
 }
 
 // Mapa id lokality → lokální data potřebná pro Real Estate tabulku
-// (note + newco + flagIds + solveDespiteRed + reCheckIn). Jeden pipeline scan
-// místo N getů (vzor listLocationIdsWithAttachments / listLocationNewcoMap).
+// (note + newco + flagIds + solveDespiteRed + manualRed + reCheckIn). Jeden
+// pipeline scan místo N getů (vzor listLocationIdsWithAttachments / listLocationNewcoMap).
 export async function listLocationLocalMap(): Promise<
   Map<
     string,
     Pick<
       LocationLocal,
-      "note" | "newco" | "flagIds" | "solveDespiteRed" | "reCheckIn"
+      "note" | "newco" | "flagIds" | "solveDespiteRed" | "manualRed" | "reCheckIn"
     >
   >
 > {
@@ -348,7 +354,7 @@ export async function listLocationLocalMap(): Promise<
     string,
     Pick<
       LocationLocal,
-      "note" | "newco" | "flagIds" | "solveDespiteRed" | "reCheckIn"
+      "note" | "newco" | "flagIds" | "solveDespiteRed" | "manualRed" | "reCheckIn"
     >
   >();
   const r = getRedis();
@@ -365,6 +371,7 @@ export async function listLocationLocalMap(): Promise<
         newco: local.newco,
         flagIds: local.flagIds,
         solveDespiteRed: local.solveDespiteRed,
+        manualRed: local.manualRed,
         reCheckIn: local.reCheckIn,
       });
     }

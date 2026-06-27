@@ -44,6 +44,11 @@ export type RealEstateRow = {
   // lokalita zůstane v „Červeně" a NAVÍC se vždy započítá do „Řešit". Bez efektu,
   // když lokalita není flaggedRed.
   solveDespiteRed: boolean;
+  // Ruční označení „Červeně" (mimo import NewCo; lokální, LocationLocal.manualRed).
+  // null = ručně neoznačeno. Pro lokalitu, která NENÍ červená z importu, ji takto
+  // lze označit ručně — v UI se odliší od importu (kdo/kdy). Sdílí red bucket
+  // logiku s flaggedRed (viz isRedFlagged).
+  manualRed: { by: string; at: string } | null;
   leaseCurrent: LeaseStatus;
   leaseTarget: LeaseStatus;
   // Id podepsané franšízingové smlouvy (status „podepsáno klientem"+ vč. DigiSign
@@ -55,6 +60,15 @@ export type RealEstateRow = {
   // hlásí „Vyřešeno", ale recon je pořád „Řešit", je to viditelný nesoulad.
   reCheckIn: { status: ReCheckInStatus; at: string } | null;
 };
+
+// Je lokalita „Červeně"? Sjednocuje oba zdroje: červená z importu NewCo
+// (newco.flaggedRed) NEBO ruční označení (manualRed). Sdílený predikát pro
+// red bucket, řazení i export, ať se oba zdroje chovají identicky.
+export function isRedFlagged(
+  r: Pick<RealEstateRow, "newco" | "manualRed">,
+): boolean {
+  return Boolean(r.newco?.flaggedRed) || Boolean(r.manualRed);
+}
 
 // ── Stav řešení nájmu (porovnání aktuální vs cílový) ──────────────────────────
 

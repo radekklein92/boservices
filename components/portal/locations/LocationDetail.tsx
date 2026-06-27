@@ -228,15 +228,24 @@ export function LocationDetail({
               <span className="shrink-0 text-[12.5px] text-ink-mid">Označeno červeně</span>
               <Chip
                 tone={
-                  l.local.newco.flaggedRed
+                  l.local.newco.flaggedRed || l.local.manualRed
                     ? "border-red-300 bg-red-50 text-red-700"
                     : "border-edge bg-edge-warm text-ink-mid"
                 }
               >
-                {l.local.newco.flaggedRed ? "Ano" : "Ne"}
+                {l.local.newco.flaggedRed
+                  ? "Ano"
+                  : l.local.manualRed
+                    ? "Ano (ručně)"
+                    : "Ne"}
               </Chip>
             </div>
-            {l.local.newco.flaggedRed && (
+            {l.local.manualRed && !l.local.newco.flaggedRed && (
+              <p className="text-[11.5px] text-ink-soft">
+                Ručně označeno {formatDate(l.local.manualRed.at)} · {l.local.manualRed.by}
+              </p>
+            )}
+            {(l.local.newco.flaggedRed || l.local.manualRed) && (
               <Row
                 label="Řešit i přes červenou"
                 value={l.local.solveDespiteRed ? "Ano" : "Ne"}
