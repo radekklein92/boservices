@@ -8,10 +8,12 @@ import {
   BarChart3,
   Building2,
   ChevronDown,
+  Cloud,
   FileText,
   FilePenLine,
   HandCoins,
   KeyRound,
+  KeySquare,
   ListChecks,
   MapPin,
   Palette,
@@ -26,6 +28,8 @@ type Item = {
   label: string;
   Icon: LucideIcon;
   disabled?: boolean;
+  // external = plný odkaz do jiné aplikace (DW dashboard) → <a>, ne client <Link>.
+  external?: boolean;
 };
 
 const main: Item[] = [
@@ -62,6 +66,11 @@ const admin: Item[] = [
   { href: "/portal/design-system", label: "Design system", Icon: Palette },
   { href: "/portal/admin/telegram", label: "Telegram", Icon: Send },
   { href: "/portal/users", label: "Uživatelé", Icon: Users },
+  // Clouds + API keys žijí v DW dashboardu (dw.boservices.cz). Odkaz jde přes
+  // /api/portal/sso-dw, který razí SSO handoff → admin se dostane dovnitř bez
+  // druhého loginu. external → plný <a> (route handler + 302 na jinou doménu).
+  { href: "/api/portal/sso-dw?to=clouds", label: "Clouds", Icon: Cloud, external: true },
+  { href: "/api/portal/sso-dw?to=api-keys", label: "API keys", Icon: KeySquare, external: true },
 ];
 
 export function SidebarNav({
@@ -202,6 +211,7 @@ function NavItem({
   Icon,
   active,
   disabled,
+  external,
   badge = 0,
 }: Item & { active: boolean; badge?: number }) {
   const base =
@@ -224,8 +234,8 @@ function NavItem({
     );
   }
 
-  return (
-    <Link href={href} className={`${base} ${state}`}>
+  const inner = (
+    <>
       <Icon className="h-4 w-4 shrink-0" strokeWidth={1.5} aria-hidden="true" />
       <span className="flex-1 truncate">{label}</span>
       {badge > 0 && (
@@ -238,6 +248,22 @@ function NavItem({
           }`}
         />
       )}
+    </>
+  );
+
+  // Odkaz do jiné aplikace (DW dashboard přes SSO) musí být plná navigace, ne
+  // client-side <Link> (ten by mířil na route handler a selhal).
+  if (external) {
+    return (
+      <a href={href} className={`${base} ${state}`}>
+        {inner}
+      </a>
+    );
+  }
+
+  return (
+    <Link href={href} className={`${base} ${state}`}>
+      {inner}
     </Link>
   );
 }
