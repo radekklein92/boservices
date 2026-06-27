@@ -5,7 +5,6 @@ import { isAdminRole } from "@/lib/portal/auth-guard";
 import { isSalespersonEmail } from "@/lib/portal/commissions";
 import { SidebarNav } from "./SidebarNav";
 import { UserMenu } from "./UserMenu";
-import { RoleSwitcher } from "./RoleSwitcher";
 
 export function Sidebar({
   session,
@@ -36,10 +35,6 @@ export function Sidebar({
       />
 
       <div className="border-t border-edge p-3">
-        <RoleSwitcher
-          realRole={session.user?.realRole}
-          effectiveRole={session.user?.role}
-        />
         <UserMenu session={session} />
       </div>
     </aside>
