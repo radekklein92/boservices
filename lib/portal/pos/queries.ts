@@ -14,6 +14,7 @@ import {
   resolveComparisonRange,
   resolveDateRange,
   type DateRange,
+  type PosDatePreset,
   type PosFilter,
 } from "./filters";
 import type {
@@ -93,6 +94,28 @@ export async function getKpiSummary(filter: PosFilter): Promise<KpiSummary> {
   const current = (await _summary(range.from, range.to, brand_id, shop_id)).data;
   const comparison = cmp ? (await _summary(cmp.from, cmp.to, brand_id, shop_id)).data : null;
   return { current, comparison };
+}
+
+// Souhrn za pevná období (Dnes / Tento týden / Tento měsíc / Tento rok) ve scope
+// a měně filtru - pro boční panel na Přehledu. Reusuje cached _summary.
+export async function getPeriodTotals(
+  filter: PosFilter,
+): Promise<{ key: PosDatePreset; label: string; net: number; gross: number; receipts: number }[]> {
+  const { brand_id, shop_id } = scopeParams(filter);
+  const presets: { key: PosDatePreset; label: string }[] = [
+    { key: "dnes", label: "Dnes" },
+    { key: "tento-tyden", label: "Tento týden" },
+    { key: "tento-mesic", label: "Tento měsíc" },
+    { key: "tento-rok", label: "Tento rok" },
+  ];
+  return Promise.all(
+    presets.map(async (p) => {
+      const range = resolveDateRange({ ...filter, preset: p.key });
+      const data = (await _summary(range.from, range.to, brand_id, shop_id)).data;
+      const r = data.find((x) => x.currency === filter.currency);
+      return { key: p.key, label: p.label, net: r?.net ?? 0, gross: r?.gross ?? 0, receipts: r?.receipts ?? 0 };
+    }),
+  );
 }
 
 // --- Denní trend (existující /v1/revenue/daily, stránkováno -> sběr všech stran) ---
