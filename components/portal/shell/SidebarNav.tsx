@@ -63,13 +63,10 @@ const commissionsItem: Item = {
 
 const admin: Item[] = [
   { href: "/portal/admin/pos-pairing", label: "Párování pokladen", Icon: Store },
-  { href: "/portal/templates", label: "Šablony smluv", Icon: FilePenLine },
-  { href: "/portal/design-system", label: "Design system", Icon: Palette },
-  { href: "/portal/admin/telegram", label: "Telegram", Icon: Send },
-  { href: "/portal/users", label: "Uživatelé", Icon: Users },
   // Dotykačka = správa cloudů i API klíčů; obojí žije v DW dashboardu
   // (dw.boservices.cz, vlastní nav). Odkaz jde přes /api/portal/sso-dw (SSO
   // handoff → bez druhého loginu); external = plný <a>, newTab = nové okno.
+  // Hned pod Párováním pokladen - obojí je o pokladnách/Dotykačce.
   {
     href: "/api/portal/sso-dw?to=clouds",
     label: "Dotykačka",
@@ -77,6 +74,10 @@ const admin: Item[] = [
     external: true,
     newTab: true,
   },
+  { href: "/portal/templates", label: "Šablony smluv", Icon: FilePenLine },
+  { href: "/portal/design-system", label: "Design system", Icon: Palette },
+  { href: "/portal/admin/telegram", label: "Telegram", Icon: Send },
+  { href: "/portal/users", label: "Uživatelé", Icon: Users },
 ];
 
 export function SidebarNav({
