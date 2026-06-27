@@ -268,15 +268,18 @@ export type ColumnDef = {
   always?: boolean;
 };
 
+// Pořadí v poli = výchozí pořadí sloupců zleva doprava. Uživatel si pořadí
+// i viditelnost přeskupuje sám (dnd-kit v dropdownu "Sloupce"), uloží se do
+// localStorage. defaultVisible = výchozí sada pro toho, kdo si nic nenastavil.
 export const COLUMNS: ColumnDef[] = [
   { id: "location", label: "Lokalita", defaultVisible: true, always: true },
   { id: "storeStatus", label: "Stav prodejny", defaultVisible: true },
   { id: "reAgent", label: "RE agent", defaultVisible: true },
-  { id: "ceip1", label: "Entita CEIP 1", defaultVisible: true },
+  { id: "ceip1", label: "Entita CEIP 1", defaultVisible: false },
   { id: "ceip2", label: "Entita CEIP 2", defaultVisible: false },
-  { id: "businessPlan", label: "Business plán", defaultVisible: true },
-  { id: "operationalType", label: "Operational type", defaultVisible: true },
-  { id: "category", label: "Kategorie", defaultVisible: true },
+  { id: "businessPlan", label: "Business plán", defaultVisible: false },
+  { id: "operationalType", label: "Operational type", defaultVisible: false },
+  { id: "category", label: "Kategorie", defaultVisible: false },
   { id: "flaggedRed", label: "Červeně", defaultVisible: true },
   { id: "franchise", label: "Franšíza", defaultVisible: true },
   { id: "leaseCurrent", label: "Nájem aktuálně", defaultVisible: true },
@@ -286,7 +289,51 @@ export const COLUMNS: ColumnDef[] = [
   { id: "note", label: "Poznámka", defaultVisible: true },
 ];
 
-// v4: přibyl sloupec "reCheckIn" (Hlášení agenta z Telegramu), default-visible.
-// Bump resetuje uloženou sadu na defaulty, ať se nový sloupec u všech zobrazí.
-// (v3: category default-visible + zrušený sloupec "Flagy" → ikonky u názvu.)
-export const COLUMN_STORAGE_KEY = "re-table-cols-v4";
+export const COLUMNS_BY_ID: Map<ColumnId, ColumnDef> = new Map(
+  COLUMNS.map((c) => [c.id, c]),
+);
+
+// Uložený stav sloupců: pořadí (permutace ColumnId) + viditelná sada.
+export type StoredColumnState = { order: ColumnId[]; visible: ColumnId[] };
+
+// v5: nový formát {order, visible} — uživatel si přeskupuje i pořadí sloupců;
+// zúžené defaulty (CEIP1/Business plán/Operational type/Kategorie skryté).
+// Migrace ze starého v4 (ColumnId[] = jen viditelnost) zachová custom sadu,
+// ať se nikomu, kdo si sloupce nastavil, pohled nepřepíše.
+export const COLUMN_STORAGE_KEY = "re-table-cols-v5";
+export const COLUMN_STORAGE_KEY_LEGACY = "re-table-cols-v4";
+
+// Vrátí validní pořadí sloupců: always sloupce (Lokalita) vždy první kvůli
+// sticky layoutu, pak uložené pořadí (jen platná ID, bez duplicit), nakonec
+// doplní sloupce, které v uloženém pořadí chybí (nově přidané), v pořadí COLUMNS.
+export function normalizeColumnOrder(saved: readonly ColumnId[] | undefined): ColumnId[] {
+  const alwaysIds = COLUMNS.filter((c) => c.always).map((c) => c.id);
+  const seen = new Set<ColumnId>(alwaysIds);
+  const rest: ColumnId[] = [];
+  for (const id of saved ?? []) {
+    if (COLUMNS_BY_ID.has(id) && !seen.has(id)) {
+      rest.push(id);
+      seen.add(id);
+    }
+  }
+  for (const c of COLUMNS) {
+    if (!seen.has(c.id)) {
+      rest.push(c.id);
+      seen.add(c.id);
+    }
+  }
+  return [...alwaysIds, ...rest];
+}
+
+// Vrátí viditelnou sadu. saved === undefined → výchozí (defaultVisible).
+// saved zadané → přesně tato sada (jen platná ID); always sloupce vždy přidá.
+export function normalizeVisibleCols(saved: readonly ColumnId[] | undefined): Set<ColumnId> {
+  const out = new Set<ColumnId>();
+  if (saved === undefined) {
+    for (const c of COLUMNS) if (c.defaultVisible) out.add(c.id);
+  } else {
+    for (const id of saved) if (COLUMNS_BY_ID.has(id)) out.add(id);
+  }
+  for (const c of COLUMNS) if (c.always) out.add(c.id);
+  return out;
+}

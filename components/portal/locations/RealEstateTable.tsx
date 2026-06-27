@@ -10,11 +10,28 @@ import {
   ChevronsUpDown,
   Columns3,
   FileSpreadsheet,
+  GripVertical,
   Loader2,
   MapPin,
+  RotateCcw,
   Search,
   Store,
 } from "lucide-react";
+import {
+  DndContext,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { Chip } from "@/components/portal/ui/Chip";
 import { FilterChip } from "@/components/portal/ui/FilterChip";
 import type { LeaseStatus, ReAgent } from "@/lib/portal/locations-db";
@@ -27,7 +44,11 @@ import {
 import {
   businessPlanView,
   COLUMN_STORAGE_KEY,
+  COLUMN_STORAGE_KEY_LEGACY,
   COLUMNS,
+  COLUMNS_BY_ID,
+  normalizeColumnOrder,
+  normalizeVisibleCols,
   isRedFlagged,
   LEASE_HOLDER_LABEL,
   LEASE_TARGET_SUMMARY,
@@ -40,9 +61,11 @@ import {
   reconcile,
   STORE_STATUS_META,
   STORE_STATUS_SORT_WEIGHT,
+  type ColumnDef,
   type ColumnId,
   type RealEstateRow,
   type ReconStatus,
+  type StoredColumnState,
 } from "./real-estate-shared";
 import {
   TransitionSelectCell,
@@ -171,22 +194,32 @@ export function RealEstateTable({
   const colMenuRef = useRef<HTMLDivElement | null>(null);
   const [exporting, setExporting] = useState(false);
 
-  // Init z defaultVisible (deterministic kvůli hydrataci), pak přepiš z localStorage.
+  // Init z výchozích hodnot (deterministic kvůli hydrataci), pak přepiš z localStorage.
   const [visibleCols, setVisibleCols] = useState<Set<ColumnId>>(
-    () => new Set(COLUMNS.filter((c) => c.defaultVisible).map((c) => c.id)),
+    () => normalizeVisibleCols(undefined),
   );
+  const [colOrder, setColOrder] = useState<ColumnId[]>(
+    () => normalizeColumnOrder(undefined),
+  );
+  // Drag jen po posunu o 5px — klik na checkbox/handle nezačne přesun.
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   useEffect(() => {
     try {
+      // Nový formát (v5): pořadí + viditelnost.
       const raw = localStorage.getItem(COLUMN_STORAGE_KEY);
-      if (!raw) return;
-      const ids = JSON.parse(raw) as ColumnId[];
-      const valid = new Set(COLUMNS.map((c) => c.id));
-      const next = new Set(ids.filter((i) => valid.has(i)));
-      COLUMNS.forEach((c) => {
-        if (c.always) next.add(c.id);
-      });
-      if (next.size) setVisibleCols(next);
+      if (raw) {
+        const parsed = JSON.parse(raw) as Partial<StoredColumnState>;
+        setColOrder(normalizeColumnOrder(parsed.order));
+        setVisibleCols(normalizeVisibleCols(parsed.visible));
+        return;
+      }
+      // Migrace ze starého v4 (jen viditelnost) — zachová custom sadu, pořadí výchozí.
+      const legacy = localStorage.getItem(COLUMN_STORAGE_KEY_LEGACY);
+      if (legacy) {
+        const ids = JSON.parse(legacy) as ColumnId[];
+        setVisibleCols(normalizeVisibleCols(ids));
+      }
     } catch {
       /* ignore */
     }
@@ -201,20 +234,50 @@ export function RealEstateTable({
     return () => window.removeEventListener("mousedown", onDown);
   }, [colMenuOpen]);
 
+  function persistColState(order: ColumnId[], visible: Set<ColumnId>) {
+    try {
+      const payload: StoredColumnState = { order, visible: [...visible] };
+      localStorage.setItem(COLUMN_STORAGE_KEY, JSON.stringify(payload));
+    } catch {
+      /* ignore */
+    }
+  }
+
   function toggleCol(id: ColumnId) {
+    if (COLUMNS_BY_ID.get(id)?.always) return;
     setVisibleCols((prev) => {
-      const col = COLUMNS.find((c) => c.id === id);
-      if (col?.always) return prev;
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
-      try {
-        localStorage.setItem(COLUMN_STORAGE_KEY, JSON.stringify([...next]));
-      } catch {
-        /* ignore */
-      }
+      persistColState(colOrder, next);
       return next;
     });
+  }
+
+  function onColDragEnd(e: DragEndEvent) {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    setColOrder((prev) => {
+      const oldI = prev.indexOf(active.id as ColumnId);
+      const newI = prev.indexOf(over.id as ColumnId);
+      if (oldI < 0 || newI < 0) return prev;
+      const next = arrayMove(prev, oldI, newI);
+      persistColState(next, visibleCols);
+      return next;
+    });
+  }
+
+  function resetCols() {
+    const order = normalizeColumnOrder(undefined);
+    const visible = normalizeVisibleCols(undefined);
+    setColOrder(order);
+    setVisibleCols(visible);
+    try {
+      localStorage.removeItem(COLUMN_STORAGE_KEY);
+      localStorage.removeItem(COLUMN_STORAGE_KEY_LEGACY);
+    } catch {
+      /* ignore */
+    }
   }
 
   function toggleRecon(s: ReconStatus) {
@@ -413,7 +476,19 @@ export function RealEstateTable({
     }
   }
 
-  const cols = COLUMNS.filter((c) => visibleCols.has(c.id));
+  // Pořadí i viditelnost řídí uživatel (colOrder + visibleCols). Hlavička i tělo
+  // tabulky iterují přes `cols`, takže se přeskupí i překreslí podle nastavení.
+  const orderedCols = colOrder
+    .map((id) => COLUMNS_BY_ID.get(id))
+    .filter((c): c is ColumnDef => !!c);
+  const cols = orderedCols.filter((c) => visibleCols.has(c.id));
+  // V menu: Lokalita (always) je fixní první kvůli sticky sloupci a nepřesouvá se;
+  // ostatní jdou do dnd-kit seznamu (drag pro pořadí + checkbox pro viditelnost).
+  const fixedCols = orderedCols.filter((c) => c.always);
+  const sortableCols = orderedCols.filter((c) => !c.always);
+  const isColsDefault =
+    colOrder.every((id, i) => COLUMNS[i]?.id === id) &&
+    COLUMNS.every((c) => visibleCols.has(c.id) === (c.defaultVisible || !!c.always));
   // "Zrušit filtr" se ukáže jen když se pohled liší od defaultu (resolved + červené
   // skryté, ostatní viditelné) — reset proto vrací do defaultu, ne do prázdna.
   const reconIsDefault =
@@ -556,26 +631,57 @@ export function RealEstateTable({
               Sloupce
             </button>
             {colMenuOpen && (
-              <div className="absolute right-0 z-40 mt-2 w-56 rounded-xl border border-edge bg-paper py-1 shadow-[0_12px_28px_-12px_rgba(14,14,14,0.3)]">
-                {COLUMNS.map((c) => (
-                  <label
-                    key={c.id}
-                    className={`flex items-center gap-2.5 px-3 py-1.5 text-[12.5px] transition-colors ${
-                      c.always
-                        ? "cursor-not-allowed text-ink-soft"
-                        : "cursor-pointer text-ink-deep hover:bg-paper-warm"
-                    }`}
+              <div className="absolute right-0 z-40 mt-2 max-h-[70vh] w-64 overflow-y-auto rounded-xl border border-edge bg-paper py-1 shadow-[0_12px_28px_-12px_rgba(14,14,14,0.3)]">
+                <div className="flex items-center justify-between gap-2 px-3 pb-1.5 pt-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-soft">
+                    Sloupce
+                  </span>
+                  <button
+                    type="button"
+                    onClick={resetCols}
+                    disabled={isColsDefault}
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-ink-mid transition-colors hover:text-ink-base disabled:cursor-not-allowed disabled:opacity-40"
+                    title="Vrátí viditelnost i pořadí sloupců na výchozí"
                   >
+                    <RotateCcw className="h-3 w-3" strokeWidth={1.8} aria-hidden="true" />
+                    Výchozí
+                  </button>
+                </div>
+                {fixedCols.map((c) => (
+                  <div
+                    key={c.id}
+                    className="flex cursor-not-allowed items-center gap-2 px-3 py-1.5 text-[12.5px] text-ink-soft"
+                    title="Lokalitu nelze skrýt ani přesunout"
+                  >
+                    <span className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                     <input
                       type="checkbox"
-                      checked={visibleCols.has(c.id)}
-                      disabled={c.always}
-                      onChange={() => toggleCol(c.id)}
+                      checked
+                      disabled
                       className="h-3.5 w-3.5 accent-ink-base"
                     />
                     {c.label}
-                  </label>
+                  </div>
                 ))}
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={onColDragEnd}
+                >
+                  <SortableContext
+                    items={sortableCols.map((c) => c.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    {sortableCols.map((c) => (
+                      <SortableColumnRow
+                        key={c.id}
+                        col={c}
+                        checked={visibleCols.has(c.id)}
+                        onToggle={() => toggleCol(c.id)}
+                      />
+                    ))}
+                  </SortableContext>
+                </DndContext>
               </div>
             )}
           </div>
@@ -684,6 +790,50 @@ export function RealEstateTable({
           </table>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Řádek v menu Sloupce: drag handle (pořadí) + checkbox (viditelnost) ──────
+
+function SortableColumnRow({
+  col,
+  checked,
+  onToggle,
+}: {
+  col: ColumnDef;
+  checked: boolean;
+  onToggle: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: col.id,
+  });
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={`group flex items-center gap-2 px-3 py-1.5 text-[12.5px] text-ink-deep ${
+        isDragging ? "bg-paper-warm opacity-70" : "hover:bg-paper-warm"
+      }`}
+    >
+      <button
+        type="button"
+        className="shrink-0 cursor-grab touch-none text-ink-soft opacity-40 transition-opacity group-hover:opacity-100"
+        {...attributes}
+        {...listeners}
+        aria-label={`Přetáhnout sloupec ${col.label}`}
+      >
+        <GripVertical className="h-3.5 w-3.5" strokeWidth={1.5} />
+      </button>
+      <label className="flex flex-1 cursor-pointer items-center gap-2.5">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={onToggle}
+          className="h-3.5 w-3.5 accent-ink-base"
+        />
+        {col.label}
+      </label>
     </div>
   );
 }
