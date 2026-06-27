@@ -78,12 +78,24 @@ const FLAG_NEUTRAL_TONE = "border-edge bg-edge-warm text-ink-mid";
 // i lokality označené v NewCo červeně. Obojí jde zase odkrýt chipy níž.
 const DEFAULT_RECON: ReconStatus[] = ["needs"];
 
+// Patří řádek do samostatné kategorie „Červeně"? Jen NEVYŘEŠENÁ červená: červená
+// lokalita s vyřešeným nájmem (recon=resolved) přepadá do Vyřešeno a z Červeně
+// mizí — z pohledu nájmu na ní není co řešit. Sdílený predikát pro filtr, počty
+// i řazení (a sladěno s Telegram digestem), ať chipy, čísla a pořadí sedí.
+function isRedBucket(r: RealEstateRow): boolean {
+  return (
+    Boolean(r.newco?.flaggedRed) &&
+    reconcile(r.leaseCurrent, r.leaseTarget) === "needs"
+  );
+}
+
 // Projde řádek aktuálním filtrem „stav řešení + Červeně"? Sdílí `filtered`
 // i `flagCounts`, ať čísla na chipech sedí s tabulkou.
-// - Červené jsou samostatná kategorie: standardně je řídí jen chip „Červeně".
-// - Má-li ale červená lokalita „stejně řešit" (solveDespiteRed), chová se NAVÍC
-//   jako Řešit (needs) → projde i přes recon filtr, když je „Řešit" zvolené.
-//   Pořád projde i přes „Červeně".
+// - Nevyřešené červené jsou samostatná kategorie: standardně je řídí jen chip
+//   „Červeně". Má-li ale taková červená „stejně řešit" (solveDespiteRed), chová
+//   se NAVÍC jako Řešit (needs) → projde i přes „Řešit". Pořád projde i přes
+//   „Červeně".
+// - Vyřešená červená přepadá do Vyřešeno (řídí ji chip „Vyřešeno", ne „Červeně").
 // - Nečervené řídí výhradně recon filtr. Prázdný výběr stavů = nic nečerveného
 //   (NESMÍ znamenat „zobraz vše", #21).
 function passesReconRed(
@@ -91,18 +103,23 @@ function passesReconRed(
   reconFilter: Set<ReconStatus>,
   showRed: boolean,
 ): boolean {
-  if (r.newco?.flaggedRed) {
+  if (isRedBucket(r)) {
     if (showRed) return true;
     return r.solveDespiteRed && reconFilter.has("needs");
   }
+  // Nečervená NEBO vyřešená červená → dle reconu (vyřešená červená do Vyřešeno).
   return reconFilter.has(reconcile(r.leaseCurrent, r.leaseTarget));
 }
 
-// Efektivní váha „stavu řešení" pro řazení: červená + „stejně řešit" = vždy Řešit
-// (needs, nahoru), jinak normální recon dle nájmu.
+// Efektivní váha „stavu řešení" pro řazení: vyřešený nájem = Vyřešeno (i u
+// červené). Nevyřešená červená s „stejně řešit" = Řešit (needs, nahoru), jinak
+// normální recon dle nájmu.
 function effectiveReconWeight(r: RealEstateRow): number {
-  if (r.newco?.flaggedRed && r.solveDespiteRed) return RECON_SORT_WEIGHT.needs;
-  return RECON_SORT_WEIGHT[reconcile(r.leaseCurrent, r.leaseTarget)];
+  const rec = reconcile(r.leaseCurrent, r.leaseTarget);
+  if (rec === "needs" && r.newco?.flaggedRed && r.solveDespiteRed) {
+    return RECON_SORT_WEIGHT.needs;
+  }
+  return RECON_SORT_WEIGHT[rec];
 }
 
 // Kontext flagů prostrčený do renderCell (jeden objekt místo pěti parametrů).
@@ -248,22 +265,24 @@ export function RealEstateTable({
     const m: Record<ReconStatus, number> = { needs: 0, resolved: 0 };
     for (const r of queried) {
       if (flagFilter.size && !r.flagIds.some((id) => flagFilter.has(id))) continue;
-      if (r.newco?.flaggedRed) {
-        // Červené = vlastní kategorie mimo recon; výjimka „stejně řešit" se
-        // vždy započítá do Řešit (a zůstane i v počtu Červeně níž).
+      if (isRedBucket(r)) {
+        // Nevyřešená červená = vlastní kategorie mimo recon; výjimka „stejně
+        // řešit" se vždy započítá do Řešit (a zůstane i v počtu Červeně níž).
         if (r.solveDespiteRed) m.needs++;
         continue;
       }
+      // Nečervená i vyřešená červená → dle reconu (vyřešená červená do Vyřešeno).
       m[reconcile(r.leaseCurrent, r.leaseTarget)]++;
     }
     return m;
   }, [queried, flagFilter]);
 
-  // Červený počet respektuje jen flag filtr (ne recon — červené stojí mimo něj).
+  // Červený počet = jen NEVYŘEŠENÉ červené (vyřešené přepadly do Vyřešeno).
+  // Respektuje flag filtr; recon je už zohledněn v isRedBucket.
   const redCount = useMemo(() => {
     let n = 0;
     for (const r of queried) {
-      if (!r.newco?.flaggedRed) continue;
+      if (!isRedBucket(r)) continue;
       if (flagFilter.size && !r.flagIds.some((id) => flagFilter.has(id))) continue;
       n++;
     }
@@ -333,12 +352,13 @@ export function RealEstateTable({
   const sorted = useMemo(() => {
     const arr = [...filtered];
     if (!sort) {
-      // Default: běžné červené až dolů (samostatná kategorie mimo Řešit/Vyřešeno).
-      // Výjimka „stejně řešit" je nahoře mezi ostatními needs. Uvnitř skupin
-      // needs-attention nahoře → název.
+      // Default: nevyřešené červené až dolů (samostatná kategorie mimo
+      // Řešit/Vyřešeno). Výjimka „stejně řešit" je nahoře mezi ostatními needs;
+      // vyřešená červená přepadla do Vyřešeno, takže „dolů" se na ni nevztahuje.
+      // Uvnitř skupin needs-attention nahoře → název.
       arr.sort((a, b) => {
-        const ra = a.newco?.flaggedRed && !a.solveDespiteRed ? 1 : 0;
-        const rb = b.newco?.flaggedRed && !b.solveDespiteRed ? 1 : 0;
+        const ra = isRedBucket(a) && !a.solveDespiteRed ? 1 : 0;
+        const rb = isRedBucket(b) && !b.solveDespiteRed ? 1 : 0;
         if (ra !== rb) return ra - rb;
         const wa = effectiveReconWeight(a);
         const wb = effectiveReconWeight(b);
