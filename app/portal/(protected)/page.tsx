@@ -4,12 +4,12 @@ import {
   Check,
   Coins,
   FileSignature,
+  LineChart,
   PartyPopper,
   Sparkle,
   Star,
   type LucideIcon,
 } from "lucide-react";
-import { PageHeader } from "@/components/portal/shell/PageHeader";
 import { isAdminRole } from "@/lib/portal/auth-guard";
 import { getSession } from "@/lib/portal/get-session";
 import {
@@ -30,6 +30,8 @@ import { buildCommissionsView, isSalespersonEmail } from "@/lib/portal/commissio
 import { FireworksCelebration } from "@/components/portal/dashboard/FireworksCelebration";
 import { AssignedClaimsPanel } from "@/components/portal/dashboard/AssignedClaimsPanel";
 import { SalespersonCard } from "@/components/portal/commissions/SalespersonCard";
+import { buildReTrendPoints, type ReTrendPoint } from "@/lib/portal/re-snapshots-db";
+import { ReTrendPanel } from "@/components/portal/locations/ReTrendChart";
 
 // Dashboard - jediný story: postup k cíli 100 franšízových lokalit.
 //
@@ -79,13 +81,15 @@ export default async function PortalDashboardPage({
 }: {
   searchParams: Promise<{ celebrate?: string }>;
 }) {
-  const [session, contracts, overlay, clamoraClaims, sp] = await Promise.all([
-    getSession(),
-    cachedListContracts(),
-    cachedGetClaimsOverlay(),
-    cachedGetClamoraClaims(),
-    searchParams,
-  ]);
+  const [session, contracts, overlay, clamoraClaims, trendPoints, sp] =
+    await Promise.all([
+      getSession(),
+      cachedListContracts(),
+      cachedGetClaimsOverlay(),
+      cachedGetClamoraClaims(),
+      buildReTrendPoints(new Date()),
+      searchParams,
+    ]);
   const isAdmin = isAdminRole(session?.user?.role);
   // Provize vidí admini + sami obchodníci (Toman/Ebermann dle e-mailu).
   const canSeeCommissions =
@@ -133,18 +137,8 @@ export default async function PortalDashboardPage({
   // Provizní výsledky obchodníků (franšízy + postoupení u 3 klíčových firem).
   const commissionsView = buildCommissionsView(contracts, overlay);
 
-  const displayName =
-    session?.user?.name?.split(/\s+/)[0] ??
-    session?.user?.email ??
-    "uživateli";
-  const today = new Date().toLocaleDateString("cs-CZ", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-
   return (
-    <div className="relative isolate flex flex-col gap-10">
+    <div className="relative isolate flex flex-col gap-8">
       {celebrate != null && (
         <FireworksCelebration
           milestone={celebrate}
@@ -161,18 +155,15 @@ export default async function PortalDashboardPage({
         />
       )}
 
-      <PageHeader
-        eyebrow="Dashboard"
-        title={`Vítejte, ${displayName}.`}
-        lede={today}
-      />
-
       {festive && celebrate != null && (
         <FestiveBanner milestone={celebrate} isGoal={celebrate >= TARGET} />
       )}
 
       {/* HERO - milestone progress karta. Dominantní, hned nad foldem. */}
       <MilestoneHero count={franchiseLocationsCount} festive={festive} />
+
+      {/* Vývoj Real Estate v čase - týdenní trend tří kategorií. */}
+      <ReTrendCard points={trendPoints} />
 
       {/* Sekundární stat: podepsané smlouvy celkem. */}
       <section className="grid grid-cols-1 gap-5 md:grid-cols-2">
@@ -329,6 +320,38 @@ function FestiveSprinkles() {
         />
       ))}
     </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// REAL ESTATE TREND - karta s týdenním vývojem (Řešit/Vyřešeno/Červeně)
+// ─────────────────────────────────────────────────────────────────────
+
+function ReTrendCard({ points }: { points: ReTrendPoint[] }) {
+  return (
+    <section className="rounded-[24px] border border-edge bg-paper p-6 sm:p-7">
+      <div className="mb-6 flex items-center justify-between gap-3">
+        <div className="text-[10.5px] font-medium uppercase tracking-[0.22em] text-ink-mid">
+          <span
+            aria-hidden="true"
+            className="mr-3 inline-block h-px w-6 translate-y-[-3px] bg-ink-base/50 align-middle"
+          />
+          Real Estate v čase
+        </div>
+        <Link
+          href="/portal/real-estate"
+          className="group inline-flex items-center gap-1.5 text-[12.5px] font-medium text-ink-mid transition-colors hover:text-ink-base"
+        >
+          <LineChart className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+          Detail
+          <ArrowUpRight
+            className="h-3.5 w-3.5 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+            strokeWidth={1.5}
+          />
+        </Link>
+      </div>
+      <ReTrendPanel points={points} />
+    </section>
   );
 }
 

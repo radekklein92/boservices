@@ -133,3 +133,22 @@ export async function buildLiveSnapshot(now: Date): Promise<ReSnapshot> {
   const counts = await computeCurrentReconCounts();
   return { weekKey, weekEnd, ...counts, capturedAt: now.toISOString() };
 }
+
+// ── Body pro graf ─────────────────────────────────────────────────────────────
+// Uložené týdny (BEZ aktuálního — ten řídí výhradně živý bod, ať se nezdvojí) +
+// živý bod jako poslední, seřazeno dle weekEnd vzestupně. Sdíleno API routou
+// (modal na Real Estate) i kartou na Dashboardu (server-side).
+export type ReTrendPoint = ReSnapshot & { live: boolean };
+
+export async function buildReTrendPoints(now: Date): Promise<ReTrendPoint[]> {
+  const [snapshots, live] = await Promise.all([
+    getReSnapshots(),
+    buildLiveSnapshot(now),
+  ]);
+  const { weekKey } = currentWeekMeta(now);
+  const recorded = snapshots.filter((s) => s.weekKey !== weekKey);
+  return [
+    ...recorded.map((s) => ({ ...s, live: false })),
+    { ...live, live: true },
+  ].sort((a, b) => a.weekEnd.localeCompare(b.weekEnd));
+}
