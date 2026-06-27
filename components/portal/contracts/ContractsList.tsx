@@ -253,7 +253,6 @@ const ContractRow = memo(function ContractRow({
   );
 });
 
-type StatusFilter = "all" | Contract["status"];
 type BulkAction =
   | "submit"
   | "approve"
@@ -283,7 +282,11 @@ export function ContractsList({
   const router = useRouter();
   const [items, setItems] = useState(contracts);
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  // Prázdná množina = bez filtru (Vše). Více vybraných stavů = OR (smlouva
+  // projde, je-li v některém z nich) - kombinovatelné filtry jako u Lokalit.
+  const [statusFilters, setStatusFilters] = useState<Set<Contract["status"]>>(
+    new Set(),
+  );
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [modalOpen, setModalOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -335,7 +338,7 @@ export function ContractsList({
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return items.filter((c) => {
-      if (statusFilter !== "all" && c.status !== statusFilter) return false;
+      if (statusFilters.size > 0 && !statusFilters.has(c.status)) return false;
       if (!q) return true;
       return [
         c.clientName,
@@ -348,7 +351,7 @@ export function ContractsList({
         .toLowerCase()
         .includes(q);
     });
-  }, [items, query, statusFilter]);
+  }, [items, query, statusFilters]);
 
   // Změny proti šabloně předpočítáme jednou (htmlDiff není triviální - 180 smluv
   // při každém renderu by sekalo). Set ID smluv, které mají změny.
@@ -389,6 +392,15 @@ export function ContractsList({
 
   function clearSelection() {
     setSelected(new Set());
+  }
+
+  function toggleStatus(s: Contract["status"]) {
+    setStatusFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(s)) next.delete(s);
+      else next.add(s);
+      return next;
+    });
   }
 
   const remove = useCallback(
@@ -584,16 +596,16 @@ export function ContractsList({
         {/* Status filter chips */}
         <div className="flex flex-wrap items-center gap-2">
           <FilterChip
-            active={statusFilter === "all"}
-            onClick={() => setStatusFilter("all")}
+            active={statusFilters.size === 0}
+            onClick={() => setStatusFilters(new Set())}
             label="Vše"
             count={items.length}
           />
           {STATUS_ORDER.map((s) => (
             <FilterChip
               key={s}
-              active={statusFilter === s}
-              onClick={() => setStatusFilter(s)}
+              active={statusFilters.has(s)}
+              onClick={() => toggleStatus(s)}
               Icon={CONTRACT_STATUS_ICON[s]}
               label={CONTRACT_STATUS_LABEL[s]}
               count={counts[s]}
