@@ -124,6 +124,22 @@ export interface LastSync {
   next_expected_at: string;
 }
 
+// --- Odvozené výsledkové typy (počítá portál nad API odpověďmi) ---
+
+// Bod denního trendu (sečteno přes scope, jedna měna).
+export interface DayPoint {
+  date: string; // YYYY-MM-DD
+  gross: number;
+  net: number;
+  receipts: number;
+}
+
+// KPI souhrn pro aktuální okno + (volitelné) srovnávací okno. Per měna.
+export interface KpiSummary {
+  current: SummaryRow[];
+  comparison: SummaryRow[] | null;
+}
+
 // --- Kontrakt nových endpointů doplněných do DW (apps/api). Portál a DW je sdílejí. ---
 
 // /v1/analytics/heatmap - hodina (0-23) x den v týdnu (0=Ne..6=So), shop-local.
