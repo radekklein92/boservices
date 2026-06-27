@@ -12,6 +12,7 @@ import type { LastSync } from "./types";
 // cache hit, žádné zbytečné dotazy na API. POS_DATA_TTL je už jen pojistka.
 export const POS_DATA_TTL = 900; // 15 min - backstop; reálnou invalidaci řídí razítko syncu
 export const POS_SYNC_PROBE_TTL = 60; // jak rychle zaznamenáme nový sync DW (tiny dotaz na /meta/last-sync)
+export const POS_STATIC_TTL = 3600; // číselníky (značky/pobočky) - mění se zřídka, NEzávisle na sync verzi
 
 // Cached /v1/meta/last-sync - sdílené serverové memo (jeden dotaz za probe okno
 // napříč všemi uživateli). Používá se pro badge "Aktualizováno" i jako zdroj
@@ -51,4 +52,16 @@ export function posQuery<A extends readonly unknown[], R>(
     { revalidate, tags: [TAG.posData] },
   );
   return (...args: A) => getDwDataVersion().then((v) => cached(v, ...args));
+}
+
+// Pro STABILNÍ číselníky (značky, seznam poboček) - mění se zřídka, takže je
+// nezávisle na razítku syncu cachujeme na dlouhý TTL. Tím se nečistí každých 15
+// min (jinak by je každý sync nutil znovu stáhnout = ~1 s blokující layout).
+// Manuální bust přes tag posData (bustPosData) pořád funguje.
+export function posStaticQuery<A extends readonly unknown[], R>(
+  fn: (...args: A) => Promise<R>,
+  key: string,
+  revalidate: number = POS_STATIC_TTL,
+): (...args: A) => Promise<R> {
+  return unstable_cache(fn, ["pos", key], { revalidate, tags: [TAG.posData] });
 }

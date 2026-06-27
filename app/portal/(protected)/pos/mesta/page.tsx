@@ -1,10 +1,12 @@
+import { Suspense } from "react";
 import { canSeePOS } from "@/lib/portal/auth-guard";
 import { getSession } from "@/lib/portal/get-session";
-import { posFilterFromSearchParams } from "@/lib/portal/pos/filters";
+import { posFilterFromSearchParams, type PosFilter } from "@/lib/portal/pos/filters";
 import { getShopLeaderboardFull } from "@/lib/portal/pos/queries";
 import { buildPairingIndex } from "@/lib/portal/pos/pairing-db";
 import { isPosApiConfigured } from "@/lib/portal/pos/api";
 import { PosLeaderboard, type LeaderRow } from "@/components/portal/pos/PosLeaderboard";
+import { LeaderboardSkeleton } from "@/components/portal/pos/skeletons";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Pokladna - Města" };
@@ -22,7 +24,14 @@ export default async function PosCitiesPage({
   if (!isPosApiConfigured()) {
     return <Notice title="POS data nejsou nakonfigurovaná" body="Nastavte POS_API_BASE a POS_API_KEY v prostředí (Vercel)." />;
   }
+  return (
+    <Suspense fallback={<LeaderboardSkeleton rows={8} />}>
+      <CitiesLeaderboard filter={filter} />
+    </Suspense>
+  );
+}
 
+async function CitiesLeaderboard({ filter }: { filter: PosFilter }) {
   let rows: Awaited<ReturnType<typeof getShopLeaderboardFull>>;
   let pairing: Awaited<ReturnType<typeof buildPairingIndex>>;
   try {

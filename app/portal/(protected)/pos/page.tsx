@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { ArrowRight, Info } from "lucide-react";
 import { canSeePOS } from "@/lib/portal/auth-guard";
@@ -15,6 +16,12 @@ import type { DayPoint, ShopRevenueRowWithPrev, SummaryRow } from "@/lib/portal/
 import { PosKpiCard } from "@/components/portal/pos/PosKpiCard";
 import { PosLineChart } from "@/components/portal/pos/PosLineChart";
 import { PosDeltaBadge } from "@/components/portal/pos/PosDeltaBadge";
+import {
+  ChartSkeleton,
+  KpiGridSkeleton,
+  LeaderboardSkeleton,
+  PanelSkeleton,
+} from "@/components/portal/pos/skeletons";
 import {
   formatPosMoney,
   formatPosMoneyCompact,
@@ -45,6 +52,9 @@ function pickRow(rows: SummaryRow[] | null, currency: string): SummaryRow | null
   return rows?.find((r) => r.currency === currency) ?? null;
 }
 
+// Stránka NEawaituje data - jen session + filtr (levné). Každý widget je vlastní
+// async server komponenta pod <Suspense> -> shell + skeletony paintnou hned a
+// widgety dostreamují nezávisle (žádný blokující Promise.all přes všechno).
 export default async function PosOverviewPage({
   searchParams,
 }: {
@@ -65,48 +75,6 @@ export default async function PosOverviewPage({
     );
   }
 
-  let kpi: Awaited<ReturnType<typeof getKpiSummary>>;
-  let trend: Awaited<ReturnType<typeof getDailyTrend>>;
-  let periods: Awaited<ReturnType<typeof getPeriodTotals>>;
-  let leaderboard: ShopRevenueRowWithPrev[];
-  let shopsRaw: Awaited<ReturnType<typeof getAllShops>>;
-  try {
-    [kpi, trend, periods, leaderboard, shopsRaw] = await Promise.all([
-      getKpiSummary(filter),
-      getDailyTrend(filter),
-      getPeriodTotals(filter),
-      getShopLeaderboardFull(filter),
-      getAllShops(),
-    ]);
-  } catch {
-    return (
-      <Notice
-        title="Data dočasně nedostupná"
-        body="Nepodařilo se načíst data z API Data Warehouse. Zkuste to za chvíli."
-      />
-    );
-  }
-
-  const c = pickRow(kpi.current, cur);
-  const p = pickRow(kpi.comparison, cur);
-  if (!c) {
-    return (
-      <Notice
-        title={`Pro ${cur} nejsou v tomto období data`}
-        body="Zkuste jiné období, značku nebo měnu ve filtru nahoře."
-      />
-    );
-  }
-
-  const days = trend.current;
-  const sparkNet = days.map((d) => d.net);
-  const sparkGross = days.map((d) => d.gross);
-  const sparkReceipts = days.map((d) => d.receipts);
-  const sparkVat = days.map((d) => Math.max(0, d.gross - d.net));
-  const sparkAtv = days.map((d) => (d.receipts > 0 ? d.gross / d.receipts : 0));
-
-  const shopName = new Map(shopsRaw.map((s) => [s.id, s.name]));
-
   return (
     <div className="flex flex-col gap-6">
       {filter.comparison === "predchozi-rok" && (
@@ -119,85 +87,123 @@ export default async function PosOverviewPage({
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <PosKpiCard
-          label="Čisté tržby"
-          value={formatPosMoneyCompact(c.net, cur)}
-          valueTitle={formatPosMoney(c.net, cur)}
-          current={c.net}
-          previous={p?.net ?? null}
-          absolute={p ? signedMoneyCompact(c.net - p.net, cur) : undefined}
-          spark={sparkNet}
-          emphasis
-        />
-        <PosKpiCard
-          label="Hrubé tržby"
-          value={formatPosMoneyCompact(c.gross, cur)}
-          valueTitle={formatPosMoney(c.gross, cur)}
-          current={c.gross}
-          previous={p?.gross ?? null}
-          absolute={p ? signedMoneyCompact(c.gross - p.gross, cur) : undefined}
-          spark={sparkGross}
-        />
-        <PosKpiCard
-          label="Účtenky"
-          value={formatPosNumber(c.receipts)}
-          current={c.receipts}
-          previous={p?.receipts ?? null}
-          absolute={p ? signedNumber(c.receipts - p.receipts) : undefined}
-          spark={sparkReceipts}
-        />
-        <PosKpiCard
-          label="Průměrná útrata"
-          value={c.avg_ticket != null ? formatPosMoney(c.avg_ticket, cur) : "—"}
-          current={c.avg_ticket ?? undefined}
-          previous={p?.avg_ticket ?? null}
-          absolute={c.avg_ticket != null && p?.avg_ticket != null ? signedMoneyCompact(c.avg_ticket - p.avg_ticket, cur) : undefined}
-          spark={sparkAtv}
-        />
-        <PosKpiCard
-          label="Refundace"
-          value={c.refund_rate != null ? formatPct(c.refund_rate) : "—"}
-          current={c.refund_rate ?? undefined}
-          previous={p?.refund_rate ?? null}
-          goodDir="down"
-          deltaMode="pp"
-        />
-        <PosKpiCard
-          label="DPH"
-          value={formatPosMoneyCompact(c.vat, cur)}
-          valueTitle={formatPosMoney(c.vat, cur)}
-          current={c.vat}
-          previous={p?.vat ?? null}
-          absolute={p ? signedMoneyCompact(c.vat - p.vat, cur) : undefined}
-          spark={sparkVat}
-        />
-      </div>
+      <Suspense fallback={<KpiGridSkeleton />}>
+        <KpiSection filter={filter} cur={cur} />
+      </Suspense>
 
       <div className="grid gap-5 lg:grid-cols-3">
         <section className="flex flex-col gap-3 lg:col-span-2">
           <h2 className="text-[12px] font-semibold uppercase tracking-[0.14em] text-ink-mid">
             Vývoj tržeb ({useNet ? "čisté" : "s DPH"})
           </h2>
-          <Trend trend={trend} filter={filter} useNet={useNet} />
+          <Suspense fallback={<ChartSkeleton />}>
+            <TrendSection filter={filter} useNet={useNet} />
+          </Suspense>
         </section>
-        <PeriodPanel periods={periods} cur={cur} useNet={useNet} />
+        <Suspense fallback={<PanelSkeleton />}>
+          <PeriodSection filter={filter} cur={cur} useNet={useNet} />
+        </Suspense>
       </div>
 
-      <ShopHighlights leaderboard={leaderboard} shopName={shopName} filter={filter} useNet={useNet} />
+      <Suspense fallback={<LeaderboardSkeleton />}>
+        <HighlightsSection filter={filter} useNet={useNet} />
+      </Suspense>
     </div>
   );
 }
 
-function Trend({
-  trend,
-  filter,
-  useNet,
-}: {
-  trend: Awaited<ReturnType<typeof getDailyTrend>>;
-  filter: PosFilter;
-  useNet: boolean;
-}) {
+// --- Widget sekce (každá fetchne svůj slice; chyba/prázdno degraduje lokálně) ---
+
+async function KpiSection({ filter, cur }: { filter: PosFilter; cur: string }) {
+  let kpi: Awaited<ReturnType<typeof getKpiSummary>>;
+  let trend: Awaited<ReturnType<typeof getDailyTrend>>;
+  try {
+    [kpi, trend] = await Promise.all([getKpiSummary(filter), getDailyTrend(filter)]);
+  } catch {
+    return <WidgetError />;
+  }
+  const c = pickRow(kpi.current, cur);
+  const p = pickRow(kpi.comparison, cur);
+  if (!c) {
+    return (
+      <Notice
+        title={`Pro ${cur} nejsou v tomto období data`}
+        body="Zkuste jiné období, značku nebo měnu ve filtru nahoře."
+      />
+    );
+  }
+  const days = trend.current;
+  const sparkNet = days.map((d) => d.net);
+  const sparkGross = days.map((d) => d.gross);
+  const sparkReceipts = days.map((d) => d.receipts);
+  const sparkVat = days.map((d) => Math.max(0, d.gross - d.net));
+  const sparkAtv = days.map((d) => (d.receipts > 0 ? d.gross / d.receipts : 0));
+
+  return (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <PosKpiCard
+        label="Čisté tržby"
+        value={formatPosMoneyCompact(c.net, cur)}
+        valueTitle={formatPosMoney(c.net, cur)}
+        current={c.net}
+        previous={p?.net ?? null}
+        absolute={p ? signedMoneyCompact(c.net - p.net, cur) : undefined}
+        spark={sparkNet}
+        emphasis
+      />
+      <PosKpiCard
+        label="Hrubé tržby"
+        value={formatPosMoneyCompact(c.gross, cur)}
+        valueTitle={formatPosMoney(c.gross, cur)}
+        current={c.gross}
+        previous={p?.gross ?? null}
+        absolute={p ? signedMoneyCompact(c.gross - p.gross, cur) : undefined}
+        spark={sparkGross}
+      />
+      <PosKpiCard
+        label="Účtenky"
+        value={formatPosNumber(c.receipts)}
+        current={c.receipts}
+        previous={p?.receipts ?? null}
+        absolute={p ? signedNumber(c.receipts - p.receipts) : undefined}
+        spark={sparkReceipts}
+      />
+      <PosKpiCard
+        label="Průměrná útrata"
+        value={c.avg_ticket != null ? formatPosMoney(c.avg_ticket, cur) : "—"}
+        current={c.avg_ticket ?? undefined}
+        previous={p?.avg_ticket ?? null}
+        absolute={c.avg_ticket != null && p?.avg_ticket != null ? signedMoneyCompact(c.avg_ticket - p.avg_ticket, cur) : undefined}
+        spark={sparkAtv}
+      />
+      <PosKpiCard
+        label="Refundace"
+        value={c.refund_rate != null ? formatPct(c.refund_rate) : "—"}
+        current={c.refund_rate ?? undefined}
+        previous={p?.refund_rate ?? null}
+        goodDir="down"
+        deltaMode="pp"
+      />
+      <PosKpiCard
+        label="DPH"
+        value={formatPosMoneyCompact(c.vat, cur)}
+        valueTitle={formatPosMoney(c.vat, cur)}
+        current={c.vat}
+        previous={p?.vat ?? null}
+        absolute={p ? signedMoneyCompact(c.vat - p.vat, cur) : undefined}
+        spark={sparkVat}
+      />
+    </div>
+  );
+}
+
+async function TrendSection({ filter, useNet }: { filter: PosFilter; useNet: boolean }) {
+  let trend: Awaited<ReturnType<typeof getDailyTrend>>;
+  try {
+    trend = await getDailyTrend(filter);
+  } catch {
+    return <WidgetError />;
+  }
   if (trend.current.length === 0) {
     return (
       <div className="grid h-[200px] place-items-center rounded-2xl border border-edge bg-paper text-[13px] text-ink-mid">
@@ -219,15 +225,18 @@ function Trend({
   );
 }
 
-function PeriodPanel({
-  periods,
-  cur,
-  useNet,
-}: {
-  periods: Awaited<ReturnType<typeof getPeriodTotals>>;
-  cur: string;
-  useNet: boolean;
-}) {
+async function PeriodSection({ filter, cur, useNet }: { filter: PosFilter; cur: string; useNet: boolean }) {
+  let periods: Awaited<ReturnType<typeof getPeriodTotals>>;
+  try {
+    periods = await getPeriodTotals(filter);
+  } catch {
+    return (
+      <section className="flex flex-col gap-3">
+        <h2 className="text-[12px] font-semibold uppercase tracking-[0.14em] text-ink-mid">Podle období</h2>
+        <WidgetError />
+      </section>
+    );
+  }
   const max = Math.max(...periods.map((x) => (useNet ? x.net : x.gross)), 1);
   return (
     <section className="flex flex-col gap-3">
@@ -262,17 +271,15 @@ function PeriodPanel({
 
 type HiRow = { id: string; name: string; value: number; prev: number | null };
 
-function ShopHighlights({
-  leaderboard,
-  shopName,
-  filter,
-  useNet,
-}: {
-  leaderboard: ShopRevenueRowWithPrev[];
-  shopName: Map<string, string>;
-  filter: PosFilter;
-  useNet: boolean;
-}) {
+async function HighlightsSection({ filter, useNet }: { filter: PosFilter; useNet: boolean }) {
+  let leaderboard: ShopRevenueRowWithPrev[];
+  let shopsRaw: Awaited<ReturnType<typeof getAllShops>>;
+  try {
+    [leaderboard, shopsRaw] = await Promise.all([getShopLeaderboardFull(filter), getAllShops()]);
+  } catch {
+    return <WidgetError />;
+  }
+  const shopName = new Map(shopsRaw.map((s) => [s.id, s.name]));
   const cur = filter.currency;
   const rows: HiRow[] = leaderboard
     .filter((r) => shopName.has(r.shop_id))
@@ -341,6 +348,14 @@ function HiPanel({
         ))}
       </div>
     </section>
+  );
+}
+
+function WidgetError() {
+  return (
+    <div className="rounded-2xl border border-edge bg-paper px-4 py-6 text-center text-[13px] text-ink-mid">
+      Data dočasně nedostupná.
+    </div>
   );
 }
 

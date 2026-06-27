@@ -1,9 +1,11 @@
+import { Suspense } from "react";
 import { canSeePOS } from "@/lib/portal/auth-guard";
 import { getSession } from "@/lib/portal/get-session";
-import { posFilterFromSearchParams, serializePosFilter } from "@/lib/portal/pos/filters";
+import { posFilterFromSearchParams, serializePosFilter, type PosFilter } from "@/lib/portal/pos/filters";
 import { getBrandLeaderboardFull, getBrands } from "@/lib/portal/pos/queries";
 import { isPosApiConfigured } from "@/lib/portal/pos/api";
 import { PosLeaderboard, type LeaderRow } from "@/components/portal/pos/PosLeaderboard";
+import { LeaderboardSkeleton } from "@/components/portal/pos/skeletons";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Pokladna - Značky" };
@@ -19,7 +21,14 @@ export default async function PosBrandsPage({
   if (!isPosApiConfigured()) {
     return <Notice title="POS data nejsou nakonfigurovaná" body="Nastavte POS_API_BASE a POS_API_KEY v prostředí (Vercel)." />;
   }
+  return (
+    <Suspense fallback={<LeaderboardSkeleton rows={6} />}>
+      <BrandsLeaderboard filter={filter} />
+    </Suspense>
+  );
+}
 
+async function BrandsLeaderboard({ filter }: { filter: PosFilter }) {
   let rows: Awaited<ReturnType<typeof getBrandLeaderboardFull>>;
   let brandsRaw: Awaited<ReturnType<typeof getBrands>>;
   try {

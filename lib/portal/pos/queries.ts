@@ -8,7 +8,7 @@ import "server-only";
 // payment-mix/vat-split/today) jsou tenké wrappery na endpointy doplňované do DW
 // - rozsvítí se po jejich nasazení; do té doby vrací PosApiError (UI degraduje).
 import * as api from "./api";
-import { posQuery } from "./cache";
+import { posQuery, posStaticQuery } from "./cache";
 import { clampWindow, clampLimit, clampPage, isTestShop, MAX_RAW_WINDOW_DAYS } from "./guards";
 import {
   resolveComparisonRange,
@@ -56,23 +56,34 @@ function rawWindow(filter: PosFilter): DateRange {
   return clampWindow(resolveDateRange(filter), MAX_RAW_WINDOW_DAYS).range;
 }
 
+// Sběr stránkovaného endpointu BEZ waterfallu: 1. strana odhalí total, zbytek se
+// dotáhne PARALELNĚ. (Dřív se stránky tahaly sekvenčně = N × round-trip.)
+const PAGE_SIZE = 200;
+const MAX_PAGES = 25; // pojistka proti runaway
+async function collectPaged<T>(
+  fetchPage: (page: number) => Promise<Paged<T>>,
+): Promise<T[]> {
+  const first = await fetchPage(0);
+  const total = first.meta?.total ?? first.data.length;
+  const pages = Math.min(MAX_PAGES, Math.ceil(total / PAGE_SIZE));
+  if (pages <= 1) return first.data;
+  const rest = await Promise.all(
+    Array.from({ length: pages - 1 }, (_, i) => fetchPage(i + 1)),
+  );
+  return [...first.data, ...rest.flatMap((r) => r.data)];
+}
+
 // --- Číselníky (pro filtr/scope) ---
 
-const _brands = posQuery(() => api.getBrands(), "brands");
+const _brands = posStaticQuery(() => api.getBrands(), "brands");
 export async function getBrands(): Promise<ApiBrand[]> {
   return (await _brands()).data;
 }
 
 async function collectShops(): Promise<ApiShop[]> {
-  const out: ApiShop[] = [];
-  for (let page = 0; page <= 20; page++) {
-    const res = await api.listShops({ page, limit: 200 });
-    out.push(...res.data);
-    if (res.data.length === 0 || (page + 1) * 200 >= res.meta.total) break;
-  }
-  return out;
+  return collectPaged((page) => api.listShops({ page, limit: PAGE_SIZE }));
 }
-const _allShops = posQuery(() => collectShops(), "all-shops");
+const _allShops = posStaticQuery(() => collectShops(), "all-shops");
 // Pobočky pro UI - bez test/neprodejních (Trdlokafe "Test*/VRP") a bez AED
 // (124 účtenek, nakonfigurovaná/test pobočka). Cachované.
 export async function getAllShops(): Promise<ApiShop[]> {
@@ -92,9 +103,12 @@ export async function getKpiSummary(filter: PosFilter): Promise<KpiSummary> {
   const { brand_id, shop_id } = scopeParams(filter);
   const range = aggWindow(filter);
   const cmp = resolveComparisonRange(filter, range);
-  const current = (await _summary(range.from, range.to, brand_id, shop_id)).data;
-  const comparison = cmp ? (await _summary(cmp.from, cmp.to, brand_id, shop_id)).data : null;
-  return { current, comparison };
+  // Aktuální i srovnávací okno PARALELNĚ (dřív sekvenčně = 2× round-trip).
+  const [cur, prev] = await Promise.all([
+    _summary(range.from, range.to, brand_id, shop_id),
+    cmp ? _summary(cmp.from, cmp.to, brand_id, shop_id) : Promise.resolve<{ data: SummaryRow[] } | null>(null),
+  ]);
+  return { current: cur.data, comparison: prev ? prev.data : null };
 }
 
 // Souhrn za pevná období (Dnes / Tento týden / Tento měsíc / Tento rok) ve scope
@@ -128,13 +142,7 @@ async function collectDaily(p: {
   brand_id?: string;
   shop_id?: string;
 }): Promise<DailyRevenueRow[]> {
-  const out: DailyRevenueRow[] = [];
-  for (let page = 0; page <= 20; page++) {
-    const res = await api.getRevenueDaily({ ...p, page, limit: 200 });
-    out.push(...res.data);
-    if (res.data.length === 0 || (page + 1) * 200 >= res.meta.total) break;
-  }
-  return out;
+  return collectPaged((page) => api.getRevenueDaily({ ...p, page, limit: PAGE_SIZE }));
 }
 
 const _dailyTrend = posQuery(
@@ -162,11 +170,12 @@ export async function getDailyTrend(
   const { brand_id, shop_id } = scopeParams(filter);
   const range = aggWindow(filter);
   const cmp = resolveComparisonRange(filter, range);
-  const current = foldDaily(await _dailyTrend(range.from, range.to, filter.currency, brand_id, shop_id));
-  const comparison = cmp
-    ? foldDaily(await _dailyTrend(cmp.from, cmp.to, filter.currency, brand_id, shop_id))
-    : null;
-  return { current, comparison };
+  // Aktuální i srovnávací okno PARALELNĚ.
+  const [curRows, prevRows] = await Promise.all([
+    _dailyTrend(range.from, range.to, filter.currency, brand_id, shop_id),
+    cmp ? _dailyTrend(cmp.from, cmp.to, filter.currency, brand_id, shop_id) : Promise.resolve<DailyRevenueRow[]>([]),
+  ]);
+  return { current: foldDaily(curRows), comparison: cmp ? foldDaily(prevRows) : null };
 }
 
 // --- Top/bottom produkty (existující /v1/products/sales) ---
@@ -227,13 +236,7 @@ async function collectByShop(p: {
   currency: string;
   brand_id?: string;
 }): Promise<ShopRevenueRow[]> {
-  const out: ShopRevenueRow[] = [];
-  for (let page = 0; page <= 10; page++) {
-    const res = await api.getRevenueByShop({ ...p, page, limit: 200 });
-    out.push(...res.data);
-    if (res.data.length === 0 || (page + 1) * 200 >= res.meta.total) break;
-  }
-  return out;
+  return collectPaged((page) => api.getRevenueByShop({ ...p, page, limit: PAGE_SIZE }));
 }
 const _shopRev = posQuery(
   (from: string, to: string, currency: string, brand_id?: string) =>
