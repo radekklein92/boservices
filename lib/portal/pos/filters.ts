@@ -156,12 +156,15 @@ export function resolveDateRange(filter: PosFilter, today: string = todayPrague(
 export function resolveComparisonRange(filter: PosFilter, range: DateRange): DateRange | null {
   if (filter.comparison === "zadne") return null;
   if (filter.comparison === "predchozi-rok") {
+    // D-364 (52 týdnů) - zarovná dny v týdnu (retail nelze srovnávat na kalendářní rok).
     return { from: addDays(range.from, -364), to: addDays(range.to, -364) };
   }
-  // predchozi-obdobi: stejně dlouhé okno končící den před začátkem aktuálního
+  // predchozi-obdobi: posun o CELÉ TÝDNY (round(len/7)*7), stejně dlouhé okno.
+  // Zarovná dny v týdnu: týden -> D-7, měsíc -> D-28. Bez toho je retail
+  // neporovnatelný (jiné dny v týdnu = jiný objem). Minimálně D-7.
   const len = inclusiveDays(range);
-  const to = addDays(range.from, -1);
-  return { from: addDays(to, -(len - 1)), to };
+  const shift = Math.max(7, Math.round(len / 7) * 7);
+  return { from: addDays(range.from, -shift), to: addDays(range.to, -shift) };
 }
 
 // --- (De)serializace do/z URLSearchParams ---

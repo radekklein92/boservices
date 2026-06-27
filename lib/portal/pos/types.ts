@@ -140,6 +140,20 @@ export interface KpiSummary {
   comparison: SummaryRow[] | null;
 }
 
+// Leaderboard řádky s hodnotami srovnávacího okna (pro delty). prev* = null,
+// když srovnání není zapnuté nebo pobočka/značka v něm neměla data.
+export interface ShopRevenueRowWithPrev extends ShopRevenueRow {
+  prevGross: number | null;
+  prevNet: number | null;
+  prevReceipts: number | null;
+}
+
+export interface BrandRevenueRowWithPrev extends BrandRevenueRow {
+  prevGross: number | null;
+  prevNet: number | null;
+  prevReceipts: number | null;
+}
+
 // --- Kontrakt nových endpointů doplněných do DW (apps/api). Portál a DW je sdílejí. ---
 
 // /v1/analytics/heatmap - hodina (0-23) x den v týdnu (0=Ne..6=So), shop-local.

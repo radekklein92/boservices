@@ -20,6 +20,7 @@ import type {
   ApiBrand,
   ApiShop,
   BrandRevenueRow,
+  BrandRevenueRowWithPrev,
   DailyRevenueRow,
   DaypartRow,
   DayPoint,
@@ -31,6 +32,7 @@ import type {
   ReceiptDetail,
   ReceiptListRow,
   ShopRevenueRow,
+  ShopRevenueRowWithPrev,
   SummaryRow,
   TodayRow,
   VatSplitRow,
@@ -195,20 +197,40 @@ export function getReceiptDetail(id: string): Promise<ReceiptDetail> {
 
 // --- Leaderboardy (NOVÉ endpointy by-shop / by-brand) ---
 
-const _byShop = posQuery(
-  (from: string, to: string, currency: string, page: number, limit: number, brand_id?: string) =>
-    api.getRevenueByShop({ date_from: from, date_to: to, currency, page, limit, brand_id }),
-  "by-shop",
+async function collectByShop(p: {
+  date_from: string;
+  date_to: string;
+  currency: string;
+  brand_id?: string;
+}): Promise<ShopRevenueRow[]> {
+  const out: ShopRevenueRow[] = [];
+  for (let page = 0; page <= 10; page++) {
+    const res = await api.getRevenueByShop({ ...p, page, limit: 200 });
+    out.push(...res.data);
+    if (res.data.length === 0 || (page + 1) * 200 >= res.meta.total) break;
+  }
+  return out;
+}
+const _shopRev = posQuery(
+  (from: string, to: string, currency: string, brand_id?: string) =>
+    collectByShop({ date_from: from, date_to: to, currency, brand_id }),
+  "shop-rev",
 );
 
-export async function getShopLeaderboard(
-  filter: PosFilter,
-  page = 0,
-  limit = 200,
-): Promise<Paged<ShopRevenueRow>> {
+// Všechny pobočky ve scope s metrikami aktuálního i srovnávacího okna (delty).
+export async function getShopLeaderboardFull(filter: PosFilter): Promise<ShopRevenueRowWithPrev[]> {
   const { brand_id } = scopeParams(filter);
   const range = aggWindow(filter);
-  return _byShop(range.from, range.to, filter.currency, clampPage(page), clampLimit(limit), brand_id);
+  const cmp = resolveComparisonRange(filter, range);
+  const [cur, prev] = await Promise.all([
+    _shopRev(range.from, range.to, filter.currency, brand_id),
+    cmp ? _shopRev(cmp.from, cmp.to, filter.currency, brand_id) : Promise.resolve<ShopRevenueRow[]>([]),
+  ]);
+  const prevMap = new Map(prev.map((r) => [r.shop_id, r]));
+  return cur.map((r) => {
+    const p = prevMap.get(r.shop_id);
+    return { ...r, prevGross: p?.gross ?? null, prevNet: p?.net ?? null, prevReceipts: p?.receipts ?? null };
+  });
 }
 
 const _byBrand = posQuery(
@@ -217,9 +239,20 @@ const _byBrand = posQuery(
   "by-brand",
 );
 
-export async function getBrandLeaderboard(filter: PosFilter): Promise<BrandRevenueRow[]> {
+export async function getBrandLeaderboardFull(filter: PosFilter): Promise<BrandRevenueRowWithPrev[]> {
   const range = aggWindow(filter);
-  return (await _byBrand(range.from, range.to, filter.currency)).data;
+  const cmp = resolveComparisonRange(filter, range);
+  const [cur, prev] = await Promise.all([
+    _byBrand(range.from, range.to, filter.currency),
+    cmp
+      ? _byBrand(cmp.from, cmp.to, filter.currency)
+      : Promise.resolve<{ data: BrandRevenueRow[] }>({ data: [] }),
+  ]);
+  const prevMap = new Map(prev.data.map((r) => [r.brand_id, r]));
+  return cur.data.map((r) => {
+    const p = prevMap.get(r.brand_id);
+    return { ...r, prevGross: p?.gross ?? null, prevNet: p?.net ?? null, prevReceipts: p?.receipts ?? null };
+  });
 }
 
 // --- Analytics (NOVÉ endpointy; heatmapa/daypart jsou raw -> kratší okno) ---
