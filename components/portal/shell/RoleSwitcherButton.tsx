@@ -12,6 +12,7 @@ import type { UserRole } from "@/lib/portal/users-db";
 const OPTIONS: { role: UserRole; label: string }[] = [
   { role: "superadmin", label: "Superadmin" },
   { role: "admin", label: "Admin" },
+  { role: "manager", label: "Manažer" },
   { role: "user", label: "Uživatel" },
 ];
 

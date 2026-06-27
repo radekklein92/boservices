@@ -30,7 +30,7 @@ export async function GET() {
 const inviteSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
   name: z.string().trim().max(120).optional().or(z.literal("")),
-  role: z.enum(["admin", "user"]),
+  role: z.enum(["admin", "manager", "user"]),
 });
 
 export async function POST(req: Request) {

@@ -12,7 +12,7 @@ import type { UserRole } from "@/lib/portal/users-db";
 export const ASSUME_ROLE_COOKIE = "bos-assume-role";
 
 // Role, do kterých se dá nasadit. Pořadí = pořadí v přepínači (od nejvyšší).
-export const ASSUMABLE_ROLES: UserRole[] = ["superadmin", "admin", "user"];
+export const ASSUMABLE_ROLES: UserRole[] = ["superadmin", "admin", "manager", "user"];
 
 function isAssumableRole(value: string | undefined | null): value is UserRole {
   return value != null && (ASSUMABLE_ROLES as string[]).includes(value);

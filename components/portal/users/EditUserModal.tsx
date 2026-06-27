@@ -134,6 +134,12 @@ export function EditUserModal({
                 hint="Klienti, smlouvy + správa uživatelů."
               />
               <RoleChip
+                active={role === "manager"}
+                onClick={() => setRole("manager")}
+                label="Manažer"
+                hint="Pokladní dashboard (všechny pobočky). Bez správy uživatelů."
+              />
+              <RoleChip
                 active={role === "user"}
                 onClick={() => setRole("user")}
                 label="Uživatel"

@@ -44,6 +44,7 @@ type Props = {
 const ROLE_LABEL: Record<string, string> = {
   superadmin: "Superadmin",
   admin: "Admin",
+  manager: "Manažer",
   user: "Uživatel",
 };
 

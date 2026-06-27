@@ -8,6 +8,7 @@ import { RoleSwitcherButton } from "./RoleSwitcherButton";
 const ROLE_LABELS: Record<string, string> = {
   superadmin: "Superadmin",
   admin: "Admin",
+  manager: "Manažer",
   user: "Uživatel",
 };
 

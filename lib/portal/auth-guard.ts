@@ -6,6 +6,11 @@ import type { UserRole } from "@/lib/portal/users-db";
 
 export const ADMIN_ROLES: UserRole[] = ["superadmin", "admin"];
 
+// Role, které vidí POS / pokladní dashboard. manager je tu navíc oproti
+// ADMIN_ROLES - vidí data, ale ne admin sekce. Párovací (admin) mutace POS
+// dál chrání requireAdmin(), NE requirePOS().
+export const POS_ROLES: UserRole[] = ["superadmin", "admin", "manager"];
+
 export type GuardResult<T = Session> =
   | { ok: true; session: T }
   | { ok: false; response: NextResponse };
@@ -49,4 +54,20 @@ export async function requireSuperadmin(): Promise<GuardResult> {
 
 export function isAdminRole(role: UserRole | undefined): boolean {
   return role !== undefined && ADMIN_ROLES.includes(role);
+}
+
+// Vidí uživatel POS / pokladní dashboard? (manager + admin + superadmin)
+export function canSeePOS(role: UserRole | undefined): boolean {
+  return role !== undefined && POS_ROLES.includes(role);
+}
+
+// Guard pro read endpointy POS dat. Párovací (admin) mutace používají requireAdmin().
+export async function requirePOS(): Promise<GuardResult> {
+  const result = await requireSession();
+  if (!result.ok) return result;
+  const role = result.session.user?.role;
+  if (!role || !POS_ROLES.includes(role)) {
+    return { ok: false, response: forbidden() };
+  }
+  return result;
 }

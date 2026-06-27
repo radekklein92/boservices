@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
   LayoutDashboard,
+  BarChart3,
   Building2,
   ChevronDown,
   FileText,
@@ -15,6 +16,7 @@ import {
   MapPin,
   Palette,
   Send,
+  Store,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -37,11 +39,14 @@ const fransizing: Item[] = [
   { href: "/portal/contracts", label: "Smlouvy", Icon: FileText },
 ];
 
-// Provoz: lokality a jejich real estate / nájemní agenda.
+// Provoz: lokality, real estate a pokladní dashboard (Tržby).
 const provoz: Item[] = [
   { href: "/portal/locations", label: "Lokality", Icon: MapPin },
   { href: "/portal/real-estate", label: "Real Estate", Icon: KeyRound },
 ];
+
+// Tržby (POS): v sekci Provoz, ale jen pro role s přístupem do Pokladny (canSeePOS).
+const posItem: Item = { href: "/portal/pos", label: "Tržby", Icon: BarChart3 };
 
 // Provize: v sekci Franšízing, ale jen pro ty, kdo na ni mají vidět (admini +
 // obchodníci Toman/Ebermann); ostatní staff ji nevidí.
@@ -52,6 +57,7 @@ const commissionsItem: Item = {
 };
 
 const admin: Item[] = [
+  { href: "/portal/admin/pos-pairing", label: "Párování pokladen", Icon: Store },
   { href: "/portal/templates", label: "Šablony smluv", Icon: FilePenLine },
   { href: "/portal/design-system", label: "Design system", Icon: Palette },
   { href: "/portal/admin/telegram", label: "Telegram", Icon: Send },
@@ -61,10 +67,12 @@ const admin: Item[] = [
 export function SidebarNav({
   isAdmin,
   canSeeCommissions = false,
+  canSeePOS = false,
   tasksBadge = 0,
 }: {
   isAdmin: boolean;
   canSeeCommissions?: boolean;
+  canSeePOS?: boolean;
   tasksBadge?: number;
 }) {
   const pathname = usePathname() ?? "/portal";
@@ -84,42 +92,26 @@ export function SidebarNav({
 
       <NavSection label="Franšízing">
         {fransizing.map((item) => (
-          <NavItem
-            key={item.href}
-            {...item}
-            active={isActive(pathname, item.href)}
-          />
+          <NavItem key={item.href} {...item} active={isActive(pathname, item.href)} />
         ))}
         {/* Provize ve Franšízingu - jen pro adminy + obchodníky (canSeeCommissions). */}
         {canSeeCommissions && (
-          <NavItem
-            {...commissionsItem}
-            active={isActive(pathname, commissionsItem.href)}
-          />
+          <NavItem {...commissionsItem} active={isActive(pathname, commissionsItem.href)} />
         )}
       </NavSection>
 
       <NavSection label="Provoz">
         {provoz.map((item) => (
-          <NavItem
-            key={item.href}
-            {...item}
-            active={isActive(pathname, item.href)}
-          />
+          <NavItem key={item.href} {...item} active={isActive(pathname, item.href)} />
         ))}
+        {/* Tržby (POS) v Provozu - jen pro manager+/admin (canSeePOS). */}
+        {canSeePOS && <NavItem {...posItem} active={isActive(pathname, posItem.href)} />}
       </NavSection>
 
       {isAdmin && (
-        <CollapsibleNavSection
-          label="Administrace"
-          storageKey="sidebar:admin-open"
-        >
+        <CollapsibleNavSection label="Administrace" storageKey="sidebar:admin-open">
           {admin.map((item) => (
-            <NavItem
-              key={item.href}
-              {...item}
-              active={isActive(pathname, item.href)}
-            />
+            <NavItem key={item.href} {...item} active={isActive(pathname, item.href)} />
           ))}
         </CollapsibleNavSection>
       )}
@@ -132,13 +124,7 @@ function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(href + "/");
 }
 
-function NavSection({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+function NavSection({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="mt-7 first:mt-1">
       <div className="px-3 pb-2.5 text-[10px] font-medium uppercase tracking-[0.22em] text-ink-mid">

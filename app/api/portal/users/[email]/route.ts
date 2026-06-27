@@ -6,7 +6,7 @@ import { removeAllowlistEntry } from "@/lib/portal/allowlist-db";
 import { bustUsers } from "@/lib/portal/revalidate";
 
 const patchSchema = z.object({
-  role: z.enum(["admin", "user", "superadmin"]).optional(),
+  role: z.enum(["admin", "manager", "user", "superadmin"]).optional(),
   name: z.string().trim().max(120).optional(),
   phone: z.string().trim().max(32).nullable().optional(),
   isSigner: z.boolean().optional(),

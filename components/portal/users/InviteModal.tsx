@@ -12,7 +12,7 @@ export function InviteModal({
 }) {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
-  const [role, setRole] = useState<"admin" | "user">("admin");
+  const [role, setRole] = useState<"admin" | "manager" | "user">("admin");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const emailRef = useRef<HTMLInputElement>(null);
@@ -117,6 +117,12 @@ export function InviteModal({
                 onClick={() => setRole("admin")}
                 label="Admin"
                 hint="Klienti, smlouvy + pozvánky a správa uživatelů."
+              />
+              <RoleChip
+                active={role === "manager"}
+                onClick={() => setRole("manager")}
+                label="Manažer"
+                hint="Pokladní dashboard. Bez správy uživatelů."
               />
               <RoleChip
                 active={role === "user"}

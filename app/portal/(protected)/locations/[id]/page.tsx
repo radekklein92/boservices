@@ -10,6 +10,7 @@ import {
   type LocationContractRow,
 } from "@/components/portal/locations/LocationDetail";
 import { EntityTasks } from "@/components/portal/tasks/EntityTasks";
+import { PosLocationPanel } from "@/components/portal/pos/PosLocationPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -68,6 +69,7 @@ export default async function LocationDetailPage({
   return (
     <div className="flex flex-col gap-10">
       <LocationDetail location={location} contracts={contracts} flags={flags} />
+      <PosLocationPanel locationId={id} />
       <EntityTasks kind="location" id={id} />
     </div>
   );
