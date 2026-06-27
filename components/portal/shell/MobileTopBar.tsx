@@ -18,13 +18,11 @@ export function MobileTopBar({
   isAdmin,
   canSeeCommissions = false,
   userMenu,
-  roleSwitcher,
   tasksBadge = 0,
 }: {
   isAdmin: boolean;
   canSeeCommissions?: boolean;
   userMenu: ReactNode;
-  roleSwitcher?: ReactNode;
   tasksBadge?: number;
 }) {
   const [open, setOpen] = useState(false);
@@ -123,10 +121,7 @@ export function MobileTopBar({
               canSeeCommissions={canSeeCommissions}
               tasksBadge={tasksBadge}
             />
-            <div className="border-t border-edge p-3">
-              {roleSwitcher}
-              {userMenu}
-            </div>
+            <div className="border-t border-edge p-3">{userMenu}</div>
           </aside>
         </div>
       )}

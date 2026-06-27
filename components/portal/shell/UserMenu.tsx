@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import type { Session } from "next-auth";
 import { signOut } from "@/auth";
 import { ASSUME_ROLE_COOKIE } from "@/lib/portal/role-override";
+import { RoleSwitcherButton } from "./RoleSwitcherButton";
 
 const ROLE_LABELS: Record<string, string> = {
   superadmin: "Superadmin",
@@ -41,23 +42,27 @@ export function UserMenu({ session }: { session: Session }) {
           {roleLabel}
         </div>
       </div>
-      <form
-        action={async () => {
-          "use server";
-          // Náhled role je vázaný na session - při odhlášení ho zruš, ať se
-          // po dalším přihlášení nezačne v cizí roli.
-          (await cookies()).delete(ASSUME_ROLE_COOKIE);
-          await signOut({ redirectTo: "/portal/login" });
-        }}
-      >
-        <button
-          type="submit"
-          aria-label="Odhlásit se"
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-ink-mid transition-colors hover:bg-edge-warm hover:text-ink-base"
+      <div className="flex shrink-0 items-center gap-1">
+        {/* Náhled role - jen pro superadmina (komponenta si to ohlídá sama). */}
+        <RoleSwitcherButton realRole={user.realRole} effectiveRole={user.role} />
+        <form
+          action={async () => {
+            "use server";
+            // Náhled role je vázaný na session - při odhlášení ho zruš, ať se
+            // po dalším přihlášení nezačne v cizí roli.
+            (await cookies()).delete(ASSUME_ROLE_COOKIE);
+            await signOut({ redirectTo: "/portal/login" });
+          }}
         >
-          <LogOut className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
-        </button>
-      </form>
+          <button
+            type="submit"
+            aria-label="Odhlásit se"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-ink-mid transition-colors hover:bg-edge-warm hover:text-ink-base"
+          >
+            <LogOut className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
