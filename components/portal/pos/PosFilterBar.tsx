@@ -29,9 +29,11 @@ const COMPARISONS: PosComparison[] = ["predchozi-obdobi", "predchozi-rok", "zadn
 
 export function PosFilterBar({
   brands,
+  shops,
   currencies,
 }: {
   brands: { id: string; name: string }[];
+  shops: { id: string; name: string; brandId: string }[];
   currencies: string[];
 }) {
   const sp = useSearchParams();
@@ -44,18 +46,42 @@ export function PosFilterBar({
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   };
 
-  const scopeBrand = filter.scope.kind === "brand" ? filter.scope.brandId : "";
+  const scope = filter.scope;
+  let brandValue = "";
+  let shopValue = "";
+  if (scope.kind === "brand") {
+    brandValue = scope.brandId;
+  } else if (scope.kind === "shop") {
+    shopValue = scope.shopId;
+    const sid = scope.shopId;
+    brandValue = shops.find((s) => s.id === sid)?.brandId ?? "";
+  }
+  const shopOptions = brandValue ? shops.filter((s) => s.brandId === brandValue) : shops;
 
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-edge bg-paper p-3 sm:p-4">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <Select
-          label="Rozsah"
-          value={scopeBrand}
+          label="Značka"
+          value={brandValue}
           onChange={(v) => update({ scope: v ? { kind: "brand", brandId: v } : { kind: "all" } })}
+          options={[{ value: "", label: "Všechny značky" }, ...brands.map((b) => ({ value: b.id, label: b.name }))]}
+        />
+        <Select
+          label="Pobočka"
+          value={shopValue}
+          onChange={(v) =>
+            update({
+              scope: v
+                ? { kind: "shop", shopId: v }
+                : brandValue
+                  ? { kind: "brand", brandId: brandValue }
+                  : { kind: "all" },
+            })
+          }
           options={[
-            { value: "", label: "Vše (všechny značky)" },
-            ...brands.map((b) => ({ value: b.id, label: b.name })),
+            { value: "", label: "Všechny pobočky" },
+            ...shopOptions.map((s) => ({ value: s.id, label: s.name })),
           ]}
         />
         <div className="ml-auto flex items-center gap-2">

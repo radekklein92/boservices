@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/portal/get-session";
 import { canSeePOS } from "@/lib/portal/auth-guard";
 import { isPosApiConfigured } from "@/lib/portal/pos/api";
-import { getBrands } from "@/lib/portal/pos/queries";
+import { getAllShops, getBrands } from "@/lib/portal/pos/queries";
 import { PosFilterBar } from "@/components/portal/pos/PosFilterBar";
 import { PosTabs } from "@/components/portal/pos/PosTabs";
 import { PosSyncBadge } from "@/components/portal/pos/PosSyncBadge";
@@ -17,11 +17,15 @@ export default async function PosLayout({ children }: { children: React.ReactNod
   if (!canSeePOS(session?.user?.role)) redirect("/portal");
 
   let brands: { id: string; name: string }[] = [];
+  let shops: { id: string; name: string; brandId: string }[] = [];
   if (isPosApiConfigured()) {
     try {
-      brands = (await getBrands()).map((b) => ({ id: b.id, name: b.name }));
+      const [b, s] = await Promise.all([getBrands(), getAllShops()]);
+      brands = b.map((x) => ({ id: x.id, name: x.name }));
+      shops = s.map((x) => ({ id: x.id, name: x.name, brandId: x.brand_id }));
     } catch {
       brands = [];
+      shops = [];
     }
   }
 
@@ -34,7 +38,7 @@ export default async function PosLayout({ children }: { children: React.ReactNod
         <PosSyncBadge />
       </div>
       <PosTabs />
-      <PosFilterBar brands={brands} currencies={["CZK", "EUR", "PLN"]} />
+      <PosFilterBar brands={brands} shops={shops} currencies={["CZK", "EUR", "PLN"]} />
       {children}
     </div>
   );
