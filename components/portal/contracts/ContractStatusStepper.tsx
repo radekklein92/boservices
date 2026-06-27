@@ -4,7 +4,6 @@ import { Check, Ban } from "lucide-react";
 import {
   CONTRACT_STATUS_LABEL,
   getStatusFlowForType,
-  statusOrder,
   type Contract,
   type ContractStatus,
 } from "@/lib/portal/contracts-db";
@@ -21,6 +20,58 @@ const STATUS_TIMESTAMP_FIELD: Record<ContractStatus, keyof Contract> = {
   archivovano: "scanUploadedAt",
   zrusena: "cancelledAt",
 };
+
+// Pořadí podpisových kroků se řídí REALITOU: kdo podepsal dřív, je v ose dřív.
+// Ručně podepisuje BOS první (= kanonické pořadí flow). Přes DigiSign může
+// podepsat kdokoli první - typicky klient -, takže osa pak kroky otočí na
+// „Podepsáno klientem → Podepsáno BOS". Bez toho by klientův DigiSign podpis
+// buď zmizel (status v DB zůstává „k-podpisu"), nebo vznikla vizuální mezera
+// (krok 6 hotový dřív než krok 5). Mění se POUZE zobrazení, ne status v DB.
+function orderedFlow(contract: Contract): ContractStatus[] {
+  const flow = getStatusFlowForType(contract.type);
+  const bosIdx = flow.indexOf("podepsano-bos");
+  const cliIdx = flow.indexOf("podepsano-klientem");
+  if (bosIdx === -1 || cliIdx === -1) return flow;
+  const tBos = contract.signedAt ? new Date(contract.signedAt).getTime() : null;
+  const cliIso = contract.clientSignedAt ?? contract.digisignClientSignedAt;
+  const tCli = cliIso ? new Date(cliIso).getTime() : null;
+  let clientFirst: boolean;
+  if (tBos != null && tCli != null) clientFirst = tCli <= tBos;
+  else if (tCli != null) clientFirst = true;
+  else if (tBos != null) clientFirst = false;
+  else return flow; // zatím nikdo nepodepsal - ponech kanonické pořadí
+  const lo = Math.min(bosIdx, cliIdx);
+  const hi = Math.max(bosIdx, cliIdx);
+  const out = flow.slice();
+  out[lo] = clientFirst ? "podepsano-klientem" : "podepsano-bos";
+  out[hi] = clientFirst ? "podepsano-bos" : "podepsano-klientem";
+  return out;
+}
+
+// „Dosažený" krok = jeho vlastní milník je vyplněný. U „Podepsáno klientem"
+// počítáme i DigiSign mezistav (digisignClientSignedAt) - klient fakticky
+// podepsal, i když finální clientSignedAt dorazí až po dokončení obálky. Stejný
+// princip jako počítání na dashboardu (clientSignedAtEffective).
+function isReached(contract: Contract, status: ContractStatus): boolean {
+  switch (status) {
+    case "koncept":
+      return true;
+    case "ke-schvaleni":
+      return !!contract.submittedForApprovalAt;
+    case "schvaleno":
+      return !!contract.approvedAt;
+    case "k-podpisu":
+      return !!contract.signerPickedAt;
+    case "podepsano-bos":
+      return !!contract.signedAt;
+    case "podepsano-klientem":
+      return !!(contract.clientSignedAt ?? contract.digisignClientSignedAt);
+    case "archivovano":
+      return contract.status === "archivovano" || !!contract.scanUploadedAt;
+    default:
+      return false;
+  }
+}
 
 function formatStepDate(iso: string | undefined): string {
   if (!iso) return "";
@@ -72,14 +123,16 @@ export function ContractStatusStepper({
     );
   }
 
-  const current = contract.status;
-  const flow = getStatusFlowForType(contract.type);
-  // Když je smlouva už ve statusu, který v jejím flow neexistuje (např. data
-  // ze starého času před zavedením unilateral flow), spadne to do max(flow).
-  const currentIdx =
-    flow.indexOf(current) === -1
-      ? Math.min(statusOrder(current), flow.length - 1)
-      : flow.indexOf(current);
+  const flow = orderedFlow(contract);
+  // Aktuální krok = nejdál DOSAŽENÝ milník v zobrazeném pořadí (ne jen computed
+  // status z DB). Tím se DigiSign mezistav - klient už podepsal, čeká se na BOS -
+  // projeví i v ose, konzistentně s panelem „Co teď" a s čísly na dashboardu.
+  // U ručního flow je nejdál dosažený milník = computed status, takže beze změny.
+  let currentIdx = 0;
+  flow.forEach((status, idx) => {
+    if (isReached(contract, status)) currentIdx = idx;
+  });
+  const displayStatus = flow[currentIdx]!;
   // Délka linky je responzivní - na úzké flow (4 kroky) by 640px byla obří.
   const minWidth = flow.length <= 4 ? 480 : 640;
 
@@ -90,7 +143,7 @@ export function ContractStatusStepper({
           Stav smlouvy
         </div>
         <div className="text-[12.5px] font-semibold text-ink-base">
-          {CONTRACT_STATUS_LABEL[current]}
+          {CONTRACT_STATUS_LABEL[displayStatus]}
         </div>
       </div>
 
@@ -104,13 +157,25 @@ export function ContractStatusStepper({
             const isDone = idx < currentIdx;
             const isCurrent = idx === currentIdx;
             const isFuture = idx > currentIdx;
-            const field = STATUS_TIMESTAMP_FIELD[status];
-            const ts = formatStepDate(contract[field] as string | undefined);
+            // U „Podepsáno klientem" bereme i DigiSign mezistav (digisignClientSignedAt)
+            // a označíme ho - vysvětluje, proč je krok hotový, i když finální
+            // clientSignedAt ještě nedorazil a status v DB je „k-podpisu".
+            const isClientStep = status === "podepsano-klientem";
+            const viaDigisign =
+              isClientStep &&
+              !contract.clientSignedAt &&
+              !!contract.digisignClientSignedAt;
+            const stepIso = isClientStep
+              ? (contract.clientSignedAt ?? contract.digisignClientSignedAt)
+              : (contract[STATUS_TIMESTAMP_FIELD[status]] as string | undefined);
+            const ts = formatStepDate(stepIso);
             const subline =
               isCurrent && status === "k-podpisu" && signerLabel
                 ? signerLabel
                 : isDone || isCurrent
-                  ? ts
+                  ? viaDigisign && ts
+                    ? `${ts} · DigiSign`
+                    : ts
                   : "";
 
             return (
