@@ -1,6 +1,8 @@
+import Link from "next/link";
+import { ArrowRight, Info } from "lucide-react";
 import { canSeePOS } from "@/lib/portal/auth-guard";
 import { getSession } from "@/lib/portal/get-session";
-import { COMPARISON_LABEL, parsePosFilter, type PosFilter } from "@/lib/portal/pos/filters";
+import { COMPARISON_LABEL, parsePosFilter, serializePosFilter, type PosFilter } from "@/lib/portal/pos/filters";
 import {
   getAllShops,
   getDailyTrend,
@@ -9,7 +11,7 @@ import {
   getShopLeaderboardFull,
 } from "@/lib/portal/pos/queries";
 import { isPosApiConfigured } from "@/lib/portal/pos/api";
-import type { DayPoint, SummaryRow } from "@/lib/portal/pos/types";
+import type { DayPoint, ShopRevenueRowWithPrev, SummaryRow } from "@/lib/portal/pos/types";
 import { PosKpiCard } from "@/components/portal/pos/PosKpiCard";
 import { PosLineChart } from "@/components/portal/pos/PosLineChart";
 import { PosDeltaBadge } from "@/components/portal/pos/PosDeltaBadge";
@@ -18,6 +20,8 @@ import {
   formatPosMoneyCompact,
   formatPosNumber,
   formatPct,
+  signedMoneyCompact,
+  signedNumber,
 } from "@/components/portal/pos/pos-shared";
 
 export const dynamic = "force-dynamic";
@@ -64,11 +68,15 @@ export default async function PosOverviewPage({
   let kpi: Awaited<ReturnType<typeof getKpiSummary>>;
   let trend: Awaited<ReturnType<typeof getDailyTrend>>;
   let periods: Awaited<ReturnType<typeof getPeriodTotals>>;
+  let leaderboard: ShopRevenueRowWithPrev[];
+  let shopsRaw: Awaited<ReturnType<typeof getAllShops>>;
   try {
-    [kpi, trend, periods] = await Promise.all([
+    [kpi, trend, periods, leaderboard, shopsRaw] = await Promise.all([
       getKpiSummary(filter),
       getDailyTrend(filter),
       getPeriodTotals(filter),
+      getShopLeaderboardFull(filter),
+      getAllShops(),
     ]);
   } catch {
     return (
@@ -97,8 +105,20 @@ export default async function PosOverviewPage({
   const sparkVat = days.map((d) => Math.max(0, d.gross - d.net));
   const sparkAtv = days.map((d) => (d.receipts > 0 ? d.gross / d.receipts : 0));
 
+  const shopName = new Map(shopsRaw.map((s) => [s.id, s.name]));
+
   return (
     <div className="flex flex-col gap-6">
+      {filter.comparison === "predchozi-rok" && (
+        <div className="flex items-start gap-2.5 rounded-xl border border-edge bg-edge-warm px-4 py-2.5 text-[12.5px] text-ink-deep">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-ink-mid" strokeWidth={1.75} aria-hidden="true" />
+          <span>
+            Srovnání s předchozím rokem je orientační - síť byla loni výrazně menší (souvislá data od ledna 2026),
+            takže delty odrážejí hlavně růst počtu poboček, ne výkon. Pro srovnání výkonu použijte „Předchozí období".
+          </span>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <PosKpiCard
           label="Čisté tržby"
@@ -106,6 +126,7 @@ export default async function PosOverviewPage({
           valueTitle={formatPosMoney(c.net, cur)}
           current={c.net}
           previous={p?.net ?? null}
+          absolute={p ? signedMoneyCompact(c.net - p.net, cur) : undefined}
           spark={sparkNet}
           emphasis
         />
@@ -115,6 +136,7 @@ export default async function PosOverviewPage({
           valueTitle={formatPosMoney(c.gross, cur)}
           current={c.gross}
           previous={p?.gross ?? null}
+          absolute={p ? signedMoneyCompact(c.gross - p.gross, cur) : undefined}
           spark={sparkGross}
         />
         <PosKpiCard
@@ -122,6 +144,7 @@ export default async function PosOverviewPage({
           value={formatPosNumber(c.receipts)}
           current={c.receipts}
           previous={p?.receipts ?? null}
+          absolute={p ? signedNumber(c.receipts - p.receipts) : undefined}
           spark={sparkReceipts}
         />
         <PosKpiCard
@@ -129,6 +152,7 @@ export default async function PosOverviewPage({
           value={c.avg_ticket != null ? formatPosMoney(c.avg_ticket, cur) : "—"}
           current={c.avg_ticket ?? undefined}
           previous={p?.avg_ticket ?? null}
+          absolute={c.avg_ticket != null && p?.avg_ticket != null ? signedMoneyCompact(c.avg_ticket - p.avg_ticket, cur) : undefined}
           spark={sparkAtv}
         />
         <PosKpiCard
@@ -137,6 +161,7 @@ export default async function PosOverviewPage({
           current={c.refund_rate ?? undefined}
           previous={p?.refund_rate ?? null}
           goodDir="down"
+          deltaMode="pp"
         />
         <PosKpiCard
           label="DPH"
@@ -144,6 +169,7 @@ export default async function PosOverviewPage({
           valueTitle={formatPosMoney(c.vat, cur)}
           current={c.vat}
           previous={p?.vat ?? null}
+          absolute={p ? signedMoneyCompact(c.vat - p.vat, cur) : undefined}
           spark={sparkVat}
         />
       </div>
@@ -158,7 +184,7 @@ export default async function PosOverviewPage({
         <PeriodPanel periods={periods} cur={cur} useNet={useNet} />
       </div>
 
-      <Exceptions filter={filter} />
+      <ShopHighlights leaderboard={leaderboard} shopName={shopName} filter={filter} useNet={useNet} />
     </div>
   );
 }
@@ -234,45 +260,83 @@ function PeriodPanel({
   );
 }
 
-// Výjimky: pobočky s největším poklesem tržeb vs srovnávací období.
-async function Exceptions({ filter }: { filter: PosFilter }) {
-  if (!isPosApiConfigured() || filter.comparison === "zadne") return null;
-  let rows: Awaited<ReturnType<typeof getShopLeaderboardFull>>;
-  let shopsRaw: Awaited<ReturnType<typeof getAllShops>>;
-  try {
-    [rows, shopsRaw] = await Promise.all([getShopLeaderboardFull(filter), getAllShops()]);
-  } catch {
-    return null;
-  }
-  const useNet = !filter.vatInclusive;
-  const shopName = new Map(shopsRaw.map((s) => [s.id, s.name]));
-  const decliners = rows
-    .map((r) => {
-      const value = useNet ? r.net : r.gross;
-      const prev = useNet ? r.prevNet : r.prevGross;
-      const delta = prev != null && prev > 0 ? (value - prev) / prev : null;
-      return { id: r.shop_id, name: shopName.get(r.shop_id) ?? r.shop_id, value, prev, delta };
-    })
-    .filter((d) => d.delta != null && d.delta <= -0.15 && (d.prev ?? 0) >= 1000)
-    .sort((a, b) => (a.delta as number) - (b.delta as number))
-    .slice(0, 8);
+type HiRow = { id: string; name: string; value: number; prev: number | null };
 
-  if (decliners.length === 0) return null;
+function ShopHighlights({
+  leaderboard,
+  shopName,
+  filter,
+  useNet,
+}: {
+  leaderboard: ShopRevenueRowWithPrev[];
+  shopName: Map<string, string>;
+  filter: PosFilter;
+  useNet: boolean;
+}) {
+  const cur = filter.currency;
+  const rows: HiRow[] = leaderboard
+    .filter((r) => shopName.has(r.shop_id))
+    .map((r) => ({
+      id: r.shop_id,
+      name: shopName.get(r.shop_id) as string,
+      value: useNet ? r.net : r.gross,
+      prev: useNet ? r.prevNet : r.prevGross,
+    }));
+  if (rows.length === 0) return null;
+
+  const top = [...rows].sort((a, b) => b.value - a.value).slice(0, 5);
+  const decliners = rows
+    .filter((d) => d.prev != null && d.prev > 0 && (d.value - d.prev) / d.prev <= -0.15 && d.prev >= 1000)
+    .sort((a, b) => (a.value - (a.prev as number)) / (a.prev as number) - (b.value - (b.prev as number)) / (b.prev as number))
+    .slice(0, 5);
+
+  const qs = serializePosFilter(filter).toString();
+  const allHref = `/portal/pos/provozovny${qs ? `?${qs}` : ""}`;
 
   return (
+    <div className={`grid gap-5 ${decliners.length > 0 ? "lg:grid-cols-2" : ""}`}>
+      <HiPanel title="Nejlepší provozovny" href={allHref} rows={top} cur={cur} />
+      {decliners.length > 0 && (
+        <HiPanel title={`Pokles vs ${COMPARISON_LABEL[filter.comparison].toLowerCase()}`} rows={decliners} cur={cur} />
+      )}
+    </div>
+  );
+}
+
+function HiPanel({
+  title,
+  href,
+  rows,
+  cur,
+}: {
+  title: string;
+  href?: string;
+  rows: HiRow[];
+  cur: string;
+}) {
+  return (
     <section className="flex flex-col gap-3">
-      <h2 className="text-[12px] font-semibold uppercase tracking-[0.14em] text-ink-mid">
-        Výjimky - největší pokles vs {COMPARISON_LABEL[filter.comparison].toLowerCase()}
-      </h2>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-[12px] font-semibold uppercase tracking-[0.14em] text-ink-mid">{title}</h2>
+        {href && (
+          <Link
+            href={href}
+            className="inline-flex items-center gap-1 text-[12px] font-medium text-ink-mid transition-colors hover:text-ink-base"
+          >
+            Celý žebříček
+            <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+          </Link>
+        )}
+      </div>
       <div className="overflow-hidden rounded-2xl border border-edge bg-paper">
-        {decliners.map((d) => (
+        {rows.map((r) => (
           <div
-            key={d.id}
+            key={r.id}
             className="flex items-center gap-3 border-b border-edge/60 px-4 py-2.5 text-[13px] last:border-0"
           >
-            <span className="min-w-0 flex-1 truncate text-ink-base">{d.name}</span>
-            <span className="tabular-nums text-ink-mid">{formatPosMoney(d.value, filter.currency)}</span>
-            <PosDeltaBadge current={d.value} previous={d.prev} goodDir="up" className="w-[68px] justify-end text-[11.5px]" />
+            <span className="min-w-0 flex-1 truncate text-ink-base">{r.name}</span>
+            <span className="shrink-0 tabular-nums text-ink-deep">{formatPosMoneyCompact(r.value, cur)}</span>
+            <PosDeltaBadge current={r.value} previous={r.prev} className="w-[64px] shrink-0 justify-end text-[11px]" />
           </div>
         ))}
       </div>

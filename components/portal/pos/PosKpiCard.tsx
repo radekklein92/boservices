@@ -1,10 +1,10 @@
 import { PosDeltaBadge } from "./PosDeltaBadge";
 import { PosSparkline } from "./PosSparkline";
 
-// KPI karta. Premium minimal: hairline povrch, jemný hover lift, popisek + delta
-// nahoře, velké tabulkové číslo, sparkline přes celou šířku dna. `value` je už
-// naformátovaný (u velkých částek kompaktně), `valueTitle` drží přesnou hodnotu
-// na hover. `truncate` je pojistka proti přetečení.
+// KPI karta. Premium minimal: hairline povrch, hover lift, velké tabulkové číslo,
+// pod ním delta + absolutní změna (research: absolutní hodnota vedle % koriguje
+// klamné velké %), sparkline přes celou šířku dna. `value` je naformátovaný
+// (velké částky kompaktně), `valueTitle` = přesná hodnota na hover.
 export function PosKpiCard({
   label,
   value,
@@ -12,6 +12,8 @@ export function PosKpiCard({
   current,
   previous,
   goodDir = "up",
+  deltaMode = "pct",
+  absolute,
   spark,
   emphasis = false,
 }: {
@@ -21,32 +23,24 @@ export function PosKpiCard({
   current?: number;
   previous?: number | null;
   goodDir?: "up" | "down";
+  deltaMode?: "pct" | "pp";
+  absolute?: string;
   spark?: number[];
   emphasis?: boolean;
 }) {
   return (
     <div
-      className={`group flex min-w-0 flex-col gap-3 rounded-2xl border p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_30px_-14px_rgba(14,14,14,0.22)] ${
+      className={`group flex min-w-0 flex-col gap-2 rounded-2xl border p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_30px_-14px_rgba(14,14,14,0.22)] ${
         emphasis ? "border-ink-base bg-ink-base text-paper" : "border-edge bg-paper hover:border-ink-soft"
       }`}
     >
-      <div className="flex items-start justify-between gap-2">
-        <span
-          className={`text-[10.5px] font-medium uppercase tracking-[0.16em] ${
-            emphasis ? "text-paper/60" : "text-ink-mid"
-          }`}
-        >
-          {label}
-        </span>
-        {current !== undefined && (
-          <PosDeltaBadge
-            current={current}
-            previous={previous ?? null}
-            goodDir={goodDir}
-            className="shrink-0 text-[11px]"
-          />
-        )}
-      </div>
+      <span
+        className={`text-[10.5px] font-medium uppercase tracking-[0.16em] ${
+          emphasis ? "text-paper/60" : "text-ink-mid"
+        }`}
+      >
+        {label}
+      </span>
 
       <div
         title={valueTitle}
@@ -55,6 +49,15 @@ export function PosKpiCard({
         }`}
       >
         {value}
+      </div>
+
+      <div className="flex min-h-[16px] items-center gap-1.5 text-[11.5px]">
+        {current !== undefined && (
+          <PosDeltaBadge current={current} previous={previous ?? null} goodDir={goodDir} mode={deltaMode} />
+        )}
+        {absolute && (
+          <span className={emphasis ? "tabular-nums text-paper/55" : "tabular-nums text-ink-soft"}>· {absolute}</span>
+        )}
       </div>
 
       {spark && spark.length > 1 && (
