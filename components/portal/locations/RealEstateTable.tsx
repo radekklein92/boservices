@@ -9,9 +9,7 @@ import {
   ChevronUp,
   ChevronsUpDown,
   Columns3,
-  FileSpreadsheet,
   GripVertical,
-  Loader2,
   MapPin,
   RotateCcw,
   Search,
@@ -77,6 +75,7 @@ import { NoteCell } from "./NoteCell";
 import { FlagsCell } from "./FlagsCell";
 import { RedFlagCell } from "./RedFlagCell";
 import { ReTrendButton } from "./ReTrendButton";
+import { ReExcelExportButton } from "./ReExcelExportButton";
 import { flagTone } from "./re-flags-shared";
 import type { ReFlag } from "@/lib/portal/re-flags-shared";
 
@@ -187,7 +186,6 @@ export function RealEstateTable({
   const [sort, setSort] = useState<Sort>(null);
   const [colMenuOpen, setColMenuOpen] = useState(false);
   const colMenuRef = useRef<HTMLDivElement | null>(null);
-  const [exporting, setExporting] = useState(false);
 
   // Init z výchozích hodnot (deterministic kvůli hydrataci), pak přepiš z localStorage.
   const [visibleCols, setVisibleCols] = useState<Set<ColumnId>>(
@@ -441,35 +439,6 @@ export function RealEstateTable({
     return arr;
   }, [filtered, sort]);
 
-  // Master export do .xlsx ze serveru: kompletní tabulka NewCo lokalit ve formátu
-  // NewCo importu + všechny doplňkové systémové sloupce (smlouvy, klient,
-  // Transition metadata) - ne jen to, co je zrovna vidět. Data o smlouvách v
-  // tabulce nejsou, proto se sbírají server-side (/api/portal/real-estate-export).
-  async function exportXlsx() {
-    if (exporting) return;
-    setExporting(true);
-    try {
-      const res = await fetch("/api/portal/real-estate-export", {
-        cache: "no-store",
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const blob = await res.blob();
-      const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD (ASCII)
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `real-estate-${today}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error("[real-estate] XLSX export selhal", err);
-    } finally {
-      setExporting(false);
-    }
-  }
-
   // Pořadí i viditelnost řídí uživatel (colOrder + visibleCols). Hlavička i tělo
   // tabulky iterují přes `cols`, takže se přeskupí i překreslí podle nastavení.
   const orderedCols = colOrder
@@ -602,20 +571,11 @@ export function RealEstateTable({
             {sorted.length.toString().padStart(2, "0")} / {base.length}
           </span>
           <ReTrendButton />
-          <button
-            type="button"
-            onClick={exportXlsx}
-            disabled={exporting}
-            title="Stáhne kompletní tabulku NewCo lokalit (formát NewCo importu + všechna data ze systému) do Excelu (.xlsx)"
+          <ReExcelExportButton
             className="inline-flex h-9 items-center gap-2 rounded-full border border-edge bg-paper px-3.5 text-[12.5px] font-medium text-ink-deep transition-colors hover:border-ink-soft disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {exporting ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} aria-hidden="true" />
-            ) : (
-              <FileSpreadsheet className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
-            )}
-            Excel
-          </button>
+            label="Excel"
+            iconSize="h-3.5 w-3.5"
+          />
           <div className="relative" ref={colMenuRef}>
             <button
               type="button"
