@@ -13,7 +13,12 @@ import type { DayPoint, SummaryRow } from "@/lib/portal/pos/types";
 import { PosKpiCard } from "@/components/portal/pos/PosKpiCard";
 import { PosLineChart } from "@/components/portal/pos/PosLineChart";
 import { PosDeltaBadge } from "@/components/portal/pos/PosDeltaBadge";
-import { formatPosMoney, formatPosNumber, formatPct } from "@/components/portal/pos/pos-shared";
+import {
+  formatPosMoney,
+  formatPosMoneyCompact,
+  formatPosNumber,
+  formatPct,
+} from "@/components/portal/pos/pos-shared";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Pokladna - Přehled" };
@@ -94,10 +99,11 @@ export default async function PosOverviewPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <PosKpiCard
           label="Čisté tržby"
-          value={formatPosMoney(c.net, cur)}
+          value={formatPosMoneyCompact(c.net, cur)}
+          valueTitle={formatPosMoney(c.net, cur)}
           current={c.net}
           previous={p?.net ?? null}
           spark={sparkNet}
@@ -105,7 +111,8 @@ export default async function PosOverviewPage({
         />
         <PosKpiCard
           label="Hrubé tržby"
-          value={formatPosMoney(c.gross, cur)}
+          value={formatPosMoneyCompact(c.gross, cur)}
+          valueTitle={formatPosMoney(c.gross, cur)}
           current={c.gross}
           previous={p?.gross ?? null}
           spark={sparkGross}
@@ -133,7 +140,8 @@ export default async function PosOverviewPage({
         />
         <PosKpiCard
           label="DPH"
-          value={formatPosMoney(c.vat, cur)}
+          value={formatPosMoneyCompact(c.vat, cur)}
+          valueTitle={formatPosMoney(c.vat, cur)}
           current={c.vat}
           previous={p?.vat ?? null}
           spark={sparkVat}
@@ -180,6 +188,7 @@ function Trend({
       comparison={comparison}
       currency={filter.currency}
       comparisonLabel={COMPARISON_LABEL[filter.comparison]}
+      height={260}
     />
   );
 }

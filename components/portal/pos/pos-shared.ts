@@ -24,6 +24,22 @@ export function formatPosNumber(value: number, maximumFractionDigits = 0): strin
   return new Intl.NumberFormat("cs-CZ", { maximumFractionDigits }).format(value);
 }
 
+// Kompaktní peníze pro headline KPI ("6,94 mil. Kč") - nikdy nepřeteče kartu.
+// Pod ~100 tis. zobrazí plnou částku (kompakt by tam byl nečitelný).
+export function formatPosMoneyCompact(value: number, currency: string): string {
+  if (Math.abs(value) < 100_000) return formatPosMoney(value, currency);
+  try {
+    return new Intl.NumberFormat("cs-CZ", {
+      style: "currency",
+      currency,
+      notation: "compact",
+      maximumFractionDigits: Math.abs(value) >= 1_000_000 ? 2 : 0,
+    }).format(value);
+  } catch {
+    return formatPosMoney(value, currency);
+  }
+}
+
 export function formatPct(value: number, digits = 1): string {
   return `${(value * 100).toFixed(digits)} %`;
 }
