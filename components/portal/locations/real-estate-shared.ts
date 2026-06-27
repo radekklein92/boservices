@@ -70,6 +70,45 @@ export function isRedFlagged(
   return Boolean(r.newco?.flaggedRed) || Boolean(r.manualRed);
 }
 
+// Patří řádek do samostatné kategorie „Červeně"? Jen NEVYŘEŠENÁ červená: červená
+// lokalita s vyřešeným nájmem (recon=resolved) přepadá do „Vyřešeno" a z „Červeně"
+// mizí. Sdílený predikát pro filtr, počty i řazení v tabulce A pro týdenní snímky
+// (cron) i živý bod grafu, ať čísla i křivky sedí 1:1 s tabulkou.
+export function isRedBucket(
+  r: Pick<RealEstateRow, "newco" | "manualRed" | "leaseCurrent" | "leaseTarget">,
+): boolean {
+  return isRedFlagged(r) && reconcile(r.leaseCurrent, r.leaseTarget) === "needs";
+}
+
+// Globální počty tří kategorií — přesně jako chipy nad tabulkou (bez textového
+// ani flag filtru). Invariant (shodný s reconCounts/redCount v tabulce):
+// - Nevyřešená červená → `red`. Když má „stejně řešit" (solveDespiteRed),
+//   započítá se ZÁROVEŇ do `needs` (záměrné dvojí započtení, jako chip „Řešit").
+// - Vyřešená červená přepadá do `resolved` (řeší ji reconcile, ne red bucket).
+// - Nečervená → dle reconcile do `needs` / `resolved`.
+// Sdíleno mezi cronem (týdenní snímek) a živým bodem grafu.
+export type ReconCounts = { needs: number; resolved: number; red: number };
+
+export function computeReconCounts(
+  rows: ReadonlyArray<
+    Pick<
+      RealEstateRow,
+      "newco" | "manualRed" | "leaseCurrent" | "leaseTarget" | "solveDespiteRed"
+    >
+  >,
+): ReconCounts {
+  const m: ReconCounts = { needs: 0, resolved: 0, red: 0 };
+  for (const r of rows) {
+    if (isRedBucket(r)) {
+      m.red++;
+      if (r.solveDespiteRed) m.needs++;
+      continue;
+    }
+    m[reconcile(r.leaseCurrent, r.leaseTarget)]++;
+  }
+  return m;
+}
+
 // ── Stav řešení nájmu (porovnání aktuální vs cílový) ──────────────────────────
 
 export type ReconStatus = "resolved" | "needs";

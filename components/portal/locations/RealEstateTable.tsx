@@ -50,6 +50,7 @@ import {
   normalizeColumnOrder,
   normalizeVisibleCols,
   isRedFlagged,
+  isRedBucket,
   LEASE_HOLDER_LABEL,
   LEASE_TARGET_SUMMARY,
   RE_AGENT_SUMMARY,
@@ -75,6 +76,7 @@ import {
 import { NoteCell } from "./NoteCell";
 import { FlagsCell } from "./FlagsCell";
 import { RedFlagCell } from "./RedFlagCell";
+import { ReTrendButton } from "./ReTrendButton";
 import { flagTone } from "./re-flags-shared";
 import type { ReFlag } from "@/lib/portal/re-flags-shared";
 
@@ -102,15 +104,8 @@ const FLAG_NEUTRAL_TONE = "border-edge bg-edge-warm text-ink-mid";
 // i lokality označené v NewCo červeně. Obojí jde zase odkrýt chipy níž.
 const DEFAULT_RECON: ReconStatus[] = ["needs"];
 
-// Patří řádek do samostatné kategorie „Červeně"? Jen NEVYŘEŠENÁ červená: červená
-// lokalita s vyřešeným nájmem (recon=resolved) přepadá do Vyřešeno a z Červeně
-// mizí — z pohledu nájmu na ní není co řešit. Červená = z importu NewCo
-// (flaggedRed) NEBO ruční označení (manualRed) — viz isRedFlagged. Sdílený
-// predikát pro filtr, počty i řazení (a sladěno s Telegram digestem), ať chipy,
-// čísla a pořadí sedí.
-function isRedBucket(r: RealEstateRow): boolean {
-  return isRedFlagged(r) && reconcile(r.leaseCurrent, r.leaseTarget) === "needs";
-}
+// `isRedBucket` (samostatná kategorie „Červeně" = nevyřešená červená) žije ve
+// sdíleném modulu — stejný predikát používá i týdenní snímek (cron) a graf.
 
 // Projde řádek aktuálním filtrem „stav řešení + Červeně"? Sdílí `filtered`
 // i `flagCounts`, ať čísla na chipech sedí s tabulkou.
@@ -607,6 +602,7 @@ export function RealEstateTable({
           <span className="font-mono text-[12px] text-ink-soft">
             {sorted.length.toString().padStart(2, "0")} / {base.length}
           </span>
+          <ReTrendButton />
           <button
             type="button"
             onClick={exportXlsx}
