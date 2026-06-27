@@ -139,8 +139,9 @@ export async function runTelegramLocationDigest(
     // "K řešení" definujeme STEJNĚ jako Real Estate tabulka (default pohled), ať
     // počty sedí s portálem:
     //  - jen lokality z NewCo importu (local.newco) — ostatní se v tabulce neřeší,
-    //  - červené (flaggedRed) jsou samostatná kategorie → jdou sem jen s příznakem
-    //    "stejně řešit" (solveDespiteRed),
+    //  - NEVYŘEŠENÉ červené (flaggedRed + recon needs) jsou samostatná kategorie →
+    //    jdou sem jen s příznakem "stejně řešit" (solveDespiteRed); vyřešená červená
+    //    přepadla do Vyřešeno a sem nepatří,
     //  - ostatní podle reconcile nájmu (needs).
     // Bez tohoto sladění by digest počítal i lokality mimo NewCo a všechny červené
     // (řádově víc, než kolik je v portálu "k řešení").
@@ -148,8 +149,10 @@ export async function runTelegramLocationDigest(
       if (l.re_agent !== agent) return false;
       const local = localMap.get(l.id);
       if (!local?.newco) return false;
-      if (local.newco.flaggedRed) return Boolean(local.solveDespiteRed);
-      return reconcile(l.lease_current_status, l.lease_target_status) === "needs";
+      const needsLease =
+        reconcile(l.lease_current_status, l.lease_target_status) === "needs";
+      if (local.newco.flaggedRed) return needsLease && Boolean(local.solveDespiteRed);
+      return needsLease;
     });
 
     const digest: AgentDigest = {
