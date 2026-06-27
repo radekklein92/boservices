@@ -2,9 +2,9 @@
 
 import { Check, Ban } from "lucide-react";
 import {
+  contractDisplayStatus,
   CONTRACT_STATUS_LABEL,
   displayStatusFlow,
-  isMilestoneReached,
   type Contract,
   type ContractStatus,
 } from "@/lib/portal/contracts-db";
@@ -22,9 +22,9 @@ const STATUS_TIMESTAMP_FIELD: Record<ContractStatus, keyof Contract> = {
   zrusena: "cancelledAt",
 };
 
-// Pořadí podpisových kroků a „dosažené" milníky (vč. DigiSign mezistavu) řeší
-// sdílené helpery displayStatusFlow / isMilestoneReached v contracts-db - aby osa
-// na detailu, badge i chip v seznamu počítaly stav konzistentně.
+// Zobrazovaný stav (vč. DigiSign mezistavu) a pořadí podpisových kroků řeší
+// sdílené helpery contractDisplayStatus / displayStatusFlow v contracts-db - aby
+// osa na detailu, badge i chip v seznamu počítaly stav konzistentně.
 
 function formatStepDate(iso: string | undefined): string {
   if (!iso) return "";
@@ -77,15 +77,12 @@ export function ContractStatusStepper({
   }
 
   const flow = displayStatusFlow(contract);
-  // Aktuální krok = nejdál DOSAŽENÝ milník v zobrazeném pořadí (ne jen computed
-  // status z DB). Tím se DigiSign mezistav - klient už podepsal, čeká se na BOS -
-  // projeví i v ose, konzistentně s panelem „Co teď" a s čísly na dashboardu.
-  // U ručního flow je nejdál dosažený milník = computed status, takže beze změny.
-  let currentIdx = 0;
-  flow.forEach((status, idx) => {
-    if (isMilestoneReached(contract, status)) currentIdx = idx;
-  });
-  const displayStatus = flow[currentIdx]!;
+  // Aktuální krok = zobrazovaný stav (u DigiSign mezistavu „podepsano-klientem"),
+  // konzistentně s chipem v seznamu, panelem „Co teď" i čísly na dashboardu.
+  // U ručního flow je displayStatus = computed status, takže beze změny.
+  const displayStatus = contractDisplayStatus(contract);
+  const idx = flow.indexOf(displayStatus);
+  const currentIdx = idx === -1 ? 0 : idx;
   // Délka linky je responzivní - na úzké flow (4 kroky) by 640px byla obří.
   const minWidth = flow.length <= 4 ? 480 : 640;
 
