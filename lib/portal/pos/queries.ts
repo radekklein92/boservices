@@ -73,9 +73,10 @@ async function collectShops(): Promise<ApiShop[]> {
   return out;
 }
 const _allShops = posQuery(() => collectShops(), "all-shops");
-// Pobočky pro UI - bez test/neprodejních (Trdlokafe "Test*/VRP"). Cachované.
+// Pobočky pro UI - bez test/neprodejních (Trdlokafe "Test*/VRP") a bez AED
+// (124 účtenek, nakonfigurovaná/test pobočka). Cachované.
 export async function getAllShops(): Promise<ApiShop[]> {
-  return (await _allShops()).filter((s) => !isTestShop(s.name));
+  return (await _allShops()).filter((s) => !isTestShop(s.name) && s.currency_code !== "AED");
 }
 
 // --- KPI souhrn (existující endpoint /v1/revenue/summary) ---
@@ -250,10 +251,12 @@ export async function getShopLeaderboardFull(filter: PosFilter): Promise<ShopRev
     cmp ? _shopRev(cmp.from, cmp.to, filter.currency, brand_id) : Promise.resolve<ShopRevenueRow[]>([]),
   ]);
   const prevMap = new Map(prev.map((r) => [r.shop_id, r]));
-  return cur.map((r) => {
+  const merged = cur.map((r) => {
     const p = prevMap.get(r.shop_id);
     return { ...r, prevGross: p?.gross ?? null, prevNet: p?.net ?? null, prevReceipts: p?.receipts ?? null };
   });
+  // Same-store: jen pobočky s tržbou v obou obdobích (srovnatelná báze).
+  return filter.sameStore ? merged.filter((r) => r.prevGross != null) : merged;
 }
 
 const _byBrand = posQuery(
@@ -272,10 +275,11 @@ export async function getBrandLeaderboardFull(filter: PosFilter): Promise<BrandR
       : Promise.resolve<{ data: BrandRevenueRow[] }>({ data: [] }),
   ]);
   const prevMap = new Map(prev.data.map((r) => [r.brand_id, r]));
-  return cur.data.map((r) => {
+  const merged = cur.data.map((r) => {
     const p = prevMap.get(r.brand_id);
     return { ...r, prevGross: p?.gross ?? null, prevNet: p?.net ?? null, prevReceipts: p?.receipts ?? null };
   });
+  return filter.sameStore ? merged.filter((r) => r.prevGross != null) : merged;
 }
 
 // --- Analytics (NOVÉ endpointy; heatmapa/daypart jsou raw -> kratší okno) ---

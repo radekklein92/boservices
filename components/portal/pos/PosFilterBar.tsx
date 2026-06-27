@@ -114,6 +114,20 @@ export function PosFilterBar({
           onChange={(v) => update({ comparison: v as PosComparison })}
           options={COMPARISONS.map((c) => ({ value: c, label: COMPARISON_LABEL[c] }))}
         />
+        <button
+          type="button"
+          disabled={filter.comparison === "zadne"}
+          onClick={() => update({ sameStore: !filter.sameStore })}
+          aria-pressed={filter.sameStore}
+          title="Jen prodejny s tržbou v obou obdobích (srovnatelná báze)"
+          className={`h-8 shrink-0 rounded-lg border px-2.5 text-[12px] font-semibold transition-colors disabled:opacity-40 ${
+            filter.sameStore && filter.comparison !== "zadne"
+              ? "border-ink-base bg-ink-base text-paper"
+              : "border-edge text-ink-deep hover:bg-edge-warm"
+          }`}
+        >
+          Stejné prodejny
+        </button>
       </div>
     </div>
   );
