@@ -7,6 +7,7 @@ import type { UserRole } from "@/lib/portal/users-db";
 const LABELS: Record<UserRole, string> = {
   superadmin: "Superadmin",
   admin: "Admin",
+  manager: "Manažer",
   user: "Uživatel",
 };
 

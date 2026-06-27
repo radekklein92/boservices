@@ -1,6 +1,9 @@
 import { getRedis } from "@/lib/redis";
 
-export type UserRole = "superadmin" | "admin" | "user";
+// manager: vidí celý POS / pokladní dashboard (všechny značky a pobočky), ale
+// NENÍ admin (nemá přístup do Administrace, párování pokladen ani uživatelů).
+// Pořadí role nemá funkční význam, jen čitelnost.
+export type UserRole = "superadmin" | "admin" | "manager" | "user";
 
 // Sekundární atribut "Podepisující". Ortogonální k role - může ho mít kdokoli.
 // Když je isSigner=true, signerFunction určuje text v PDF u podpisu poskytovatele

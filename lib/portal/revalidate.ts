@@ -57,3 +57,17 @@ export function bustPayouts(): void {
 export function bustReFlags(): void {
   revalidateTag(TAG.reFlags, PROFILE);
 }
+
+// POS: párování pobočka<->lokalita se mění z admin UI - po mutaci je nutné
+// zneplatnit jak crosswalk, tak odvozené POS agregace (město/koncept scope se
+// počítá z párování), proto bustuje obojí.
+export function bustPosPairing(): void {
+  revalidateTag(TAG.posPairing, PROFILE);
+  revalidateTag(TAG.posData, PROFILE);
+}
+
+// POS data se běžně nebustují ručně (čerstvost řeší krátké TTL nad API DW);
+// tohle je jen pro tlačítko "Obnovit" v UI / výjimečné případy.
+export function bustPosData(): void {
+  revalidateTag(TAG.posData, PROFILE);
+}

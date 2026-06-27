@@ -13,6 +13,11 @@ export const TAG = {
   claimsMirror: "claims-mirror",
   payouts: "payouts",
   reFlags: "re-flags",
+  // POS / pokladní dashboard: posData = krátká cache odpovědí z API DW (čte se,
+  // ne mutuje - bustuje se hlavně přes TTL); posPairing = crosswalk pobočka<->lokalita
+  // (mutuje admin párovací UI, proto read-your-writes bust).
+  posData: "pos-data",
+  posPairing: "pos-pairing",
 } as const;
 
 export type CacheTag = (typeof TAG)[keyof typeof TAG];
