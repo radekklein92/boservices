@@ -1,12 +1,18 @@
 import { canSeePOS } from "@/lib/portal/auth-guard";
 import { getSession } from "@/lib/portal/get-session";
 import { DEFAULT_POS_FILTER, COMPARISON_LABEL, DATE_PRESET_LABEL } from "@/lib/portal/pos/filters";
-import { getKpiSummary } from "@/lib/portal/pos/queries";
+import { getKpiSummary, getDailyTrend } from "@/lib/portal/pos/queries";
 import { getLastSyncCached } from "@/lib/portal/pos/cache";
 import { isPosApiConfigured } from "@/lib/portal/pos/api";
 import type { SummaryRow } from "@/lib/portal/pos/types";
 import { PosKpiCard } from "@/components/portal/pos/PosKpiCard";
+import { PosLineChart } from "@/components/portal/pos/PosLineChart";
 import { formatPosMoney, formatPosNumber, formatPct } from "@/components/portal/pos/pos-shared";
+
+function fmtDayLabel(date: string): string {
+  const [, m, d] = date.split("-");
+  return `${Number(d)}.${Number(m)}.`;
+}
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Pokladna - Přehled" };
@@ -53,7 +59,34 @@ export default async function PosOverviewPage() {
       </header>
 
       <Kpis filter={filter} />
+      <Trend filter={filter} />
     </div>
+  );
+}
+
+async function Trend({ filter }: { filter: typeof DEFAULT_POS_FILTER }) {
+  if (!isPosApiConfigured()) return null;
+  let trend: Awaited<ReturnType<typeof getDailyTrend>>;
+  try {
+    trend = await getDailyTrend(filter);
+  } catch {
+    return null;
+  }
+  if (trend.current.length === 0) return null;
+  const current = trend.current.map((d) => ({ label: fmtDayLabel(d.date), value: d.net }));
+  const comparison = trend.comparison ? trend.comparison.map((d) => d.net) : null;
+  return (
+    <section className="flex flex-col gap-3">
+      <h2 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink-mid">
+        Vývoj čistých tržeb
+      </h2>
+      <PosLineChart
+        current={current}
+        comparison={comparison}
+        currency={filter.currency}
+        comparisonLabel={COMPARISON_LABEL[filter.comparison]}
+      />
+    </section>
   );
 }
 
