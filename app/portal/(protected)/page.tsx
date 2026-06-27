@@ -397,7 +397,11 @@ function MilestoneHero({ count, festive = false }: { count: number; festive?: bo
 
       {/* Massive number block */}
       <div className="relative mt-10 flex flex-wrap items-end justify-between gap-8">
-        <div>
+        <Link
+          href="/portal/contracts?type=franchise&status=podepsano-klientem,archivovano"
+          className="group -m-2 block rounded-2xl p-2 outline-none transition-colors hover:bg-ink-base/[0.03] focus-visible:ring-2 focus-visible:ring-ink-base/30"
+          title="Zobrazit podepsané franšízingové smlouvy"
+        >
           <div className="flex items-end gap-3 leading-none tracking-[-0.05em]">
             <div
               className={[
@@ -412,12 +416,17 @@ function MilestoneHero({ count, festive = false }: { count: number; festive?: bo
               <span>/</span>
               <span>{TARGET}</span>
             </div>
+            <ArrowUpRight
+              className="mb-3 h-5 w-5 shrink-0 self-end text-ink-soft opacity-0 transition-all group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:opacity-100"
+              strokeWidth={1.75}
+              aria-hidden="true"
+            />
           </div>
-          <div className="mt-3 max-w-[42ch] text-[14px] leading-relaxed text-ink-mid">
+          <div className="mt-3 max-w-[42ch] text-[14px] leading-relaxed text-ink-mid underline-offset-4 group-hover:underline">
             Franšízových smluv podepsaných klientem. Každá podepsaná smlouva
             je další lokalita v síti.
           </div>
-        </div>
+        </Link>
 
         {/* Right side: next milestone callout */}
         <div className="w-full sm:w-auto sm:min-w-[200px]">

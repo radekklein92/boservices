@@ -272,6 +272,8 @@ export function ContractsList({
   currentUserEmail = "",
   isSuperadmin = false,
   userOptions = [],
+  initialType,
+  initialStatuses,
 }: {
   contracts: Contract[];
   clients: Client[];
@@ -282,6 +284,10 @@ export function ContractsList({
   currentUserEmail?: string;
   isSuperadmin?: boolean;
   userOptions?: { email: string; name: string }[];
+  // Předfiltr z URL (např. proklik z dlaždice na dashboardu): zúžení na typ
+  // smlouvy a předvybrané stavy. Validuje server (page.tsx).
+  initialType?: Contract["type"];
+  initialStatuses?: Contract["status"][];
 }) {
   const router = useRouter();
   const [items, setItems] = useState(contracts);
@@ -289,7 +295,12 @@ export function ContractsList({
   // Prázdná množina = bez filtru (Vše). Více vybraných stavů = OR (smlouva
   // projde, je-li v některém z nich) - kombinovatelné filtry jako u Lokalit.
   const [statusFilters, setStatusFilters] = useState<Set<Contract["status"]>>(
-    new Set(),
+    () => new Set(initialStatuses ?? []),
+  );
+  // Zúžení na typ smlouvy (proklik z dashboardu „Lokality s franšízou"). null =
+  // všechny typy. Lze zrušit chipem - tím se přehled vrátí na všechny typy.
+  const [typeFilter, setTypeFilter] = useState<Contract["type"] | null>(
+    initialType ?? null,
   );
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [modalOpen, setModalOpen] = useState(false);
@@ -324,6 +335,13 @@ export function ContractsList({
     }
   }
 
+  // Zúžení na typ (proklik z dashboardu). Počty facetů i „Vše" se počítají
+  // POUZE z tohoto podsouboru, ať čísla sedí s tím, co je v seznamu vidět.
+  const typeScoped = useMemo(
+    () => (typeFilter ? items.filter((c) => c.type === typeFilter) : items),
+    [items, typeFilter],
+  );
+
   const counts = useMemo(() => {
     const m: Record<Contract["status"], number> = {
       koncept: 0,
@@ -337,13 +355,13 @@ export function ContractsList({
     };
     // Počty i filtr jedou podle ZOBRAZOVANÉHO stavu (jako chip), ať souhlasí
     // číslo u facetu s tím, co je v seznamu vidět - vč. DigiSign mezistavu.
-    for (const c of items) m[contractDisplayStatus(c)]++;
+    for (const c of typeScoped) m[contractDisplayStatus(c)]++;
     return m;
-  }, [items]);
+  }, [typeScoped]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return items.filter((c) => {
+    return typeScoped.filter((c) => {
       if (statusFilters.size > 0 && !statusFilters.has(contractDisplayStatus(c)))
         return false;
       if (!q) return true;
@@ -358,7 +376,7 @@ export function ContractsList({
         .toLowerCase()
         .includes(q);
     });
-  }, [items, query, statusFilters]);
+  }, [typeScoped, query, statusFilters]);
 
   // Změny proti šabloně předpočítáme jednou (htmlDiff není triviální - 180 smluv
   // při každém renderu by sekalo). Set ID smluv, které mají změny.
@@ -586,7 +604,7 @@ export function ContractsList({
             />
           </div>
           <span className="font-mono text-[12px] text-ink-soft">
-            {filtered.length.toString().padStart(2, "0")} / {items.length}
+            {filtered.length.toString().padStart(2, "0")} / {typeScoped.length}
           </span>
           <div className="hidden flex-1 sm:block" />
           <button
@@ -600,13 +618,26 @@ export function ContractsList({
           </button>
         </div>
 
+        {/* Zúžení na typ (proklik z dashboardu) - klik zruší a vrátí všechny typy. */}
+        {typeFilter && (
+          <div className="flex flex-wrap items-center gap-2">
+            <FilterChip
+              active
+              onClick={() => setTypeFilter(null)}
+              Icon={X}
+              label={`Jen: ${CONTRACT_TYPE_META[typeFilter].fullName}`}
+              title="Zrušit zúžení na typ - zobrazit všechny typy smluv"
+            />
+          </div>
+        )}
+
         {/* Status filter chips */}
         <div className="flex flex-wrap items-center gap-2">
           <FilterChip
             active={statusFilters.size === 0}
             onClick={() => setStatusFilters(new Set())}
             label="Vše"
-            count={items.length}
+            count={typeScoped.length}
           />
           {STATUS_ORDER.map((s) => (
             <FilterChip
