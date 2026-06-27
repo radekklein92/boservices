@@ -350,7 +350,7 @@ function ReTrendCard({ points }: { points: ReTrendPoint[] }) {
           />
         </Link>
       </div>
-      <ReTrendPanel points={points} />
+      <ReTrendPanel points={points} variant="compact" />
     </section>
   );
 }
