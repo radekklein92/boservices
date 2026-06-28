@@ -290,21 +290,16 @@ export function FeesClient({
       </div>
 
       {/* Tabulka */}
-      <div className="max-h-[calc(100dvh-300px)] overflow-auto rounded-3xl border border-edge bg-paper">
+      <div className="overflow-x-auto rounded-3xl border border-edge bg-paper">
         <table className="w-full min-w-[980px] border-collapse text-[13px]">
           <thead>
             <tr>
               {COLUMNS.map((c) => {
-                const isFirst = c.key === "location";
                 const active = sort?.key === c.key;
                 return (
                   <th
                     key={c.key}
-                    className={`whitespace-nowrap py-2.5 text-left text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-mid ${
-                      isFirst
-                        ? "sticky left-0 top-0 z-30 border-r border-edge bg-paper-warm px-3"
-                        : "sticky top-0 z-20 bg-paper-warm px-3"
-                    }`}
+                    className="whitespace-nowrap bg-paper-warm px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-mid"
                   >
                     <button
                       type="button"
@@ -334,7 +329,7 @@ export function FeesClient({
                 onClick={() => setOpenContractId(r.contractId)}
                 className="group cursor-pointer border-t border-edge transition-colors hover:bg-paper-warm"
               >
-                <td className="sticky left-0 z-10 border-r border-edge bg-paper px-3 py-2 align-middle group-hover:bg-paper-warm">
+                <td className="px-3 py-2 align-middle">
                   <Link
                     href={`/portal/locations/${r.locationId}`}
                     onClick={(e) => e.stopPropagation()}

@@ -235,10 +235,10 @@ export function periodActiveInMonth(row: FeeRow, month: string): boolean {
   return true;
 }
 
-// Je řádek v daném měsíci „účinný"? Pending (nezpracované) řádky se řídí datem
-// podpisu (smlouva je účinná od podpisu, i když periody ještě neznáme).
+// Je řádek v daném měsíci „účinný"? Pending (nezpracované - „zpracovává se"/chyba)
+// řádky se NEzobrazují (nemají vytažené poplatky, nelze nic spočítat).
 export function isRowActiveInMonth(row: FeeRow, month: string): boolean {
-  if (row.pending) return !!row.signedMonth && month >= row.signedMonth;
+  if (row.pending) return false;
   return periodActiveInMonth(row, month);
 }
 
