@@ -66,7 +66,7 @@ export function CommandPalette({
         onClick={onClose}
       />
       <motion.div
-        className="relative w-full max-w-[560px] overflow-hidden rounded-2xl border border-edge bg-paper shadow-[0_24px_64px_-24px_rgba(14,14,14,0.45)]"
+        className="relative w-full max-w-[560px] overflow-hidden rounded-2xl border border-edge bg-paper shadow-[0_24px_60px_-20px_rgba(14,14,14,0.35)]"
         initial={{ opacity: 0, y: -12, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: -12, scale: 0.98 }}

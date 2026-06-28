@@ -450,6 +450,7 @@ function ViewBtn({
     <button
       type="button"
       onClick={onClick}
+      aria-pressed={active}
       className={`grid h-9 w-10 place-items-center transition-colors ${
         active ? "bg-ink-base text-paper" : "text-ink-mid hover:text-ink-base"
       }`}

@@ -45,7 +45,7 @@ export async function PosLocationPanel({ locationId }: { locationId: string }) {
   return (
     <section className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink-mid">
+        <h2 className="text-[12px] font-semibold uppercase tracking-[0.14em] text-ink-mid">
           Tržby (posledních 30 dní)
           {pairs.length > 1 && (
             <span className="ml-2 font-normal normal-case tracking-normal text-ink-soft">

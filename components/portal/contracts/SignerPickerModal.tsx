@@ -91,7 +91,7 @@ export function SignerPickerModal({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="flex max-h-[88vh] w-full max-w-[520px] flex-col overflow-hidden rounded-[28px] border border-edge bg-paper shadow-[0_24px_60px_-20px_rgba(14,14,14,0.35)]">
+      <div className="flex max-h-[88vh] w-full max-w-[520px] flex-col overflow-hidden rounded-2xl border border-edge bg-paper shadow-[0_24px_60px_-20px_rgba(14,14,14,0.35)]">
         <div className="flex items-start justify-between gap-4 px-8 pt-8">
           <div>
             <div className="text-[10.5px] font-medium uppercase tracking-[0.22em] text-ink-mid">

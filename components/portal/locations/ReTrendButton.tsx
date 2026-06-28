@@ -117,7 +117,7 @@ function ReTrendModal({ onClose }: { onClose: () => void }) {
 
 function LoadingBox() {
   return (
-    <div className="grid h-[360px] place-items-center rounded-[20px] border border-edge bg-paper-warm">
+    <div className="grid h-[360px] place-items-center rounded-2xl border border-edge bg-paper-warm">
       <span className="inline-flex items-center gap-2 text-[13px] text-ink-mid">
         <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.5} aria-hidden="true" />
         Načítám vývoj…
@@ -128,7 +128,7 @@ function LoadingBox() {
 
 function ErrorBox({ msg }: { msg: string }) {
   return (
-    <div className="grid h-[360px] place-items-center rounded-[20px] border border-dashed border-edge bg-paper-warm px-6 text-center">
+    <div className="grid h-[360px] place-items-center rounded-2xl border border-dashed border-edge bg-paper-warm px-6 text-center">
       <div>
         <p className="text-[14px] font-semibold text-ink-base">
           Data se nepodařilo načíst
