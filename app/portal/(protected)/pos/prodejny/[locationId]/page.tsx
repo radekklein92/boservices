@@ -4,7 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { canSeePOS } from "@/lib/portal/auth-guard";
 import { getSession } from "@/lib/portal/get-session";
 import { PageHeader } from "@/components/portal/shell/PageHeader";
-import { COMPARISON_LABEL, parsePosFilter, serializePosFilter, type PosFilter } from "@/lib/portal/pos/filters";
+import { comparisonLabel, parsePosFilter, serializePosFilter, type PosFilter } from "@/lib/portal/pos/filters";
 import {
   getAllShops,
   getDailyTrend,
@@ -400,7 +400,7 @@ function Trend({
       current={current}
       comparison={comparison}
       currency={cur}
-      comparisonLabel={COMPARISON_LABEL[filter.comparison]}
+      comparisonLabel={comparisonLabel(filter)}
       height={240}
     />
   );

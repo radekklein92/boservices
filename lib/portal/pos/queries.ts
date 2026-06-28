@@ -515,7 +515,7 @@ export async function getLocationLeaderboardFull(filter: PosFilter): Promise<Loc
   }
   // Same-store: jen prodejny s tržbou v obou obdobích (srovnatelná báze), aplikováno
   // až PO součtu na prodejnu (ne na pokladně).
-  return filter.sameStore ? rows.filter((r) => r.prevGross != null) : rows;
+  return filter.sameStore && cmp ? rows.filter((r) => r.prevGross != null) : rows;
 }
 
 // --- Hybatelé dne (Živě): nej/nejhorší prodejny DoD "k této hodině" ---
@@ -647,7 +647,7 @@ export async function getConceptLeaderboardFull(filter: PosFilter): Promise<Conc
       prevReceipts: p?.receipts ?? null,
     });
   }
-  return filter.sameStore ? rows.filter((r) => r.prevGross != null) : rows;
+  return filter.sameStore && cmp ? rows.filter((r) => r.prevGross != null) : rows;
 }
 
 // --- Žebříček MĚST (rollup pokladen -> město z párování) ---
@@ -693,7 +693,7 @@ export async function getCityLeaderboardFull(filter: PosFilter): Promise<CityRev
       prevReceipts: p?.receipts ?? null,
     });
   }
-  return filter.sameStore ? rows.filter((r) => r.prevGross != null) : rows;
+  return filter.sameStore && cmp ? rows.filter((r) => r.prevGross != null) : rows;
 }
 
 // Ponecháno pro zpětnou kompatibilitu (žebříček značek nahrazen Koncepty).
@@ -730,7 +730,7 @@ export async function getBrandLeaderboardFull(filter: PosFilter): Promise<BrandR
     const p = prevMap.get(r.brand_id);
     return { ...r, prevGross: p?.gross ?? null, prevNet: p?.net ?? null, prevReceipts: p?.receipts ?? null };
   });
-  return filter.sameStore ? merged.filter((r) => r.prevGross != null) : merged;
+  return filter.sameStore && cmp ? merged.filter((r) => r.prevGross != null) : merged;
 }
 
 // --- Top/bottom produkty (/v1/products/sales) ---

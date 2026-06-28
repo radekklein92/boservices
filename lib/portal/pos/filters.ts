@@ -47,16 +47,14 @@ export type PosDatePreset =
   | "tento-rok"
   | "vlastni";
 
-// predchozi-rok = posun o 364 dní (52 týdnů) -> zarovná dny v týdnu (lepší pro
-// retail/food než kalendářní rok). predchozi-obdobi = stejně dlouhé okno těsně před.
-export type PosComparison = "predchozi-obdobi" | "predchozi-rok" | "zadne";
-
 export interface PosFilter {
   selection: PosSelection;
   preset: PosDatePreset;
   from?: string; // jen u preset "vlastni"
   to?: string;
-  comparison: PosComparison;
+  // Srovnání je prostý toggle. Když je zapnuté, baseline se odvodí AUTOMATICKY
+  // z presetu jako přirozené předchozí kalendářní období (viz resolveComparisonRange).
+  compare: boolean;
   sameStore: boolean; // like-for-like toggle
   currency: string; // zobrazovací měna; default CZK; vše se do ní přepočítá přes FX (fx.ts)
   vatInclusive: boolean; // true = gross (s DPH), false = net (bez DPH)
@@ -67,10 +65,9 @@ export const EMPTY_SELECTION: PosSelection = { concepts: [], locations: [] };
 export const DEFAULT_POS_FILTER: PosFilter = {
   selection: EMPTY_SELECTION,
   preset: "tento-tyden",
-  // Default WoW (předchozí období), NE rok: warehouse je mladý (síť naskočila
-  // Jan 2026), takže YoY srovnává plnou síť s téměř prázdnou historií = zavádějící
-  // +stovky %. WoW dává reálných ~+10 %. Viz [[pos-comparison-weekday-aligned]].
-  comparison: "predchozi-obdobi",
+  // Srovnání zapnuté: baseline = přirozené předchozí kalendářní období dle presetu
+  // (den/týden/měsíc/30 dní/rok). Viz resolveComparisonRange.
+  compare: true,
   sameStore: false,
   currency: "CZK",
   vatInclusive: true,
@@ -96,12 +93,6 @@ export const DATE_PRESET_LABEL: Record<PosDatePreset, string> = {
   "poslednich-30-dni": "Posledních 30 dní",
   "tento-rok": "Tento rok",
   vlastni: "Vlastní",
-};
-
-export const COMPARISON_LABEL: Record<PosComparison, string> = {
-  "predchozi-obdobi": "Předchozí období",
-  "predchozi-rok": "Předchozí rok",
-  zadne: "Bez srovnání",
 };
 
 // --- Pomocné funkce nad kalendářními daty (UTC midnight = čistý kalendářní den) ---
@@ -141,6 +132,26 @@ function endOfMonth(s: string): string {
 function startOfYear(s: string): string {
   const d = parseYmd(s);
   return ymd(new Date(Date.UTC(d.getUTCFullYear(), 0, 1)));
+}
+
+function daysInMonth(year: number, monthZeroBased: number): number {
+  return new Date(Date.UTC(year, monthZeroBased + 1, 0)).getUTCDate();
+}
+
+// Posun o N kalendářních měsíců. Den se clampuje na poslední den cílového měsíce
+// (31.3 -> 28./29.2). Date.UTC normalizuje přetečení indexu měsíce (i přes rok).
+function shiftMonths(s: string, n: number): string {
+  const d = parseYmd(s);
+  const total = d.getUTCFullYear() * 12 + d.getUTCMonth() + n;
+  const ty = Math.floor(total / 12);
+  const tm = ((total % 12) + 12) % 12;
+  const tday = Math.min(d.getUTCDate(), daysInMonth(ty, tm));
+  return ymd(new Date(Date.UTC(ty, tm, tday)));
+}
+
+// Posun o N kalendářních roků (29.2 -> 28.2 v nepřestupném roce).
+function shiftYears(s: string, n: number): string {
+  return shiftMonths(s, n * 12);
 }
 
 // Počet dní okna včetně obou krajů.
@@ -189,19 +200,60 @@ export function resolveDateRange(filter: PosFilter, today: string = todayPrague(
   }
 }
 
-// Srovnávací okno (baseline). null = bez srovnání.
+// Srovnávací okno (baseline). null = srovnání vypnuté. Když je zapnuté, baseline
+// se odvodí z presetu jako PŘIROZENÉ PŘEDCHOZÍ KALENDÁŘNÍ období: den->předchozí den,
+// týden->předchozí týden, měsíc->předchozí kalendářní měsíc (MTD vs MTD), rok->předchozí
+// rok (YTD vs YTD). U "vlastni" dle délky okna L: do měsíce předchozí stejně dlouhé okno,
+// nad měsíc předchozí rok. Pozn.: u dne/měsíce/roku se mohou rozjet dny v týdnu (záměr -
+// kalendářní srovnání má přednost před weekday-alignmentem).
 export function resolveComparisonRange(filter: PosFilter, range: DateRange): DateRange | null {
-  if (filter.comparison === "zadne") return null;
-  if (filter.comparison === "predchozi-rok") {
-    // D-364 (52 týdnů) - zarovná dny v týdnu (retail nelze srovnávat na kalendářní rok).
-    return { from: addDays(range.from, -364), to: addDays(range.to, -364) };
+  if (!filter.compare) return null;
+  const byDays = (n: number): DateRange => ({ from: addDays(range.from, -n), to: addDays(range.to, -n) });
+  const byMonths = (n: number): DateRange => ({ from: shiftMonths(range.from, -n), to: shiftMonths(range.to, -n) });
+  const byYears = (n: number): DateRange => ({ from: shiftYears(range.from, -n), to: shiftYears(range.to, -n) });
+  switch (filter.preset) {
+    case "dnes":
+    case "vcera":
+      return byDays(1);
+    case "tento-tyden":
+    case "minuly-tyden":
+      return byDays(7);
+    case "poslednich-30-dni":
+      return byDays(30);
+    case "tento-mesic":
+    case "minuly-mesic":
+      return byMonths(1);
+    case "tento-rok":
+      return byYears(1);
+    case "vlastni": {
+      const len = inclusiveDays(range);
+      return len > 31 ? byYears(1) : byDays(len);
+    }
+    default: {
+      const _exhaustive: never = filter.preset;
+      return _exhaustive;
+    }
   }
-  // predchozi-obdobi: posun o CELÉ TÝDNY (round(len/7)*7), stejně dlouhé okno.
-  // Zarovná dny v týdnu: týden -> D-7, měsíc -> D-28. Bez toho je retail
-  // neporovnatelný (jiné dny v týdnu = jiný objem). Minimálně D-7.
-  const len = inclusiveDays(range);
-  const shift = Math.max(7, Math.round(len / 7) * 7);
-  return { from: addDays(range.from, -shift), to: addDays(range.to, -shift) };
+}
+
+// Lidský popis srovnávacího období (do grafu i panelů). Odráží resolveComparisonRange.
+const COMPARISON_LABEL_BY_PRESET: Record<PosDatePreset, string> = {
+  dnes: "Předchozí den",
+  vcera: "Předchozí den",
+  "tento-tyden": "Předchozí týden",
+  "minuly-tyden": "Předchozí týden",
+  "tento-mesic": "Předchozí měsíc",
+  "minuly-mesic": "Předchozí měsíc",
+  "poslednich-30-dni": "Předchozích 30 dní",
+  "tento-rok": "Předchozí rok",
+  vlastni: "Předchozí období",
+};
+
+export function comparisonLabel(filter: PosFilter): string {
+  if (filter.preset === "vlastni") {
+    return inclusiveDays(resolveDateRange(filter)) > 31 ? "Předchozí rok" : "Předchozí období";
+  }
+  return COMPARISON_LABEL_BY_PRESET[filter.preset];
 }
 
 // --- (De)serializace výběru ---
@@ -263,13 +315,13 @@ const PRESETS = new Set<PosDatePreset>([
   "tento-rok",
   "vlastni",
 ]);
-const COMPARISONS = new Set<PosComparison>(["predchozi-obdobi", "predchozi-rok", "zadne"]);
-
 export function parsePosFilter(sp: URLSearchParams): PosFilter {
   const presetRaw = sp.get("preset") as PosDatePreset | null;
   const preset = presetRaw && PRESETS.has(presetRaw) ? presetRaw : DEFAULT_POS_FILTER.preset;
-  const cmpRaw = sp.get("cmp") as PosComparison | null;
-  const comparison = cmpRaw && COMPARISONS.has(cmpRaw) ? cmpRaw : DEFAULT_POS_FILTER.comparison;
+  // Srovnání = toggle. Default zapnuto; vypnuté jen explicitně přes cmp=0. Zpětná
+  // kompat: legacy cmp=zadne -> vypnuto; cmp=predchozi-rok/predchozi-obdobi -> zapnuto.
+  const cmpRaw = sp.get("cmp");
+  const compare = cmpRaw !== "0" && cmpRaw !== "zadne";
 
   // Nový multi-select (c=, l=) má přednost; když chybí, zkus legacy ?scope=.
   const concepts = decodeConcepts(sp.get("c"));
@@ -284,7 +336,7 @@ export function parsePosFilter(sp: URLSearchParams): PosFilter {
     preset,
     from: sp.get("from") ?? undefined,
     to: sp.get("to") ?? undefined,
-    comparison,
+    compare,
     sameStore: sp.get("same") === "1",
     currency: sp.get("cur") || DEFAULT_POS_FILTER.currency,
     vatInclusive: sp.get("dph") !== "0", // default true
@@ -314,7 +366,7 @@ export function serializePosFilter(f: PosFilter): URLSearchParams {
     if (f.from) sp.set("from", f.from);
     if (f.to) sp.set("to", f.to);
   }
-  if (f.comparison !== DEFAULT_POS_FILTER.comparison) sp.set("cmp", f.comparison);
+  if (!f.compare) sp.set("cmp", "0"); // default = zapnuto, serializujeme jen vypnutí
   if (f.sameStore) sp.set("same", "1");
   if (f.currency !== DEFAULT_POS_FILTER.currency) sp.set("cur", f.currency);
   if (!f.vatInclusive) sp.set("dph", "0");
