@@ -125,7 +125,7 @@ export function AssignedClaimsPanel({
         type="button"
         onClick={openModal}
         disabled={disabled}
-        className="group relative w-full overflow-hidden rounded-[24px] border border-edge bg-paper p-7 text-left transition-colors hover:border-ink-soft disabled:cursor-default disabled:hover:border-edge"
+        className="group relative w-full overflow-hidden rounded-3xl border border-edge bg-paper p-7 text-left transition-colors hover:border-ink-soft disabled:cursor-default disabled:hover:border-edge"
       >
         <Coins
           className="absolute -bottom-4 -right-4 h-32 w-32 text-ink-base/[0.04]"

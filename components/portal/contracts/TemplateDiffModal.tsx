@@ -147,7 +147,7 @@ export function TemplateDiffModal({
           <button
             type="button"
             onClick={onClose}
-            className="h-11 rounded-full px-5 text-[13.5px] font-medium text-ink-mid transition-colors hover:text-ink-base"
+            className="h-10 rounded-full px-5 text-[13px] font-medium text-ink-mid transition-colors hover:text-ink-base"
           >
             Zavřít
           </button>
@@ -156,7 +156,7 @@ export function TemplateDiffModal({
               type="button"
               onClick={handleApprove}
               disabled={approving}
-              className="inline-flex h-11 items-center gap-2 rounded-full bg-ink-base px-6 text-[13.5px] font-semibold text-paper transition-transform active:translate-y-px disabled:opacity-60"
+              className="inline-flex h-10 items-center gap-2 rounded-full bg-ink-base px-5 text-[13px] font-semibold text-paper transition-transform active:translate-y-px disabled:opacity-60"
             >
               <ShieldCheck className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
               {approving ? "Schvaluji…" : "Schválit"}

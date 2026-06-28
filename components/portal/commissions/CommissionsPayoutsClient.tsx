@@ -45,7 +45,7 @@ export function CommissionsPayoutsClient({
           · podklad → faktura → zadáno k úhradě → uhrazeno
         </span>
       </div>
-      <div className="overflow-hidden rounded-[24px] border border-edge bg-paper">
+      <div className="overflow-hidden rounded-3xl border border-edge bg-paper">
         <ul className="divide-y divide-edge">
           {rows.map((r) => (
             <li

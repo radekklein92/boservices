@@ -193,7 +193,7 @@ export function ContractApprovalPanel({
   }
 
   return (
-    <div className="flex flex-col gap-5 rounded-2xl border border-edge bg-paper px-6 py-6 md:px-8 md:py-7">
+    <div className="flex flex-col gap-5 rounded-2xl border border-edge bg-paper p-6 md:p-7">
       <div className="flex items-center justify-between gap-4">
         <div className="text-[10.5px] font-medium uppercase tracking-[0.22em] text-ink-mid">
           Lokalita a schválení

@@ -138,7 +138,7 @@ export function PairingEditor({
   return (
     <section className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <h3 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink-mid">Pokladny</h3>
+        <h3 className="text-[12px] font-semibold uppercase tracking-[0.14em] text-ink-mid">Pokladny</h3>
         <span className="text-[12px] tabular-nums text-ink-mid">
           {pairedCount} s prodejnou · {shops.length - pairedCount - ignoredCount} bez
         </span>
@@ -195,12 +195,12 @@ export function PairingEditor({
                       {s.brandName}
                     </span>
                     {!s.isActive && (
-                      <span className="shrink-0 rounded-md bg-amber-50 px-1.5 py-0.5 text-[10.5px] font-medium text-amber-700">
+                      <span className="shrink-0 rounded-md border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10.5px] font-medium text-amber-700">
                         Neaktivní
                       </span>
                     )}
                     {s.closedOn && (
-                      <span className="shrink-0 rounded-md bg-rose-50 px-1.5 py-0.5 text-[10.5px] font-medium text-rose-600">
+                      <span className="shrink-0 rounded-md border border-rose-300 bg-rose-50 px-1.5 py-0.5 text-[10.5px] font-medium text-rose-700">
                         Zavřeno {fmtDate(s.closedOn)}
                       </span>
                     )}

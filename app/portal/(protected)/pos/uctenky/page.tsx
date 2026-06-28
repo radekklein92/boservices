@@ -69,7 +69,7 @@ export default async function PosReceiptsPage({
             <span className="flex min-w-0 flex-1 items-center gap-2">
               <span className="truncate text-ink-base">{r.shop_name || "—"}</span>
               {r.is_refund && (
-                <span className="shrink-0 rounded-md bg-rose-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-rose-600">
+                <span className="shrink-0 rounded-md bg-rose-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-rose-700">
                   refundace
                 </span>
               )}

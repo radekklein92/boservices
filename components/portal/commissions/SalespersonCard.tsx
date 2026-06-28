@@ -10,7 +10,7 @@ const contractWord = (n: number) =>
 // ji dashboard i stránka /portal/commissions.
 export function SalespersonCard({ data }: { data: SalespersonCommission }) {
   return (
-    <div className="relative overflow-hidden rounded-[24px] border border-edge bg-paper p-7">
+    <div className="relative overflow-hidden rounded-3xl border border-edge bg-paper p-7">
       <HandCoins
         className="absolute -bottom-4 -right-4 h-32 w-32 text-ink-base/[0.04]"
         strokeWidth={1}
