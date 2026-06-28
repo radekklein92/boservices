@@ -264,37 +264,40 @@ function SelectionSummary({
 }) {
   const count = concepts.length + locations.length;
   return (
-    <div className="group relative inline-flex">
-      <span
-        tabIndex={0}
-        role="button"
-        aria-label={`Vybráno prodejen/konceptů: ${count}. Zobrazit seznam.`}
-        className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-edge bg-paper text-ink-deep transition-colors hover:border-ink-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2 focus-visible:ring-offset-paper"
-      >
-        <Store className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-        <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-ink-base px-1 text-[10px] font-semibold leading-none text-paper">
-          {count}
+    <div className="inline-flex items-center gap-1.5">
+      <div className="group relative inline-flex">
+        <span
+          tabIndex={0}
+          role="button"
+          aria-label={`Vybráno prodejen/konceptů: ${count}. Zobrazit seznam.`}
+          className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-edge bg-paper text-ink-deep transition-colors hover:border-ink-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2 focus-visible:ring-offset-paper"
+        >
+          <Store className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+          <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-ink-base px-1 text-[10px] font-semibold leading-none text-paper">
+            {count}
+          </span>
         </span>
-      </span>
-      {/* Bublina se seznamem: top-full bez mezery, ať myš přejde z ikony do bubliny
-          bez "díry", která by ji zavřela. Otevírá se na hover i focus-within. */}
-      <div className="invisible absolute left-0 top-full z-20 pt-2 opacity-0 transition-opacity group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
-        <div className="flex max-w-[320px] flex-wrap items-center gap-1.5 rounded-xl border border-edge bg-paper p-2.5 shadow-lg">
-          {concepts.map((c) => (
-            <Chip key={`c-${c.id}`} label={c.label} accent={c.accent} onRemove={() => onRemoveConcept(c.id)} />
-          ))}
-          {locations.map((l) => (
-            <Chip key={`l-${l.id}`} label={l.label} onRemove={() => onRemoveLocation(l.id)} />
-          ))}
-          <button
-            type="button"
-            onClick={onClear}
-            className="ml-0.5 rounded-full px-1.5 text-[12px] font-medium text-ink-mid transition-colors hover:text-ink-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2 focus-visible:ring-offset-paper"
-          >
-            Vyčistit
-          </button>
+        {/* Bublina se seznamem: top-full bez mezery, ať myš přejde z ikony do bubliny
+            bez "díry", která by ji zavřela. Otevírá se na hover i focus-within. */}
+        <div className="invisible absolute left-0 top-full z-20 pt-2 opacity-0 transition-opacity group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
+          <div className="flex max-w-[320px] flex-wrap items-center gap-1.5 rounded-xl border border-edge bg-paper p-2.5 shadow-lg">
+            {concepts.map((c) => (
+              <Chip key={`c-${c.id}`} label={c.label} accent={c.accent} onRemove={() => onRemoveConcept(c.id)} />
+            ))}
+            {locations.map((l) => (
+              <Chip key={`l-${l.id}`} label={l.label} onRemove={() => onRemoveLocation(l.id)} />
+            ))}
+          </div>
         </div>
       </div>
+      {/* Vyčistit ven z bubliny - zrušení celého výběru jedním klikem. */}
+      <button
+        type="button"
+        onClick={onClear}
+        className="rounded-full px-1.5 text-[12px] font-medium text-ink-mid transition-colors hover:text-ink-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2 focus-visible:ring-offset-paper"
+      >
+        Vyčistit
+      </button>
     </div>
   );
 }
