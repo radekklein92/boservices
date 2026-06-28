@@ -164,10 +164,11 @@ export function PosMobileLinkButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex h-9 items-center gap-2 rounded-full border border-edge bg-paper px-3.5 text-[12.5px] font-medium text-ink-deep transition-colors hover:border-ink-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2 focus-visible:ring-offset-paper"
+        aria-label="Na mobil"
+        title="Na mobil"
+        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-edge bg-paper text-ink-deep transition-colors hover:border-ink-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2 focus-visible:ring-offset-paper"
       >
-        <Smartphone className="h-3.5 w-3.5 text-ink-mid" strokeWidth={1.75} aria-hidden="true" />
-        <span>Na mobil</span>
+        <Smartphone className="h-4 w-4 text-ink-mid" strokeWidth={1.75} aria-hidden="true" />
       </button>
 
       {open && (

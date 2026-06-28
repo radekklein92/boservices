@@ -141,11 +141,16 @@ export function PosViewsMenu({
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="inline-flex h-9 items-center gap-2 rounded-full border border-edge bg-paper px-3.5 text-[12.5px] font-medium text-ink-deep transition-colors hover:border-ink-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2 focus-visible:ring-offset-paper"
+        aria-label="Pohledy"
+        title="Pohledy"
+        className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-edge bg-paper text-ink-deep transition-colors hover:border-ink-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2 focus-visible:ring-offset-paper"
       >
-        <Bookmark className="h-3.5 w-3.5 text-ink-mid" strokeWidth={1.75} aria-hidden="true" />
-        <span>Pohledy</span>
-        {total > 0 && <span className="font-mono text-[10.5px] text-ink-soft">{total}</span>}
+        <Bookmark className="h-4 w-4 text-ink-mid" strokeWidth={1.75} aria-hidden="true" />
+        {total > 0 && (
+          <span className="absolute -right-1 -top-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full border border-paper bg-ink-deep px-1 font-mono text-[9.5px] font-medium leading-none text-paper">
+            {total}
+          </span>
+        )}
       </button>
 
       {open && (
