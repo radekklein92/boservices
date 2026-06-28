@@ -8,8 +8,19 @@ import { canSeePOS } from "@/lib/portal/auth-guard";
 // zbytkem portálu; rozcestník místo tabů).
 export const dynamic = "force-dynamic";
 
-export default async function PosLayout({ children }: { children: React.ReactNode }) {
+export default async function PosLayout({
+  children,
+  modal,
+}: {
+  children: React.ReactNode;
+  modal: React.ReactNode;
+}) {
   const session = await getSession();
   if (!canSeePOS(session?.user?.role)) redirect("/portal");
-  return <div className="flex flex-col gap-8">{children}</div>;
+  return (
+    <div className="flex flex-col gap-8">
+      {children}
+      {modal}
+    </div>
+  );
 }
