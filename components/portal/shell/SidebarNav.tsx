@@ -11,6 +11,7 @@ import {
   Cloud,
   FileText,
   FilePenLine,
+  FlaskConical,
   GitPullRequest,
   HandCoins,
   KeyRound,
@@ -49,6 +50,7 @@ const fransizing: Item[] = [
 const provoz: Item[] = [
   { href: "/portal/locations", label: "Lokality", Icon: MapPin },
   { href: "/portal/real-estate", label: "Real Estate", Icon: KeyRound },
+  { href: "/portal/test", label: "Testovací stránka", Icon: FlaskConical },
 ];
 
 // Tržby (POS): v sekci Provoz, ale jen pro role s přístupem do Pokladny (canSeePOS).
