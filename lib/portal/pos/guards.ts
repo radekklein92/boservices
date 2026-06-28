@@ -12,12 +12,6 @@ export const DEFAULT_LIMIT = 50;
 // po pokladnách. Nad tento strop se graf degraduje (KPI/žebříčky zůstávají přesné).
 export const MAX_DAILY_SHOP_FANOUT = 12;
 
-// Test/neprodejní pobočky (Trdlokafe "Test*/Testovací/VRP test") - vyřadit ze
-// seznamů, žebříčků a scope. Mají ~nulové tržby, jen zašumují.
-export function isTestShop(name: string): boolean {
-  return /\btest|testov/i.test(name);
-}
-
 export function clampLimit(n: number | undefined, fallback = DEFAULT_LIMIT): number {
   if (!Number.isFinite(n as number)) return fallback;
   return Math.min(MAX_LIMIT, Math.max(1, Math.trunc(n as number)));

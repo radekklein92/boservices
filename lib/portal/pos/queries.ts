@@ -24,7 +24,6 @@ import {
   clampWindow,
   clampLimit,
   clampPage,
-  isTestShop,
   MAX_RAW_WINDOW_DAYS,
   MAX_DAILY_SHOP_FANOUT,
 } from "./guards";
@@ -178,10 +177,12 @@ async function collectShops(): Promise<ApiShop[]> {
   return collectPaged((page) => api.listShops({ page, limit: PAGE_SIZE }));
 }
 const _allShops = posStaticQuery(() => collectShops(), "all-shops");
-// Pobočky pro UI - bez test/neprodejních (Trdlokafe "Test*/VRP") a bez AED
-// (124 účtenek, nakonfigurovaná/test pobočka). Cachované.
+// Pobočky pro UI - bez AED (124 účtenek, nemá ČNB kurz a kontaminovala by součty).
+// Pokladny s "test" v názvu se ZÁMĚRNĚ NEodfiltrovávají: i živá prodejna se může
+// dočasně používat na testy, takže by jinak zmizela z párování i žebříčků. Skutečně
+// neprodejní kasy se vyřazují per-pokladna přes "ignorovat" v párování. Cachované.
 export async function getAllShops(): Promise<ApiShop[]> {
-  return (await _allShops()).filter((s) => !isTestShop(s.name) && s.currency_code !== "AED");
+  return (await _allShops()).filter((s) => s.currency_code !== "AED");
 }
 
 // --- Scope kontext (resolver + indexy), dedup per request přes React cache ---
