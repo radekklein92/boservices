@@ -28,7 +28,9 @@ export async function POST(req: Request) {
     /* tolerantní k prázdnému tělu */
   }
 
-  const to = (process.env.DEPLOY_NOTIFY_TO ?? "")
+  // Default příjemci = superadmini (PORTAL_SUPERADMIN_EMAILS) - netřeba zvlášť
+  // nastavovat; DEPLOY_NOTIFY_TO je přepíše.
+  const to = (process.env.DEPLOY_NOTIFY_TO || process.env.PORTAL_SUPERADMIN_EMAILS || "")
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
