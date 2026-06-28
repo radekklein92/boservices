@@ -18,8 +18,8 @@ function searchParamsToUsp(sp: Record<string, string | string[] | undefined>): U
   return usp;
 }
 
-// Plná stránka detailu prodejny (přímý odkaz / refresh / když modal neintercepuje).
-// Z žebříčku se otevírá jako modal přes intercepting route @modal/(.)prodejny.
+// Samostatná stránka detailu prodejny. Otevírá se ze žebříčku Prodejny (klik na
+// celý řádek) i přímým odkazem. Detail = výběr zúžený na jednu lokalitu.
 export default async function PosLocationDetailPage({
   params,
   searchParams,
