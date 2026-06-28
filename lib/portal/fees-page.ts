@@ -284,7 +284,10 @@ function seasonalMonthsFor(targetMonth: string, today: Date): string[] {
   const set = new Set<string>();
   for (let i = 1; i <= 15; i++) set.add(addMonthKey(cur, -i));
   set.add(addMonthKey(targetMonth, -12));
-  return [...set].filter((m) => m >= FEES_MIN_MONTH);
+  // POZOR: žádný FEES_MIN_MONTH floor - historická tržba (i z roku 2025, kdy
+  // prodejna jela pod TWIST) je platný podklad pro odhad. Floor platí jen pro
+  // fakturovatelné/navigovatelné měsíce (navigableMonths), ne pro lookback tržeb.
+  return [...set];
 }
 
 // ── Tržby z DW (net, nativní měna) ──────────────────────────────────────────────
@@ -561,4 +564,111 @@ export async function computeMonthResults(
   }
 
   return out;
+}
+
+// ── Historie finálních poplatků za uzavřené měsíce ──────────────────────────────
+
+export interface FeeHistoryRow {
+  key: string;
+  locationName: string;
+  contractLabel: string;
+  periodLabel: string;
+  amount: number;
+  currency: string;
+}
+
+export interface FeeHistoryEntry {
+  month: string; // "YYYY-MM"
+  rows: FeeHistoryRow[];
+  totals: [string, number][]; // [měna, součet]
+}
+
+// Historie REÁLNÝCH (finálních) poplatků za uzavřené měsíce pro dané smlouvy
+// (detail lokality = smlouvy lokality, detail klienta = všechny jeho smlouvy).
+// Procentní poplatek = % × reálná tržba bez DPH za aktivní část měsíce; fixní =
+// měsíční částka. Měsíce bez reálných dat (žádná tržba/párování) se vynechají -
+// historie ukazuje jen to, co je skutečně vyčíslené. Nejnovější měsíc první.
+export async function buildFeeHistory(
+  contracts: Contract[],
+  today: Date,
+): Promise<FeeHistoryEntry[]> {
+  const rows = buildFeeRows(contracts);
+  const cur = monthKeyOf(today);
+  const lastClosed = addMonthKey(cur, -1);
+  const closed: string[] = [];
+  let m = FEES_MIN_MONTH;
+  while (m <= lastClosed) {
+    if (rows.some((r) => isRowActiveInMonth(r, m))) closed.push(m);
+    m = addMonthKey(m, 1);
+  }
+  if (closed.length === 0) return [];
+
+  let index: Awaited<ReturnType<typeof buildPairingIndex>>;
+  try {
+    index = await buildPairingIndex();
+  } catch {
+    return [];
+  }
+
+  // Distinct okna (procentní řádky × měsíc) k načtení.
+  const rangeKeys = new Set<string>();
+  const cellWindow = new Map<string, { winStart: string; winEnd: string }>();
+  for (const month of closed) {
+    const { from: ms, to: me } = monthBounds(month);
+    for (const row of rows) {
+      if (row.pending || !isRowActiveInMonth(row, month)) continue;
+      if (!(row.percent > 0 && row.amount === 0)) continue;
+      const w = periodWindowInMonth(row, ms, me);
+      if (!w) continue;
+      cellWindow.set(`${month}:${row.key}`, w);
+      rangeKeys.add(`${w.winStart}|${w.winEnd}`);
+    }
+  }
+
+  const rangeNets = new Map<string, Map<string, MonthNet>>();
+  try {
+    await Promise.all(
+      [...rangeKeys].map(async (key) => {
+        const [from, to] = key.split("|");
+        rangeNets.set(key, await aggregateRangeByLocation(index, from!, to!));
+      }),
+    );
+  } catch {
+    /* degradace - chybějící okna se vynechají */
+  }
+
+  const entries: FeeHistoryEntry[] = [];
+  for (const month of closed) {
+    const outRows: FeeHistoryRow[] = [];
+    for (const row of rows) {
+      if (row.pending || !isRowActiveInMonth(row, month)) continue;
+      let amount: number | null = null;
+      let currency = row.currency;
+      if (row.amount > 0 && row.percent === 0) {
+        amount = fixedMonthlyAmount(row, month);
+      } else if (row.percent > 0) {
+        const w = cellWindow.get(`${month}:${row.key}`);
+        const v = w ? rangeNets.get(`${w.winStart}|${w.winEnd}`)?.get(row.locationId) : undefined;
+        if (v) {
+          amount = (v.net * row.percent) / 100;
+          currency = v.currency || row.currency;
+        }
+      }
+      if (amount == null) continue;
+      outRows.push({
+        key: `${month}:${row.key}`,
+        locationName: row.locationName,
+        contractLabel: row.contractLabel,
+        periodLabel: row.periodLabel,
+        amount,
+        currency,
+      });
+    }
+    if (outRows.length === 0) continue;
+    const tot = new Map<string, number>();
+    for (const r of outRows) tot.set(r.currency, (tot.get(r.currency) ?? 0) + r.amount);
+    entries.push({ month, rows: outRows, totals: [...tot.entries()] });
+  }
+
+  return entries.reverse();
 }

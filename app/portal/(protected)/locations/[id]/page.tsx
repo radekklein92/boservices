@@ -10,6 +10,7 @@ import {
   contractDisplayStatus,
   statusOrder,
 } from "@/lib/portal/contracts-db";
+import { buildFeeHistory } from "@/lib/portal/fees-page";
 import {
   isBosStore,
   bosStoreReason,
@@ -109,6 +110,12 @@ export default async function LocationDetailPage({
         c.feeTerms?.termEndsAt,
     )?.feeTerms?.termEndsAt ?? "";
 
+  // Historie finálních poplatků za uzavřené měsíce (z plných Contract[] lokality).
+  const feeHistory = await buildFeeHistory(
+    allContracts.filter((c) => c.locationId === id),
+    new Date(),
+  );
+
   return (
     <div className="flex flex-col gap-10">
       <LocationDetail
@@ -119,6 +126,7 @@ export default async function LocationDetailPage({
         isBos={isBos}
         bosReason={bosReason}
         franchiseEndDate={franchiseEndDate}
+        feeHistory={feeHistory}
       />
       <EntityTasks kind="location" id={id} />
     </div>
