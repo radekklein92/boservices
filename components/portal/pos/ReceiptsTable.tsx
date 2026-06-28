@@ -14,17 +14,17 @@ function polozkyLabel(n: number): string {
   return `${n} položek`;
 }
 
-// Výpis produktů z účtenky pro náhled v řádku: prvních pár, s "n×" u násobků a
-// "+N" pro zbytek. Spojené " · ", truncate řeší CSS.
-function itemsPreview(items: ReceiptItem[], max = 6): string {
+// Výpis produktů z účtenky pro náhled v řádku (vodorovně ve volném místě uprostřed).
+// Spojené " · " s "n×" u násobků; přetečení řeší CSS truncate (... = je toho víc).
+function itemsPreview(items: ReceiptItem[]): string {
   if (items.length === 0) return "Bez položek";
-  const shown = items.slice(0, max).map((it) => {
-    const q = it.qty;
-    const prefix = Number.isInteger(q) && q > 1 ? `${q}× ` : "";
-    return `${prefix}${it.product_name || "—"}`;
-  });
-  const more = items.length - max;
-  return more > 0 ? `${shown.join(" · ")} +${more}` : shown.join(" · ");
+  return items
+    .map((it) => {
+      const q = it.qty;
+      const prefix = Number.isInteger(q) && q > 1 ? `${q}× ` : "";
+      return `${prefix}${it.product_name || "—"}`;
+    })
+    .join(" · ");
 }
 
 // Klientský seznam účtenek: řádek ukazuje prodejnu + město (místo surového názvu
@@ -128,7 +128,8 @@ function ReceiptRow({
       className="flex cursor-pointer items-center gap-3 border-b border-edge/60 px-4 py-3 text-[13px] transition-colors last:border-0 hover:bg-edge-warm"
     >
       <span className="w-[104px] shrink-0 tabular-nums text-ink-mid">{formatLocalDateTime(row.opened_at)}</span>
-      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+      {/* Prodejna + město. Na desktopu pevná šířka, ať produkty mají místo vedle. */}
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5 lg:flex-none lg:w-[300px]">
         <span className="flex items-center gap-2">
           <span className="truncate font-medium text-ink-base">{row.locationName || "—"}</span>
           {row.is_refund && (
@@ -138,10 +139,10 @@ function ReceiptRow({
           )}
         </span>
         {row.city && <span className="truncate text-[12px] text-ink-soft">{row.city}</span>}
-        {/* Desktop: výpis produktů (dokud se nenačte, ukáže počet) */}
-        <span className="hidden truncate text-[12px] text-ink-soft lg:block">{productsLine}</span>
       </span>
-      {/* Mobil/tablet: jen počet položek (na desktopu ho nahradí výpis výše) */}
+      {/* Desktop: výpis produktů ve volném místě uprostřed (dokud se nenačte, počet) */}
+      <span className="hidden min-w-0 flex-1 truncate text-[12px] text-ink-mid lg:block">{productsLine}</span>
+      {/* Mobil/tablet: jen počet položek (na desktopu ho nahradí výpis uprostřed) */}
       <span className="hidden w-[110px] shrink-0 truncate text-right text-[12px] text-ink-soft sm:block lg:hidden">
         {countLabel}
       </span>
