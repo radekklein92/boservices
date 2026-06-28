@@ -10,6 +10,7 @@ import {
   Search,
   ChevronUp,
   ChevronDown,
+  ChevronsUpDown,
 } from "lucide-react";
 import { FilterChip } from "@/components/portal/ui/FilterChip";
 import { Chip } from "@/components/portal/ui/Chip";
@@ -34,14 +35,6 @@ const STATUS_META: Record<MonthFeeStatus, { label: string; tone: string }> = {
   estimate: { label: "Odhad", tone: "border-amber-300 bg-amber-50 text-amber-700" },
   none: { label: "", tone: "" },
 };
-
-// ── Měsíční matematika / formát (client-safe) ───────────────────────────────────
-
-function addMonth(key: string, n: number): string {
-  const [y, m] = key.split("-").map((s) => parseInt(s, 10));
-  const t = new Date(Date.UTC(y, m - 1 + n, 1));
-  return `${t.getUTCFullYear()}-${String(t.getUTCMonth() + 1).padStart(2, "0")}`;
-}
 
 function monthLabel(key: string): string {
   const [y, m] = key.split("-").map((s) => parseInt(s, 10));
@@ -72,9 +65,8 @@ function fmtDate(iso: string): string {
   }
 }
 
-// ── Řazení ──────────────────────────────────────────────────────────────────────
-
 type SortKey = "location" | "contract" | "fee" | "amount" | "from" | "to" | "status";
+type Sort = { key: SortKey; dir: "asc" | "desc" } | null;
 const STATUS_ORDER: Record<MonthFeeStatus, number> = { final: 0, estimate: 1, none: 2 };
 
 function sortValue(r: FeeRowView, key: SortKey): string | number {
@@ -86,7 +78,6 @@ function sortValue(r: FeeRowView, key: SortKey): string | number {
     case "fee":
       return r.periodLabel.toLowerCase();
     case "amount":
-      // Číselně dle vypočtené částky; bez částky (jen procento) až na konec.
       return r.computedAmount ?? (r.percent > 0 ? r.percent : -1);
     case "from":
       return r.from || "9999";
@@ -97,43 +88,53 @@ function sortValue(r: FeeRowView, key: SortKey): string | number {
   }
 }
 
+const COLUMNS: { key: SortKey; label: string }[] = [
+  { key: "location", label: "Lokalita" },
+  { key: "contract", label: "Smlouva" },
+  { key: "fee", label: "Poplatek" },
+  { key: "amount", label: "Sazba / částka" },
+  { key: "from", label: "Od" },
+  { key: "to", label: "Do" },
+  { key: "status", label: "Status" },
+];
+
 export function FeesClient({
   rows,
   contracts,
   selectedMonth,
-  minMonth,
+  months,
 }: {
   rows: FeeRowView[];
   contracts: Record<string, EditableContract>;
   selectedMonth: string;
-  minMonth: string;
+  months: string[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const atFloor = selectedMonth <= minMonth;
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<MonthFeeStatus | "all">("all");
   const [typeFilter, setTypeFilter] = useState<ContractType | "all">("all");
-  const [sortKey, setSortKey] = useState<SortKey>("location");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [sort, setSort] = useState<Sort>(null);
   const [openContractId, setOpenContractId] = useState<string | null>(null);
 
-  function goMonth(delta: number) {
-    const next = addMonth(selectedMonth, delta);
-    if (next < minMonth) return;
-    startTransition(() => router.push(`/portal/fees?month=${next}`));
+  const idx = months.indexOf(selectedMonth);
+  const prevMonth = idx > 0 ? months[idx - 1] : null;
+  const nextMonth = idx >= 0 && idx < months.length - 1 ? months[idx + 1] : null;
+
+  function goMonth(target: string | null) {
+    if (!target) return;
+    startTransition(() => router.push(`/portal/fees?month=${target}`));
   }
 
   function toggleSort(key: SortKey) {
-    if (key === sortKey) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else {
-      setSortKey(key);
-      setSortDir("asc");
-    }
+    setSort((prev) => {
+      if (!prev || prev.key !== key) return { key, dir: "asc" };
+      if (prev.dir === "asc") return { key, dir: "desc" };
+      return null;
+    });
   }
 
-  // Typy přítomné v datech (pro filtr).
   const presentTypes = useMemo(() => {
     const set = new Map<ContractType, { label: string; count: number }>();
     for (const r of rows) {
@@ -161,17 +162,22 @@ export function FeesClient({
       }
       return true;
     });
-    const dir = sortDir === "asc" ? 1 : -1;
+    if (!sort) {
+      return out.sort((a, b) => a.locationName.localeCompare(b.locationName, "cs"));
+    }
+    const dir = sort.dir === "asc" ? 1 : -1;
     return out.sort((a, b) => {
-      const va = sortValue(a, sortKey);
-      const vb = sortValue(b, sortKey);
-      if (va < vb) return -1 * dir;
-      if (va > vb) return 1 * dir;
-      return a.locationName.localeCompare(b.locationName, "cs");
+      const va = sortValue(a, sort.key);
+      const vb = sortValue(b, sort.key);
+      let c =
+        typeof va === "number" && typeof vb === "number"
+          ? va - vb
+          : String(va).localeCompare(String(vb), "cs");
+      if (c === 0) c = a.locationName.localeCompare(b.locationName, "cs");
+      return c * dir;
     });
-  }, [rows, search, statusFilter, typeFilter, sortKey, sortDir]);
+  }, [rows, search, statusFilter, typeFilter, sort]);
 
-  // Součet vypočtených částek dle měny (jen řádky s částkou).
   const totals = useMemo(() => {
     const m = new Map<string, number>();
     for (const r of filtered) {
@@ -186,112 +192,139 @@ export function FeesClient({
   const openRow = openContractId ? rows.find((r) => r.contractId === openContractId) : null;
 
   return (
-    <div className="flex flex-col gap-5">
-      {/* Měsíční stepper + filtry */}
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="inline-flex items-center gap-1 rounded-full border border-edge bg-paper p-1">
-            <button
-              type="button"
-              onClick={() => goMonth(-1)}
-              disabled={atFloor}
-              aria-label="Předchozí měsíc"
-              className="grid h-8 w-8 place-items-center rounded-full text-ink-mid transition-colors hover:bg-edge-warm hover:text-ink-base disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
-            >
-              <ChevronLeft className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-            </button>
-            <span
-              className={`min-w-[150px] text-center text-[13.5px] font-semibold tracking-[-0.01em] text-ink-base transition-opacity ${isPending ? "opacity-40" : ""}`}
-            >
-              {monthLabel(selectedMonth)}
-            </span>
-            <button
-              type="button"
-              onClick={() => goMonth(1)}
-              aria-label="Další měsíc"
-              className="grid h-8 w-8 place-items-center rounded-full text-ink-mid transition-colors hover:bg-edge-warm hover:text-ink-base"
-            >
-              <ChevronRight className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-            </button>
-          </div>
-
-          <label className="relative inline-flex items-center">
-            <Search
-              className="pointer-events-none absolute left-3 h-3.5 w-3.5 text-ink-soft"
-              strokeWidth={1.5}
-              aria-hidden="true"
-            />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Hledat lokalitu, klienta, poplatek…"
-              className="h-9 w-[260px] max-w-full rounded-full border border-edge bg-paper pl-8 pr-3 text-[12.5px] text-ink-base outline-none transition-colors placeholder:text-ink-soft focus:border-ink-base"
-            />
-          </label>
+    <div className="flex flex-col gap-4">
+      {/* Měsíční stepper + hledání */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="inline-flex items-center gap-1 rounded-full border border-edge bg-paper p-1">
+          <button
+            type="button"
+            onClick={() => goMonth(prevMonth)}
+            disabled={!prevMonth}
+            aria-label="Předchozí měsíc"
+            className="grid h-8 w-8 place-items-center rounded-full text-ink-mid transition-colors hover:bg-edge-warm hover:text-ink-base disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+          >
+            <ChevronLeft className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+          </button>
+          <span
+            className={`min-w-[150px] text-center text-[13.5px] font-semibold tracking-[-0.01em] text-ink-base transition-opacity ${isPending ? "opacity-40" : ""}`}
+          >
+            {monthLabel(selectedMonth)}
+          </span>
+          <button
+            type="button"
+            onClick={() => goMonth(nextMonth)}
+            disabled={!nextMonth}
+            aria-label="Další měsíc"
+            className="grid h-8 w-8 place-items-center rounded-full text-ink-mid transition-colors hover:bg-edge-warm hover:text-ink-base disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+          >
+            <ChevronRight className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+          </button>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <FilterChip
-            active={statusFilter === "all"}
-            onClick={() => setStatusFilter("all")}
-            label="Vše"
-            count={rows.length}
+        <div className="relative max-w-[360px] flex-1">
+          <Search
+            className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mid"
+            strokeWidth={1.5}
+            aria-hidden="true"
           />
-          <FilterChip
-            active={statusFilter === "final"}
-            onClick={() => setStatusFilter("final")}
-            label="Finální"
-            count={statusCounts.final}
-            dotClass="bg-emerald-500"
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Hledat lokalitu, klienta, poplatek…"
+            className="h-11 w-full rounded-full border border-edge bg-paper pl-11 pr-4 text-[14px] text-ink-base outline-none transition-colors placeholder:text-ink-soft focus:border-ink-base"
           />
-          <FilterChip
-            active={statusFilter === "estimate"}
-            onClick={() => setStatusFilter("estimate")}
-            label="Odhad"
-            count={statusCounts.estimate}
-            dotClass="bg-amber-500"
-          />
-          <FilterChip
-            active={statusFilter === "none"}
-            onClick={() => setStatusFilter("none")}
-            label="Bez statusu"
-            count={statusCounts.none}
-            dotClass="bg-ink-soft"
-          />
-          {presentTypes.length > 1 && (
-            <>
-              <span className="mx-1 h-5 w-px bg-edge" aria-hidden="true" />
+        </div>
+      </div>
+
+      {/* Filtry */}
+      <div className="flex flex-wrap items-center gap-2">
+        <FilterChip active={statusFilter === "all"} onClick={() => setStatusFilter("all")} label="Vše" count={rows.length} />
+        <FilterChip
+          active={statusFilter === "final"}
+          onClick={() => setStatusFilter("final")}
+          label="Finální"
+          count={statusCounts.final}
+          dotClass="bg-emerald-500"
+        />
+        <FilterChip
+          active={statusFilter === "estimate"}
+          onClick={() => setStatusFilter("estimate")}
+          label="Odhad"
+          count={statusCounts.estimate}
+          dotClass="bg-amber-500"
+        />
+        <FilterChip
+          active={statusFilter === "none"}
+          onClick={() => setStatusFilter("none")}
+          label="Bez statusu"
+          count={statusCounts.none}
+          dotClass="bg-ink-soft"
+        />
+        {presentTypes.length > 1 && (
+          <>
+            <span className="mx-1 h-5 w-px shrink-0 bg-edge" aria-hidden="true" />
+            <FilterChip active={typeFilter === "all"} onClick={() => setTypeFilter("all")} label="Všechny smlouvy" />
+            {presentTypes.map(([type, meta]) => (
               <FilterChip
-                active={typeFilter === "all"}
-                onClick={() => setTypeFilter("all")}
-                label="Všechny smlouvy"
+                key={type}
+                active={typeFilter === type}
+                onClick={() => setTypeFilter(type)}
+                label={meta.label}
+                count={meta.count}
               />
-              {presentTypes.map(([type, meta]) => (
-                <FilterChip
-                  key={type}
-                  active={typeFilter === type}
-                  onClick={() => setTypeFilter(type)}
-                  label={meta.label}
-                  count={meta.count}
-                />
-              ))}
-            </>
-          )}
+            ))}
+          </>
+        )}
+        <div className="ml-auto flex shrink-0 items-center gap-3">
+          {totals.map(([cur, sum]) => (
+            <span key={cur} className="text-[12px] text-ink-mid">
+              <span className="text-ink-soft">objem</span>{" "}
+              <span className="font-semibold text-ink-base">{formatMoney(sum, cur)}</span>
+            </span>
+          ))}
+          <span className="font-mono text-[12px] text-ink-soft">
+            {filtered.length.toString().padStart(2, "0")} / {rows.length}
+          </span>
         </div>
       </div>
 
       {/* Tabulka */}
-      <div className="overflow-x-auto rounded-2xl border border-edge">
-        <table className="w-full border-collapse text-[13px]">
+      <div className="max-h-[calc(100dvh-300px)] overflow-auto rounded-3xl border border-edge bg-paper">
+        <table className="w-full min-w-[980px] border-collapse text-[13px]">
           <thead>
             <tr>
-              <Th label="Lokalita" sortKey="location" active={sortKey} dir={sortDir} onSort={toggleSort} />
-              <Th label="Smlouva" sortKey="contract" active={sortKey} dir={sortDir} onSort={toggleSort} />
-              <Th label="Poplatek" sortKey="fee" active={sortKey} dir={sortDir} onSort={toggleSort} />
-              <Th label="Sazba / částka" sortKey="amount" active={sortKey} dir={sortDir} onSort={toggleSort} />
-              <Th label="Od" sortKey="from" active={sortKey} dir={sortDir} onSort={toggleSort} />
-              <Th label="Do" sortKey="to" active={sortKey} dir={sortDir} onSort={toggleSort} />
-              <Th label="Status" sortKey="status" active={sortKey} dir={sortDir} onSort={toggleSort} />
+              {COLUMNS.map((c) => {
+                const isFirst = c.key === "location";
+                const active = sort?.key === c.key;
+                return (
+                  <th
+                    key={c.key}
+                    className={`whitespace-nowrap py-2.5 text-left text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-mid ${
+                      isFirst
+                        ? "sticky left-0 top-0 z-30 border-r border-edge bg-paper-warm px-3"
+                        : "sticky top-0 z-20 bg-paper-warm px-3"
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => toggleSort(c.key)}
+                      className="inline-flex items-center gap-1 uppercase transition-colors hover:text-ink-base"
+                    >
+                      {c.label}
+                      {active ? (
+                        sort!.dir === "asc" ? (
+                          <ChevronUp className="h-3 w-3" strokeWidth={2} />
+                        ) : (
+                          <ChevronDown className="h-3 w-3" strokeWidth={2} />
+                        )
+                      ) : (
+                        <ChevronsUpDown className="h-3 w-3 opacity-40" strokeWidth={2} />
+                      )}
+                    </button>
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
@@ -299,39 +332,39 @@ export function FeesClient({
               <tr
                 key={r.key}
                 onClick={() => setOpenContractId(r.contractId)}
-                className="cursor-pointer transition-colors hover:bg-paper-warm"
+                className="group cursor-pointer border-t border-edge transition-colors hover:bg-paper-warm"
               >
-                <td className="border-t border-edge px-3 py-2.5 align-middle">
+                <td className="sticky left-0 z-10 border-r border-edge bg-paper px-3 py-2 align-middle group-hover:bg-paper-warm">
                   <Link
                     href={`/portal/locations/${r.locationId}`}
                     onClick={(e) => e.stopPropagation()}
-                    className="group inline-flex items-center gap-1 font-medium text-ink-base hover:text-ink-deep"
+                    className="group/loc flex min-w-0 flex-col"
                   >
-                    <span>{r.locationName}</span>
-                    <ArrowUpRight
-                      className="h-3 w-3 shrink-0 text-ink-soft transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
-                      strokeWidth={1.5}
-                      aria-hidden="true"
-                    />
+                    <span className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold tracking-[-0.01em] text-ink-base">
+                      <span className="max-w-[200px] truncate">{r.locationName}</span>
+                      <ArrowUpRight
+                        className="h-3 w-3 shrink-0 text-ink-soft transition-transform group-hover/loc:-translate-y-0.5 group-hover/loc:translate-x-0.5"
+                        strokeWidth={1.5}
+                        aria-hidden="true"
+                      />
+                    </span>
+                    <span className="truncate text-[11px] text-ink-soft">{r.clientName}</span>
                   </Link>
-                  <div className="text-[11px] text-ink-soft">{r.clientName}</div>
                 </td>
-                <td className="border-t border-edge px-3 py-2.5 align-middle text-ink-base">
-                  {r.contractLabel}
-                </td>
-                <td className="border-t border-edge px-3 py-2.5 align-middle text-ink-deep">
+                <td className="px-3 py-2 align-middle text-ink-base">{r.contractLabel}</td>
+                <td className="px-3 py-2 align-middle text-ink-deep">
                   {r.pending ? <span className="text-ink-soft">{r.pending}</span> : r.periodLabel}
                 </td>
-                <td className="whitespace-nowrap border-t border-edge px-3 py-2.5 align-middle">
+                <td className="whitespace-nowrap px-3 py-2 align-middle">
                   <AmountCell row={r} />
                 </td>
-                <td className="whitespace-nowrap border-t border-edge px-3 py-2.5 align-middle text-ink-deep">
+                <td className="whitespace-nowrap px-3 py-2 align-middle text-ink-deep">
                   {r.from ? fmtDate(r.from) : "—"}
                 </td>
-                <td className="whitespace-nowrap border-t border-edge px-3 py-2.5 align-middle text-ink-deep">
+                <td className="whitespace-nowrap px-3 py-2 align-middle text-ink-deep">
                   {r.pending ? "—" : r.to ? fmtDate(r.to) : "dle franšízové smlouvy"}
                 </td>
-                <td className="whitespace-nowrap border-t border-edge px-3 py-2.5 align-middle">
+                <td className="whitespace-nowrap px-3 py-2 align-middle">
                   {r.status !== "none" && (
                     <Chip tone={STATUS_META[r.status].tone}>{STATUS_META[r.status].label}</Chip>
                   )}
@@ -340,7 +373,7 @@ export function FeesClient({
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={7} className="border-t border-edge px-3 py-10 text-center text-[13px] text-ink-soft">
+                <td colSpan={COLUMNS.length} className="px-3 py-12 text-center text-[13px] text-ink-soft">
                   Žádné poplatky neodpovídají filtru.
                 </td>
               </tr>
@@ -348,21 +381,6 @@ export function FeesClient({
           </tbody>
         </table>
       </div>
-
-      {/* Souhrn částek dle měny */}
-      {totals.length > 0 && (
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 px-1 text-[12.5px] text-ink-mid">
-          <span className="font-medium text-ink-deep">
-            Měsíční objem ({monthLabel(selectedMonth)}):
-          </span>
-          {totals.map(([cur, sum]) => (
-            <span key={cur} className="font-semibold text-ink-base">
-              {formatMoney(sum, cur)}
-            </span>
-          ))}
-          <span className="text-ink-soft">· {filtered.length} poplatků</span>
-        </div>
-      )}
 
       {open && openRow && (
         <FeeEditModal
@@ -390,46 +408,12 @@ function AmountCell({ row }: { row: FeeRowView }) {
   }
   const prefix = row.status === "estimate" ? "~" : "";
   return (
-    <div className="leading-tight">
+    <span className="inline-flex items-baseline gap-2">
       <span className="font-semibold text-ink-base">
         {prefix}
         {formatMoney(row.computedAmount, row.computedCurrency)}
       </span>
-      {row.percent > 0 && <span className="ml-2 text-[11px] text-ink-soft">{row.rate}</span>}
-    </div>
-  );
-}
-
-function Th({
-  label,
-  sortKey,
-  active,
-  dir,
-  onSort,
-}: {
-  label: string;
-  sortKey: SortKey;
-  active: SortKey;
-  dir: "asc" | "desc";
-  onSort: (k: SortKey) => void;
-}) {
-  const isActive = active === sortKey;
-  return (
-    <th className="whitespace-nowrap border-b border-edge bg-paper-warm px-3 py-2.5 text-left">
-      <button
-        type="button"
-        onClick={() => onSort(sortKey)}
-        className={`inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.12em] transition-colors ${isActive ? "text-ink-base" : "text-ink-mid hover:text-ink-base"}`}
-      >
-        {label}
-        {isActive ? (
-          dir === "asc" ? (
-            <ChevronUp className="h-3 w-3" strokeWidth={2} aria-hidden="true" />
-          ) : (
-            <ChevronDown className="h-3 w-3" strokeWidth={2} aria-hidden="true" />
-          )
-        ) : null}
-      </button>
-    </th>
+      {row.percent > 0 && <span className="text-[11px] text-ink-soft">{row.rate}</span>}
+    </span>
   );
 }
