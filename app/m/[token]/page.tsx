@@ -3,15 +3,16 @@ import { cookies } from "next/headers";
 import type { Metadata, Viewport } from "next";
 import { DEFAULT_POS_FILTER, isAllSelection, type PosFilter, type PosSelection } from "@/lib/portal/pos/filters";
 import { getMobileLink, isUnlocked, MLINK_COOKIE } from "@/lib/portal/pos/mobile-link-db";
-import { getHeatmap, getLiveMovers, getToday, resolveDisplayCurrency } from "@/lib/portal/pos/queries";
+import { getClosedStores, getHeatmap, getLiveMovers, getToday, resolveDisplayCurrency } from "@/lib/portal/pos/queries";
 import { isPosApiConfigured } from "@/lib/portal/pos/api";
 import { CONCEPT_LABEL } from "@/components/portal/locations/locations-shared";
 import { PosKpiCard } from "@/components/portal/pos/PosKpiCard";
 import { PosLineChart } from "@/components/portal/pos/PosLineChart";
 import { LiveMoversPanel } from "@/components/portal/pos/LiveMoversPanel";
+import { ClosedStoresKpiCard } from "@/components/portal/pos/ClosedStoresPanel";
 import { PosAutoRefresh } from "@/components/portal/pos/PosAutoRefresh";
 import { MobilePinGate } from "@/components/portal/pos/MobilePinGate";
-import { ChartSkeleton, KpiStripSkeleton } from "@/components/portal/pos/skeletons";
+import { ChartSkeleton, KpiCardSkeleton, KpiStripSkeleton } from "@/components/portal/pos/skeletons";
 import { formatPosMoney, formatPosMoneyCompact, formatPosNumber } from "@/components/portal/pos/pos-shared";
 
 // Veřejný osobní "Živě" dashboard (mobilní). Chráněn jen tajným tokenem v cestě + PINem
@@ -175,6 +176,10 @@ async function MobileLiveContent({ filter, title }: { filter: PosFilter; title: 
               previous={baseAtv}
             />
           </div>
+          {/* Neotevřené prodejny - vlastní Suspense, ať ~týdenní okno nezdrží dnešní KPI. */}
+          <Suspense fallback={<KpiCardSkeleton />}>
+            <MobileClosedCell filter={filter} />
+          </Suspense>
         </div>
       )}
 
@@ -190,6 +195,18 @@ async function MobileLiveContent({ filter, title }: { filter: PosFilter; title: 
       {movers && movers.best.length + movers.worst.length >= 2 && <LiveMoversPanel movers={movers} />}
     </div>
   );
+}
+
+// Report neotevřených prodejen na mobilu (klik = modal). Vlastní Suspense boundary;
+// při chybě tiše vypadne (zbytek dashboardu běží dál).
+async function MobileClosedCell({ filter }: { filter: PosFilter }) {
+  let report: Awaited<ReturnType<typeof getClosedStores>>;
+  try {
+    report = await getClosedStores(filter);
+  } catch {
+    return null;
+  }
+  return <ClosedStoresKpiCard report={report} />;
 }
 
 function Header({ title, asOf }: { title: string; asOf: string }) {
