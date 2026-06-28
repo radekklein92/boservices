@@ -527,15 +527,18 @@ function nowPragueHourFrac(): number {
 }
 
 export async function getLiveMovers(filter: PosFilter, topN = 5): Promise<LiveMovers> {
-  const { resolved, index, shops, locations } = await scopeContext(filter);
   const to = filter.currency;
-  const rates = await getFxRates();
   const todayRange = resolveDateRange({ ...filter, preset: "dnes" });
   // Baseline = stejný den minulý týden (D-7), ne včerejšek.
   const baseDay = addDays(todayRange.from, -7);
   const baseRange = { from: baseDay, to: baseDay };
 
-  const [todayRows, baseRows, cells] = await Promise.all([
+  // Data-okna jsou čistě z filtru (nezávisí na scope ani FX), a by-shop/heatmap se
+  // filtrují přes resolved.shopIds až po dotažení -> všech pět dotazů může běžet
+  // naráz. Ušetří sériové čekání na studené cestě (po syncu DW, než doběhne warm).
+  const [{ resolved, index, shops, locations }, rates, todayRows, baseRows, cells] = await Promise.all([
+    scopeContext(filter),
+    getFxRates(),
     _shopRev(todayRange.from, todayRange.to),
     _shopRev(baseRange.from, baseRange.to),
     getHeatmap({ ...filter, preset: "poslednich-30-dni" }),

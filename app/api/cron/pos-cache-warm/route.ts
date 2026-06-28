@@ -6,11 +6,14 @@ import {
   getBrands,
   getConceptLeaderboardFull,
   getDailyTrend,
+  getHeatmap,
   getKpiSummary,
+  getLiveMovers,
   getLocationLeaderboardFull,
   getPeriodTotals,
   getReceiptDetail,
   getReceiptsPage,
+  getToday,
 } from "@/lib/portal/pos/queries";
 
 // Musí sedět s LIMIT na /portal/pos/uctenky, jinak warm trefí jiný cache klíč.
@@ -63,6 +66,14 @@ export async function GET(req: Request) {
     // syncu studený. Warmíme default ("tento týden") i "dnes" (častý, časově citlivý).
     receipts: warmReceipts(f),
     receiptsDnes: warmReceipts({ ...f, preset: "dnes" }),
+    // Živě (/portal/pos/zive): hybatelé dne (getLiveMovers s 30denní heatmapou +
+    // by-shop today/D-7) jsou nejdražší dotaz Portálu a dosud se nepředehřívaly ->
+    // stránka byla po každém syncu studená. Warmíme přesně to, co default pohled
+    // Živě volá: dnešní souhrn, dnešní heatmapu a hybatele (ten dotáhne i 30denní
+    // heatmapu a by-shop today/D-7 do cache).
+    today: getToday(f),
+    heatToday: getHeatmap({ ...f, preset: "dnes" }),
+    movers: getLiveMovers(f),
   };
   const settled = await Promise.allSettled(Object.values(tasks));
   const keys = Object.keys(tasks);
