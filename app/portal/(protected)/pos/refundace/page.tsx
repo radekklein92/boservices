@@ -126,7 +126,7 @@ async function RefundsContent({ filter, rp }: { filter: PosFilter; rp: number })
             </span>
           </div>
 
-          <ReceiptsTable rows={rows} useNet={useNet} filterQs={filterQs} hideRefundBadge detailExtraQs="from=refundace" />
+          <ReceiptsTable rows={rows} useNet={useNet} filterQs={filterQs} hideRefundBadge detailExtraQs="src=refundace" />
 
           <div className="flex items-center justify-between text-[12.5px]">
             <PageLink href={pageHref(rp - 1)} disabled={rp === 0} label="Předchozí" />
