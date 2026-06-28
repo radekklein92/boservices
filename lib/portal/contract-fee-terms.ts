@@ -58,6 +58,10 @@ export interface ContractFeeTerms {
   effectiveFrom: string;
   // Odložená fakturace (ISO); "" = shodné s účinností (žádný odklad).
   invoicingStartsFrom: string;
+  // Datum konce smlouvy (ISO). Franšíza je na dobu určitou (např. 10 let od podpisu)
+  // -> konkrétní datum; dopočítá se z termMonths při extrakci. "" = na dobu neurčitou
+  // (spolupráce/provozování) - jejich konec se odvozuje od franšízy lokality při zobrazení.
+  termEndsAt: string;
   currency: string;
   periods: FeePeriod[];
   summary: string;
@@ -126,19 +130,40 @@ export function resolveRelativePeriods(
   effectiveISO: string,
 ): ContractFeeTerms {
   const base = (terms.effectiveFrom || effectiveISO || "").slice(0, 10);
-  if (!base) return terms;
+  const end = (terms.termEndsAt || "").slice(0, 10);
   return {
     ...terms,
-    periods: terms.periods.map((p) => ({
-      ...p,
-      from:
+    periods: terms.periods.map((p) => {
+      const from =
         p.from ||
-        (p.relativeFromMonth > 0 ? addMonthsISO(base, p.relativeFromMonth) : base),
-      to:
+        (base
+          ? p.relativeFromMonth > 0
+            ? addMonthsISO(base, p.relativeFromMonth)
+            : base
+          : "");
+      let to =
         p.to ||
-        (p.relativeToMonth > 0 ? addMonthsISO(base, p.relativeToMonth) : ""),
-    })),
+        (base && p.relativeToMonth > 0 ? addMonthsISO(base, p.relativeToMonth) : "");
+      // Perioda bez vlastního konce -> konec smlouvy (u franšízy termEndsAt).
+      // Spolupráce/provozování mají termEndsAt="" -> konec zůstane prázdný a
+      // doplní se až při zobrazení z franšízy lokality (displayPeriodEnd).
+      if (!to && end) to = end;
+      return { ...p, from, to };
+    }),
   };
+}
+
+// Konec smlouvy dopočtený z doby trvání (termMonths) vůči kotvě (účinnost / podpis).
+// termMonths <= 0 -> "" (na dobu neurčitou).
+export function computeTermEndsAt(anchorISO: string, termMonths: number): string {
+  if (!termMonths || termMonths <= 0) return "";
+  return addMonthsISO(anchorISO, termMonths);
+}
+
+// Efektivní konec periody pro zobrazení: vlastní konec periody, jinak (u smluv
+// vázaných na franšízu) konec franšízy lokality. "" = bez konce / dle franšízy.
+export function displayPeriodEnd(p: FeePeriod, franchiseEndISO: string): string {
+  return p.to || franchiseEndISO || "";
 }
 
 export interface FeeTermsAtDate {
@@ -167,10 +192,11 @@ export function feeTermsForDate(
   return { active, billable, effectiveYet, label: labelForPeriods(active, terms.currency) };
 }
 
-// Naformátuje jednu periodu na „8 % z měsíčního obratu" nebo „30 000 Kč/měs".
+// Naformátuje sazbu jedné periody na čisté „8 %" nebo „30 000 Kč/měs".
+// Základ procenta (percentBase) se ZÁMĚRNĚ nezobrazuje (je zřejmé, že z obratu).
 export function formatFeePeriod(p: FeePeriod, currency: string): string {
   if (p.percent > 0) {
-    return `${formatNum(p.percent)} %${p.percentBase ? ` z ${p.percentBase}` : ""}`;
+    return `${formatNum(p.percent)} %`;
   }
   if (p.amount > 0) {
     const cur = currency || "CZK";

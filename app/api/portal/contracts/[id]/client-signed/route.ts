@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { requireSession } from "@/lib/portal/auth-guard";
 import { bustContracts } from "@/lib/portal/revalidate";
 import {
@@ -9,8 +9,8 @@ import {
 } from "@/lib/portal/contracts-db";
 import { ensureContractFeeTerms } from "@/lib/portal/contract-fee-ai";
 
-// AI extrakce poplatků při podpisu může trvat několik sekund (Claude přes text
-// smlouvy) - povolíme delší běh než výchozí limit.
+// AI extrakce poplatků (Claude přes text smlouvy) běží přes `after` až PO odeslání
+// odpovědi - podpis se vrátí okamžitě. maxDuration musí pokrýt i tuto práci na pozadí.
 export const maxDuration = 60;
 
 export async function POST(
@@ -39,12 +39,13 @@ export async function POST(
   };
   updated.status = computeContractStatus(updated);
   await upsertContract(updated);
-
-  // Poplatky ze smlouvy (AI) - jen approval-gated typy, idempotentní a best-effort:
-  // selhání NEzablokuje podpis (uloží feeTermsError, cron/tlačítko zkusí znovu).
-  await ensureContractFeeTerms(updated);
-
   bustContracts();
+
+  // Poplatky ze smlouvy (AI) - na pozadí PO odeslání odpovědi (podpis nečeká).
+  // Jen approval-gated typy, idempotentní a best-effort; selhání nezablokuje podpis
+  // (uloží feeTermsError, cron/tlačítko zkusí znovu).
+  after(() => ensureContractFeeTerms(updated));
+
   return NextResponse.json({ ok: true });
 }
 

@@ -80,9 +80,12 @@ export function LocationDetail({
   posPanel,
   isBos,
   bosReason,
+  franchiseEndDate,
 }: {
   location: LocationView;
   contracts: LocationContractRow[];
+  // Konec franšízy lokality (ISO) - konec poplatků u spolupráce/provozování. "" = neznámý.
+  franchiseEndDate: string;
   // Flagy přiřazené této lokalitě (LocationLocal.flagIds přeložené přes katalog).
   flags: ReFlag[];
   // Panel Tržeb (server komponenta předaná z page.tsx). Vykreslí se hned pod
@@ -314,7 +317,7 @@ export function LocationDetail({
 
       <LocationContracts contracts={contracts} />
 
-      <LocationFeeTermsSection contracts={contracts} />
+      <LocationFeeTermsSection contracts={contracts} franchiseEndDate={franchiseEndDate} />
 
       {l.note && (
         <Section title="Poznámka z Transition">

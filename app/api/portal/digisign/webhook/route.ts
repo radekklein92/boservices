@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { timingSafeEqual } from "crypto";
 import { put } from "@vercel/blob";
 import {
@@ -243,11 +243,11 @@ export async function POST(req: NextRequest) {
   await upsertContract(updated);
   bustContracts();
 
-  // Po dokončení podpisu (klient i BOS) vytáhnout poplatky ze smlouvy (AI) -
-  // jen approval-gated typy, idempotentní a best-effort (selhání nezablokuje
-  // webhook, uloží feeTermsError, cron/tlačítko zkusí znovu).
+  // Po dokončení podpisu (klient i BOS) vytáhnout poplatky ze smlouvy (AI) na
+  // pozadí (after = po odeslání odpovědi). Jen approval-gated typy, idempotentní
+  // a best-effort (selhání nezablokuje webhook, uloží feeTermsError, cron dožene).
   if (newStatus === "signed") {
-    await ensureContractFeeTerms(updated);
+    after(() => ensureContractFeeTerms(updated));
   }
 
   return NextResponse.json({ ok: true, status: newStatus });

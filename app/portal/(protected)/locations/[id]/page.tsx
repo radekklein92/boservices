@@ -97,6 +97,18 @@ export default async function LocationDetailPage({
       return b.createdAt.localeCompare(a.createdAt);
     });
 
+  // Konec franšízingové smlouvy lokality (na dobu určitou) - od něj se odvozuje
+  // konec poplatků u smluv na dobu neurčitou (spolupráce/provozování). "" = franšíza
+  // ještě nemá vytažené poplatky / není podepsaná → tabulka ukáže „dle franšízy".
+  const franchiseEndDate =
+    allContracts.find(
+      (c) =>
+        c.locationId === id &&
+        c.type === "franchise" &&
+        !c.cancelledAt &&
+        c.feeTerms?.termEndsAt,
+    )?.feeTerms?.termEndsAt ?? "";
+
   return (
     <div className="flex flex-col gap-10">
       <LocationDetail
@@ -106,6 +118,7 @@ export default async function LocationDetailPage({
         posPanel={<PosLocationPanel locationId={id} />}
         isBos={isBos}
         bosReason={bosReason}
+        franchiseEndDate={franchiseEndDate}
       />
       <EntityTasks kind="location" id={id} />
     </div>

@@ -10,7 +10,7 @@ import {
   Trash2,
   AlertTriangle,
   RefreshCw,
-  Coins,
+  ArrowUpRight,
 } from "lucide-react";
 import { Section } from "@/components/portal/ui/Section";
 import { Chip } from "@/components/portal/ui/Chip";
@@ -28,7 +28,7 @@ import {
 import {
   AMOUNT_PERIOD_LABEL,
   FEE_KIND_LABEL,
-  feeTermsForDate,
+  displayPeriodEnd,
   formatFeePeriod,
   type AmountPeriod,
   type ContractFeeTerms,
@@ -52,10 +52,10 @@ const CONFIDENCE_TONE: Record<ContractFeeTerms["aiConfidence"], string> = {
 };
 
 const CONFIDENCE_LABEL: Record<ContractFeeTerms["aiConfidence"], string> = {
-  high: "Vysoká jistota",
-  medium: "Střední jistota",
-  low: "Nízká jistota",
-  none: "Bez údaje",
+  high: "vysoká jistota",
+  medium: "střední jistota",
+  low: "nízká jistota",
+  none: "bez údaje",
 };
 
 const CURRENCIES = ["CZK", "EUR", "PLN"] as const;
@@ -65,12 +65,70 @@ const FIELD =
   "w-full rounded-lg border border-edge bg-paper px-3 py-2 text-[13px] text-ink-base outline-none transition-colors placeholder:text-ink-soft focus:border-ink-base";
 const LABEL = "block text-[11px] font-medium uppercase tracking-[0.08em] text-ink-soft";
 
-// Sekce „Poplatky a fakturace" na detailu lokality. Karta na každou podepsanou
-// approval-gated smlouvu (franšíza/spolupráce/provozování) navázanou na lokalitu.
+function contractLabel(c: LocationContractRow): string {
+  const meta = CONTRACT_TYPE_META[c.type];
+  const variant = c.variant ? getVariantMeta(c.type, c.variant) : null;
+  // Krátký variant suffix (A/B) jen u franšízy.
+  const vshort = variant && c.type === "franchise" ? ` ${c.variant === "AB" ? "A" : "B"}` : "";
+  return `${meta.shortName}${vshort}`;
+}
+
+// Jeden řádek tabulky = jedna poplatková perioda jedné smlouvy.
+type FeeRow = {
+  key: string;
+  contractLabel: string;
+  firstOfContract: boolean;
+  periodLabel: string;
+  rate: string;
+  from: string; // ISO nebo ""
+  to: string; // ISO nebo "" (= dle franšízy / bez konce)
+  pending?: string; // text místo dat (čeká/chyba/neuvedeno)
+};
+
+function buildRows(
+  contracts: LocationContractRow[],
+  franchiseEndDate: string,
+): FeeRow[] {
+  const rows: FeeRow[] = [];
+  for (const c of contracts) {
+    const label = contractLabel(c);
+    const ft = c.feeTerms;
+    if (ft && ft.periods.length > 0) {
+      ft.periods.forEach((p, i) => {
+        rows.push({
+          key: `${c.id}:${p.id}`,
+          contractLabel: label,
+          firstOfContract: i === 0,
+          periodLabel: p.label || FEE_KIND_LABEL[p.kind],
+          rate: formatFeePeriod(p, ft.currency),
+          from: p.from,
+          to: displayPeriodEnd(p, franchiseEndDate),
+        });
+      });
+    } else {
+      rows.push({
+        key: c.id,
+        contractLabel: label,
+        firstOfContract: true,
+        periodLabel: "—",
+        rate: "—",
+        from: "",
+        to: "",
+        pending: c.feeTermsError
+          ? "chyba extrakce"
+          : "poplatky se zpracovávají",
+      });
+    }
+  }
+  return rows;
+}
+
 export function LocationFeeTermsSection({
   contracts,
+  franchiseEndDate,
 }: {
   contracts: LocationContractRow[];
+  franchiseEndDate: string;
 }) {
   const eligible = contracts.filter(
     (c) =>
@@ -80,30 +138,71 @@ export function LocationFeeTermsSection({
   );
   if (eligible.length === 0) return null;
 
+  const rows = buildRows(eligible, franchiseEndDate);
+
   return (
     <Section
       title="Poplatky a fakturace"
       hint="Vytaženo ze smlouvy AI při podpisu, ručně upravitelné. Podklad pro budoucí fakturaci klientovi."
     >
-      <div className="flex flex-col gap-3">
+      <div className="overflow-x-auto rounded-2xl border border-edge">
+        <table className="w-full border-collapse text-[13px]">
+          <thead>
+            <tr>
+              {["Smlouva", "Poplatek", "Sazba", "Od", "Do"].map((h) => (
+                <th
+                  key={h}
+                  className="whitespace-nowrap border-b border-edge bg-paper-warm px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-mid"
+                >
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.key} className="transition-colors hover:bg-paper-warm">
+                <td className="border-t border-edge px-3 py-2.5 align-middle font-medium text-ink-base">
+                  {r.firstOfContract ? r.contractLabel : ""}
+                </td>
+                <td className="border-t border-edge px-3 py-2.5 align-middle text-ink-deep">
+                  {r.pending ? (
+                    <span className="text-ink-soft">{r.pending}</span>
+                  ) : (
+                    r.periodLabel
+                  )}
+                </td>
+                <td className="whitespace-nowrap border-t border-edge px-3 py-2.5 align-middle font-medium text-ink-base">
+                  {r.pending ? "—" : r.rate}
+                </td>
+                <td className="whitespace-nowrap border-t border-edge px-3 py-2.5 align-middle text-ink-deep">
+                  {r.from ? formatDate(r.from) : "—"}
+                </td>
+                <td className="whitespace-nowrap border-t border-edge px-3 py-2.5 align-middle text-ink-deep">
+                  {r.pending ? "—" : r.to ? formatDate(r.to) : "dle franšízové smlouvy"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="mt-4 flex flex-col gap-2.5">
         {eligible.map((c) => (
-          <FeeCard key={c.id} contract={c} />
+          <FeeManageRow key={c.id} contract={c} />
         ))}
       </div>
     </Section>
   );
 }
 
-function FeeCard({ contract }: { contract: LocationContractRow }) {
+// Per smlouva: metadata (zdroj, jistota, poznámky) + akce (Upravit / Obnovit z AI)
+// + inline editor. Tabulka výše zobrazuje data; tady je správa.
+function FeeManageRow({ contract }: { contract: LocationContractRow }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const meta = CONTRACT_TYPE_META[contract.type];
-  const variantMeta = contract.variant
-    ? getVariantMeta(contract.type, contract.variant)
-    : null;
   const terms = contract.feeTerms;
 
   async function runExtract(force: boolean) {
@@ -136,48 +235,77 @@ function FeeCard({ contract }: { contract: LocationContractRow }) {
     }
   }
 
+  const invoicingNote =
+    terms && terms.invoicingStartsFrom && terms.invoicingStartsFrom !== terms.effectiveFrom
+      ? `Fakturace od ${formatDate(terms.invoicingStartsFrom)}`
+      : "";
+
   return (
-    <div className="rounded-2xl border border-edge bg-paper px-4 py-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 text-[14px] font-bold tracking-[-0.01em] text-ink-base">
-            <Coins className="h-4 w-4 shrink-0 text-ink-mid" strokeWidth={1.75} aria-hidden="true" />
-            <span className="truncate">{meta.shortName}</span>
-            {variantMeta && (
-              <span className="text-[11.5px] font-medium text-ink-soft">
-                {variantMeta.label}
-              </span>
-            )}
-          </div>
+    <div className="rounded-xl border border-edge bg-paper px-3.5 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Link
             href={`/portal/contracts/${contract.id}`}
-            className="mt-0.5 inline-block text-[11.5px] text-ink-soft underline-offset-2 hover:underline"
+            className="group inline-flex items-center gap-1 text-[13px] font-medium text-ink-base hover:text-ink-deep"
           >
-            {contract.number ? `Smlouva ${contract.number}` : "Otevřít smlouvu"}
+            <span>{contractLabel(contract)}</span>
+            <ArrowUpRight
+              className="h-3 w-3 shrink-0 text-ink-soft transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+              strokeWidth={1.5}
+              aria-hidden="true"
+            />
           </Link>
+          {terms && (
+            <>
+              <Chip tone="border-edge bg-edge-warm text-ink-mid">{SOURCE_LABEL[terms.source]}</Chip>
+              {terms.source !== "manual" && (
+                <Chip tone={CONFIDENCE_TONE[terms.aiConfidence]}>
+                  {CONFIDENCE_LABEL[terms.aiConfidence]}
+                </Chip>
+              )}
+            </>
+          )}
         </div>
-        {terms && (
-          <div className="flex flex-wrap items-center gap-1.5">
-            <Chip tone="border-edge bg-edge-warm text-ink-mid">{SOURCE_LABEL[terms.source]}</Chip>
-            {terms.source !== "manual" && (
-              <Chip tone={CONFIDENCE_TONE[terms.aiConfidence]}>
-                {CONFIDENCE_LABEL[terms.aiConfidence]}
-              </Chip>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={() => setEditing((v) => !v)} className={BTN_ROW}>
+            <Pencil className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+            {terms ? "Upravit" : "Doplnit ručně"}
+          </button>
+          <button type="button" onClick={() => runExtract(false)} disabled={busy} className={BTN_ROW}>
+            {terms ? (
+              <RefreshCw className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+            ) : (
+              <Sparkles className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
             )}
-          </div>
-        )}
+            {busy ? "Načítám…" : terms ? "Obnovit z AI" : "Načíst z AI"}
+          </button>
+        </div>
       </div>
 
+      {(invoicingNote || terms?.aiNotes || (terms?.updatedAt && terms.source !== "ai")) && (
+        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11.5px] text-ink-soft">
+          {invoicingNote && <span>{invoicingNote}</span>}
+          {terms?.aiNotes && <span>Pozn. AI: {terms.aiNotes}</span>}
+          {terms?.updatedAt && terms.source !== "ai" && (
+            <span>
+              Upraveno {formatDateTime(terms.updatedAt)}
+              {terms.updatedBy ? ` · ${terms.updatedBy}` : ""}
+            </span>
+          )}
+        </div>
+      )}
+
       {error && (
-        <div className="mt-3 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[12.5px] text-red-700">
+        <div className="mt-2 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[12.5px] text-red-700">
           <AlertTriangle className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
           {error}
         </div>
       )}
 
-      {editing ? (
+      {editing && (
         <FeeEditor
           contractId={contract.id}
+          contractType={contract.type}
           initial={terms}
           onClose={() => setEditing(false)}
           onSaved={() => {
@@ -185,117 +313,9 @@ function FeeCard({ contract }: { contract: LocationContractRow }) {
             router.refresh();
           }}
         />
-      ) : (
-        <div className="mt-3">
-          {terms ? (
-            <FeeReadView terms={terms} />
-          ) : contract.feeTermsError ? (
-            <p className="text-[13px] text-amber-700">{contract.feeTermsError}</p>
-          ) : (
-            <p className="text-[13px] text-ink-mid">
-              Poplatky zatím nebyly vytaženy. Spusťte načtení z AI nebo doplňte ručně.
-            </p>
-          )}
-
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setEditing(true)}
-              className={BTN_ROW}
-            >
-              <Pencil className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
-              {terms ? "Upravit" : "Doplnit ručně"}
-            </button>
-            <button
-              type="button"
-              onClick={() => runExtract(false)}
-              disabled={busy}
-              className={BTN_ROW}
-            >
-              {terms ? (
-                <RefreshCw className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
-              ) : (
-                <Sparkles className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
-              )}
-              {busy ? "Načítám…" : terms ? "Obnovit z AI" : "Načíst z AI"}
-            </button>
-          </div>
-        </div>
       )}
     </div>
   );
-}
-
-function FeeReadView({ terms }: { terms: ContractFeeTerms }) {
-  const today = feeTermsForDate(terms, new Date().toISOString());
-  return (
-    <div className="flex flex-col gap-3">
-      {terms.summary && (
-        <p className="text-[13.5px] leading-relaxed text-ink-deep">{terms.summary}</p>
-      )}
-
-      {terms.periods.length > 0 ? (
-        <ul className="flex flex-col gap-1.5">
-          {terms.periods.map((p) => (
-            <li
-              key={p.id}
-              className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 border-b border-edge/60 pb-1.5 last:border-0"
-            >
-              <span className="text-[13px] font-medium text-ink-base">
-                {p.label || FEE_KIND_LABEL[p.kind]}
-              </span>
-              <span className="text-[13px] text-ink-deep">
-                {formatFeePeriod(p, terms.currency)}
-                <span className="ml-2 text-[11.5px] text-ink-soft">{periodRange(p)}</span>
-              </span>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="text-[13px] text-ink-mid">Žádné poplatkové položky.</p>
-      )}
-
-      <dl className="grid grid-cols-1 gap-x-6 gap-y-1 text-[12.5px] sm:grid-cols-2">
-        <FactRow label="Účinnost od" value={terms.effectiveFrom ? formatDate(terms.effectiveFrom) : "dnem podpisu"} />
-        <FactRow
-          label="Fakturace od"
-          value={terms.invoicingStartsFrom ? formatDate(terms.invoicingStartsFrom) : "souběžně s účinností"}
-        />
-        <FactRow label="Měna" value={terms.currency} />
-        <FactRow
-          label="Aktuálně fakturovat"
-          value={today.billable ? today.label : today.effectiveYet ? "ještě nefakturovat" : "smlouva ještě neúčinná"}
-        />
-      </dl>
-
-      {terms.aiNotes && (
-        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-800">
-          Pozn. AI: {terms.aiNotes}
-        </p>
-      )}
-      {terms.updatedAt && (
-        <p className="text-[11px] text-ink-soft">
-          Naposledy {formatDateTime(terms.updatedAt)}
-          {terms.updatedBy ? ` · ${terms.updatedBy}` : ""}
-        </p>
-      )}
-    </div>
-  );
-}
-
-function FactRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3">
-      <dt className="shrink-0 text-ink-soft">{label}</dt>
-      <dd className="text-right font-medium text-ink-deep">{value}</dd>
-    </div>
-  );
-}
-
-function periodRange(p: FeePeriod): string {
-  const from = p.from ? formatDate(p.from) : "od účinnosti";
-  const to = p.to ? formatDate(p.to) : "trvale";
-  return `${from} - ${to}`;
 }
 
 // ── Editor ────────────────────────────────────────────────────────────────────
@@ -326,11 +346,13 @@ function emptyPeriod(mode: "percent" | "amount"): DraftPeriod {
 
 function FeeEditor({
   contractId,
+  contractType,
   initial,
   onClose,
   onSaved,
 }: {
   contractId: string;
+  contractType: LocationContractRow["type"];
   initial: ContractFeeTerms | null;
   onClose: () => void;
   onSaved: () => void;
@@ -339,6 +361,7 @@ function FeeEditor({
   const [invoicingStartsFrom, setInvoicingStartsFrom] = useState(
     initial?.invoicingStartsFrom ?? "",
   );
+  const [termEndsAt, setTermEndsAt] = useState(initial?.termEndsAt ?? "");
   const [currency, setCurrency] = useState(initial?.currency || "CZK");
   const [summary, setSummary] = useState(initial?.summary ?? "");
   const [periods, setPeriods] = useState<DraftPeriod[]>(
@@ -346,6 +369,8 @@ function FeeEditor({
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const isFranchise = contractType === "franchise";
 
   function patchPeriod(i: number, patch: Partial<DraftPeriod>) {
     setPeriods((prev) => prev.map((p, idx) => (idx === i ? { ...p, ...patch } : p)));
@@ -362,7 +387,7 @@ function FeeEditor({
           label: p.label,
           kind: p.kind,
           percent: isPercent ? Number(p.percent) || 0 : 0,
-          percentBase: isPercent ? p.percentBase : "",
+          percentBase: p.percentBase,
           amount: isPercent ? 0 : Number(p.amount) || 0,
           amountPeriod: isPercent ? "none" : p.amountPeriod === "none" ? "monthly" : p.amountPeriod,
           from: p.from,
@@ -378,6 +403,7 @@ function FeeEditor({
         body: JSON.stringify({
           effectiveFrom,
           invoicingStartsFrom,
+          termEndsAt: isFranchise ? termEndsAt : "",
           currency,
           summary,
           periods: payloadPeriods,
@@ -394,7 +420,7 @@ function FeeEditor({
   }
 
   return (
-    <div className="mt-3 flex flex-col gap-4">
+    <div className="mt-3 flex flex-col gap-4 border-t border-edge pt-4">
       <div className="flex flex-col gap-3">
         {periods.map((p, i) => (
           <div key={p.id} className="rounded-xl border border-edge bg-paper-warm p-3">
@@ -452,29 +478,18 @@ function FeeEditor({
               </div>
 
               {p.mode === "percent" ? (
-                <>
-                  <div>
-                    <label className={LABEL}>Sazba (%)</label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      min="0"
-                      max="100"
-                      value={p.percent || ""}
-                      onChange={(e) => patchPeriod(i, { percent: Number(e.target.value) })}
-                      className={`${FIELD} mt-1`}
-                    />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label className={LABEL}>Z čeho (základ)</label>
-                    <input
-                      value={p.percentBase}
-                      onChange={(e) => patchPeriod(i, { percentBase: e.target.value })}
-                      placeholder="měsíční obrat bez DPH"
-                      className={`${FIELD} mt-1`}
-                    />
-                  </div>
-                </>
+                <div>
+                  <label className={LABEL}>Sazba (%)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="100"
+                    value={p.percent || ""}
+                    onChange={(e) => patchPeriod(i, { percent: Number(e.target.value) })}
+                    className={`${FIELD} mt-1`}
+                  />
+                </div>
               ) : (
                 <>
                   <div>
@@ -521,15 +536,6 @@ function FeeEditor({
                   className={`${FIELD} mt-1`}
                 />
               </div>
-
-              <div className="sm:col-span-2">
-                <label className={LABEL}>Poznámka</label>
-                <input
-                  value={p.note}
-                  onChange={(e) => patchPeriod(i, { note: e.target.value })}
-                  className={`${FIELD} mt-1`}
-                />
-              </div>
             </div>
           </div>
         ))}
@@ -541,7 +547,7 @@ function FeeEditor({
             className={BTN_ROW}
           >
             <Plus className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
-            Procentuální poplatek
+            Procentuální sazba
           </button>
           <button
             type="button"
@@ -554,19 +560,18 @@ function FeeEditor({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 border-t border-edge pt-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 border-t border-edge pt-4 sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <label className={LABEL}>Účinnost smlouvy od</label>
+          <label className={LABEL}>Účinnost od</label>
           <input
             type="date"
             value={effectiveFrom}
             onChange={(e) => setEffectiveFrom(e.target.value)}
             className={`${FIELD} mt-1`}
           />
-          <p className="mt-1 text-[10.5px] text-ink-soft">Prázdné = dnem podpisu.</p>
         </div>
         <div>
-          <label className={LABEL}>Fakturace od (odklad)</label>
+          <label className={LABEL}>Fakturace od</label>
           <input
             type="date"
             value={invoicingStartsFrom}
@@ -575,6 +580,23 @@ function FeeEditor({
           />
           <p className="mt-1 text-[10.5px] text-ink-soft">Prázdné = souběžně s účinností.</p>
         </div>
+        {isFranchise ? (
+          <div>
+            <label className={LABEL}>Konec smlouvy</label>
+            <input
+              type="date"
+              value={termEndsAt}
+              onChange={(e) => setTermEndsAt(e.target.value)}
+              className={`${FIELD} mt-1`}
+            />
+            <p className="mt-1 text-[10.5px] text-ink-soft">Od něj se odvíjí i spolupráce/provozování.</p>
+          </div>
+        ) : (
+          <div>
+            <label className={LABEL}>Konec smlouvy</label>
+            <p className="mt-2 text-[11.5px] text-ink-soft">Dle navázané franšízové smlouvy.</p>
+          </div>
+        )}
         <div>
           <label className={LABEL}>Měna</label>
           <select
@@ -597,7 +619,7 @@ function FeeEditor({
           value={summary}
           onChange={(e) => setSummary(e.target.value)}
           rows={2}
-          placeholder="Stručně kolik a jak se fakturuje (1 věta)."
+          placeholder="Stručně kolik a jak se fakturuje."
           className={`${FIELD} mt-1 resize-y`}
         />
       </div>
