@@ -536,13 +536,19 @@ export async function getLiveMovers(filter: PosFilter, topN = 5): Promise<LiveMo
   // Data-okna jsou čistě z filtru (nezávisí na scope ani FX), a by-shop/heatmap se
   // filtrují přes resolved.shopIds až po dotažení -> všech pět dotazů může běžet
   // naráz. Ušetří sériové čekání na studené cestě (po syncu DW, než doběhne warm).
+  const _t = (label: string, p: Promise<unknown>) => {
+    const s = Date.now();
+    return Promise.resolve(p).finally(() => console.log(`[PERF] getLiveMovers.${label} ${Date.now() - s}ms`));
+  };
+  const _tot = Date.now();
   const [{ resolved, index, shops, locations }, rates, todayRows, baseRows, cells] = await Promise.all([
-    scopeContext(filter),
-    getFxRates(),
-    _shopRev(todayRange.from, todayRange.to),
-    _shopRev(baseRange.from, baseRange.to),
-    getHeatmap({ ...filter, preset: "poslednich-30-dni" }),
+    _t("scope", scopeContext(filter)) as ReturnType<typeof scopeContext>,
+    _t("fx", getFxRates()) as ReturnType<typeof getFxRates>,
+    _t("shopRevToday", _shopRev(todayRange.from, todayRange.to)) as ReturnType<typeof _shopRev>,
+    _t("shopRevD7", _shopRev(baseRange.from, baseRange.to)) as ReturnType<typeof _shopRev>,
+    _t("heatmap30d", getHeatmap({ ...filter, preset: "poslednich-30-dni" })) as ReturnType<typeof getHeatmap>,
   ]);
+  console.log(`[PERF] getLiveMovers.allParallel ${Date.now() - _tot}ms`);
 
   // f váženě: každá typická hodina × kolik z ní už uplynulo.
   const nowFrac = nowPragueHourFrac();
