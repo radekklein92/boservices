@@ -259,16 +259,16 @@ function Chip({ label, accent = false, onRemove }: { label: string; accent?: boo
   return (
     <span
       className={[
-        "inline-flex h-7 items-center gap-1 rounded-full border pl-2.5 pr-1 text-[12px] font-medium",
+        "inline-flex h-7 max-w-full items-center gap-1 rounded-full border pl-2.5 pr-1 text-[12px] font-medium",
         accent ? "border-ink-base/20 bg-edge-warm text-ink-base" : "border-edge bg-paper text-ink-deep",
       ].join(" ")}
     >
-      {label}
+      <span className="truncate">{label}</span>
       <button
         type="button"
         onClick={onRemove}
         aria-label={`Odebrat ${label}`}
-        className="grid h-5 w-5 place-items-center rounded-full text-ink-mid transition-colors hover:bg-ink-base hover:text-paper focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-base"
+        className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-ink-mid transition-colors hover:bg-ink-base hover:text-paper focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-base"
       >
         <X className="h-3 w-3" strokeWidth={2.25} aria-hidden="true" />
       </button>
