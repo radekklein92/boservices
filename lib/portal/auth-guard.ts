@@ -3,6 +3,7 @@ import type { Session } from "next-auth";
 import { auth } from "@/auth";
 import { applyRoleOverride } from "@/lib/portal/role-override";
 import type { UserRole } from "@/lib/portal/users-db";
+import { isDevtoolsEnabled, isEditor } from "@/lib/portal/devtools-db";
 
 export const ADMIN_ROLES: UserRole[] = ["superadmin", "admin"];
 
@@ -47,6 +48,28 @@ export async function requireSuperadmin(): Promise<GuardResult> {
   const result = await requireSession();
   if (!result.ok) return result;
   if (result.session.user?.role !== "superadmin") {
+    return { ok: false, response: forbidden() };
+  }
+  return result;
+}
+
+// Guard pro ODESLÁNÍ požadavku v Konzoli změn (/portal/admin/changes): musí být
+// admin, na allowlistu editorů A kill switch musí být zapnutý. Čtení stránky a
+// stavu stačí requireAdmin(); tohle gatuje jen samotné založení požadavku.
+export async function requireChangeEditor(): Promise<GuardResult> {
+  const result = await requireAdmin();
+  if (!result.ok) return result;
+  if (!(await isDevtoolsEnabled())) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { ok: false, error: "Konzole změn je vypnutá." },
+        { status: 403 },
+      ),
+    };
+  }
+  const email = result.session.user?.email;
+  if (!email || !(await isEditor(email))) {
     return { ok: false, response: forbidden() };
   }
   return result;

@@ -1,0 +1,56 @@
+name: Claude Code
+
+# Spouští se na issues/komentáře s labelem "claude-task" (přidává jen Portál přes
+# /portal/admin/changes = governance gate; ručně mimo Portál Claude nikdo
+# nespustí). Claude udělá změny v PR a TENTÝŽ běh zapne auto-merge (--auto
+# --squash) - obchází GitHub anti-rekurzi (PR otevřený přes GITHUB_TOKEN by jinak
+# samostatný auto-merge.yml nespustil). Po zelených checcích (Vercel + typecheck)
+# GitHub PR zmerguje a Vercel nasadí do produkce.
+
+on:
+  issues:
+    types: [opened]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: read
+
+jobs:
+  claude:
+    if: >-
+      contains(github.event.issue.labels.*.name, 'claude-task') &&
+      (github.event_name == 'issues' || contains(github.event.comment.body, '@claude'))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          trigger_phrase: "@claude"
+
+      # Zapne auto-merge na vzniklém PR. Primárně z outputu akce; fallback
+      # dohledá PR navázaný na issue přes cross-reference v timeline.
+      - name: Enable auto-merge on the resulting PR
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR="${{ steps.claude.outputs.pull_request_number }}"
+          if [ -z "$PR" ] || [ "$PR" = "null" ]; then
+            PR=$(gh api "repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/timeline" \
+              --jq '[.[] | select(.event=="cross-referenced") | .source.issue | select(.pull_request!=null) | .number] | last' 2>/dev/null || true)
+          fi
+          if [ -n "$PR" ] && [ "$PR" != "null" ]; then
+            echo "Enabling auto-merge for PR #$PR"
+            gh pr merge "$PR" --repo "${{ github.repository }}" --auto --squash --delete-branch || true
+          else
+            echo "No linked PR found; skipping auto-merge."
+          fi
