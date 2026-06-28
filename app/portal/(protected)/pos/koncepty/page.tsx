@@ -4,15 +4,16 @@ import { ArrowLeft } from "lucide-react";
 import { canSeePOS } from "@/lib/portal/auth-guard";
 import { getSession } from "@/lib/portal/get-session";
 import { parsePosFilter, serializePosFilter, type PosFilter } from "@/lib/portal/pos/filters";
-import { getCityLeaderboardFull } from "@/lib/portal/pos/queries";
+import { getConceptLeaderboardFull } from "@/lib/portal/pos/queries";
 import { isPosApiConfigured } from "@/lib/portal/pos/api";
 import { PageHeader } from "@/components/portal/shell/PageHeader";
+import { CONCEPT_LABEL } from "@/components/portal/locations/locations-shared";
 import { PosLeaderboard, type LeaderRow } from "@/components/portal/pos/PosLeaderboard";
 import { PosFilterBarLoader } from "@/components/portal/pos/PosFilterBarLoader";
 import { FilterBarSkeleton, LeaderboardSkeleton } from "@/components/portal/pos/skeletons";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Tržby - Města" };
+export const metadata = { title: "Tržby - Koncepty" };
 
 function searchParamsToUsp(sp: Record<string, string | string[] | undefined>): URLSearchParams {
   const usp = new URLSearchParams();
@@ -23,7 +24,7 @@ function searchParamsToUsp(sp: Record<string, string | string[] | undefined>): U
   return usp;
 }
 
-export default async function PosCitiesPage({
+export default async function PosConceptsPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -45,8 +46,8 @@ export default async function PosCitiesPage({
             Tržby
           </Link>
         }
-        title="Města"
-        lede="Tržby po městech (z párování pokladen) v rámci výběru a období."
+        title="Koncepty"
+        lede="Tržby po konceptech (skupinách prodejen). Klikni na koncept pro jeho prodejny."
       />
 
       <Suspense fallback={<FilterBarSkeleton />}>
@@ -57,17 +58,17 @@ export default async function PosCitiesPage({
         <Notice title="POS data nejsou nakonfigurovaná" body="Nastavte POS_API_BASE a POS_API_KEY v prostředí (Vercel)." />
       ) : (
         <Suspense fallback={<LeaderboardSkeleton rows={8} />}>
-          <CitiesLeaderboard filter={filter} />
+          <ConceptsLeaderboard filter={filter} />
         </Suspense>
       )}
     </>
   );
 }
 
-async function CitiesLeaderboard({ filter }: { filter: PosFilter }) {
-  let rows: Awaited<ReturnType<typeof getCityLeaderboardFull>>;
+async function ConceptsLeaderboard({ filter }: { filter: PosFilter }) {
+  let rows: Awaited<ReturnType<typeof getConceptLeaderboardFull>>;
   try {
-    rows = await getCityLeaderboardFull(filter);
+    rows = await getConceptLeaderboardFull(filter);
   } catch {
     return <Notice title="Data dočasně nedostupná" body="Nepodařilo se načíst data z API Data Warehouse." />;
   }
@@ -76,25 +77,31 @@ async function CitiesLeaderboard({ filter }: { filter: PosFilter }) {
   }
 
   const useNet = !filter.vatInclusive;
-  const leaderRows: LeaderRow[] = rows.map((r) => ({
-    id: r.city,
-    label: r.city,
-    sublabel: r.locationCount > 0 ? `${r.locationCount} prodejen` : undefined,
-    value: useNet ? r.net : r.gross,
-    prev: useNet ? r.prevNet : r.prevGross,
-    receipts: r.receipts,
-    atv: r.receipts > 0 ? r.gross / r.receipts : null,
-  }));
+  const leaderRows: LeaderRow[] = rows.map((r) => {
+    // Proklik na koncept = zúžit výběr na tento koncept a přejít na jeho prodejny.
+    const scoped = serializePosFilter({
+      ...filter,
+      selection: { concepts: [r.concept], locations: [] },
+    }).toString();
+    const pocet = r.locationCount > 0 ? `${r.locationCount} prodejen` : undefined;
+    return {
+      id: r.concept,
+      label: CONCEPT_LABEL[r.concept],
+      sublabel: pocet,
+      href: `/portal/pos/prodejny${scoped ? `?${scoped}` : ""}`,
+      value: useNet ? r.net : r.gross,
+      prev: useNet ? r.prevNet : r.prevGross,
+      receipts: r.receipts,
+      atv: r.receipts > 0 ? r.gross / r.receipts : null,
+    };
+  });
 
   return (
     <section className="flex flex-col gap-3">
       <h2 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink-mid">
-        Města ({leaderRows.length}) · {useNet ? "bez DPH" : "s DPH"} · {filter.currency}
+        Koncepty ({leaderRows.length}) · {useNet ? "bez DPH" : "s DPH"} · {filter.currency}
       </h2>
       <PosLeaderboard rows={leaderRows} currency={filter.currency} valueLabel={useNet ? "Tržby bez DPH" : "Tržby s DPH"} />
-      <p className="text-[11px] text-ink-soft">
-        Město se bere z párování pokladen. Pokladny bez napárovaného města jsou v „Neuvedeno" - doplňte je v Administraci → Párování pokladen.
-      </p>
     </section>
   );
 }

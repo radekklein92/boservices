@@ -1,16 +1,29 @@
+import { Suspense } from "react";
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { ArrowLeft, ChevronRight } from "lucide-react";
 import { canSeePOS } from "@/lib/portal/auth-guard";
 import { getSession } from "@/lib/portal/get-session";
-import { posFilterFromSearchParams, serializePosFilter } from "@/lib/portal/pos/filters";
+import { parsePosFilter, serializePosFilter, type PosFilter } from "@/lib/portal/pos/filters";
 import { getReceiptsPage } from "@/lib/portal/pos/queries";
 import { isPosApiConfigured } from "@/lib/portal/pos/api";
+import { PageHeader } from "@/components/portal/shell/PageHeader";
+import { PosFilterBarLoader } from "@/components/portal/pos/PosFilterBarLoader";
+import { FilterBarSkeleton, LeaderboardSkeleton } from "@/components/portal/pos/skeletons";
 import { formatLocalDateTime, formatPosMoney, formatPosNumber } from "@/components/portal/pos/pos-shared";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Pokladna - Účtenky" };
+export const metadata = { title: "Tržby - Účtenky" };
 
 const LIMIT = 50;
+
+function searchParamsToUsp(sp: Record<string, string | string[] | undefined>): URLSearchParams {
+  const usp = new URLSearchParams();
+  for (const [k, v] of Object.entries(sp)) {
+    if (typeof v === "string") usp.set(k, v);
+    else if (Array.isArray(v) && typeof v[0] === "string") usp.set(k, v[0]);
+  }
+  return usp;
+}
 
 export default async function PosReceiptsPage({
   searchParams,
@@ -20,15 +33,42 @@ export default async function PosReceiptsPage({
   const session = await getSession();
   if (!canSeePOS(session?.user?.role)) return null;
   const sp = await searchParams;
-  const filter = posFilterFromSearchParams(sp);
+  const filter = parsePosFilter(searchParamsToUsp(sp));
   const rp = Math.max(0, Math.trunc(Number(typeof sp.rp === "string" ? sp.rp : 0)) || 0);
+  const backQs = serializePosFilter(filter).toString();
+
+  return (
+    <>
+      <PageHeader
+        eyebrow={
+          <Link
+            href={`/portal/pos${backQs ? `?${backQs}` : ""}`}
+            className="inline-flex items-center gap-1.5 transition-colors hover:text-ink-base"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+            Tržby
+          </Link>
+        }
+        title="Účtenky"
+        lede="Jednotlivé doklady v rámci výběru a období."
+      />
+      <Suspense fallback={<FilterBarSkeleton />}>
+        <PosFilterBarLoader />
+      </Suspense>
+      {!isPosApiConfigured() ? (
+        <Notice title="POS data nejsou nakonfigurovaná" body="Nastavte POS_API_BASE a POS_API_KEY v prostředí (Vercel)." />
+      ) : (
+        <Suspense fallback={<LeaderboardSkeleton rows={10} />}>
+          <ReceiptsList filter={filter} rp={rp} />
+        </Suspense>
+      )}
+    </>
+  );
+}
+
+async function ReceiptsList({ filter, rp }: { filter: PosFilter; rp: number }) {
   const cur = filter.currency;
   const useNet = !filter.vatInclusive;
-
-  if (!isPosApiConfigured()) {
-    return <Notice title="POS data nejsou nakonfigurovaná" body="Nastavte POS_API_BASE a POS_API_KEY v prostředí (Vercel)." />;
-  }
-
   let data: Awaited<ReturnType<typeof getReceiptsPage>>;
   try {
     data = await getReceiptsPage(filter, rp, { limit: LIMIT });
@@ -48,14 +88,16 @@ export default async function PosReceiptsPage({
   };
 
   if (rows.length === 0) {
-    return <Notice title="Pro zvolené období nejsou účtenky" body="Zkuste jiné období, značku nebo měnu ve filtru nahoře." />;
+    return <Notice title="Pro zvolený výběr nejsou účtenky" body="Zkuste jiné období, výběr prodejen nebo měnu ve filtru nahoře." />;
   }
 
   return (
     <section className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink-mid">Účtenky</h2>
-        <span className="text-[12px] tabular-nums text-ink-mid">{formatPosNumber(total)} celkem · {cur}</span>
+        <span className="text-[12px] tabular-nums text-ink-mid">
+          {formatPosNumber(total)} celkem · {cur}
+        </span>
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-edge bg-paper">
@@ -99,7 +141,10 @@ function PageLink({ href, disabled, label }: { href: string; disabled: boolean; 
     return <span className="rounded-lg border border-edge px-3 py-1.5 text-ink-soft">{label}</span>;
   }
   return (
-    <Link href={href} className="rounded-lg border border-edge px-3 py-1.5 font-medium text-ink-deep transition-colors hover:bg-edge-warm">
+    <Link
+      href={href}
+      className="rounded-lg border border-edge px-3 py-1.5 font-medium text-ink-deep transition-colors hover:bg-edge-warm"
+    >
       {label}
     </Link>
   );

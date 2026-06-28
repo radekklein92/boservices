@@ -6,14 +6,13 @@ import { isPosApiConfigured } from "@/lib/portal/pos/api";
 import { getShopPairsByLocation } from "@/lib/portal/pos/pairing-db";
 import { getKpiSummary } from "@/lib/portal/pos/queries";
 import { DEFAULT_POS_FILTER, serializePosFilter, type PosFilter } from "@/lib/portal/pos/filters";
-import type { KpiSummary, SummaryRow } from "@/lib/portal/pos/types";
+import type { KpiSummary } from "@/lib/portal/pos/types";
 import { formatPosMoney, formatPosNumber } from "./pos-shared";
 import { PosDeltaBadge } from "./PosDeltaBadge";
 
 // Mini-panel "Tržby" na detailu lokality. Zobrazí se jen pro role s přístupem do
-// Pokladny a jen když má lokalita aspoň jednu napárovanou pokladnu. Jinak tiše nic
-// (detail lokality vidí i běžní uživatelé, těm panel nepatří). Jedna prodejna může
-// mít víc pokladen - tržby se sčítají přes všechny.
+// Tržeb a jen když má lokalita aspoň jednu napárovanou pokladnu. Výběr zúžený na
+// tuto prodejnu -> getKpiSummary sečte všechny její pokladny (rollup).
 export async function PosLocationPanel({ locationId }: { locationId: string }) {
   const session = await getSession();
   if (!canSeePOS(session?.user?.role)) return null;
@@ -22,32 +21,26 @@ export async function PosLocationPanel({ locationId }: { locationId: string }) {
   const pairs = await getShopPairsByLocation(locationId);
   if (pairs.length === 0) return null;
 
+  const filter: PosFilter = {
+    ...DEFAULT_POS_FILTER,
+    preset: "poslednich-30-dni",
+    selection: { concepts: [], locations: [locationId] },
+  };
+
   let data: KpiSummary;
   try {
-    const summaries = await Promise.all(
-      pairs.map((p) => {
-        const filter: PosFilter = {
-          ...DEFAULT_POS_FILTER,
-          scope: { kind: "shop", shopId: p.dwShopId },
-          preset: "poslednich-30-dni",
-        };
-        return getKpiSummary(filter);
-      }),
-    );
-    data = sumKpiSummaries(summaries);
+    data = await getKpiSummary(filter);
   } catch {
     return null;
   }
 
-  const cur = DEFAULT_POS_FILTER.currency;
+  const cur = filter.currency;
   const c = data.current.find((r) => r.currency === cur) ?? null;
   const p = data.comparison?.find((r) => r.currency === cur) ?? null;
   if (!c) return null;
 
-  const filter: PosFilter = { ...DEFAULT_POS_FILTER, preset: "poslednich-30-dni" };
-  // Odkaz cílí na konkrétní pokladnu jen když je jedna; u víc pokladen na celý přehled.
-  if (pairs.length === 1) filter.scope = { kind: "shop", shopId: pairs[0]!.dwShopId };
   const qs = serializePosFilter(filter).toString();
+  const detailHref = `/portal/pos/prodejny/${encodeURIComponent(locationId)}${qs ? `?${qs}` : ""}`;
 
   return (
     <section className="flex flex-col gap-3">
@@ -61,18 +54,18 @@ export async function PosLocationPanel({ locationId }: { locationId: string }) {
           )}
         </h2>
         <Link
-          href={`/portal/pos${qs ? `?${qs}` : ""}`}
+          href={detailHref}
           className="inline-flex items-center gap-1 text-[12.5px] font-medium text-ink-mid transition-colors hover:text-ink-base"
         >
-          Otevřít v Pokladně
+          Otevřít v Tržbách
           <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
         </Link>
       </div>
       <div className="grid grid-cols-3 gap-3">
-        <Stat label="Čisté tržby" value={formatPosMoney(c.net, cur)} current={c.net} previous={p?.net ?? null} />
+        <Stat label="Tržby (s DPH)" value={formatPosMoney(c.gross, cur)} current={c.gross} previous={p?.gross ?? null} />
         <Stat label="Účtenky" value={formatPosNumber(c.receipts)} current={c.receipts} previous={p?.receipts ?? null} />
         <Stat
-          label="Průměrná útrata"
+          label="Průměrný ticket"
           value={c.avg_ticket != null ? formatPosMoney(c.avg_ticket, cur) : "—"}
           current={c.avg_ticket ?? undefined}
           previous={p?.avg_ticket ?? null}
@@ -80,43 +73,6 @@ export async function PosLocationPanel({ locationId }: { locationId: string }) {
       </div>
     </section>
   );
-}
-
-// Součet KPI přes víc pokladen na jedné prodejně, po měnách. avg_ticket se
-// přepočítá (gross/receipts); refund_rate se v panelu nezobrazuje -> null.
-function sumKpiSummaries(list: KpiSummary[]): KpiSummary {
-  const mergeRows = (rowsList: (SummaryRow[] | null | undefined)[]): SummaryRow[] => {
-    const byCur = new Map<string, SummaryRow>();
-    for (const rows of rowsList) {
-      if (!rows) continue;
-      for (const r of rows) {
-        const acc = byCur.get(r.currency) ?? {
-          currency: r.currency,
-          gross: 0,
-          net: 0,
-          vat: 0,
-          receipts: 0,
-          avg_ticket: null,
-          refund_rate: null,
-        };
-        acc.gross += r.gross;
-        acc.net += r.net;
-        acc.vat += r.vat;
-        acc.receipts += r.receipts;
-        byCur.set(r.currency, acc);
-      }
-    }
-    for (const acc of byCur.values()) {
-      acc.avg_ticket = acc.receipts > 0 ? acc.gross / acc.receipts : null;
-    }
-    return [...byCur.values()];
-  };
-
-  const hasComparison = list.some((k) => k.comparison && k.comparison.length > 0);
-  return {
-    current: mergeRows(list.map((k) => k.current)),
-    comparison: hasComparison ? mergeRows(list.map((k) => k.comparison)) : null,
-  };
 }
 
 function Stat({

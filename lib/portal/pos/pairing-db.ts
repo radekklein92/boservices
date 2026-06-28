@@ -1,5 +1,6 @@
 import { getRedis } from "@/lib/redis";
 import type { LocationConcept } from "@/lib/portal/locations-db";
+import { cachedListLocations } from "@/lib/portal/cached-db";
 
 // Párovací crosswalk POS pobočka (DW dim_shop) <-> portálová lokalita. Vzor:
 // locations-db.ts (per-entity JSON + set index + merge-safe zápis).
@@ -125,19 +126,34 @@ export interface PairingIndex {
   cityByShop: Map<string, string>; // dwShopId -> město (z párování)
   locationByShop: Map<string, string>; // dwShopId -> locationId
   shopsByLocation: Map<string, string[]>; // locationId -> dwShopId[] (N pokladen na prodejně)
-  conceptByShop: Map<string, LocationConcept>; // override nebo z brand-concept mapy
+  brandByShop: Map<string, string>; // dwShopId -> brandId (snapshot z páru)
+  conceptByLocation: Map<string, LocationConcept>; // locationId -> koncept (ZDROJ PRAVDY z lokality)
+  conceptByShop: Map<string, LocationConcept>; // fallback pro nenapárované/orphan pokladny
   pairs: ShopPair[];
 }
 
+// Koncept prodejny bereme PRIMÁRNĚ z MirroredLocation.concept (povinné, zrcadlené
+// z Transition = zdroj pravdy). conceptByShop (override ?? brand-concept mapa) je
+// jen fallback pro pokladny bez lokality. Tím je koncept vždy definovaný a prodejna
+// se smíšenými značkami má jeden jednoznačný koncept.
 export async function buildPairingIndex(): Promise<PairingIndex> {
-  const [pairs, brandConcept] = await Promise.all([listShopPairs(), getBrandConceptMap()]);
+  const [pairs, brandConcept, locations] = await Promise.all([
+    listShopPairs(),
+    getBrandConceptMap(),
+    cachedListLocations(),
+  ]);
+  const conceptByLocation = new Map<string, LocationConcept>();
+  for (const loc of locations) conceptByLocation.set(loc.id, loc.concept);
+
   const cityByShop = new Map<string, string>();
   const locationByShop = new Map<string, string>();
   const shopsByLocation = new Map<string, string[]>();
+  const brandByShop = new Map<string, string>();
   const conceptByShop = new Map<string, LocationConcept>();
   for (const p of pairs) {
     if (p.status === "orphaned") continue;
     if (p.city) cityByShop.set(p.dwShopId, p.city);
+    if (p.brandId) brandByShop.set(p.dwShopId, p.brandId);
     if (p.locationId) {
       locationByShop.set(p.dwShopId, p.locationId);
       const arr = shopsByLocation.get(p.locationId) ?? [];
@@ -147,5 +163,13 @@ export async function buildPairingIndex(): Promise<PairingIndex> {
     const concept = p.concept ?? (p.brandId ? brandConcept[p.brandId] : undefined);
     if (concept) conceptByShop.set(p.dwShopId, concept);
   }
-  return { cityByShop, locationByShop, shopsByLocation, conceptByShop, pairs };
+  return {
+    cityByShop,
+    locationByShop,
+    shopsByLocation,
+    brandByShop,
+    conceptByLocation,
+    conceptByShop,
+    pairs,
+  };
 }

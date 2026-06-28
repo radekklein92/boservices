@@ -1,10 +1,15 @@
-import { Download } from "lucide-react";
+import { Suspense } from "react";
+import Link from "next/link";
+import { ArrowLeft, Download } from "lucide-react";
 import { canSeePOS } from "@/lib/portal/auth-guard";
 import { getSession } from "@/lib/portal/get-session";
 import { posFilterFromSearchParams, serializePosFilter, DATE_PRESET_LABEL } from "@/lib/portal/pos/filters";
+import { PageHeader } from "@/components/portal/shell/PageHeader";
+import { PosFilterBarLoader } from "@/components/portal/pos/PosFilterBarLoader";
+import { FilterBarSkeleton } from "@/components/portal/pos/skeletons";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Pokladna - Reporty" };
+export const metadata = { title: "Tržby - Reporty" };
 
 export default async function PosReportsPage({
   searchParams,
@@ -18,7 +23,25 @@ export default async function PosReportsPage({
   const href = (type: string) => `/api/portal/pos/export?type=${type}${qs ? `&${qs}` : ""}`;
 
   return (
-    <div className="flex flex-col gap-8">
+    <>
+      <PageHeader
+        eyebrow={
+          <Link
+            href={`/portal/pos${qs ? `?${qs}` : ""}`}
+            className="inline-flex items-center gap-1.5 transition-colors hover:text-ink-base"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+            Tržby
+          </Link>
+        }
+        title="Reporty"
+        lede="Exporty dat pro aktuální výběr a období."
+      />
+
+      <Suspense fallback={<FilterBarSkeleton />}>
+        <PosFilterBarLoader />
+      </Suspense>
+
       <section className="flex flex-col gap-3">
         <h2 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink-mid">
           Export ({DATE_PRESET_LABEL[filter.preset]}, {filter.currency})
@@ -32,28 +55,30 @@ export default async function PosReportsPage({
           <ExportCard
             href={href("uctenky")}
             title="Účtenky"
-            body="Účtenky pro aktuální filtr (čas, provozovna, částky, DPH, kanál, refundace)."
+            body="Účtenky pro aktuální filtr (čas, prodejna, částky, DPH, kanál, refundace)."
           />
         </div>
         <p className="text-[11px] text-ink-soft">
-          Exporty leaderboardu a analytik (heatmapa, platby, DPH split) přibudou po nasazení DW endpointů.
+          Exporty žebříčků a analytik (heatmapa, platby, DPH split) přibudou po nasazení DW endpointů.
         </p>
       </section>
 
       <section className="flex flex-col gap-3">
         <h2 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink-mid">Slovníček pojmů</h2>
         <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Term term="Hrubé tržby (s DPH)" desc="Tržby včetně DPH, bez refundací." />
-          <Term term="Čisté tržby (bez DPH)" desc="Hrubé tržby minus DPH (net = gross - vat), bez refundací." />
-          <Term term="Průměrná útrata (ATV)" desc="Tržby dělené počtem účtenek." />
+          <Term term="Tržby s DPH (hrubé)" desc="Tržby včetně DPH, bez refundací." />
+          <Term term="Tržby bez DPH (čisté)" desc="Tržby s DPH minus DPH (net = gross - vat), bez refundací." />
+          <Term term="Průměrný ticket (ATV)" desc="Tržby dělené počtem účtenek." />
           <Term term="Transakce = účtenky" desc="Počítáme účtenky, ne hosty (počet hostů zdroj neposkytuje)." />
+          <Term term="Prodejna vs pokladna" desc="Prodejna = portálová lokalita; jedna prodejna může mít více pokladen (dim_shop). Vše sčítáme na prodejny." />
+          <Term term="Koncept" desc="Skupina prodejen (TK, KoP, BB…) podle konceptu lokality." />
           <Term term="DPH 12 % vs 21 %" desc="Jídlo zpravidla 12 %, nápoje vč. čepovaného piva 21 % (od 1/2024)." />
           <Term term="Refundace" desc="Doklady označené jako vratka; nižší míra je lepší." />
-          <Term term="Stejné období loni / předchozí rok" desc="Srovnání posunuté o 52 týdnů (zarovnané dny v týdnu)." />
+          <Term term="Předchozí rok" desc="Srovnání posunuté o 52 týdnů (zarovnané dny v týdnu)." />
           <Term term="Měny" desc="Segmentováno per měna (CZK/EUR/PLN…), bez přepočtu kurzem." />
         </dl>
       </section>
-    </div>
+    </>
   );
 }
 

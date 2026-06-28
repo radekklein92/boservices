@@ -109,18 +109,26 @@ export function LeaderboardSkeleton({ rows = 5 }: { rows?: number }) {
   );
 }
 
-// Celý shell Přehledu - použito v loading.tsx (přechod na /portal/pos).
+// Celý rozcestník Přehledu - použito v loading.tsx (přechod na /portal/pos).
+// Hlavička + filtr + 4 KPI + graf + panel + žebříček (layout sám už dává rozteč).
 export function OverviewSkeleton() {
   return (
-    <div className="flex flex-col gap-6">
-      <KpiGridSkeleton />
-      <div className="grid gap-5 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <ChartSkeleton />
-        </div>
-        <PanelSkeleton />
+    <div className="flex flex-col gap-8">
+      <div className="flex flex-col gap-3">
+        <Line className="w-24" />
+        <Block className="h-10 w-48" />
       </div>
-      <LeaderboardSkeleton />
+      <FilterBarSkeleton />
+      <div className="flex flex-col gap-6">
+        <KpiStripSkeleton cards={4} />
+        <div className="grid gap-5 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <ChartSkeleton />
+          </div>
+          <PanelSkeleton />
+        </div>
+        <LeaderboardSkeleton />
+      </div>
     </div>
   );
 }

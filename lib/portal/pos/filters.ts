@@ -3,11 +3,38 @@
 // (PosFilterBar) i na serveru (RSC čte searchParams). Datum = kalendářní den
 // (YYYY-MM-DD); "dnes" se počítá v časové zóně Europe/Prague.
 
-export type PosScope =
-  | { kind: "all" }
-  | { kind: "brand"; brandId: string }
-  | { kind: "city"; city: string }
-  | { kind: "shop"; shopId: string };
+import type { LocationConcept } from "@/lib/portal/locations-db";
+
+// Výběr prodejen je MULTI-SELECT: množina konceptů (skupiny) ∪ množina lokalit.
+// Prázdný výběr = "vše". Koncepty se drží symbolicky (zůstanou správné i po
+// přidání prodejny). `locations` jsou tokeny - obvykle locationId, ale kvůli
+// zpětné kompatibilitě a nenapárovaným pokladnám i:
+//   - "shop:{dwShopId}"  konkrétní pokladna (nenapárovaná = vlastní pseudo-prodejna)
+//   - "brand:{brandId}"  všechny pokladny značky (legacy ?scope=brand:)
+//   - "city:{město}"     všechny pokladny města (legacy ?scope=city:)
+// Resolver (selection.ts) tokeny rozloží na množinu dwShopId přes pairing index.
+export interface PosSelection {
+  concepts: LocationConcept[];
+  locations: string[];
+}
+
+// Kódy konceptů (zrcadlo LocationConcept v locations-db.ts). Drženo lokálně,
+// protože filters.ts musí být client-safe (nesmí tahat server kód z locations-db).
+const CONCEPT_CODES: LocationConcept[] = [
+  "TK",
+  "KoP",
+  "BB",
+  "OXO",
+  "RAK",
+  "VD",
+  "MFP",
+  "KoFi",
+  "Cinname",
+  "Rio",
+  "Pitstop",
+  "other",
+];
+const CONCEPT_SET = new Set<string>(CONCEPT_CODES);
 
 export type PosDatePreset =
   | "dnes"
@@ -25,7 +52,7 @@ export type PosDatePreset =
 export type PosComparison = "predchozi-obdobi" | "predchozi-rok" | "zadne";
 
 export interface PosFilter {
-  scope: PosScope;
+  selection: PosSelection;
   preset: PosDatePreset;
   from?: string; // jen u preset "vlastni"
   to?: string;
@@ -35,8 +62,10 @@ export interface PosFilter {
   vatInclusive: boolean; // true = gross (s DPH), false = net (bez DPH)
 }
 
+export const EMPTY_SELECTION: PosSelection = { concepts: [], locations: [] };
+
 export const DEFAULT_POS_FILTER: PosFilter = {
-  scope: { kind: "all" },
+  selection: EMPTY_SELECTION,
   preset: "tento-tyden",
   // Default WoW (předchozí období), NE rok: warehouse je mladý (síť naskočila
   // Jan 2026), takže YoY srovnává plnou síť s téměř prázdnou historií = zavádějící
@@ -46,6 +75,11 @@ export const DEFAULT_POS_FILTER: PosFilter = {
   currency: "CZK",
   vatInclusive: true,
 };
+
+// Prázdný výběr = "vše" (celá síť).
+export function isAllSelection(s: PosSelection): boolean {
+  return s.concepts.length === 0 && s.locations.length === 0;
+}
 
 export interface DateRange {
   from: string; // YYYY-MM-DD včetně
@@ -170,33 +204,53 @@ export function resolveComparisonRange(filter: PosFilter, range: DateRange): Dat
   return { from: addDays(range.from, -shift), to: addDays(range.to, -shift) };
 }
 
-// --- (De)serializace do/z URLSearchParams ---
+// --- (De)serializace výběru ---
 
-function encodeScope(s: PosScope): string {
-  switch (s.kind) {
-    case "all":
-      return "all";
-    case "brand":
-      return `brand:${s.brandId}`;
-    case "city":
-      return `city:${s.city}`;
-    case "shop":
-      return `shop:${s.shopId}`;
+function decodeConcepts(raw: string | null): LocationConcept[] {
+  if (!raw) return [];
+  const seen = new Set<string>();
+  const out: LocationConcept[] = [];
+  for (const part of raw.split(",")) {
+    const v = part.trim();
+    if (v && CONCEPT_SET.has(v) && !seen.has(v)) {
+      seen.add(v);
+      out.push(v as LocationConcept);
+    }
   }
+  return out;
 }
 
-function decodeScope(raw: string | null): PosScope {
-  if (!raw || raw === "all") return { kind: "all" };
+function decodeLocations(raw: string | null): string[] {
+  if (!raw) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const part of raw.split(",")) {
+    const v = part.trim();
+    if (v && !seen.has(v)) {
+      seen.add(v);
+      out.push(v);
+    }
+  }
+  return out;
+}
+
+// Zpětná kompatibilita: starý single-select ?scope=all|brand:x|shop:x|city:x.
+// Mapuje se na tokeny v `locations`, které resolver rozloží přes pairing index.
+function decodeLegacyScope(raw: string | null): PosSelection | null {
+  if (!raw) return null;
+  if (raw === "all") return EMPTY_SELECTION;
   const idx = raw.indexOf(":");
-  if (idx === -1) return { kind: "all" };
+  if (idx === -1) return null;
   const kind = raw.slice(0, idx);
   const val = raw.slice(idx + 1);
-  if (!val) return { kind: "all" };
-  if (kind === "brand") return { kind: "brand", brandId: val };
-  if (kind === "city") return { kind: "city", city: val };
-  if (kind === "shop") return { kind: "shop", shopId: val };
-  return { kind: "all" };
+  if (!val) return null;
+  if (kind === "brand") return { concepts: [], locations: [`brand:${val}`] };
+  if (kind === "shop") return { concepts: [], locations: [`shop:${val}`] };
+  if (kind === "city") return { concepts: [], locations: [`city:${val}`] };
+  return null;
 }
+
+// --- (De)serializace do/z URLSearchParams ---
 
 const PRESETS = new Set<PosDatePreset>([
   "dnes",
@@ -216,8 +270,17 @@ export function parsePosFilter(sp: URLSearchParams): PosFilter {
   const preset = presetRaw && PRESETS.has(presetRaw) ? presetRaw : DEFAULT_POS_FILTER.preset;
   const cmpRaw = sp.get("cmp") as PosComparison | null;
   const comparison = cmpRaw && COMPARISONS.has(cmpRaw) ? cmpRaw : DEFAULT_POS_FILTER.comparison;
+
+  // Nový multi-select (c=, l=) má přednost; když chybí, zkus legacy ?scope=.
+  const concepts = decodeConcepts(sp.get("c"));
+  const locations = decodeLocations(sp.get("l"));
+  let selection: PosSelection = { concepts, locations };
+  if (concepts.length === 0 && locations.length === 0) {
+    selection = decodeLegacyScope(sp.get("scope")) ?? EMPTY_SELECTION;
+  }
+
   return {
-    scope: decodeScope(sp.get("scope")),
+    selection,
     preset,
     from: sp.get("from") ?? undefined,
     to: sp.get("to") ?? undefined,
@@ -240,10 +303,12 @@ export function posFilterFromSearchParams(
   return parsePosFilter(usp);
 }
 
-// Serializuje jen ne-defaultní hodnoty -> krátké, čisté URL.
+// Serializuje jen ne-defaultní hodnoty -> krátké, čisté URL. Výběr: koncepty
+// zkratkami (c=), lokality tokeny (l=). Prázdný výběr ("vše") se vynechává.
 export function serializePosFilter(f: PosFilter): URLSearchParams {
   const sp = new URLSearchParams();
-  if (f.scope.kind !== "all") sp.set("scope", encodeScope(f.scope));
+  if (f.selection.concepts.length > 0) sp.set("c", f.selection.concepts.join(","));
+  if (f.selection.locations.length > 0) sp.set("l", f.selection.locations.join(","));
   if (f.preset !== DEFAULT_POS_FILTER.preset) sp.set("preset", f.preset);
   if (f.preset === "vlastni") {
     if (f.from) sp.set("from", f.from);
