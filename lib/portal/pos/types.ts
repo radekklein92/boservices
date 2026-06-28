@@ -215,6 +215,10 @@ export interface LiveMoverRow {
 export interface LiveMovers {
   best: LiveMoverRow[];
   worst: LiveMoverRow[];
+  all: LiveMoverRow[]; // celý žebříček seřazený dle deltaAbs DESC (pro modal)
+  // Celkový součet přes scope za stejný den minulý týden, CELÝ den - báze pro KPI
+  // srovnání na Živě (× dayFraction = očekávání k této hodině).
+  baseline: { gross: number; net: number; receipts: number };
   dayFraction: number; // f - podíl typického dne uplynulý do teď (0..1)
   currency: string;
 }
