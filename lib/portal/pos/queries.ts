@@ -32,6 +32,7 @@ import {
   isAllSelection,
   resolveComparisonRange,
   resolveDateRange,
+  todayPrague,
   EMPTY_SELECTION,
   type DateRange,
   type PosDatePreset,
@@ -1404,10 +1405,17 @@ function enumerateDays(range: DateRange): string[] {
 // uloží do Redis. Dashboard čte snapshot (getBosDashboardSnapshot), nikdy nepočítá.
 export async function getBosDashboardRevenue(): Promise<BosDashboardRevenue> {
   const currency = "CZK";
+  // ROLLING posledních 7 dní (dnes-6 .. dnes), NE kalendářní týden od pondělí -
+  // jinak by se graf na začátku týdne (pondělí ráno) smrskl na jediný bod s 0 Kč.
+  // Vlastní okno délky 7 -> resolveComparisonRange dá byDays(7) = předchozích 7 dní,
+  // zarovnaných indexem (linka srovnání). Karta se jmenuje "Tržby za poslední týden".
+  const today = todayPrague();
   const weekFilter: PosFilter = {
     selection: EMPTY_SELECTION,
     scope: "bos",
-    preset: "tento-tyden",
+    preset: "vlastni",
+    from: addDays(today, -6),
+    to: today,
     sameStore: false,
     currency,
     vatInclusive: true,
@@ -1432,7 +1440,7 @@ export async function getBosDashboardRevenue(): Promise<BosDashboardRevenue> {
       currency,
       daily: weekDays.map((date) => ({ date, gross: 0, up: true })),
       comparison: cmpDays.map(() => 0),
-      comparisonLabel: "Minulý týden",
+      comparisonLabel: "Předchozích 7 dní",
       headlineGross: 0,
       lflCurrentGross: null,
       lflPreviousGross: null,
@@ -1482,7 +1490,7 @@ export async function getBosDashboardRevenue(): Promise<BosDashboardRevenue> {
     currency,
     daily,
     comparison,
-    comparisonLabel: "Minulý týden",
+    comparisonLabel: "Předchozích 7 dní",
     headlineGross: rollupSummary(weekCur, shopIds, currency).gross,
     lflCurrentGross: weekLfl.lflCurrent ? weekLfl.lflCurrent.gross : null,
     lflPreviousGross: weekLfl.lflComparison ? weekLfl.lflComparison.gross : null,
