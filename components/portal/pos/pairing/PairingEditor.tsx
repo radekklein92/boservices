@@ -2,14 +2,14 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, ChevronDown, Copy, EyeOff, RotateCcw, Search, Sparkles, X } from "lucide-react";
+import { Check, ChevronDown, EyeOff, RotateCcw, Search, Sparkles, X } from "lucide-react";
 
 type Shop = {
   id: string;
   name: string;
   brandId: string;
   brandName: string;
-  code: string | null;
+  cloudId: string | null; // číslo cloudu z Dotykačky (např. "361571594")
   city: string | null;
   country: string | null;
   currency: string;
@@ -83,7 +83,7 @@ export function PairingEditor({
         if (status === "unpaired" && isPaired) return false;
       }
       if (!q) return true;
-      return norm(`${s.name} ${s.brandName} ${s.code ?? ""} ${s.city ?? ""} ${s.currency} ${s.country ?? ""}`).includes(q);
+      return norm(`${s.name} ${s.brandName} ${s.cloudId ?? ""} ${s.city ?? ""} ${s.currency} ${s.country ?? ""}`).includes(q);
     });
   }, [shops, pairs, ignored, search, status]);
 
@@ -182,12 +182,13 @@ export function PairingEditor({
                     <span className={`truncate font-medium ${isIgnored ? "text-ink-mid line-through" : "text-ink-base"}`}>
                       {s.name}
                     </span>
-                    {s.code && (
+                    {s.cloudId && (
                       <span
-                        title="Číslo cloudu / kód pokladny"
-                        className="shrink-0 rounded-md border border-edge bg-paper-warm px-1.5 py-0.5 font-mono text-[11px] font-semibold text-ink-deep"
+                        title="Číslo cloudu (Dotykačka)"
+                        className="inline-flex shrink-0 items-center gap-1 rounded-md border border-edge bg-paper-warm px-1.5 py-0.5 text-[11px] font-semibold text-ink-deep"
                       >
-                        {s.code}
+                        <span className="text-[9px] font-medium uppercase tracking-[0.08em] text-ink-mid">Cloud</span>
+                        <span className="font-mono tabular-nums">{s.cloudId}</span>
                       </span>
                     )}
                     <span className="shrink-0 rounded-md bg-edge-warm px-1.5 py-0.5 text-[10.5px] font-medium text-ink-mid">
@@ -658,11 +659,10 @@ function ProdejnaCombobox({
   );
 }
 
-// Technická metadata pokladny z DW (vše, co o "cloudu" máme): měna, země, časové
-// pásmo, datum otevření a kopírovatelné DW ID. Číslo cloudu/kód a stav jsou už
-// v hlavičce řádku. Zobrazuje se jen to, co reálně máme (prázdná pole se vynechají).
+// Technická metadata pokladny z DW: měna, země, datum otevření a časové pásmo.
+// Číslo cloudu a stav jsou už v hlavičce řádku. DW ID pokladny se ZÁMĚRNĚ
+// nezobrazuje. Renderuje se jen to, co reálně máme (prázdná pole se vynechají).
 function ShopMeta({ shop }: { shop: Shop }) {
-  const [copied, setCopied] = useState(false);
   const parts: { label: string; value: string }[] = [
     { label: "Měna", value: shop.currency },
     { label: "Země", value: shop.country ?? "" },
@@ -670,15 +670,7 @@ function ShopMeta({ shop }: { shop: Shop }) {
     { label: "Časové pásmo", value: shop.timezone },
   ].filter((p) => p.value);
 
-  async function copyId() {
-    try {
-      await navigator.clipboard.writeText(shop.id);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      // schránka nedostupná - ticho
-    }
-  }
+  if (parts.length === 0) return null;
 
   return (
     <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-ink-soft">
@@ -688,22 +680,6 @@ function ShopMeta({ shop }: { shop: Shop }) {
           <span className="text-ink-mid">{p.label}</span> {p.value}
         </span>
       ))}
-      <button
-        type="button"
-        onClick={copyId}
-        title={`Kopírovat ID pokladny (${shop.id})`}
-        aria-label="Kopírovat ID pokladny"
-        className="inline-flex items-center gap-1 rounded font-mono text-[11px] text-ink-soft transition-colors hover:text-ink-base"
-      >
-        <span className="text-edge">·</span>
-        <span className="text-ink-mid">ID</span>
-        <span>{shop.id.slice(0, 8)}…</span>
-        {copied ? (
-          <Check className="h-3 w-3 text-emerald-700" strokeWidth={2} aria-hidden="true" />
-        ) : (
-          <Copy className="h-3 w-3" strokeWidth={1.75} aria-hidden="true" />
-        )}
-      </button>
     </div>
   );
 }

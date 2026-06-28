@@ -24,6 +24,7 @@ export interface ApiShop {
   brand_id: string;
   name: string;
   code: string | null;
+  cloud_id: string | null; // číslo cloudu z Dotykačky (např. "361571594"); null u Trdlokafe
   city: string | null; // populováno jen u Trdlokafe; jinak null -> město bereme z párování
   country: string | null;
   timezone: string;
