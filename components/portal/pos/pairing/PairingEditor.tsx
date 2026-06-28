@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, ChevronDown, EyeOff, RotateCcw, Search, Sparkles, X } from "lucide-react";
+import { FilterChip } from "@/components/portal/ui/FilterChip";
 
 type Shop = {
   id: string;
@@ -126,11 +127,12 @@ export function PairingEditor({
     }
   }
 
-  const TABS: { key: StatusFilter; label: string }[] = [
-    { key: "all", label: "Vše" },
-    { key: "unpaired", label: "Nenapárované" },
-    { key: "paired", label: "Napárované" },
-    { key: "ignored", label: `Ignorované${ignoredCount ? ` (${ignoredCount})` : ""}` },
+  const activeCount = shops.length - ignoredCount;
+  const TABS: { key: StatusFilter; label: string; count: number }[] = [
+    { key: "all", label: "Vše", count: activeCount },
+    { key: "unpaired", label: "Nenapárované", count: activeCount - pairedCount },
+    { key: "paired", label: "Napárované", count: pairedCount },
+    { key: "ignored", label: "Ignorované", count: ignoredCount },
   ];
 
   return (
@@ -147,20 +149,18 @@ export function PairingEditor({
           placeholder="Hledat pokladnu…"
           className="ml-auto h-9 w-full max-w-[260px] rounded-lg border border-edge bg-paper px-3 text-[13px] text-ink-base outline-none transition-colors placeholder:text-ink-soft focus:border-ink-base"
         />
-        <div className="inline-flex rounded-lg border border-edge p-0.5">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              onClick={() => setStatus(t.key)}
-              className={`h-8 rounded-md px-2.5 text-[12px] font-semibold transition-colors ${
-                status === t.key ? "bg-ink-base text-paper" : "text-ink-mid hover:text-ink-base"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        {TABS.map((t) => (
+          <FilterChip
+            key={t.key}
+            active={status === t.key}
+            onClick={() => setStatus(t.key)}
+            label={t.label}
+            count={t.count}
+          />
+        ))}
       </div>
 
       {error && <div className="rounded-lg bg-rose-50 px-3 py-2 text-[12.5px] text-rose-600">{error}</div>}

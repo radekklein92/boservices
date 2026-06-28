@@ -9,6 +9,7 @@ import { CONCEPT_LABEL } from "@/components/portal/locations/locations-shared";
 import type { LocationConcept } from "@/lib/portal/locations-db";
 import { PairingEditor } from "@/components/portal/pos/pairing/PairingEditor";
 import { BrandConceptMap } from "@/components/portal/pos/pairing/BrandConceptMap";
+import { PageHeader } from "@/components/portal/shell/PageHeader";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Pokladna - Párování pokladen" };
@@ -122,14 +123,11 @@ export default async function PairingPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <div>
-        <h2 className="text-[1.3rem] font-extrabold tracking-[-0.02em] text-ink-base">Párování pokladen</h2>
-        <p className="mt-1 max-w-[70ch] text-[13px] text-ink-mid">
-          Ke každé pokladně z pokladního systému (Data Warehouse) vyberte odpovídající prodejnu (lokalitu portálu).
-          Jedna prodejna může mít i víc pokladen. Město navrhne AI z názvu pokladny a prodejny. Pokladny, které se
-          párovat nemají (cizí provozovny, akční kasy), lze ignorovat.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Administrace"
+        title="Párování pokladen"
+        lede="Ke každé pokladně z pokladního systému (Data Warehouse) vyberte odpovídající prodejnu (lokalitu portálu). Jedna prodejna může mít i víc pokladen. Město navrhne AI z názvu pokladny a prodejny. Pokladny, které se párovat nemají (cizí provozovny, akční kasy), lze ignorovat."
+      />
 
       <BrandConceptMap
         brands={brandsRaw.map((b) => ({ id: b.id, name: b.name }))}
