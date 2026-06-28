@@ -4,6 +4,7 @@ import { DEFAULT_POS_FILTER, type PosFilter } from "@/lib/portal/pos/filters";
 import {
   getAllShops,
   getBrands,
+  getClosedStores,
   getConceptLeaderboardFull,
   getDailyTrend,
   getHeatmap,
@@ -87,6 +88,11 @@ export async function GET(req: Request) {
     today: getToday(f),
     heatToday: getHeatmap({ ...f, preset: "dnes" }),
     movers: getLiveMovers(f),
+    // Neotevřené prodejny (KPI na Živě + tlačítko na Prodejny). Tahá per-pokladnu
+    // denní tržbu za ~týden přes by-shop; _shopRev je SDÍLENÉ napříč scope (filtruje
+    // se až po dotažení), takže BOS i celá síť jedou z týchž denních dotazů.
+    closedStores: getClosedStores(f),
+    closedStoresAll: getClosedStores(fAll),
   };
   const settled = await Promise.allSettled(Object.values(tasks));
   const keys = Object.keys(tasks);
