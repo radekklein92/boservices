@@ -573,8 +573,21 @@ export async function getLiveMovers(filter: PosFilter, topN = 5): Promise<LiveMo
     }
     return m;
   };
+  const baseConv = convertRows(baseRows, to, rates, SHOP_MONEY);
   const todayByLoc = sumByLoc(convertRows(todayRows, to, rates, SHOP_MONEY));
-  const baseByLoc = sumByLoc(convertRows(baseRows, to, rates, SHOP_MONEY));
+  const baseByLoc = sumByLoc(baseConv);
+
+  // Celkový baseline přes scope (stejný den minulý týden, celý den) - báze pro KPI
+  // srovnání na Živě. receipts se nepřevádí (počet), gross/net už přepočtené FX.
+  let baseGross = 0;
+  let baseNet = 0;
+  let baseReceipts = 0;
+  for (const r of baseConv) {
+    if (!resolved.shopIds.has(r.shop_id)) continue;
+    baseGross += r.gross;
+    baseNet += r.net;
+    baseReceipts += r.receipts;
+  }
 
   // Báze = prodejny s tržbou stejný den minulý týden (mají co srovnávat). Dnešek
   // může být 0 (pokles).
@@ -605,7 +618,14 @@ export async function getLiveMovers(filter: PosFilter, topN = 5): Promise<LiveMo
     .filter((r) => r.deltaAbs < 0)
     .slice(-topN)
     .reverse();
-  return { best, worst, dayFraction: f, currency: to };
+  return {
+    best,
+    worst,
+    all: rows, // už seřazené deltaAbs DESC (náskok -> pokles)
+    baseline: { gross: baseGross, net: baseNet, receipts: baseReceipts },
+    dayFraction: f,
+    currency: to,
+  };
 }
 
 // --- Žebříček KONCEPTŮ (rollup pokladen -> lokalita -> koncept) ---

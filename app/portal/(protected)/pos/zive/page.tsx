@@ -3,13 +3,12 @@ import { canSeePOS } from "@/lib/portal/auth-guard";
 import { getSession } from "@/lib/portal/get-session";
 import { parsePosFilter, serializePosFilter, type PosFilter } from "@/lib/portal/pos/filters";
 import { getHeatmap, getLiveMovers, getToday, resolveDisplayCurrency } from "@/lib/portal/pos/queries";
-import type { LiveMoverRow } from "@/lib/portal/pos/types";
 import { isPosApiConfigured } from "@/lib/portal/pos/api";
 import { PageHeader } from "@/components/portal/shell/PageHeader";
 import { PosSubNav } from "@/components/portal/pos/PosSubNav";
 import { PosKpiCard } from "@/components/portal/pos/PosKpiCard";
 import { PosLineChart } from "@/components/portal/pos/PosLineChart";
-import { PosDeltaBadge } from "@/components/portal/pos/PosDeltaBadge";
+import { LiveMoversPanel } from "@/components/portal/pos/LiveMoversPanel";
 import { PosAutoRefresh } from "@/components/portal/pos/PosAutoRefresh";
 import { PosFilterBarLoader } from "@/components/portal/pos/PosFilterBarLoader";
 import { ChartSkeleton, FilterBarSkeleton, KpiStripSkeleton } from "@/components/portal/pos/skeletons";
@@ -92,6 +91,17 @@ async function LiveContent({ filter }: { filter: PosFilter }) {
   const spark = current.map((c) => c.value);
   const atv = t && t.receipts > 0 ? t.gross / t.receipts : null;
 
+  // Srovnání KPI vs stejný den minulý týden "k této hodině": baseline (celý den) ×
+  // frakce dne uplynulá do teď. Průměrný ticket je poměr -> frakce se vykrátí
+  // (porovnává se s celodenním ticketem minulého týdne).
+  const f = movers.dayFraction;
+  const base = movers.baseline;
+  const todayRevenue = t ? (useNet ? t.net : t.gross) : 0;
+  const baseRevenue = useNet ? base.net : base.gross;
+  const expectedRevenue = baseRevenue > 0 ? baseRevenue * f : null;
+  const expectedReceipts = base.receipts > 0 ? base.receipts * f : null;
+  const baseAtv = base.receipts > 0 ? base.gross / base.receipts : null;
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center gap-2 text-[12.5px] text-ink-mid">
@@ -108,13 +118,25 @@ async function LiveContent({ filter }: { filter: PosFilter }) {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <PosKpiCard
             label={`Dnešní tržby (${useNet ? "bez DPH" : "s DPH"})`}
-            value={formatPosMoneyCompact(useNet ? t.net : t.gross, cur)}
-            valueTitle={formatPosMoney(useNet ? t.net : t.gross, cur)}
+            value={formatPosMoneyCompact(todayRevenue, cur)}
+            valueTitle={formatPosMoney(todayRevenue, cur)}
+            current={todayRevenue}
+            previous={expectedRevenue}
             spark={spark}
             emphasis
           />
-          <PosKpiCard label="Účtenky" value={formatPosNumber(t.receipts)} />
-          <PosKpiCard label="Průměrný ticket" value={atv != null ? formatPosMoney(atv, cur) : "—"} />
+          <PosKpiCard
+            label="Účtenky"
+            value={formatPosNumber(t.receipts)}
+            current={t.receipts}
+            previous={expectedReceipts}
+          />
+          <PosKpiCard
+            label="Průměrný ticket"
+            value={atv != null ? formatPosMoney(atv, cur) : "—"}
+            current={atv ?? undefined}
+            previous={baseAtv}
+          />
         </div>
       )}
 
@@ -125,72 +147,7 @@ async function LiveContent({ filter }: { filter: PosFilter }) {
         <PosLineChart current={current} currency={cur} height={240} />
       </section>
 
-      {movers.best.length + movers.worst.length >= 2 && (
-        <section className="flex flex-col gap-3">
-          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-            <h2 className="text-[12px] font-semibold uppercase tracking-[0.14em] text-ink-mid">
-              Hybatelé dne
-            </h2>
-            <span className="text-[11.5px] text-ink-soft">
-              dnes zatím vs tempo stejného dne minulý týden k této hodině ({Math.round(movers.dayFraction * 100)} % dne)
-            </span>
-          </div>
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <MoversCard title="Nejlepší prodejny" tone="up" rows={movers.best} currency={movers.currency} />
-            <MoversCard title="Největší pokles" tone="down" rows={movers.worst} currency={movers.currency} />
-          </div>
-        </section>
-      )}
-    </div>
-  );
-}
-
-function MoversCard({
-  title,
-  tone,
-  rows,
-  currency,
-}: {
-  title: string;
-  tone: "up" | "down";
-  rows: LiveMoverRow[];
-  currency: string;
-}) {
-  const dot = tone === "up" ? "bg-emerald-500" : "bg-rose-500";
-  return (
-    <div className="flex flex-col gap-1 rounded-2xl border border-edge bg-paper p-4">
-      <div className="mb-1.5 flex items-center gap-2">
-        <span className={`h-2 w-2 rounded-full ${dot}`} aria-hidden="true" />
-        <h3 className="text-[13px] font-semibold text-ink-base">{title}</h3>
-      </div>
-      {rows.length === 0 ? (
-        <p className="py-2 text-[12.5px] text-ink-soft">Zatím žádná prodejna v tomto pásmu.</p>
-      ) : (
-        <ol className="flex flex-col">
-          {rows.map((r, i) => (
-            <li
-              key={r.locationId}
-              className="flex items-center gap-3 border-b border-edge/60 py-2 last:border-0"
-            >
-              <span className="w-4 shrink-0 text-right text-[11.5px] tabular-nums text-ink-soft">{i + 1}</span>
-              <span className="flex-1 truncate text-[13px] text-ink-deep" title={r.name}>
-                {r.name}
-              </span>
-              <span
-                className="shrink-0 text-right text-[12.5px] tabular-nums text-ink-mid"
-                title={formatPosMoney(r.todaySoFar, currency)}
-              >
-                {formatPosMoneyCompact(r.todaySoFar, currency)}
-              </span>
-              <PosDeltaBadge
-                current={r.todaySoFar}
-                previous={r.expectedByNow}
-                className="w-16 shrink-0 justify-end text-[11.5px]"
-              />
-            </li>
-          ))}
-        </ol>
-      )}
+      {movers.best.length + movers.worst.length >= 2 && <LiveMoversPanel movers={movers} />}
     </div>
   );
 }
