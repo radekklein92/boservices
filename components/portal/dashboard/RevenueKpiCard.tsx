@@ -2,12 +2,14 @@ import Link from "next/link";
 import { ArrowUpRight, BarChart3 } from "lucide-react";
 import { PosDeltaBadge } from "@/components/portal/pos/PosDeltaBadge";
 import { PosSparkline } from "@/components/portal/pos/PosSparkline";
-import {
-  formatPosMoney,
-  formatPosMoneyCompact,
-  signedMoneyCompact,
-} from "@/components/portal/pos/pos-shared";
+import { formatPosMoney } from "@/components/portal/pos/pos-shared";
 import type { BosDashboardRevenue } from "@/lib/portal/pos/queries";
+
+// Celá částka se znaménkem (ne kompaktní mil./tis.) - dashboard všude píše plné
+// částky (pohledávky, provize), ať je dlaždice tržeb konzistentní.
+function signedMoney(delta: number, currency: string): string {
+  return (delta >= 0 ? "+" : "-") + formatPosMoney(Math.abs(delta), currency);
+}
 
 // Světlá KPI dlaždice tržeb za POSLEDNÍCH 30 DNÍ (jen BOS prodejny) - místo
 // "Podepsané smlouvy". Týden je v grafu nad ní; tady je 30denní souhrn. Velké
@@ -58,13 +60,10 @@ export function RevenueKpiCard({ data }: { data: BosDashboardRevenue | null }) {
           </>
         ) : (
           <>
-            <div
-              title={formatPosMoney(data.last30Gross, data.currency)}
-              className="mt-5 font-extrabold leading-none tracking-[-0.045em] text-ink-base text-[clamp(2rem,4.6vw,2.85rem)]"
-            >
-              {formatPosMoneyCompact(data.last30Gross, data.currency)}
+            <div className="mt-5 font-extrabold leading-none tracking-[-0.045em] text-ink-base text-[clamp(2rem,4.6vw,2.85rem)]">
+              {formatPosMoney(data.last30Gross, data.currency)}
             </div>
-            <div className="mt-3 flex min-h-[18px] items-center gap-1.5 text-[13px]">
+            <div className="mt-3 flex min-h-[18px] flex-wrap items-center gap-x-1.5 gap-y-1 text-[13px]">
               {hasDelta && (
                 <>
                   <PosDeltaBadge
@@ -74,7 +73,7 @@ export function RevenueKpiCard({ data }: { data: BosDashboardRevenue | null }) {
                   />
                   <span className="tabular-nums text-ink-soft">
                     {"· "}
-                    {signedMoneyCompact(
+                    {signedMoney(
                       (data.last30LflCurrentGross as number) -
                         (data.last30LflPreviousGross as number),
                       data.currency,

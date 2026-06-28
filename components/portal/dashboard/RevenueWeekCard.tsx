@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowUpRight, LineChart } from "lucide-react";
 import { PosLineChart } from "@/components/portal/pos/PosLineChart";
 import { PosDeltaBadge } from "@/components/portal/pos/PosDeltaBadge";
-import { formatPosMoneyCompact } from "@/components/portal/pos/pos-shared";
+import { formatPosMoney } from "@/components/portal/pos/pos-shared";
 import type { BosDashboardRevenue } from "@/lib/portal/pos/queries";
 
 function fmtDayLabel(date: string): string {
@@ -49,7 +49,7 @@ export function RevenueWeekCard({ data }: { data: BosDashboardRevenue }) {
           <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" aria-hidden="true" />
           <span className="text-ink-mid">Tento týden</span>
           <span className="font-bold tabular-nums text-ink-base">
-            {formatPosMoneyCompact(data.headlineGross, data.currency)}
+            {formatPosMoney(data.headlineGross, data.currency)}
           </span>
           {data.lflCurrentGross != null && (
             <PosDeltaBadge
@@ -64,7 +64,7 @@ export function RevenueWeekCard({ data }: { data: BosDashboardRevenue }) {
           <span className="h-2.5 w-2.5 rounded-full bg-ink-soft" aria-hidden="true" />
           <span className="text-ink-mid">Minulý týden</span>
           <span className="font-bold tabular-nums text-ink-deep">
-            {formatPosMoneyCompact(prevTotal, data.currency)}
+            {formatPosMoney(prevTotal, data.currency)}
           </span>
         </span>
       </div>
