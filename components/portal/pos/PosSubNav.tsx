@@ -11,12 +11,12 @@ import type { LucideIcon } from "lucide-react";
 
 const ITEMS: { seg: string; label: string; Icon: LucideIcon }[] = [
   { seg: "", label: "Přehled", Icon: LayoutDashboard },
+  { seg: "zive", label: "Živě", Icon: Activity },
   { seg: "prodejny", label: "Prodejny", Icon: Store },
   { seg: "koncepty", label: "Koncepty", Icon: Layers },
   { seg: "mesta", label: "Města", Icon: MapPin },
   { seg: "produkty", label: "Produkty", Icon: Package },
   { seg: "uctenky", label: "Účtenky", Icon: Receipt },
-  { seg: "zive", label: "Živě", Icon: Activity },
 ];
 
 const BASE = "/portal/pos";
