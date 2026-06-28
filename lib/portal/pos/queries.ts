@@ -998,15 +998,23 @@ export async function getProductDetail(productId: string, filter: PosFilter): Pr
 // (je to doklad), proto se nepřevádí.
 
 const _receipts = posQuery(
-  (from: string, to: string, page: number, limit: number, shop_id?: string, shop_ids?: string, channel?: string) =>
-    api.listReceipts({ date_from: from, date_to: to, page, limit, shop_id, shop_ids, channel }),
+  (
+    from: string,
+    to: string,
+    page: number,
+    limit: number,
+    shop_id?: string,
+    shop_ids?: string,
+    channel?: string,
+    is_refund?: boolean,
+  ) => api.listReceipts({ date_from: from, date_to: to, page, limit, shop_id, shop_ids, channel, is_refund }),
   "receipts",
 );
 
 export async function getReceiptsPage(
   filter: PosFilter,
   page = 0,
-  opts: { limit?: number; channel?: string } = {},
+  opts: { limit?: number; channel?: string; refundsOnly?: boolean } = {},
 ): Promise<Paged<ReceiptListItem>> {
   const { resolved, index, locations, shops } = await scopeContext(filter);
   const sp = scopeApiParams(resolved);
@@ -1022,6 +1030,7 @@ export async function getReceiptsPage(
     sp.shop_id,
     sp.shop_ids,
     opts.channel,
+    opts.refundsOnly ? true : undefined,
   );
   // Obohacení o prodejnu + město z párování (indexy už scopeContext načetl, zadarmo).
   // Nenapárovaná pokladna padá zpět na surový shop_name; město na ApiShop.city.

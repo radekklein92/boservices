@@ -150,6 +150,8 @@ async function DetailHeader({ filter, cur, useNet }: { filter: PosFilter; cur: s
   const sparkAtv = days.map((d) => (d.receipts > 0 ? d.gross / d.receipts : 0));
   const revenue = c ? (useNet ? c.net : c.gross) : 0;
   const prevRevenue = useNet ? p?.net : p?.gross;
+  // qs nese výběr (tahle prodejna) i období -> proklik Refundace ukáže refundace jen této prodejny.
+  const qs = serializePosFilter(filter).toString();
 
   return (
     <div className="flex flex-col gap-6">
@@ -187,6 +189,7 @@ async function DetailHeader({ filter, cur, useNet }: { filter: PosFilter; cur: s
             previous={p?.refund_rate ?? null}
             goodDir="down"
             deltaMode="pp"
+            href={`/portal/pos/refundace${qs ? `?${qs}` : ""}`}
           />
         </div>
       ) : (
