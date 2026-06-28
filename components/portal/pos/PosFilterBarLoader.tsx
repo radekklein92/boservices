@@ -22,7 +22,13 @@ const CONCEPT_ORDER: LocationConcept[] = [
 // takže shell paintne hned a filtr dostreamuje. Číselníky jsou cachované.
 // Měny: z currency_code pokladen ve výběru spočítá dostupné měny + efektivní
 // (zvýrazněnou), aby přepínač nenabízel měny, ve kterých výběr nemá data.
-export async function PosFilterBarLoader({ filter }: { filter: PosFilter }) {
+export async function PosFilterBarLoader({
+  filter,
+  hidePeriod = false,
+}: {
+  filter: PosFilter;
+  hidePeriod?: boolean;
+}) {
   const session = await getSession();
   const email = session?.user?.email ?? "";
   const me = { email, isAdmin: isAdminRole(session?.user?.role) };
@@ -102,6 +108,7 @@ export async function PosFilterBarLoader({ filter }: { filter: PosFilter }) {
       currencies={currencies}
       views={views}
       me={me}
+      hidePeriod={hidePeriod}
     />
   );
 }
