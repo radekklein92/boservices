@@ -44,7 +44,7 @@ const fransizing: Item[] = [
   { href: "/portal/contracts", label: "Smlouvy", Icon: FileText },
 ];
 
-// Provoz: lokality, real estate a pokladní dashboard (Tržby).
+// Provoz: pokladní dashboard (Tržby), lokality a real estate.
 const provoz: Item[] = [
   { href: "/portal/locations", label: "Lokality", Icon: MapPin },
   { href: "/portal/real-estate", label: "Real Estate", Icon: KeyRound },
@@ -117,11 +117,11 @@ export function SidebarNav({
       </NavSection>
 
       <NavSection label="Provoz">
+        {/* Tržby (POS) první v Provozu - jen pro manager+/admin (canSeePOS). */}
+        {canSeePOS && <NavItem {...posItem} active={isActive(pathname, posItem.href)} />}
         {provoz.map((item) => (
           <NavItem key={item.href} {...item} active={isActive(pathname, item.href)} />
         ))}
-        {/* Tržby (POS) v Provozu - jen pro manager+/admin (canSeePOS). */}
-        {canSeePOS && <NavItem {...posItem} active={isActive(pathname, posItem.href)} />}
       </NavSection>
 
       {isAdmin && (
