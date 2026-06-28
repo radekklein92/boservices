@@ -494,9 +494,39 @@ async function yearMonthlyTrend(
   return { current, comparison, grain: "month" };
 }
 
+// "Tento týden" jako Dotykačka: osa vždy celých 7 dní (Po-Ne). Tento týden je
+// vyplněný jen po dnešek (zbytek = nulové = neviditelné sloupce), PŘEDCHOZÍ týden
+// je CELÝ - srovnávací linka tak jede přes všech 7 dní. Na začátku týdne (např.
+// pondělí ráno) tak vidíš celý minulý týden a na tento se teprve čeká. Zarovnání
+// po dni v týdnu (Po letos vs Po minule), ne po indexu. Pouze pro Přehled graf
+// (detail lokality drží klasický denní trend bez budoucích nul).
+async function weekDailyTrend(
+  plan: DailyPlan,
+  weekStart: string,
+  to: string,
+  rates: FxRates,
+): Promise<{ current: DayPoint[]; comparison: DayPoint[]; grain: TrendGrain }> {
+  const prevStart = addDays(weekStart, -7);
+  const [curRows, prevRows] = await Promise.all([
+    dailyRows(plan, { from: weekStart, to: addDays(weekStart, 6) }, "day"),
+    dailyRows(plan, { from: prevStart, to: addDays(prevStart, 6) }, "day"),
+  ]);
+  const curByDate = new Map(foldDaily(convertRows(curRows, to, rates, DAILY_MONEY)).map((d) => [d.date, d]));
+  const prevByDate = new Map(foldDaily(convertRows(prevRows, to, rates, DAILY_MONEY)).map((d) => [d.date, d]));
+  const current: DayPoint[] = [];
+  const comparison: DayPoint[] = [];
+  for (let i = 0; i < 7; i++) {
+    const cd = addDays(weekStart, i);
+    const pd = addDays(prevStart, i);
+    current.push(curByDate.get(cd) ?? { date: cd, gross: 0, net: 0, receipts: 0 });
+    comparison.push(prevByDate.get(pd) ?? { date: pd, gross: 0, net: 0, receipts: 0 });
+  }
+  return { current, comparison, grain: "day" };
+}
+
 export async function getDailyTrend(
   filter: PosFilter,
-  opts?: { fullYearMonths?: boolean },
+  opts?: { fullYearMonths?: boolean; fullWeekDays?: boolean },
 ): Promise<{ current: DayPoint[]; comparison: DayPoint[] | null; grain: TrendGrain }> {
   const { resolved, shops } = await scopeContext(filter);
   const to = filter.currency;
@@ -507,6 +537,10 @@ export async function getDailyTrend(
   // Roční pohled v Přehledu: celých 12 měsíců (letošek po aktuální měsíc + celý loňský rok).
   if (opts?.fullYearMonths && grain === "month" && filter.preset === "tento-rok") {
     return yearMonthlyTrend(plan, Number(range.from.slice(0, 4)), to, rates);
+  }
+  // Týdenní pohled v Přehledu: celých 7 dní (tento týden po dnešek + celý minulý týden).
+  if (opts?.fullWeekDays && filter.preset === "tento-tyden") {
+    return weekDailyTrend(plan, range.from, to, rates);
   }
   const cmp = resolveComparisonRange(filter, range);
   const [curRows, prevRows] = await Promise.all([
