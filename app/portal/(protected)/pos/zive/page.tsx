@@ -1,12 +1,11 @@
 import { Suspense } from "react";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { canSeePOS } from "@/lib/portal/auth-guard";
 import { getSession } from "@/lib/portal/get-session";
 import { parsePosFilter, serializePosFilter, type PosFilter } from "@/lib/portal/pos/filters";
 import { getHeatmap, getToday } from "@/lib/portal/pos/queries";
 import { isPosApiConfigured } from "@/lib/portal/pos/api";
 import { PageHeader } from "@/components/portal/shell/PageHeader";
+import { PosSubNav } from "@/components/portal/pos/PosSubNav";
 import { PosKpiCard } from "@/components/portal/pos/PosKpiCard";
 import { PosLineChart } from "@/components/portal/pos/PosLineChart";
 import { PosAutoRefresh } from "@/components/portal/pos/PosAutoRefresh";
@@ -40,18 +39,12 @@ export default async function PosLivePage({
     <>
       <PosAutoRefresh seconds={90} />
       <PageHeader
-        eyebrow={
-          <Link
-            href={`/portal/pos${backQs ? `?${backQs}` : ""}`}
-            className="inline-flex items-center gap-1.5 transition-colors hover:text-ink-base"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
-            Tržby
-          </Link>
-        }
+        eyebrow="Provoz"
         title="Živě"
         lede="Dnešní průběžné tržby - obnova á 90 s."
       />
+      <PosSubNav />
+
       <Suspense fallback={<FilterBarSkeleton />}>
         <PosFilterBarLoader />
       </Suspense>

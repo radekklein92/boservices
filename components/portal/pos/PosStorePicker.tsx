@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronDown, ChevronRight, Search, Store } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Search } from "lucide-react";
 import type { PosSelection } from "@/lib/portal/pos/filters";
-import type { ConceptGroup, StoreOption } from "./pos-filter-shared";
+import type { ConceptGroup } from "./pos-filter-shared";
 
-// Hierarchický výběr Koncept -> Prodejna s vyhledáváním. Checkbox konceptu vybere
-// celou skupinu (token konceptu); jednotlivé prodejny se vybírají vlastními
-// checkboxy. Když je koncept vybraný, jeho prodejny se zobrazí jako zahrnuté
-// (zaškrtnuté, tlumené) - odebrat jednu jde po odznačení konceptu.
+// Výběr prodejen jako COMBOBOX: vždy viditelné vyhledávací pole (zároveň spouštěč),
+// klik/psaní rovnou filtruje strom Koncept→Prodejna. Checkbox konceptu vybere celou
+// skupinu; jednotlivé prodejny mají vlastní checkboxy. Vybrané se zobrazují jako
+// chips vedle pole (v PosFilterBar). Nenapárované pokladny se zde NEzobrazují.
 
 function Box({ checked, muted = false }: { checked: boolean; muted?: boolean }) {
   return (
@@ -29,12 +29,10 @@ function Box({ checked, muted = false }: { checked: boolean; muted?: boolean }) 
 
 export function PosStorePicker({
   concepts,
-  unpaired,
   selection,
   onChange,
 }: {
   concepts: ConceptGroup[];
-  unpaired: StoreOption[];
   selection: PosSelection;
   onChange: (next: PosSelection) => void;
 }) {
@@ -42,13 +40,19 @@ export function PosStorePicker({
   const [q, setQ] = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const ref = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setOpen(false);
+        inputRef.current?.blur();
+      }
+    };
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
     return () => {
@@ -59,13 +63,6 @@ export function PosStorePicker({
 
   const conceptSet = useMemo(() => new Set(selection.concepts), [selection.concepts]);
   const locSet = useMemo(() => new Set(selection.locations), [selection.locations]);
-
-  const effectiveCount = useMemo(() => {
-    const ids = new Set<string>();
-    for (const g of concepts) if (conceptSet.has(g.concept)) g.locations.forEach((l) => ids.add(l.id));
-    for (const id of selection.locations) ids.add(id);
-    return ids.size;
-  }, [concepts, conceptSet, selection.locations]);
 
   const toggleConcept = (c: ConceptGroup["concept"]) => {
     const next = new Set(conceptSet);
@@ -86,7 +83,6 @@ export function PosStorePicker({
         .map((g) => ({ ...g, locations: g.locations.filter((l) => match(l.name)) }))
         .filter((g) => g.locations.length > 0 || match(g.label))
     : concepts;
-  const unp = ql ? unpaired.filter((l) => match(l.name)) : unpaired;
   const isExpanded = (key: string) => expanded.has(key) || ql.length > 0;
   const toggleExpand = (key: string) => {
     const next = new Set(expanded);
@@ -98,34 +94,34 @@ export function PosStorePicker({
 
   return (
     <div className="relative" ref={ref}>
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        className="inline-flex h-9 items-center gap-2 rounded-full border border-edge bg-paper px-3.5 text-[12.5px] font-medium text-ink-deep transition-colors hover:border-ink-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2 focus-visible:ring-offset-paper"
+      <div
+        className={`flex h-9 w-[260px] max-w-full items-center gap-2 rounded-full border bg-paper px-3.5 transition-colors ${
+          open ? "border-ink-base" : "border-edge hover:border-ink-soft"
+        }`}
       >
-        <Store className="h-3.5 w-3.5 text-ink-mid" strokeWidth={1.75} aria-hidden="true" />
-        <span>{empty ? "Všechny prodejny" : `Vybráno: ${effectiveCount}`}</span>
-        <ChevronDown className="h-3.5 w-3.5 text-ink-mid" strokeWidth={2} aria-hidden="true" />
-      </button>
+        <Search className="h-3.5 w-3.5 shrink-0 text-ink-mid" strokeWidth={1.75} aria-hidden="true" />
+        <input
+          ref={inputRef}
+          value={q}
+          onFocus={() => setOpen(true)}
+          onChange={(e) => {
+            setQ(e.target.value);
+            setOpen(true);
+          }}
+          placeholder="Hledat prodejnu nebo koncept"
+          className="h-full w-full bg-transparent text-[12.5px] text-ink-base outline-none placeholder:text-ink-mid"
+        />
+        <ChevronDown
+          className={`h-3.5 w-3.5 shrink-0 text-ink-mid transition-transform ${open ? "rotate-180" : ""}`}
+          strokeWidth={2}
+          aria-hidden="true"
+        />
+      </div>
 
       {open && (
-        <div className="absolute left-0 top-[calc(100%+6px)] z-30 w-[330px] overflow-hidden rounded-2xl border border-edge bg-paper shadow-[0_12px_40px_-12px_rgba(0,0,0,0.25)]">
-          <div className="border-b border-edge p-2.5">
-            <div className="flex items-center gap-2 rounded-lg border border-edge bg-edge-warm px-2.5">
-              <Search className="h-3.5 w-3.5 shrink-0 text-ink-mid" strokeWidth={1.75} aria-hidden="true" />
-              <input
-                autoFocus
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Hledat prodejnu nebo koncept"
-                className="h-9 w-full bg-transparent text-[13px] text-ink-base outline-none placeholder:text-ink-soft"
-              />
-            </div>
-          </div>
-
+        <div className="absolute left-0 top-[calc(100%+6px)] z-30 w-[330px] max-w-[88vw] overflow-hidden rounded-2xl border border-edge bg-paper shadow-[0_12px_40px_-12px_rgba(0,0,0,0.25)]">
           <div className="max-h-[min(60vh,420px)] overflow-y-auto p-1.5">
-            {groups.length === 0 && unp.length === 0 && (
+            {groups.length === 0 && (
               <p className="px-3 py-6 text-center text-[12.5px] text-ink-mid">Nic nenalezeno.</p>
             )}
 
@@ -172,9 +168,7 @@ export function PosStorePicker({
                             className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-edge-warm disabled:cursor-default disabled:hover:bg-transparent"
                           >
                             <Box checked={checked} muted={conceptOn} />
-                            <span
-                              className={`truncate text-[12.5px] ${conceptOn ? "text-ink-mid" : "text-ink-deep"}`}
-                            >
+                            <span className={`truncate text-[12.5px] ${conceptOn ? "text-ink-mid" : "text-ink-deep"}`}>
                               {l.name}
                             </span>
                           </button>
@@ -185,25 +179,6 @@ export function PosStorePicker({
                 </div>
               );
             })}
-
-            {unp.length > 0 && (
-              <div className="mt-1 border-t border-edge pt-1">
-                <div className="px-2 py-1.5 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-ink-soft">
-                  Nenapárované pokladny
-                </div>
-                {unp.map((l) => (
-                  <button
-                    key={l.id}
-                    type="button"
-                    onClick={() => toggleLocation(l.id)}
-                    className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-edge-warm"
-                  >
-                    <Box checked={locSet.has(l.id)} />
-                    <span className="truncate text-[12.5px] text-ink-deep">{l.name}</span>
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
 
           <div className="flex items-center justify-between gap-2 border-t border-edge px-2.5 py-2">

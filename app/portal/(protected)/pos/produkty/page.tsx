@@ -1,12 +1,11 @@
 import { Suspense } from "react";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { canSeePOS } from "@/lib/portal/auth-guard";
 import { getSession } from "@/lib/portal/get-session";
 import { posFilterFromSearchParams, serializePosFilter, type PosFilter } from "@/lib/portal/pos/filters";
 import { getTopProducts } from "@/lib/portal/pos/queries";
 import { isPosApiConfigured } from "@/lib/portal/pos/api";
 import { PageHeader } from "@/components/portal/shell/PageHeader";
+import { PosSubNav } from "@/components/portal/pos/PosSubNav";
 import { PosFilterBarLoader } from "@/components/portal/pos/PosFilterBarLoader";
 import { formatPosMoney, formatPosNumber } from "@/components/portal/pos/pos-shared";
 import { FilterBarSkeleton, LeaderboardSkeleton } from "@/components/portal/pos/skeletons";
@@ -26,18 +25,12 @@ export default async function PosProductsPage({
   return (
     <>
       <PageHeader
-        eyebrow={
-          <Link
-            href={`/portal/pos${backQs ? `?${backQs}` : ""}`}
-            className="inline-flex items-center gap-1.5 transition-colors hover:text-ink-base"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
-            Tržby
-          </Link>
-        }
+        eyebrow="Provoz"
         title="Produkty"
         lede="Nejprodávanější položky v rámci výběru a období."
       />
+      <PosSubNav />
+
       <Suspense fallback={<FilterBarSkeleton />}>
         <PosFilterBarLoader />
       </Suspense>
