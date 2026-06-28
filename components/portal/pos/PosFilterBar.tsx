@@ -17,6 +17,7 @@ import { Toggle } from "@/components/portal/ui/Toggle";
 import type { FilterBarData } from "./pos-filter-shared";
 import { PosStorePicker } from "./PosStorePicker";
 import { PosViewsMenu } from "./PosViewsMenu";
+import { PosMobileLinkButton } from "./PosMobileLinkButton";
 
 // Sdílený filtr POS. Stav drží URL (searchParams) - persistuje napříč obrazovkami,
 // je sdílitelný a server (RSC) čte týž searchParams. Výběr je multi-select
@@ -192,6 +193,14 @@ export function PosFilterBar({
           />
         </div>
         <PosViewsMenu views={views} me={me} currentFilter={currentFilter} />
+        <PosMobileLinkButton
+          concepts={concepts}
+          currencies={currencies}
+          initialSelection={sel}
+          initialScope={filter.scope}
+          initialCurrency={filter.currency}
+          initialVatInclusive={filter.vatInclusive}
+        />
       </div>
 
       {/* Řádek 2: období (datumové presety) + srovnání (label "vs ..."). Celé skryto na Živě. */}
