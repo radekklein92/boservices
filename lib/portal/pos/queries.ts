@@ -591,11 +591,12 @@ export async function getLiveMovers(filter: PosFilter, topN = 5): Promise<LiveMo
       deltaPct: expectedByNow > 0 ? todaySoFar / expectedByNow - 1 : null,
     });
   }
+  // Čisté oddělení: nahoře jen prodejny nad tempem (Δ>0), dole jen pod tempem
+  // (Δ<0). Přesně-na-tempu (Δ≈0) nepatří ani do jednoho. Žádný překryv.
   rows.sort((a, b) => b.deltaAbs - a.deltaAbs);
-  const best = rows.slice(0, topN);
-  const bestIds = new Set(best.map((r) => r.locationId));
+  const best = rows.filter((r) => r.deltaAbs > 0).slice(0, topN);
   const worst = rows
-    .filter((r) => r.deltaAbs < 0 && !bestIds.has(r.locationId))
+    .filter((r) => r.deltaAbs < 0)
     .slice(-topN)
     .reverse();
   return { best, worst, dayFraction: f, currency: to };
