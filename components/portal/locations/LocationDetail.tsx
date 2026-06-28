@@ -25,6 +25,8 @@ import type { ContractType } from "@/lib/portal/contract-types";
 import { CONTRACT_TYPE_META } from "@/lib/portal/contract-types";
 import type { ContractFeeTerms } from "@/lib/portal/contract-fee-terms";
 import { LocationFeeTermsSection } from "./LocationFeeTerms";
+import { FeeHistorySection } from "@/components/portal/fees/FeeHistorySection";
+import type { FeeHistoryEntry } from "@/lib/portal/fees-page";
 import type { ReFlag } from "@/lib/portal/re-flags-shared";
 import { CONTRACT_STATUS_ICON } from "@/components/portal/contracts/contract-status-meta";
 import { Section } from "@/components/portal/ui/Section";
@@ -81,11 +83,14 @@ export function LocationDetail({
   isBos,
   bosReason,
   franchiseEndDate,
+  feeHistory,
 }: {
   location: LocationView;
   contracts: LocationContractRow[];
   // Konec franšízy lokality (ISO) - konec poplatků u spolupráce/provozování. "" = neznámý.
   franchiseEndDate: string;
+  // Historie finálních poplatků za uzavřené měsíce (počítá server z plných Contract[]).
+  feeHistory: FeeHistoryEntry[];
   // Flagy přiřazené této lokalitě (LocationLocal.flagIds přeložené přes katalog).
   flags: ReFlag[];
   // Panel Tržeb (server komponenta předaná z page.tsx). Vykreslí se hned pod
@@ -318,6 +323,7 @@ export function LocationDetail({
       <LocationContracts contracts={contracts} />
 
       <LocationFeeTermsSection contracts={contracts} franchiseEndDate={franchiseEndDate} />
+      <FeeHistorySection entries={feeHistory} />
 
       {l.note && (
         <Section title="Poznámka z Transition">

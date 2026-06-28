@@ -8,6 +8,7 @@ import {
 import { PageHeader } from "@/components/portal/shell/PageHeader";
 import { ClientDetail } from "@/components/portal/clients/ClientDetail";
 import { EntityTasks } from "@/components/portal/tasks/EntityTasks";
+import { buildFeeHistory } from "@/lib/portal/fees-page";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +36,8 @@ export default async function ClientDetailPage({
   ]);
   if (!client) notFound();
 
+  const feeHistory = await buildFeeHistory(contracts, new Date());
+
   return (
     <div className="flex flex-col gap-10">
       <PageHeader
@@ -59,7 +62,7 @@ export default async function ClientDetailPage({
         }
       />
 
-      <ClientDetail client={client} contracts={contracts} />
+      <ClientDetail client={client} contracts={contracts} feeHistory={feeHistory} />
 
       <EntityTasks kind="client" id={id} />
     </div>
