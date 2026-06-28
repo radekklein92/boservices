@@ -11,6 +11,7 @@ import type {
   Listed,
   Paged,
   ProductSalesRow,
+  ProductDetailRaw,
   ReceiptDetail,
   ReceiptListRow,
   SummaryRow,
@@ -122,6 +123,10 @@ export const getRevenueDaily = (p: RevenueParams & PageParams) =>
 
 export const getProductSales = (p: RevenueParams & PageParams & { sort?: "gross" | "qty" }) =>
   apiGet<Paged<ProductSalesRow>>("/products/sales", p);
+
+// Detail jednoho produktu (rozpad po pokladnách + denní trend). Vrací { data }.
+export const getProductDetail = (p: { product_id: string } & RevenueParams) =>
+  apiGet<{ data: ProductDetailRaw }>("/products/detail", p);
 
 export const listReceipts = (p: RevenueParams & PageParams & { channel?: string }) =>
   apiGet<Paged<ReceiptListRow>>("/receipts", p);
