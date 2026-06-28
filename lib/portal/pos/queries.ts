@@ -53,6 +53,8 @@ import type {
   BrandRevenueRow,
   BrandRevenueRowWithPrev,
   CityRevenueRowWithPrev,
+  ClosedStoreRow,
+  ClosedStoresReport,
   ConceptRevenueRowWithPrev,
   DailyRevenueRow,
   DaypartRow,
@@ -737,6 +739,89 @@ export async function getLiveMovers(filter: PosFilter, topN = 5): Promise<LiveMo
     dayFraction: f,
     currency: to,
   };
+}
+
+// --- Neotevřené prodejny (report výpadků) ---
+// Prodejna, která NEDÁVNO prodávala, ale teď N po sobě jdoucích dní nemá tržbu.
+// Data: per-pokladna denní tržba přes _shopRev(d, d) pro každý den okna (by-shop
+// vrací VŽDY per pokladnu; /revenue/daily se shop_ids naopak SUMuje GROUP BY date
+// a per-shop rozpad zahodí -> pro tenhle report nepoužitelný). Rollup na prodejny
+// jako leaderboard (locationKeyOf). _shopRev je cachované a sdílené s Hybateli dne
+// (dnes + D-7) i s warm cronem, takže okno není drahé.
+//
+// Výpadek = počet po sobě jdoucích dní s nulovou tržbou ke dnešku. Dnešek (D-0) se
+// započte JEN po 12:00 a jen když dnes zatím není tržba (před polednem prodejna
+// mohla ještě neotevřít - to není výpadek). Spodní práh 1 den. Strop CLOSED_MAX_GAP
+// dní: delší výpadek = nejspíš trvale zavřená -> do reportu nepatří. Okno je o den
+// delší než strop, ať se gap == strop spolehlivě odliší od trvale zavřené.
+const CLOSED_MAX_GAP = 7; // > týden bez tržby = trvale zavřená (skrýt)
+const CLOSED_WINDOW = CLOSED_MAX_GAP + 2; // dnes (0) .. D-(strop+1)
+const CLOSED_NOON = 12; // dnešek se počítá jako výpadek až po této hodině
+
+export async function getClosedStores(filter: PosFilter): Promise<ClosedStoresReport> {
+  const to = filter.currency;
+  const today = resolveDateRange({ ...filter, preset: "dnes" }).from;
+  const days = Array.from({ length: CLOSED_WINDOW }, (_, i) => addDays(today, -i)); // [dnes, D-1, ...]
+
+  // Data-okna jsou čistě z filtru; scope (resolved.shopIds) i FX se aplikují po
+  // dotažení, takže scopeContext + kurzy + všechny denní dotazy běží naráz.
+  const [{ resolved, index, shops, locations }, rates, dayData] = await Promise.all([
+    scopeContext(filter),
+    getFxRates(),
+    Promise.all(days.map((d) => _shopRev(d, d))),
+  ]);
+
+  // gross per prodejna a den (index 0 = dnes). Pseudo-prodejny (nenapárované
+  // pokladny) se drží jako jinde, ať se neztratí.
+  const series = new Map<string, number[]>();
+  days.forEach((_, di) => {
+    for (const r of convertRows(dayData[di], to, rates, SHOP_MONEY)) {
+      if (!resolved.shopIds.has(r.shop_id)) continue;
+      const key = locationKeyOf(r.shop_id, index);
+      let arr = series.get(key);
+      if (!arr) {
+        arr = new Array(CLOSED_WINDOW).fill(0);
+        series.set(key, arr);
+      }
+      arr[di] += r.gross;
+    }
+  });
+
+  const afternoon = nowPragueHourFrac() >= CLOSED_NOON;
+  const startIdx = afternoon ? 0 : 1; // dnešek se uvažuje jen po poledni
+  const locName = new Map(locations.map((l) => [l.id, l.name]));
+  const shopName = new Map(shops.map((s) => [s.id, s.name]));
+
+  const rows: ClosedStoreRow[] = [];
+  for (const [key, arr] of series) {
+    // Po sobě jdoucí dny bez tržby od startu; i skončí na posledním dni s tržbou.
+    let gap = 0;
+    let i = startIdx;
+    while (i < arr.length && arr[i] === 0) {
+      gap++;
+      i++;
+    }
+    if (gap < 1) continue; // dnes/včera prodávala -> v provozu
+    if (i >= arr.length) continue; // celé okno bez tržby -> trvale zavřená (nemáme co srovnávat)
+    if (gap > CLOSED_MAX_GAP) continue; // delší výpadek než týden -> trvale zavřená
+    // Obvyklá denní tržba z DOKONČENÝCH dní s tržbou (dnešek je jen částečný den -> vynechán).
+    const complete = arr.slice(1).filter((g) => g > 0);
+    const avgDailyGross = complete.length ? complete.reduce((a, b) => a + b, 0) / complete.length : 0;
+    const isPseudo = key.startsWith("shop:");
+    rows.push({
+      locationId: key,
+      name: isPseudo ? shopName.get(key.slice(5)) ?? key : locName.get(key) ?? key,
+      concept: conceptOfLocationKey(key, index),
+      currency: to,
+      gapDays: gap,
+      lastSaleDate: days[i],
+      avgDailyGross,
+      todayCounts: afternoon && arr[0] === 0,
+    });
+  }
+  // Nejdéle zavřené nahoru; při shodě ty, kde uniká nejvíc tržeb.
+  rows.sort((a, b) => b.gapDays - a.gapDays || b.avgDailyGross - a.avgDailyGross);
+  return { rows, count: rows.length, currency: to, afternoon };
 }
 
 // --- Žebříček KONCEPTŮ (rollup pokladen -> lokalita -> koncept) ---

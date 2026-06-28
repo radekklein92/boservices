@@ -2,12 +2,13 @@ import { Suspense } from "react";
 import { canSeePOS } from "@/lib/portal/auth-guard";
 import { getSession } from "@/lib/portal/get-session";
 import { parsePosFilter, serializePosFilter, type PosFilter } from "@/lib/portal/pos/filters";
-import { getLocationLeaderboardFull } from "@/lib/portal/pos/queries";
+import { getClosedStores, getLocationLeaderboardFull } from "@/lib/portal/pos/queries";
 import { isPosApiConfigured } from "@/lib/portal/pos/api";
 import { PageHeader } from "@/components/portal/shell/PageHeader";
 import { PosSubNav } from "@/components/portal/pos/PosSubNav";
 import { CONCEPT_LABEL } from "@/components/portal/locations/locations-shared";
 import { PosLeaderboard, type LeaderRow } from "@/components/portal/pos/PosLeaderboard";
+import { ClosedStoresButton } from "@/components/portal/pos/ClosedStoresPanel";
 import { PosFilterBarLoader } from "@/components/portal/pos/PosFilterBarLoader";
 import { FilterBarSkeleton, LeaderboardSkeleton } from "@/components/portal/pos/skeletons";
 
@@ -50,9 +51,14 @@ export default async function PosLocationsPage({
       {!isPosApiConfigured() ? (
         <Notice title="POS data nejsou nakonfigurovaná" body="Nastavte POS_API_BASE a POS_API_KEY v prostředí (Vercel)." />
       ) : (
-        <Suspense fallback={<LeaderboardSkeleton rows={10} />}>
-          <LocationsLeaderboard filter={filter} />
-        </Suspense>
+        <div className="flex flex-col gap-4">
+          <Suspense fallback={null}>
+            <ClosedStoresBar filter={filter} />
+          </Suspense>
+          <Suspense fallback={<LeaderboardSkeleton rows={10} />}>
+            <LocationsLeaderboard filter={filter} />
+          </Suspense>
+        </div>
       )}
     </>
   );
@@ -96,6 +102,22 @@ async function LocationsLeaderboard({ filter }: { filter: PosFilter }) {
       </h2>
       <PosLeaderboard rows={leaderRows} currency={cur} valueLabel={useNet ? "Tržby bez DPH" : "Tržby s DPH"} />
     </section>
+  );
+}
+
+// Tlačítko "Neotevřené prodejny" pod filtrem - report výpadků pro aktuální výběr.
+// Vlastní Suspense (neblokuje žebříček); při chybě se prostě nezobrazí.
+async function ClosedStoresBar({ filter }: { filter: PosFilter }) {
+  let report: Awaited<ReturnType<typeof getClosedStores>>;
+  try {
+    report = await getClosedStores(filter);
+  } catch {
+    return null;
+  }
+  return (
+    <div className="flex">
+      <ClosedStoresButton report={report} />
+    </div>
   );
 }
 

@@ -275,6 +275,28 @@ export interface LiveMovers {
   currency: string;
 }
 
+// --- Neotevřené prodejny (report výpadků) ---
+// Prodejna, která přestala prodávat: N po sobě jdoucích dní bez tržby ke dnešku.
+// Dnešek se započítá jen po 12:00 (před polednem mohla ještě jen neotevřít). Strop
+// 7 dní (delší výpadek = nejspíš trvale zavřená -> do reportu nepatří).
+export interface ClosedStoreRow {
+  locationId: string;
+  name: string;
+  concept: LocationConcept;
+  currency: string;
+  gapDays: number; // počet po sobě jdoucích dní bez tržby (1..7)
+  lastSaleDate: string; // YYYY-MM-DD posledního dne s tržbou (před výpadkem)
+  avgDailyGross: number; // obvyklá denní tržba (průměr dnů s tržbou v okně) - "kolik utíká"
+  todayCounts: boolean; // dnešek je započten do výpadku (po 12:00 a dnes zatím 0)
+}
+
+export interface ClosedStoresReport {
+  rows: ClosedStoreRow[]; // seřazené dle gapDays DESC, pak avgDailyGross DESC
+  count: number;
+  currency: string;
+  afternoon: boolean; // je po 12:00 (dnešek se do výpadku počítá)
+}
+
 // Rollup na KONCEPT (skupina prodejen). Nahrazuje žebříček značek.
 export interface ConceptRevenueRow {
   concept: LocationConcept;

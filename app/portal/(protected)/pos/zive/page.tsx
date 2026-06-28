@@ -2,12 +2,13 @@ import { Suspense } from "react";
 import { canSeePOS } from "@/lib/portal/auth-guard";
 import { getSession } from "@/lib/portal/get-session";
 import { parsePosFilter, serializePosFilter, type PosFilter } from "@/lib/portal/pos/filters";
-import { getHeatmap, getLiveMovers, getToday, resolveDisplayCurrency } from "@/lib/portal/pos/queries";
+import { getClosedStores, getHeatmap, getLiveMovers, getToday, resolveDisplayCurrency } from "@/lib/portal/pos/queries";
 import { isPosApiConfigured } from "@/lib/portal/pos/api";
 import { PageHeader } from "@/components/portal/shell/PageHeader";
 import { PosSubNav } from "@/components/portal/pos/PosSubNav";
 import { PosKpiCard } from "@/components/portal/pos/PosKpiCard";
 import { PosLineChart } from "@/components/portal/pos/PosLineChart";
+import { ClosedStoresKpiCard } from "@/components/portal/pos/ClosedStoresPanel";
 import { LiveMoversPanel } from "@/components/portal/pos/LiveMoversPanel";
 import { PosAutoRefresh } from "@/components/portal/pos/PosAutoRefresh";
 import { PosFilterBarLoader } from "@/components/portal/pos/PosFilterBarLoader";
@@ -52,7 +53,7 @@ export default async function PosLivePage({
       {!isPosApiConfigured() ? (
         <Notice title="POS data nejsou nakonfigurovaná" body="Nastavte POS_API_BASE a POS_API_KEY (Vercel)." />
       ) : (
-        <Suspense fallback={<div className="flex flex-col gap-6"><KpiStripSkeleton cards={3} /><ChartSkeleton height={240} /></div>}>
+        <Suspense fallback={<div className="flex flex-col gap-6"><KpiStripSkeleton cards={4} /><ChartSkeleton height={240} /></div>}>
           <LiveContent filter={filter} />
         </Suspense>
       )}
@@ -69,6 +70,8 @@ async function LiveContent({ filter }: { filter: PosFilter }) {
   // degradují na null.
   const heatP = getHeatmap(todayFilter).catch(() => null);
   const moversP = getLiveMovers(filter).catch(() => null);
+  // Neotevřené prodejny (4. KPI). Doplněk - jeho pád nesmí shodit dnešní KPI.
+  const closedP = getClosedStores(filter).catch(() => null);
   let today: Awaited<ReturnType<typeof getToday>>;
   let cur: string;
   try {
@@ -78,6 +81,7 @@ async function LiveContent({ filter }: { filter: PosFilter }) {
   }
   const heat = await heatP;
   const movers = await moversP;
+  const closed = await closedP;
 
   const t = today.find((r) => r.currency === cur) ?? null;
   const byHour = new Map<number, { gross: number; net: number }>();
@@ -131,7 +135,7 @@ async function LiveContent({ filter }: { filter: PosFilter }) {
       {!t ? (
         <Notice title={`Pro ${cur} dnes zatím nejsou data`} body="Zkuste jinou měnu nebo se vraťte později." />
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className={`grid grid-cols-1 gap-4 sm:grid-cols-2 ${closed ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
           <PosKpiCard
             label={`Dnešní tržby (${useNet ? "bez DPH" : "s DPH"})`}
             value={formatPosMoneyCompact(todayRevenue, cur)}
@@ -153,6 +157,7 @@ async function LiveContent({ filter }: { filter: PosFilter }) {
             current={atv ?? undefined}
             previous={baseAtv}
           />
+          {closed && <ClosedStoresKpiCard report={closed} />}
         </div>
       )}
 
