@@ -48,7 +48,7 @@ function isoDaysAgo(n: number): string {
 const TOGGLE_BASE =
   "inline-flex h-9 shrink-0 items-center rounded-full border px-3.5 text-[12.5px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2 focus-visible:ring-offset-paper disabled:opacity-50";
 
-export function PosFilterBar({ concepts, cities, unpaired, currencies, views, me }: FilterBarData) {
+export function PosFilterBar({ concepts, unpaired, currencies, views, me }: FilterBarData) {
   const sp = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -96,7 +96,7 @@ export function PosFilterBar({ concepts, cities, unpaired, currencies, views, me
     <div className="flex flex-col gap-3 rounded-2xl border border-edge bg-paper p-3 sm:p-4">
       {/* Řádek 1: výběr prodejen + uložené pohledy */}
       <div className="flex flex-wrap items-center gap-2">
-        <PosStorePicker concepts={concepts} cities={cities} selection={sel} onChange={setSelection} />
+        <PosStorePicker concepts={concepts} selection={sel} onChange={setSelection} />
 
         {hasSelection ? (
           <div className="flex flex-1 flex-wrap items-center gap-1.5">

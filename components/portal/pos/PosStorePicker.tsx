@@ -3,12 +3,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, ChevronRight, MapPin, Search } from "lucide-react";
 import type { PosSelection } from "@/lib/portal/pos/filters";
-import type { CityOption, ConceptGroup } from "./pos-filter-shared";
+import type { CityGroup, ConceptGroup } from "./pos-filter-shared";
 
 // Výběr prodejen jako COMBOBOX: vždy viditelné vyhledávací pole (zároveň spouštěč),
-// klik na pole i šipku otevře. Strom Koncept→Prodejna + sekce Města. Checkbox
-// konceptu/města vybere celou skupinu (token konceptu / "city:" token), jednotlivé
-// prodejny mají vlastní checkboxy. Nenapárované pokladny se zde NEzobrazují.
+// klik na pole i šipku otevře. Třístupňový strom Koncept -> Město -> Prodejna:
+// rozbalím koncept, rozbalím město a tam vybírám jednotlivé prodejny. Checkbox
+// konceptu vybere celý koncept (token konceptu), checkbox města vybere všechny
+// jeho prodejny v daném konceptu (locationId tokeny), prodejna má vlastní checkbox.
+// Nenapárované pokladny se zde NEzobrazují.
 
 function Box({ checked, muted = false }: { checked: boolean; muted?: boolean }) {
   return (
@@ -29,12 +31,10 @@ function Box({ checked, muted = false }: { checked: boolean; muted?: boolean }) 
 
 export function PosStorePicker({
   concepts,
-  cities,
   selection,
   onChange,
 }: {
   concepts: ConceptGroup[];
-  cities: CityOption[];
   selection: PosSelection;
   onChange: (next: PosSelection) => void;
 }) {
@@ -65,7 +65,6 @@ export function PosStorePicker({
 
   const conceptSet = useMemo(() => new Set(selection.concepts), [selection.concepts]);
   const locSet = useMemo(() => new Set(selection.locations), [selection.locations]);
-  const cityToken = (city: string) => `city:${city}`;
 
   const toggleConcept = (c: ConceptGroup["concept"]) => {
     const next = new Set(conceptSet);
@@ -77,16 +76,35 @@ export function PosStorePicker({
     next.has(id) ? next.delete(id) : next.add(id);
     onChange({ ...selection, locations: [...next] });
   };
+  // Celé město v rámci konceptu = množina jeho locationId tokenů (scoped na koncept).
+  const toggleCity = (cg: CityGroup, allOn: boolean) => {
+    const next = new Set(locSet);
+    for (const l of cg.locations) (allOn ? next.delete(l.id) : next.add(l.id));
+    onChange({ ...selection, locations: [...next] });
+  };
   const clearAll = () => onChange({ concepts: [], locations: [] });
 
   const ql = q.trim().toLowerCase();
   const match = (s: string) => s.toLowerCase().includes(ql);
-  const groups = ql
+  // Filtrace při hledání: koncept podle názvu (-> celý), jinak města podle názvu
+  // (-> všechny jeho prodejny) nebo prodejny podle názvu.
+  const groups: ConceptGroup[] = !ql
     ? concepts
-        .map((g) => ({ ...g, locations: g.locations.filter((l) => match(l.name)) }))
-        .filter((g) => g.locations.length > 0 || match(g.label))
-    : concepts;
-  const cityList = ql ? cities.filter((c) => match(c.city)) : cities;
+    : (concepts
+        .map((g) => {
+          if (match(g.label)) return g;
+          const cities = g.cities
+            .map((cg) => {
+              if (match(cg.city)) return cg;
+              const locations = cg.locations.filter((l) => match(l.name));
+              return locations.length ? { ...cg, locations } : null;
+            })
+            .filter(Boolean) as CityGroup[];
+          if (cities.length === 0) return null;
+          return { ...g, cities, locations: cities.flatMap((c) => c.locations) };
+        })
+        .filter(Boolean) as ConceptGroup[]);
+
   const isExpanded = (key: string) => expanded.has(key) || ql.length > 0;
   const toggleExpand = (key: string) => {
     const next = new Set(expanded);
@@ -135,7 +153,7 @@ export function PosStorePicker({
       {open && (
         <div className="absolute left-0 top-[calc(100%+6px)] z-30 w-[340px] max-w-[88vw] overflow-hidden rounded-2xl border border-edge bg-paper shadow-[0_12px_40px_-12px_rgba(0,0,0,0.25)]">
           <div className="max-h-[min(60vh,440px)] overflow-y-auto p-1.5">
-            {groups.length === 0 && cityList.length === 0 && (
+            {groups.length === 0 && (
               <p className="px-3 py-6 text-center text-[12.5px] text-ink-mid">Nic nenalezeno.</p>
             )}
 
@@ -146,7 +164,7 @@ export function PosStorePicker({
             )}
             {groups.map((g) => {
               const conceptOn = conceptSet.has(g.concept);
-              const expandedNow = isExpanded(g.concept);
+              const conceptExpanded = isExpanded(g.concept);
               return (
                 <div key={g.concept} className="mb-0.5">
                   <div className="flex items-center gap-1 rounded-lg pr-1 hover:bg-edge-warm">
@@ -162,35 +180,78 @@ export function PosStorePicker({
                     <button
                       type="button"
                       onClick={() => toggleExpand(g.concept)}
-                      aria-label={expandedNow ? "Sbalit" : "Rozbalit"}
+                      aria-label={conceptExpanded ? "Sbalit" : "Rozbalit"}
                       className="grid h-7 w-7 place-items-center rounded-md text-ink-mid transition-colors hover:text-ink-base"
                     >
-                      {expandedNow ? (
+                      {conceptExpanded ? (
                         <ChevronDown className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
                       ) : (
                         <ChevronRight className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
                       )}
                     </button>
                   </div>
-                  {expandedNow && (
+
+                  {conceptExpanded && (
                     <div className="ml-3 border-l border-edge pl-1.5">
-                      {g.locations.map((l) => {
-                        const own = locSet.has(l.id);
-                        const checked = conceptOn || own;
+                      {g.cities.map((cg) => {
+                        const cityKey = `${g.concept}|${cg.city}`;
+                        const cityExpanded = isExpanded(cityKey);
+                        const cityOn = conceptOn || cg.locations.every((l) => locSet.has(l.id));
                         return (
-                          <button
-                            key={l.id}
-                            type="button"
-                            disabled={conceptOn}
-                            onClick={() => toggleLocation(l.id)}
-                            title={conceptOn ? "Zahrnuto přes koncept" : undefined}
-                            className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-edge-warm disabled:cursor-default disabled:hover:bg-transparent"
-                          >
-                            <Box checked={checked} muted={conceptOn} />
-                            <span className={`truncate text-[12.5px] ${conceptOn ? "text-ink-mid" : "text-ink-deep"}`}>
-                              {l.name}
-                            </span>
-                          </button>
+                          <div key={cityKey} className="mb-0.5">
+                            <div className="flex items-center gap-1 rounded-lg pr-1 hover:bg-edge-warm">
+                              <button
+                                type="button"
+                                disabled={conceptOn}
+                                onClick={() => toggleCity(cg, cityOn)}
+                                title={conceptOn ? "Zahrnuto přes koncept" : undefined}
+                                className="flex min-w-0 flex-1 items-center gap-2.5 px-2 py-1.5 text-left disabled:cursor-default"
+                              >
+                                <Box checked={cityOn} muted={conceptOn} />
+                                <MapPin className="h-3.5 w-3.5 shrink-0 text-ink-soft" strokeWidth={1.5} aria-hidden="true" />
+                                <span className={`min-w-0 flex-1 truncate text-[12.5px] ${conceptOn ? "text-ink-mid" : "text-ink-deep"}`}>
+                                  {cg.city || "Ostatní"}
+                                </span>
+                                <span className="font-mono text-[10.5px] text-ink-soft">{cg.locations.length}</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => toggleExpand(cityKey)}
+                                aria-label={cityExpanded ? "Sbalit" : "Rozbalit"}
+                                className="grid h-6 w-6 place-items-center rounded-md text-ink-mid transition-colors hover:text-ink-base"
+                              >
+                                {cityExpanded ? (
+                                  <ChevronDown className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
+                                ) : (
+                                  <ChevronRight className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
+                                )}
+                              </button>
+                            </div>
+                            {cityExpanded && (
+                              <div className="ml-3 border-l border-edge pl-1.5">
+                                {cg.locations.map((l) => {
+                                  const own = locSet.has(l.id);
+                                  const checked = conceptOn || cityOn || own;
+                                  const inherited = conceptOn || cityOn;
+                                  return (
+                                    <button
+                                      key={l.id}
+                                      type="button"
+                                      disabled={inherited}
+                                      onClick={() => toggleLocation(l.id)}
+                                      title={inherited ? "Zahrnuto přes nadřazený výběr" : undefined}
+                                      className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-edge-warm disabled:cursor-default disabled:hover:bg-transparent"
+                                    >
+                                      <Box checked={checked} muted={inherited} />
+                                      <span className={`truncate text-[12.5px] ${inherited ? "text-ink-mid" : "text-ink-deep"}`}>
+                                        {l.name}
+                                      </span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
                         );
                       })}
                     </div>
@@ -198,27 +259,6 @@ export function PosStorePicker({
                 </div>
               );
             })}
-
-            {cityList.length > 0 && (
-              <div className="mt-1 border-t border-edge pt-1">
-                <div className="px-2 py-1 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-ink-soft">
-                  Města
-                </div>
-                {cityList.map((c) => (
-                  <button
-                    key={c.city}
-                    type="button"
-                    onClick={() => toggleLocation(cityToken(c.city))}
-                    className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-edge-warm"
-                  >
-                    <Box checked={locSet.has(cityToken(c.city))} />
-                    <MapPin className="h-3.5 w-3.5 shrink-0 text-ink-soft" strokeWidth={1.5} aria-hidden="true" />
-                    <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink-deep">{c.city}</span>
-                    <span className="font-mono text-[10.5px] text-ink-soft">{c.count}</span>
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
 
           <div className="flex items-center justify-between gap-2 border-t border-edge px-2.5 py-2">

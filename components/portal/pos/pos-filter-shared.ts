@@ -9,15 +9,19 @@ export interface StoreOption {
   name: string;
 }
 
-export interface ConceptGroup {
-  concept: LocationConcept;
-  label: string;
+// Město v rámci konceptu (3. úroveň stromu: Koncept -> Město -> Prodejna).
+// Prodejny bez známého města se sbírají do skupiny s city = "" (vykreslí se jako
+// "Ostatní", řadí se nakonec).
+export interface CityGroup {
+  city: string;
   locations: StoreOption[];
 }
 
-export interface CityOption {
-  city: string;
-  count: number; // počet prodejen ve městě
+export interface ConceptGroup {
+  concept: LocationConcept;
+  label: string;
+  locations: StoreOption[]; // všechny prodejny konceptu (plochý seznam - počet, výběr celého konceptu)
+  cities: CityGroup[]; // prodejny seskupené po městech (pro vnořený výběr)
 }
 
 export interface ViewLite {
@@ -41,7 +45,6 @@ export interface MeInfo {
 
 export interface FilterBarData {
   concepts: ConceptGroup[];
-  cities: CityOption[];
   unpaired: StoreOption[]; // nenapárované pokladny (token "shop:{id}")
   currencies: string[]; // zobrazovací měny v dropdownu (vše se do zvolené přepočte přes FX)
   views: ViewsData;
