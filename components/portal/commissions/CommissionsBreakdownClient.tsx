@@ -91,7 +91,7 @@ export function CommissionsBreakdownClient({
         />
       </div>
 
-      <div className="overflow-hidden rounded-[24px] border border-edge bg-paper">
+      <div className="overflow-hidden rounded-3xl border border-edge bg-paper">
         <ul className="divide-y divide-edge">
           {filtered.map((r) => (
             <li key={r.id}>

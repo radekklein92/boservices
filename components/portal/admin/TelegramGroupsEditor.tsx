@@ -107,7 +107,7 @@ export function TelegramGroupsEditor({
       />
 
       {/* Stav integrace */}
-      <section className="rounded-[24px] border border-edge bg-paper p-5">
+      <section className="rounded-3xl border border-edge bg-paper p-5">
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
           <StatusDot
             ok={botConfigured}
@@ -143,7 +143,7 @@ export function TelegramGroupsEditor({
       </section>
 
       {/* Mapování agent -> skupina */}
-      <section className="rounded-[24px] border border-edge bg-paper p-5">
+      <section className="rounded-3xl border border-edge bg-paper p-5">
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="text-[15px] font-bold tracking-[-0.01em] text-ink-base">
             Skupiny RE agentů
@@ -201,7 +201,7 @@ export function TelegramGroupsEditor({
             type="button"
             onClick={save}
             disabled={saving}
-            className="inline-flex h-10 items-center gap-2 rounded-full bg-ink-base px-5 text-[13px] font-medium text-paper transition-opacity hover:opacity-90 disabled:opacity-50"
+            className="inline-flex h-10 items-center gap-2 rounded-full bg-ink-base px-5 text-[13px] font-semibold text-paper transition-transform active:translate-y-px disabled:opacity-50"
           >
             {saving ? (
               <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.5} />

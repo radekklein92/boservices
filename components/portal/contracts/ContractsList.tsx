@@ -172,7 +172,7 @@ const ContractRow = memo(function ContractRow({
           </span>
           {isChanged && (
             <span
-              className="inline-flex h-6 shrink-0 items-center gap-1 rounded-full bg-red-600 px-2 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-paper"
+              className="inline-flex h-6 shrink-0 items-center gap-1 rounded-full border border-rose-300 bg-rose-50 px-2 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-rose-700"
               title="Smlouva má změny proti šabloně"
               aria-label="Smlouva má změny proti šabloně"
             >
@@ -229,7 +229,7 @@ const ContractRow = memo(function ContractRow({
             className={[
               "grid h-9 w-9 shrink-0 place-items-center rounded-full border transition-colors",
               lockedForMe
-                ? "border-amber-400 bg-amber-50 text-amber-600"
+                ? "border-amber-300 bg-amber-50 text-amber-700"
                 : c.editLock
                   ? "border-ink-base bg-ink-base text-paper"
                   : "border-edge text-ink-mid hover:border-ink-base hover:bg-ink-base hover:text-paper",
@@ -541,7 +541,7 @@ export function ContractsList({
   if (items.length === 0) {
     return (
       <>
-        <div className="rounded-[24px] border border-dashed border-edge bg-paper p-12 text-center">
+        <div className="rounded-3xl border border-dashed border-edge bg-paper p-12 text-center">
           <h3 className="text-[1.05rem] font-bold tracking-[-0.02em] text-ink-base">
             Zatím žádné smlouvy.
           </h3>
@@ -552,7 +552,7 @@ export function ContractsList({
             type="button"
             onClick={() => setModalOpen(true)}
             disabled={clients.length === 0}
-            className="mt-6 inline-flex h-11 items-center gap-2 rounded-full bg-ink-base px-5 text-[13.5px] font-semibold text-paper transition-transform active:translate-y-px disabled:opacity-50"
+            className="mt-6 inline-flex h-11 items-center gap-2 rounded-full bg-ink-base px-5 text-[13px] font-semibold text-paper transition-transform active:translate-y-px disabled:opacity-50"
           >
             <Plus className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
             Nová smlouva
@@ -611,7 +611,7 @@ export function ContractsList({
             type="button"
             onClick={() => setModalOpen(true)}
             disabled={clients.length === 0}
-            className="inline-flex h-11 items-center gap-2 rounded-full bg-ink-base px-5 text-[13.5px] font-semibold text-paper transition-transform active:translate-y-px disabled:opacity-50"
+            className="inline-flex h-11 items-center gap-2 rounded-full bg-ink-base px-5 text-[13px] font-semibold text-paper transition-transform active:translate-y-px disabled:opacity-50"
           >
             <Plus className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
             Nová smlouva
@@ -727,7 +727,7 @@ export function ContractsList({
         )}
 
         {/* List */}
-        <div className="overflow-hidden rounded-[24px] border border-edge bg-paper">
+        <div className="overflow-hidden rounded-3xl border border-edge bg-paper">
           {filtered.length > 0 && (
             <div className="flex items-center gap-3 border-b border-edge bg-paper-warm px-5 py-2.5 md:px-7">
               <label className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.16em] text-ink-mid">

@@ -10,6 +10,7 @@ import {
   type PosDatePreset,
   type PosFilter,
 } from "@/lib/portal/pos/filters";
+import { FilterChip } from "@/components/portal/ui/FilterChip";
 
 // Sdílený filtr POS dashboardu. Stav drží URL (searchParams) - persistuje napříč
 // obrazovkami a je sdílitelný/bookmarkovatelný. Server (RSC) čte týž searchParams.
@@ -84,30 +85,36 @@ export function PosFilterBar({
             ...shopOptions.map((s) => ({ value: s.id, label: s.name })),
           ]}
         />
-        <div className="ml-auto flex items-center gap-2">
-          <Segment
-            options={currencies.map((c) => ({ value: c, label: c }))}
-            value={filter.currency}
-            onChange={(v) => update({ currency: v })}
-          />
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          {currencies.map((c) => (
+            <FilterChip
+              key={c}
+              active={filter.currency === c}
+              onClick={() => update({ currency: c })}
+              label={c}
+            />
+          ))}
           <button
             type="button"
             onClick={() => update({ vatInclusive: !filter.vatInclusive })}
             title="Přepnout zobrazení s/bez DPH"
-            className="h-9 shrink-0 rounded-lg border border-edge px-3 text-[12.5px] font-medium text-ink-deep transition-colors hover:bg-edge-warm"
+            className="inline-flex h-9 shrink-0 items-center rounded-full border border-edge bg-paper px-3.5 text-[12.5px] font-medium text-ink-deep transition-colors hover:border-ink-soft"
           >
             {filter.vatInclusive ? "s DPH" : "bez DPH"}
           </button>
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-1.5">
+      <div className="flex flex-wrap items-center gap-2">
         {PRESETS.map((p) => (
-          <Pill key={p} active={filter.preset === p} onClick={() => update({ preset: p })}>
-            {DATE_PRESET_LABEL[p]}
-          </Pill>
+          <FilterChip
+            key={p}
+            active={filter.preset === p}
+            onClick={() => update({ preset: p })}
+            label={DATE_PRESET_LABEL[p]}
+          />
         ))}
-        <span className="mx-1.5 hidden h-5 w-px bg-edge sm:block" aria-hidden="true" />
+        <span className="mx-1 hidden h-5 w-px bg-edge sm:block" aria-hidden="true" />
         <Select
           label="Srovnání"
           value={filter.comparison}
@@ -120,66 +127,15 @@ export function PosFilterBar({
           onClick={() => update({ sameStore: !filter.sameStore })}
           aria-pressed={filter.sameStore}
           title="Jen prodejny s tržbou v obou obdobích (srovnatelná báze)"
-          className={`h-8 shrink-0 rounded-lg border px-2.5 text-[12px] font-semibold transition-colors disabled:opacity-40 ${
+          className={`inline-flex h-9 shrink-0 items-center rounded-full border px-3.5 text-[12.5px] font-medium transition-colors disabled:opacity-40 ${
             filter.sameStore && filter.comparison !== "zadne"
               ? "border-ink-base bg-ink-base text-paper"
-              : "border-edge text-ink-deep hover:bg-edge-warm"
+              : "border-edge bg-paper text-ink-deep hover:border-ink-soft"
           }`}
         >
           Stejné prodejny
         </button>
       </div>
-    </div>
-  );
-}
-
-function Pill({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={`h-8 rounded-lg px-3 text-[12.5px] font-medium transition-colors ${
-        active ? "bg-ink-base text-paper" : "text-ink-deep hover:bg-edge-warm"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
-
-function Segment({
-  options,
-  value,
-  onChange,
-}: {
-  options: { value: string; label: string }[];
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <div className="inline-flex rounded-lg border border-edge p-0.5">
-      {options.map((o) => (
-        <button
-          key={o.value}
-          type="button"
-          onClick={() => onChange(o.value)}
-          aria-pressed={value === o.value}
-          className={`h-8 rounded-md px-2.5 text-[12px] font-semibold tabular-nums transition-colors ${
-            value === o.value ? "bg-ink-base text-paper" : "text-ink-mid hover:text-ink-base"
-          }`}
-        >
-          {o.label}
-        </button>
-      ))}
     </div>
   );
 }

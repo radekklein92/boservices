@@ -18,7 +18,7 @@ import {
 import type { Contract } from "@/lib/portal/contracts-db";
 import { getVariantMeta } from "@/lib/portal/contract-types";
 import { formatClaimsTotalAmount } from "@/lib/portal/claims";
-import { BTN_PRIMARY } from "@/components/portal/ui/buttons";
+import { BTN_PRIMARY_MODAL } from "@/components/portal/ui/buttons";
 
 type IconType = React.ComponentType<{
   className?: string;
@@ -400,7 +400,7 @@ export function ApprovalChecklistModal({
               type="button"
               onClick={onConfirm}
               disabled={pending || !allChecked}
-              className={BTN_PRIMARY}
+              className={BTN_PRIMARY_MODAL}
               title={allChecked ? undefined : "Zaškrtni všechny body"}
             >
               <ShieldCheck className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />

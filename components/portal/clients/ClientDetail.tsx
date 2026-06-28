@@ -101,8 +101,8 @@ function ContractsSection({
 }) {
   if (contracts.length === 0) {
     return (
-      <section className="rounded-[24px] border border-dashed border-edge bg-paper p-7 text-center">
-        <div className="text-[10.5px] font-medium uppercase tracking-[0.22em] text-ink-mid">
+      <section className="rounded-3xl border border-dashed border-edge bg-paper p-7 text-center">
+        <div className="text-[13px] font-bold uppercase tracking-[0.12em] text-ink-base">
           Smlouvy
         </div>
         <h3 className="mt-2 text-[1.05rem] font-bold tracking-[-0.02em] text-ink-base">
@@ -124,10 +124,10 @@ function ContractsSection({
   }
 
   return (
-    <section className="rounded-[24px] border border-edge bg-paper">
+    <section className="rounded-3xl border border-edge bg-paper">
       <div className="flex items-center justify-between gap-3 border-b border-edge px-5 py-4 md:px-7">
         <div className="flex items-baseline gap-3">
-          <h2 className="text-[11px] font-medium uppercase tracking-[0.22em] text-ink-mid">
+          <h2 className="text-[13px] font-bold uppercase tracking-[0.12em] text-ink-base">
             Smlouvy
           </h2>
           <span className="font-mono text-[11.5px] text-ink-soft">

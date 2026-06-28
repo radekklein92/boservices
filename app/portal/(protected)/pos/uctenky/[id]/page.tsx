@@ -52,7 +52,7 @@ export default async function PosReceiptDetailPage({
           </p>
         </div>
         {r.is_refund && (
-          <span className="rounded-md bg-rose-50 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-rose-600">
+          <span className="rounded-md bg-rose-50 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-rose-700">
             Refundace
           </span>
         )}

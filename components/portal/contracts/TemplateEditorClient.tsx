@@ -147,7 +147,7 @@ export function TemplateEditorClient({
               type="button"
               onClick={save}
               disabled={pending}
-              className="inline-flex h-11 items-center gap-2 rounded-full bg-ink-base px-5 text-[13.5px] font-semibold text-paper transition-transform active:translate-y-px disabled:opacity-60"
+              className="inline-flex h-11 items-center gap-2 rounded-full bg-ink-base px-5 text-[13px] font-semibold text-paper transition-transform active:translate-y-px disabled:opacity-60"
             >
               {pending ? (
                 "Ukládám…"

@@ -193,7 +193,7 @@ export function ContractApprovalPanel({
   }
 
   return (
-    <div className="flex flex-col gap-5 rounded-2xl border border-edge bg-paper px-6 py-6 md:px-8 md:py-7">
+    <div className="flex flex-col gap-5 rounded-2xl border border-edge bg-paper p-6 md:p-7">
       <div className="flex items-center justify-between gap-4">
         <div className="text-[10.5px] font-medium uppercase tracking-[0.22em] text-ink-mid">
           Lokalita a schválení
@@ -480,7 +480,7 @@ function Badge({
 }) {
   const toneClass =
     tone === "ok"
-      ? "bg-emerald-600 text-paper"
+      ? "border border-emerald-300 bg-emerald-50 text-emerald-700"
       : tone === "wait"
         ? "border border-amber-300 bg-amber-50 text-amber-700"
         : "border border-edge bg-paper-warm text-ink-deep";

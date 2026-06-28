@@ -35,7 +35,7 @@ export function PageHeaderSkeleton() {
 // List rows skeleton - N karet ve sloupci.
 export function ListSkeleton({ rows = 5 }: { rows?: number }) {
   return (
-    <div className="overflow-hidden rounded-[24px] border border-edge bg-paper">
+    <div className="overflow-hidden rounded-3xl border border-edge bg-paper">
       <ul className="divide-y divide-edge">
         {Array.from({ length: rows }).map((_, i) => (
           <li key={i} className="flex items-center gap-5 px-7 py-5">

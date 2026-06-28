@@ -109,7 +109,7 @@ export function LocationsTable({
 
   if (locations.length === 0) {
     return (
-      <div className="rounded-[24px] border border-dashed border-edge bg-paper p-12 text-center">
+      <div className="rounded-3xl border border-dashed border-edge bg-paper p-12 text-center">
         <div className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-edge-warm text-ink-mid">
           <MapPin className="h-5 w-5" strokeWidth={1.5} />
         </div>
@@ -218,7 +218,7 @@ export function LocationsTable({
         )}
       </div>
 
-      <div className="overflow-hidden rounded-[24px] border border-edge bg-paper">
+      <div className="overflow-hidden rounded-3xl border border-edge bg-paper">
         <ul className="divide-y divide-edge">
           {filtered.map((l) => (
             <li

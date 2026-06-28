@@ -667,7 +667,7 @@ export function RealEstateTable({
       {base.length === 0 ? (
         <EmptyState hasAnyLocations={rows.length > 0} onShowAll={() => setShowAll(true)} />
       ) : (
-        <div className="overflow-auto rounded-[24px] border border-edge bg-paper max-h-[calc(100dvh-260px)]">
+        <div className="overflow-auto rounded-3xl border border-edge bg-paper max-h-[calc(100dvh-260px)]">
           <table className="w-full min-w-[1180px] border-collapse text-[13px]">
             <thead>
               <tr>
@@ -1018,7 +1018,7 @@ function SummaryCard({
   gridClass: string;
 }) {
   return (
-    <section className="rounded-[24px] border border-edge bg-paper p-4 sm:p-5">
+    <section className="rounded-3xl border border-edge bg-paper p-4 sm:p-5">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div className="text-[10.5px] font-medium uppercase tracking-[0.22em] text-ink-mid">
           <span
@@ -1146,7 +1146,7 @@ function EmptyState({
   onShowAll: () => void;
 }) {
   return (
-    <div className="rounded-[24px] border border-dashed border-edge bg-paper p-12 text-center">
+    <div className="rounded-3xl border border-dashed border-edge bg-paper p-12 text-center">
       <div className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-edge-warm text-ink-mid">
         <MapPin className="h-5 w-5" strokeWidth={1.5} />
       </div>
