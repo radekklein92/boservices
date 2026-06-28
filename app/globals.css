@@ -41,16 +41,20 @@ body {
   color: var(--color-paper);
 }
 
-/* Globální focus-visible prsten pro klávesnicovou navigaci. Baseline pro VŠECHNA
+/* Globální focus-visible pro klávesnicovou navigaci. Baseline pro VŠECHNA
    tlačítka/odkazy (i ta psaná inline bez BTN_* konstant) - jediný zdroj pravdy,
-   pokryje i budoucí kód. Vzhled = stejný jako ring v BTN_*/FilterChip (2px paper
-   mezera + 2px ink). :where() má nulovou specificitu, takže komponenty s vlastním
-   focus-visible:ring ho beze změny přebijí (žádné zdvojení). */
-:where(button, a, [role="button"], summary):focus-visible {
-  outline: none;
-  box-shadow:
-    0 0 0 2px var(--color-paper),
-    0 0 0 4px var(--color-ink-base);
+   pokryje i budoucí kód. V @layer base, takže komponenty s vlastním
+   focus-visible:ring (utility = vyšší vrstva) ho přebijí (žádné zdvojení).
+   Pozn.: musí být v @layer base - raw top-level pravidlo s :where()+:focus-visible
+   Lightning CSS (Tailwind v4) při buildu zahazoval. */
+@layer base {
+  button:focus-visible,
+  a:focus-visible,
+  [role="button"]:focus-visible,
+  summary:focus-visible {
+    outline: 2px solid var(--color-ink-base);
+    outline-offset: 2px;
+  }
 }
 
 /* Sjednocené posuvníky napříč celou appkou.
