@@ -94,11 +94,13 @@ export function PosFilterBar({
               label={c}
             />
           ))}
+          <span className="mx-1 hidden h-5 w-px bg-edge sm:block" aria-hidden="true" />
           <button
             type="button"
             onClick={() => update({ vatInclusive: !filter.vatInclusive })}
+            aria-pressed={filter.vatInclusive}
             title="Přepnout zobrazení s/bez DPH"
-            className="inline-flex h-9 shrink-0 items-center rounded-full border border-edge bg-paper px-3.5 text-[12.5px] font-medium text-ink-deep transition-colors hover:border-ink-soft"
+            className="inline-flex h-9 shrink-0 items-center rounded-full border border-edge bg-paper px-3.5 text-[12.5px] font-medium text-ink-deep transition-colors hover:border-ink-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2 focus-visible:ring-offset-paper"
           >
             {filter.vatInclusive ? "s DPH" : "bez DPH"}
           </button>
@@ -127,7 +129,7 @@ export function PosFilterBar({
           onClick={() => update({ sameStore: !filter.sameStore })}
           aria-pressed={filter.sameStore}
           title="Jen prodejny s tržbou v obou obdobích (srovnatelná báze)"
-          className={`inline-flex h-9 shrink-0 items-center rounded-full border px-3.5 text-[12.5px] font-medium transition-colors disabled:opacity-40 ${
+          className={`inline-flex h-9 shrink-0 items-center rounded-full border px-3.5 text-[12.5px] font-medium transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2 focus-visible:ring-offset-paper ${
             filter.sameStore && filter.comparison !== "zadne"
               ? "border-ink-base bg-ink-base text-paper"
               : "border-edge bg-paper text-ink-deep hover:border-ink-soft"
