@@ -101,7 +101,7 @@ export function PosLeaderboard({
                     <Link
                       href={r.href}
                       onClick={(e) => e.stopPropagation()}
-                      className="font-medium text-ink-base hover:underline"
+                      className="font-medium text-ink-base"
                     >
                       {r.label}
                     </Link>
