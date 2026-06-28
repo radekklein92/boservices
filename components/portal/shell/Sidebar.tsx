@@ -9,9 +9,11 @@ import { UserMenu } from "./UserMenu";
 export function Sidebar({
   session,
   tasksBadge = 0,
+  changesBadge = 0,
 }: {
   session: Session;
   tasksBadge?: number;
+  changesBadge?: number;
 }) {
   const isAdmin = isAdminRole(session.user?.role);
   // Provize vidí admini + sami obchodníci (Toman/Ebermann dle e-mailu).
@@ -34,6 +36,7 @@ export function Sidebar({
         canSeeCommissions={canSeeCommissions}
         canSeePOS={canSeePos}
         tasksBadge={tasksBadge}
+        changesBadge={changesBadge}
       />
 
       <div className="border-t border-edge p-3">

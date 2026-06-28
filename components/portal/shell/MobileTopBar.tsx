@@ -20,12 +20,14 @@ export function MobileTopBar({
   canSeePOS = false,
   userMenu,
   tasksBadge = 0,
+  changesBadge = 0,
 }: {
   isAdmin: boolean;
   canSeeCommissions?: boolean;
   canSeePOS?: boolean;
   userMenu: ReactNode;
   tasksBadge?: number;
+  changesBadge?: number;
 }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
@@ -76,10 +78,10 @@ export function MobileTopBar({
           ) : (
             <Menu className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
           )}
-          {!open && tasksBadge > 0 && (
+          {!open && (tasksBadge > 0 || changesBadge > 0) && (
             <span
               className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-paper"
-              aria-label="Nové úkoly"
+              aria-label="Nové úkoly nebo návrhy změn"
             />
           )}
         </button>
@@ -123,6 +125,7 @@ export function MobileTopBar({
               canSeeCommissions={canSeeCommissions}
               canSeePOS={canSeePOS}
               tasksBadge={tasksBadge}
+              changesBadge={changesBadge}
             />
             <div className="border-t border-edge p-3">{userMenu}</div>
           </aside>
