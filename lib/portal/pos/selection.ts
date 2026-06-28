@@ -16,6 +16,7 @@ export interface ResolvedSelection {
   // brandId, jejichž VŠECHNY (nevyřazené) pokladny jsou ve výběru. getDailyTrend
   // díky tomu pozná, kdy stačí levný brand-grain místo per-pokladna fan-outu.
   coversWholeBrands: string[];
+  brandsPresent: string[]; // distinct brandId mezi vybranými pokladnami
 }
 
 // Koncept pokladny: PRIMÁRNĚ z její lokality (zdroj pravdy), jinak fallback
@@ -51,9 +52,20 @@ export function resolveSelection(
   index: PairingIndex,
   shops: ApiShop[],
 ): ResolvedSelection {
+  const brandsIn = (set: Set<string>) => {
+    const b = new Set<string>();
+    for (const s of shops) if (set.has(s.id)) b.add(s.brand_id);
+    return [...b];
+  };
+
   if (isAllSelection(selection)) {
     const shopIds = new Set(shops.map((s) => s.id));
-    return { shopIds, isAll: true, coversWholeBrands: computeCoveredBrands(shops, shopIds) };
+    return {
+      shopIds,
+      isAll: true,
+      coversWholeBrands: computeCoveredBrands(shops, shopIds),
+      brandsPresent: brandsIn(shopIds),
+    };
   }
 
   const set = new Set<string>();
@@ -87,5 +99,10 @@ export function resolveSelection(
     }
   }
 
-  return { shopIds: set, isAll: false, coversWholeBrands: computeCoveredBrands(shops, set) };
+  return {
+    shopIds: set,
+    isAll: false,
+    coversWholeBrands: computeCoveredBrands(shops, set),
+    brandsPresent: brandsIn(set),
+  };
 }
