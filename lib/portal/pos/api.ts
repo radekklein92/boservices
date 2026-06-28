@@ -24,7 +24,10 @@ import type {
 } from "./types";
 
 const BASE = (process.env.POS_API_BASE ?? "https://api.boservices.cz/v1").replace(/\/$/, "");
-const TIMEOUT_MS = 6000;
+// Raw-fact endpointy (today, heatmap/daypart, receipts) přes všechny prodejny
+// běžně trvají ~6-8 s; 6 s timeout je předčasně shazoval (Živě/Účtenky). Na timeout
+// (abort) NEretryujeme - jen by se čekání ztrojnásobilo. 5xx/429/síť dál retry.
+const TIMEOUT_MS = 15000;
 const MAX_ATTEMPTS = 3;
 
 export class PosApiError extends Error {
@@ -80,7 +83,11 @@ async function apiGet<T>(path: string, params?: Params): Promise<T> {
     } catch (err) {
       clearTimeout(timer);
       if (err instanceof PosApiError && err.status !== 429 && err.status < 500) throw err;
-      // síťová chyba / abort -> retry
+      // Timeout (abort) NEretryovat - dotaz je pomalý, opakování jen prodlouží čekání.
+      if (err instanceof Error && err.name === "AbortError") {
+        throw new PosApiError(`API timeout ${path}`, 0);
+      }
+      // síťová chyba -> retry s backoffem
       lastErr = err;
       await sleep(250 * (attempt + 1));
     }

@@ -44,6 +44,7 @@ import type {
   DaypartRow,
   DayPoint,
   HeatmapCell,
+  HourPoint,
   KpiSummary,
   LocationRevenueRowWithPrev,
   Paged,
@@ -589,6 +590,50 @@ export async function getHeatmap(filter: PosFilter): Promise<HeatmapCell[]> {
   if (sp.__empty) return [];
   const range = rawWindow(filter);
   return (await _heatmap(range.from, range.to, filter.currency, sp.brand_id, sp.shop_id, sp.shop_ids)).data;
+}
+
+// --- Hodinový trend (denní zobrazení "Dnes") ---
+// Z hodinové heatmapy: aktuální okno (dnešek) + srovnávací den (celý), sečteno
+// přes dny/scope do bodu na hodinu. nowHour = aktuální hodina v Praze, pro férové
+// srovnání "do teď" v KPI.
+
+function nowPragueHour(): number {
+  const h = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Prague",
+    hour: "2-digit",
+    hour12: false,
+  }).format(new Date());
+  return Number(h) % 24;
+}
+
+function foldHourly(cells: HeatmapCell[]): HourPoint[] {
+  const byHour = new Map<number, HourPoint>();
+  for (const c of cells) {
+    const h = byHour.get(c.hour) ?? { hour: c.hour, gross: 0, net: 0, receipts: 0 };
+    h.gross += c.gross;
+    h.net += c.net;
+    h.receipts += c.receipts;
+    byHour.set(c.hour, h);
+  }
+  return [...byHour.values()].sort((a, b) => a.hour - b.hour);
+}
+
+export async function getHourlyTrend(
+  filter: PosFilter,
+): Promise<{ current: HourPoint[]; comparison: HourPoint[] | null; nowHour: number }> {
+  const nowHour = nowPragueHour();
+  const { resolved } = await scopeContext(filter);
+  const sp = scopeApiParams(resolved);
+  if (sp.__empty) return { current: [], comparison: null, nowHour };
+  const range = rawWindow(filter);
+  const cmp = resolveComparisonRange(filter, resolveDateRange(filter));
+  const [cur, prev] = await Promise.all([
+    _heatmap(range.from, range.to, filter.currency, sp.brand_id, sp.shop_id, sp.shop_ids),
+    cmp
+      ? _heatmap(cmp.from, cmp.to, filter.currency, sp.brand_id, sp.shop_id, sp.shop_ids)
+      : Promise.resolve<{ data: HeatmapCell[] }>({ data: [] }),
+  ]);
+  return { current: foldHourly(cur.data), comparison: cmp ? foldHourly(prev.data) : null, nowHour };
 }
 
 const _daypart = posQuery(
