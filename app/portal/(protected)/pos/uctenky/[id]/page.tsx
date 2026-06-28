@@ -22,8 +22,9 @@ export default async function PosReceiptDetailPage({
   if (!canSeePOS(session?.user?.role)) return null;
   const { id } = await params;
   const sp = await searchParams;
-  // ?from=refundace -> doklad jsme otevřeli ze stránky Refundace; vrať se tam (ne na Účtenky).
-  const fromRefunds = (typeof sp.from === "string" ? sp.from : undefined) === "refundace";
+  // ?src=refundace -> doklad jsme otevřeli ze stránky Refundace; vrať se tam (ne na Účtenky).
+  // Vlastní param (ne filtrový "from", který nese custom datum) - jinak by kolidovaly.
+  const fromRefunds = (typeof sp.src === "string" ? sp.src : undefined) === "refundace";
   const backQs = serializePosFilter(posFilterFromSearchParams(sp)).toString();
   const backBase = fromRefunds ? "/portal/pos/refundace" : "/portal/pos/uctenky";
   const backHref = backQs ? `${backBase}?${backQs}` : backBase;
