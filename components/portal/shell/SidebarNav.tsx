@@ -17,6 +17,7 @@ import {
   ListChecks,
   MapPin,
   Palette,
+  Receipt,
   Send,
   Store,
   Users,
@@ -60,6 +61,13 @@ const commissionsItem: Item = {
   href: "/portal/commissions",
   label: "Provize",
   Icon: HandCoins,
+};
+
+// Poplatky: pod Provizemi ve Franšízingu, stejné publikum (admini + obchodníci).
+const feesItem: Item = {
+  href: "/portal/fees",
+  label: "Poplatky",
+  Icon: Receipt,
 };
 
 const admin: Item[] = [
@@ -114,9 +122,12 @@ export function SidebarNav({
         {fransizing.map((item) => (
           <NavItem key={item.href} {...item} active={isActive(pathname, item.href)} />
         ))}
-        {/* Provize ve Franšízingu - jen pro adminy + obchodníky (canSeeCommissions). */}
+        {/* Provize + Poplatky ve Franšízingu - jen pro adminy + obchodníky (canSeeCommissions). */}
         {canSeeCommissions && (
-          <NavItem {...commissionsItem} active={isActive(pathname, commissionsItem.href)} />
+          <>
+            <NavItem {...commissionsItem} active={isActive(pathname, commissionsItem.href)} />
+            <NavItem {...feesItem} active={isActive(pathname, feesItem.href)} />
+          </>
         )}
       </NavSection>
 
