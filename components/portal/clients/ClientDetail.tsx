@@ -102,7 +102,7 @@ function ContractsSection({
   if (contracts.length === 0) {
     return (
       <section className="rounded-3xl border border-dashed border-edge bg-paper p-7 text-center">
-        <div className="text-[10.5px] font-medium uppercase tracking-[0.22em] text-ink-mid">
+        <div className="text-[13px] font-bold uppercase tracking-[0.12em] text-ink-base">
           Smlouvy
         </div>
         <h3 className="mt-2 text-[1.05rem] font-bold tracking-[-0.02em] text-ink-base">

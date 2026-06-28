@@ -175,7 +175,7 @@ export function TemplatesListClient({
 
               <div className="flex flex-wrap items-center justify-between gap-3 border-t border-edge pt-4">
                 {r.approved ? (
-                  <span className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-3.5 py-1.5 text-[11.5px] font-semibold text-paper">
+                  <span className="inline-flex items-center gap-2 rounded-full border border-emerald-300 bg-emerald-50 px-3.5 py-1.5 text-[11.5px] font-semibold text-emerald-700">
                     <CheckCircle2
                       className="h-3.5 w-3.5"
                       strokeWidth={2}

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { X, ShieldCheck } from "lucide-react";
-import { BTN_PRIMARY } from "@/components/portal/ui/buttons";
+import { BTN_PRIMARY_MODAL } from "@/components/portal/ui/buttons";
 
 // Modal pro schválení smlouvy superadminem - vyžaduje podrobnou poznámku
 // (proč, kdy a kým byla smlouva schválena).
@@ -85,7 +85,7 @@ export function ApprovalNoteModal({
             type="button"
             onClick={() => onConfirm(trimmed)}
             disabled={pending || trimmed.length === 0}
-            className={BTN_PRIMARY}
+            className={BTN_PRIMARY_MODAL}
           >
             <ShieldCheck className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
             {pending ? "Schvaluji…" : "Schválit s poznámkou"}

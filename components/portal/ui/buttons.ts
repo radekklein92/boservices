@@ -3,7 +3,7 @@
 //
 // Dva tiery výšky podle kontextu (oba interně konzistentní):
 //   - stránky / seznamy / sekce  -> h-11 (BTN_PRIMARY / BTN_OUTLINE)
-//   - modaly / patičky formulářů  -> h-10 (BTN_PRIMARY_MODAL / BTN_OUTLINE_MODAL)
+//   - modaly / patičky formulářů  -> h-10 (BTN_PRIMARY_MODAL)
 // Padding px-5 a text-[13px] jsou společné napříč tiery; modaly jsou jen
 // kompaktnější na výšku. Auth/landing (h-12) jsou samostatný kontext.
 
@@ -15,12 +15,11 @@ export const BTN_PRIMARY =
 export const BTN_OUTLINE =
   "inline-flex h-11 items-center gap-2 rounded-full border border-edge bg-paper px-5 text-[13px] font-semibold text-ink-deep transition-colors hover:border-ink-base hover:text-ink-base disabled:opacity-50";
 
-// Kompaktní varianty pro modaly / patičky formulářů (h-10).
+// Kompaktní primární pilulka pro modaly / patičky formulářů (h-10).
+// Sekundární akce ("Zrušit") v modalech je decentní textové tlačítko (h-10,
+// text-ink-mid) - viz jednotlivé modaly; samostatnou konstantu nepotřebuje.
 export const BTN_PRIMARY_MODAL =
   "inline-flex h-10 items-center gap-2 rounded-full bg-ink-base px-5 text-[13px] font-semibold text-paper transition-transform active:translate-y-px disabled:opacity-60";
-
-export const BTN_OUTLINE_MODAL =
-  "inline-flex h-10 items-center gap-2 rounded-full border border-edge bg-paper px-5 text-[13px] font-semibold text-ink-deep transition-colors hover:border-ink-base hover:text-ink-base disabled:opacity-50";
 
 // Decentní textové tlačítko (undo / zrušit).
 export const BTN_SUBTLE =

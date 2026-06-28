@@ -480,7 +480,7 @@ function Badge({
 }) {
   const toneClass =
     tone === "ok"
-      ? "bg-emerald-600 text-paper"
+      ? "border border-emerald-300 bg-emerald-50 text-emerald-700"
       : tone === "wait"
         ? "border border-amber-300 bg-amber-50 text-amber-700"
         : "border border-edge bg-paper-warm text-ink-deep";

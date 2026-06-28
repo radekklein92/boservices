@@ -30,7 +30,7 @@ export const CATEGORY_STYLE: Record<LocationCategory, string> = {
   core: "border-emerald-300 bg-emerald-50 text-emerald-700",
   nice: "border-sky-300 bg-sky-50 text-sky-700",
   soso: "border-amber-300 bg-amber-50 text-amber-700",
-  trash: "border-rose-300 bg-rose-50 text-rose-700",
+  trash: "border-orange-300 bg-orange-50 text-orange-700",
   exit: "border-edge bg-edge-warm text-ink-mid",
 };
 
@@ -40,7 +40,7 @@ export const CATEGORY_DOT: Record<LocationCategory, string> = {
   core: "bg-emerald-500",
   nice: "bg-sky-500",
   soso: "bg-amber-500",
-  trash: "bg-rose-500",
+  trash: "bg-orange-500",
   exit: "bg-zinc-400",
 };
 
