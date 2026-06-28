@@ -13,7 +13,7 @@ import { PosFilterBarLoader } from "@/components/portal/pos/PosFilterBarLoader";
 import { FilterBarSkeleton, LeaderboardSkeleton } from "@/components/portal/pos/skeletons";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Tржby - Koncepty" };
+export const metadata = { title: "Tržby - Koncepty" };
 
 function searchParamsToUsp(sp: Record<string, string | string[] | undefined>): URLSearchParams {
   const usp = new URLSearchParams();
@@ -43,7 +43,7 @@ export default async function PosConceptsPage({
             className="inline-flex items-center gap-1.5 transition-colors hover:text-ink-base"
           >
             <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
-            Tржby
+            Tržby
           </Link>
         }
         title="Koncepty"

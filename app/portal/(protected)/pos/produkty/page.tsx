@@ -12,7 +12,7 @@ import { formatPosMoney, formatPosNumber } from "@/components/portal/pos/pos-sha
 import { FilterBarSkeleton, LeaderboardSkeleton } from "@/components/portal/pos/skeletons";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Tржby - Produkty" };
+export const metadata = { title: "Tržby - Produkty" };
 
 export default async function PosProductsPage({
   searchParams,
@@ -32,7 +32,7 @@ export default async function PosProductsPage({
             className="inline-flex items-center gap-1.5 transition-colors hover:text-ink-base"
           >
             <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
-            Tржby
+            Tržby
           </Link>
         }
         title="Produkty"

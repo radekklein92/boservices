@@ -12,7 +12,7 @@ import { PosFilterBarLoader } from "@/components/portal/pos/PosFilterBarLoader";
 import { FilterBarSkeleton, LeaderboardSkeleton } from "@/components/portal/pos/skeletons";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Tржby - Města" };
+export const metadata = { title: "Tržby - Města" };
 
 function searchParamsToUsp(sp: Record<string, string | string[] | undefined>): URLSearchParams {
   const usp = new URLSearchParams();
@@ -42,7 +42,7 @@ export default async function PosCitiesPage({
             className="inline-flex items-center gap-1.5 transition-colors hover:text-ink-base"
           >
             <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
-            Tржby
+            Tržby
           </Link>
         }
         title="Města"
@@ -91,7 +91,7 @@ async function CitiesLeaderboard({ filter }: { filter: PosFilter }) {
       <h2 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink-mid">
         Města ({leaderRows.length}) · {useNet ? "bez DPH" : "s DPH"} · {filter.currency}
       </h2>
-      <PosLeaderboard rows={leaderRows} currency={filter.currency} valueLabel={useNet ? "Tржby bez DPH" : "Tржby s DPH"} />
+      <PosLeaderboard rows={leaderRows} currency={filter.currency} valueLabel={useNet ? "Tržby bez DPH" : "Tržby s DPH"} />
       <p className="text-[11px] text-ink-soft">
         Město se bere z párování pokladen. Pokladny bez napárovaného města jsou v „Neuvedeno" - doplňte je v Administraci → Párování pokladen.
       </p>

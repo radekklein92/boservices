@@ -15,7 +15,7 @@ import { ChartSkeleton, FilterBarSkeleton, KpiStripSkeleton } from "@/components
 import { formatLocalDateTime, formatPosMoney, formatPosMoneyCompact, formatPosNumber } from "@/components/portal/pos/pos-shared";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Tржby - Živě" };
+export const metadata = { title: "Tržby - Živě" };
 
 function searchParamsToUsp(sp: Record<string, string | string[] | undefined>): URLSearchParams {
   const usp = new URLSearchParams();
@@ -46,7 +46,7 @@ export default async function PosLivePage({
             className="inline-flex items-center gap-1.5 transition-colors hover:text-ink-base"
           >
             <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
-            Tржby
+            Tržby
           </Link>
         }
         title="Živě"

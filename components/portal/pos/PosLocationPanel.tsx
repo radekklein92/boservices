@@ -46,7 +46,7 @@ export async function PosLocationPanel({ locationId }: { locationId: string }) {
     <section className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink-mid">
-          Tржby (posledních 30 dní)
+          Tržby (posledních 30 dní)
           {pairs.length > 1 && (
             <span className="ml-2 font-normal normal-case tracking-normal text-ink-soft">
               {pairs.length} pokladny
@@ -62,7 +62,7 @@ export async function PosLocationPanel({ locationId }: { locationId: string }) {
         </Link>
       </div>
       <div className="grid grid-cols-3 gap-3">
-        <Stat label="Tржby (s DPH)" value={formatPosMoney(c.gross, cur)} current={c.gross} previous={p?.gross ?? null} />
+        <Stat label="Tržby (s DPH)" value={formatPosMoney(c.gross, cur)} current={c.gross} previous={p?.gross ?? null} />
         <Stat label="Účtenky" value={formatPosNumber(c.receipts)} current={c.receipts} previous={p?.receipts ?? null} />
         <Stat
           label="Průměrný ticket"

@@ -9,7 +9,7 @@ import { PosFilterBarLoader } from "@/components/portal/pos/PosFilterBarLoader";
 import { FilterBarSkeleton } from "@/components/portal/pos/skeletons";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Tржby - Reporty" };
+export const metadata = { title: "Tržby - Reporty" };
 
 export default async function PosReportsPage({
   searchParams,
@@ -31,7 +31,7 @@ export default async function PosReportsPage({
             className="inline-flex items-center gap-1.5 transition-colors hover:text-ink-base"
           >
             <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
-            Tржby
+            Tržby
           </Link>
         }
         title="Reporty"
@@ -67,8 +67,8 @@ export default async function PosReportsPage({
         <h2 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink-mid">Slovníček pojmů</h2>
         <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Term term="Tržby s DPH (hrubé)" desc="Tržby včetně DPH, bez refundací." />
-          <Term term="Tржby bez DPH (čisté)" desc="Tržby s DPH minus DPH (net = gross - vat), bez refundací." />
-          <Term term="Průměrný ticket (ATV)" desc="Tржby dělené počtem účtenek." />
+          <Term term="Tržby bez DPH (čisté)" desc="Tržby s DPH minus DPH (net = gross - vat), bez refundací." />
+          <Term term="Průměrný ticket (ATV)" desc="Tržby dělené počtem účtenek." />
           <Term term="Transakce = účtenky" desc="Počítáme účtenky, ne hosty (počet hostů zdroj neposkytuje)." />
           <Term term="Prodejna vs pokladna" desc="Prodejna = portálová lokalita; jedna prodejna může mít více pokladen (dim_shop). Vše sčítáme na prodejny." />
           <Term term="Koncept" desc="Skupina prodejen (TK, KoP, BB…) podle konceptu lokality." />

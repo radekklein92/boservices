@@ -78,7 +78,7 @@ export default async function PosOverviewPage({
     <>
       <PageHeader
         eyebrow="Provoz"
-        title="Tржby"
+        title="Tržby"
         lede="Pokladní přehled napříč prodejnami a koncepty - tržby, účtenky a žebříčky."
         actions={
           <Suspense fallback={null}>
@@ -169,7 +169,7 @@ async function KpiSection({ filter, cur, useNet }: { filter: PosFilter; cur: str
   return (
     <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
       <PosKpiCard
-        label={`Tржby (${useNet ? "bez DPH" : "s DPH"})`}
+        label={`Tržby (${useNet ? "bez DPH" : "s DPH"})`}
         value={formatPosMoneyCompact(revenue, cur)}
         valueTitle={formatPosMoney(revenue, cur)}
         current={revenue}

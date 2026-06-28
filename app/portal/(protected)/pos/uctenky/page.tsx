@@ -12,7 +12,7 @@ import { FilterBarSkeleton, LeaderboardSkeleton } from "@/components/portal/pos/
 import { formatLocalDateTime, formatPosMoney, formatPosNumber } from "@/components/portal/pos/pos-shared";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Tржby - Účtenky" };
+export const metadata = { title: "Tržby - Účtenky" };
 
 const LIMIT = 50;
 
@@ -46,7 +46,7 @@ export default async function PosReceiptsPage({
             className="inline-flex items-center gap-1.5 transition-colors hover:text-ink-base"
           >
             <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
-            Tржby
+            Tržby
           </Link>
         }
         title="Účtenky"
