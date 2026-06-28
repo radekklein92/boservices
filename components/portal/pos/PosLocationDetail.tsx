@@ -1,5 +1,7 @@
 import { Suspense } from "react";
-import { comparisonLabel, type PosFilter } from "@/lib/portal/pos/filters";
+import Link from "next/link";
+import { ChevronRight } from "lucide-react";
+import { comparisonLabel, serializePosFilter, type PosFilter } from "@/lib/portal/pos/filters";
 import {
   getAllShops,
   getDailyTrend,
@@ -7,6 +9,7 @@ import {
   getHeatmap,
   getKpiSummary,
   getPaymentMix,
+  getReceiptsPage,
   getTopProducts,
   getVatSplit,
   resolveDisplayCurrency,
@@ -14,12 +17,14 @@ import {
 import { cachedListLocations } from "@/lib/portal/cached-db";
 import { isPosApiConfigured } from "@/lib/portal/pos/api";
 import type { Daypart, DayPoint, SummaryRow } from "@/lib/portal/pos/types";
+import { BTN_OUTLINE } from "@/components/portal/ui/buttons";
 import { PosKpiCard } from "./PosKpiCard";
 import { PosLineChart } from "./PosLineChart";
 import { PosHeatmap } from "./PosHeatmap";
 import { PosBars, type BarRow } from "./PosBars";
 import { PosDeltaBadge } from "./PosDeltaBadge";
-import { BarsRowSkeleton, ChartSkeleton, KpiStripSkeleton } from "./skeletons";
+import { ReceiptsTable } from "./ReceiptsTable";
+import { BarsRowSkeleton, ChartSkeleton, KpiStripSkeleton, LeaderboardSkeleton } from "./skeletons";
 import {
   DAYPART_LABEL,
   formatPosMoney,
@@ -105,6 +110,10 @@ export function PosLocationDetailBody({ filter, cur, useNet }: { filter: PosFilt
 
       <Suspense fallback={<ChartSkeleton height={200} />}>
         <ProductsSection filter={filter} cur={cur} useNet={useNet} />
+      </Suspense>
+
+      <Suspense fallback={<LeaderboardSkeleton rows={8} />}>
+        <ReceiptsSection filter={filter} useNet={useNet} />
       </Suspense>
     </div>
   );
@@ -334,6 +343,45 @@ async function ProductsSection({ filter, cur, useNet }: { filter: PosFilter; cur
             ))}
           </tbody>
         </table>
+      </div>
+    </section>
+  );
+}
+
+// Posledních 50 účtenek prodejny (úplně dole). Sdílí seznam i modal s detailem
+// se stránkou /uctenky; řádek lze rozkliknout do detailu. Tlačítko "Zobrazit
+// všechny" vede na týž seznam zúžený na tuto prodejnu (filter nese l=<locationId>
+// i období/měnu), kde lze stránkovat a dál filtrovat.
+async function ReceiptsSection({ filter, useNet }: { filter: PosFilter; useNet: boolean }) {
+  let data: Awaited<ReturnType<typeof getReceiptsPage>>;
+  try {
+    data = await getReceiptsPage(filter, 0, { limit: 50 });
+  } catch {
+    return null;
+  }
+  const rows = data.data;
+  if (rows.length === 0) return null;
+  const total = data.meta.total;
+  const qs = serializePosFilter(filter).toString();
+  const allHref = qs ? `/portal/pos/uctenky?${qs}` : "/portal/pos/uctenky";
+  const hasMore = total > rows.length;
+
+  return (
+    <section className="flex flex-col gap-3">
+      <div className="flex items-center justify-between gap-3">
+        <H2>Účtenky</H2>
+        <span className="text-[12px] tabular-nums text-ink-soft">
+          {hasMore ? `Posledních ${rows.length} z ${formatPosNumber(total)}` : `${formatPosNumber(total)} celkem`}
+        </span>
+      </div>
+
+      <ReceiptsTable rows={rows} useNet={useNet} filterQs={qs} />
+
+      <div className="flex justify-center pt-1">
+        <Link href={allHref} className={BTN_OUTLINE}>
+          {hasMore ? "Zobrazit všechny účtenky" : "Filtrovat účtenky"}
+          <ChevronRight className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+        </Link>
       </div>
     </section>
   );
