@@ -7,10 +7,11 @@ import type { CityGroup, ConceptGroup } from "./pos-filter-shared";
 
 // Výběr prodejen jako COMBOBOX: vždy viditelné vyhledávací pole (zároveň spouštěč),
 // klik na pole i šipku otevře. Třístupňový strom Koncept -> Město -> Prodejna:
-// rozbalím koncept, rozbalím město a tam vybírám jednotlivé prodejny. Checkbox
-// konceptu vybere celý koncept (token konceptu), checkbox města vybere všechny
-// jeho prodejny v daném konceptu (locationId tokeny), prodejna má vlastní checkbox.
-// Nenapárované pokladny se zde NEzobrazují.
+// rozbalím koncept, rozbalím město a tam vybírám jednotlivé prodejny. Klik KAMKOLIV
+// na řádek konceptu/města ho rozbalí/sbalí; klik na CHECKBOX (stopPropagation) jen
+// vybere skupinu (koncept = token konceptu, město = locationId tokeny jeho prodejen
+// scoped na koncept). Prodejna (list) se vybírá klikem na celý řádek. Nenapárované
+// pokladny se zde NEzobrazují.
 
 function Box({ checked, muted = false }: { checked: boolean; muted?: boolean }) {
   return (
@@ -25,6 +26,56 @@ function Box({ checked, muted = false }: { checked: boolean; muted?: boolean }) 
       ].join(" ")}
     >
       {checked && <Check className="h-3 w-3" strokeWidth={3} aria-hidden="true" />}
+    </span>
+  );
+}
+
+// Checkbox jako samostatný klikací prvek uvnitř klikacího řádku: zastaví bublání,
+// takže výběr neprovede zároveň rozbalení. Klávesnicí Space/Enter.
+function ClickBox({
+  checked,
+  muted = false,
+  disabled = false,
+  onToggle,
+  label,
+}: {
+  checked: boolean;
+  muted?: boolean;
+  disabled?: boolean;
+  onToggle: () => void;
+  label: string;
+}) {
+  return (
+    <span
+      role="checkbox"
+      aria-checked={checked}
+      aria-disabled={disabled || undefined}
+      aria-label={label}
+      tabIndex={disabled ? -1 : 0}
+      onClick={
+        disabled
+          ? undefined
+          : (e) => {
+              e.stopPropagation();
+              onToggle();
+            }
+      }
+      onKeyDown={
+        disabled
+          ? undefined
+          : (e) => {
+              if (e.key === " " || e.key === "Enter") {
+                e.preventDefault();
+                e.stopPropagation();
+                onToggle();
+              }
+            }
+      }
+      className={`shrink-0 rounded-[6px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-1 focus-visible:ring-offset-paper ${
+        disabled ? "" : "cursor-pointer"
+      }`}
+    >
+      <Box checked={checked} muted={muted} />
     </span>
   );
 }
@@ -113,6 +164,12 @@ export function PosStorePicker({
   };
 
   const empty = selection.concepts.length === 0 && selection.locations.length === 0;
+  const rowKey = (e: { key: string; preventDefault: () => void }, fn: () => void) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      fn();
+    }
+  };
 
   return (
     <div className="relative" ref={ref}>
@@ -167,28 +224,22 @@ export function PosStorePicker({
               const conceptExpanded = isExpanded(g.concept);
               return (
                 <div key={g.concept} className="mb-0.5">
-                  <div className="flex items-center gap-1 rounded-lg pr-1 hover:bg-edge-warm">
-                    <button
-                      type="button"
-                      onClick={() => toggleConcept(g.concept)}
-                      className="flex min-w-0 flex-1 items-center gap-2.5 px-2 py-2 text-left"
-                    >
-                      <Box checked={conceptOn} />
-                      <span className="truncate text-[13px] font-semibold text-ink-base">{g.label}</span>
-                      <span className="font-mono text-[10.5px] text-ink-soft">{g.locations.length}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => toggleExpand(g.concept)}
-                      aria-label={conceptExpanded ? "Sbalit" : "Rozbalit"}
-                      className="grid h-7 w-7 place-items-center rounded-md text-ink-mid transition-colors hover:text-ink-base"
-                    >
-                      {conceptExpanded ? (
-                        <ChevronDown className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
-                      )}
-                    </button>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    aria-expanded={conceptExpanded}
+                    onClick={() => toggleExpand(g.concept)}
+                    onKeyDown={(e) => rowKey(e, () => toggleExpand(g.concept))}
+                    className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-2 transition-colors hover:bg-edge-warm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-base"
+                  >
+                    <ClickBox checked={conceptOn} onToggle={() => toggleConcept(g.concept)} label={`Vybrat koncept ${g.label}`} />
+                    <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink-base">{g.label}</span>
+                    <span className="font-mono text-[10.5px] text-ink-soft">{g.locations.length}</span>
+                    {conceptExpanded ? (
+                      <ChevronDown className="h-4 w-4 shrink-0 text-ink-mid" strokeWidth={2} aria-hidden="true" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 shrink-0 text-ink-mid" strokeWidth={2} aria-hidden="true" />
+                    )}
                   </div>
 
                   {conceptExpanded && (
@@ -199,40 +250,38 @@ export function PosStorePicker({
                         const cityOn = conceptOn || cg.locations.every((l) => locSet.has(l.id));
                         return (
                           <div key={cityKey} className="mb-0.5">
-                            <div className="flex items-center gap-1 rounded-lg pr-1 hover:bg-edge-warm">
-                              <button
-                                type="button"
+                            <div
+                              role="button"
+                              tabIndex={0}
+                              aria-expanded={cityExpanded}
+                              onClick={() => toggleExpand(cityKey)}
+                              onKeyDown={(e) => rowKey(e, () => toggleExpand(cityKey))}
+                              className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-edge-warm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-base"
+                            >
+                              <ClickBox
+                                checked={cityOn}
+                                muted={conceptOn}
                                 disabled={conceptOn}
-                                onClick={() => toggleCity(cg, cityOn)}
-                                title={conceptOn ? "Zahrnuto přes koncept" : undefined}
-                                className="flex min-w-0 flex-1 items-center gap-2.5 px-2 py-1.5 text-left disabled:cursor-default"
-                              >
-                                <Box checked={cityOn} muted={conceptOn} />
-                                <MapPin className="h-3.5 w-3.5 shrink-0 text-ink-soft" strokeWidth={1.5} aria-hidden="true" />
-                                <span className={`min-w-0 flex-1 truncate text-[12.5px] ${conceptOn ? "text-ink-mid" : "text-ink-deep"}`}>
-                                  {cg.city || "Ostatní"}
-                                </span>
-                                <span className="font-mono text-[10.5px] text-ink-soft">{cg.locations.length}</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => toggleExpand(cityKey)}
-                                aria-label={cityExpanded ? "Sbalit" : "Rozbalit"}
-                                className="grid h-6 w-6 place-items-center rounded-md text-ink-mid transition-colors hover:text-ink-base"
-                              >
-                                {cityExpanded ? (
-                                  <ChevronDown className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
-                                ) : (
-                                  <ChevronRight className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
-                                )}
-                              </button>
+                                onToggle={() => toggleCity(cg, cityOn)}
+                                label={`Vybrat město ${cg.city || "Ostatní"}`}
+                              />
+                              <MapPin className="h-3.5 w-3.5 shrink-0 text-ink-soft" strokeWidth={1.5} aria-hidden="true" />
+                              <span className={`min-w-0 flex-1 truncate text-[12.5px] ${conceptOn ? "text-ink-mid" : "text-ink-deep"}`}>
+                                {cg.city || "Ostatní"}
+                              </span>
+                              <span className="font-mono text-[10.5px] text-ink-soft">{cg.locations.length}</span>
+                              {cityExpanded ? (
+                                <ChevronDown className="h-3.5 w-3.5 shrink-0 text-ink-mid" strokeWidth={2} aria-hidden="true" />
+                              ) : (
+                                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-ink-mid" strokeWidth={2} aria-hidden="true" />
+                              )}
                             </div>
                             {cityExpanded && (
                               <div className="ml-3 border-l border-edge pl-1.5">
                                 {cg.locations.map((l) => {
                                   const own = locSet.has(l.id);
-                                  const checked = conceptOn || cityOn || own;
                                   const inherited = conceptOn || cityOn;
+                                  const checked = inherited || own;
                                   return (
                                     <button
                                       key={l.id}
