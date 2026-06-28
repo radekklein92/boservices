@@ -1,8 +1,9 @@
 "use client";
 
-// Přepínač (switch) ve stylu portálu. ON = zelená (sémantika "aktivní/úspěch),
-// světlá kolej + sytý palec dle zadání. A11y přes role="switch" + aria-checked,
-// celý prvek je klikatelný (kolej i label). h-9 srovná výšku s FilterChip v řádku.
+// Přepínač (switch) ve stylu portálu. ON = černá kolej (bg-ink-base, stejná
+// sémantika aktivního stavu jako FilterChip / "Stejné prodejny"), bílý palec.
+// A11y přes role="switch" + aria-checked, celý prvek je klikatelný (kolej i
+// label). h-9 srovná výšku s FilterChip v řádku.
 
 type ToggleProps = {
   checked: boolean;
@@ -26,12 +27,12 @@ export function Toggle({ checked, onChange, label, title, disabled = false }: To
       <span
         aria-hidden="true"
         className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-          checked ? "bg-emerald-200" : "bg-ink-soft/50"
+          checked ? "bg-ink-base" : "bg-ink-soft/50"
         }`}
       >
         <span
-          className={`absolute left-0.5 h-5 w-5 rounded-full shadow-sm transition-transform ${
-            checked ? "translate-x-5 bg-emerald-600" : "translate-x-0 bg-paper"
+          className={`absolute left-0.5 h-5 w-5 rounded-full bg-paper shadow-sm transition-transform ${
+            checked ? "translate-x-5" : "translate-x-0"
           }`}
         />
       </span>
