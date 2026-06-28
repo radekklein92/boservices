@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { X } from "lucide-react";
+import { Store, X } from "lucide-react";
 import {
   comparisonLabel,
   DATE_PRESET_LABEL,
@@ -113,29 +113,14 @@ export function PosFilterBar({
         <ScopeToggle scope={filter.scope} onChange={(scope) => update({ scope })} />
 
         {hasSelection ? (
-          <div className="flex flex-1 flex-wrap items-center gap-1.5">
-            {sel.concepts.map((c) => (
-              <Chip
-                key={`c-${c}`}
-                label={labelByConcept.get(c) ?? c}
-                accent
-                onRemove={() => update({ selection: { ...sel, concepts: sel.concepts.filter((x) => x !== c) } })}
-              />
-            ))}
-            {sel.locations.map((id) => (
-              <Chip
-                key={`l-${id}`}
-                label={locLabel(id)}
-                onRemove={() => update({ selection: { ...sel, locations: sel.locations.filter((x) => x !== id) } })}
-              />
-            ))}
-            <button
-              type="button"
-              onClick={() => setSelection({ concepts: [], locations: [] })}
-              className="ml-0.5 rounded-full px-1.5 text-[12px] font-medium text-ink-mid transition-colors hover:text-ink-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2 focus-visible:ring-offset-paper"
-            >
-              Vyčistit
-            </button>
+          <div className="flex flex-1 items-center">
+            <SelectionSummary
+              concepts={sel.concepts.map((c) => ({ id: c, label: labelByConcept.get(c) ?? c, accent: true }))}
+              locations={sel.locations.map((id) => ({ id, label: locLabel(id) }))}
+              onRemoveConcept={(c) => update({ selection: { ...sel, concepts: sel.concepts.filter((x) => x !== c) } })}
+              onRemoveLocation={(id) => update({ selection: { ...sel, locations: sel.locations.filter((x) => x !== id) } })}
+              onClear={() => setSelection({ concepts: [], locations: [] })}
+            />
           </div>
         ) : (
           <div className="flex-1" aria-hidden="true" />
@@ -255,6 +240,59 @@ export function PosFilterBar({
             initialCurrency={filter.currency}
             initialVatInclusive={filter.vatInclusive}
           />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Souhrn výběru prodejen: místo dlouhého výpisu chipů (rozpadal řádek u dlouhých
+// názvů / mnoha položek) jen ikona prodejny s počtem v rohu. Seznam s možností
+// odebrat jednotlivé položky se objeví v bublině po najetí myší / fokusu.
+function SelectionSummary({
+  concepts,
+  locations,
+  onRemoveConcept,
+  onRemoveLocation,
+  onClear,
+}: {
+  concepts: { id: string; label: string; accent?: boolean }[];
+  locations: { id: string; label: string }[];
+  onRemoveConcept: (id: string) => void;
+  onRemoveLocation: (id: string) => void;
+  onClear: () => void;
+}) {
+  const count = concepts.length + locations.length;
+  return (
+    <div className="group relative inline-flex">
+      <span
+        tabIndex={0}
+        role="button"
+        aria-label={`Vybráno prodejen/konceptů: ${count}. Zobrazit seznam.`}
+        className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-edge bg-paper text-ink-deep transition-colors hover:border-ink-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2 focus-visible:ring-offset-paper"
+      >
+        <Store className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+        <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-ink-base px-1 text-[10px] font-semibold leading-none text-paper">
+          {count}
+        </span>
+      </span>
+      {/* Bublina se seznamem: top-full bez mezery, ať myš přejde z ikony do bubliny
+          bez "díry", která by ji zavřela. Otevírá se na hover i focus-within. */}
+      <div className="invisible absolute left-0 top-full z-20 pt-2 opacity-0 transition-opacity group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
+        <div className="flex max-w-[320px] flex-wrap items-center gap-1.5 rounded-xl border border-edge bg-paper p-2.5 shadow-lg">
+          {concepts.map((c) => (
+            <Chip key={`c-${c.id}`} label={c.label} accent={c.accent} onRemove={() => onRemoveConcept(c.id)} />
+          ))}
+          {locations.map((l) => (
+            <Chip key={`l-${l.id}`} label={l.label} onRemove={() => onRemoveLocation(l.id)} />
+          ))}
+          <button
+            type="button"
+            onClick={onClear}
+            className="ml-0.5 rounded-full px-1.5 text-[12px] font-medium text-ink-mid transition-colors hover:text-ink-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2 focus-visible:ring-offset-paper"
+          >
+            Vyčistit
+          </button>
         </div>
       </div>
     </div>
