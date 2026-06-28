@@ -53,12 +53,45 @@ export function ListSkeleton({ rows = 5 }: { rows?: number }) {
   );
 }
 
-// Grid karet skeleton (3 sloupce na desktop).
-export function GridSkeleton({ cards = 6 }: { cards?: number }) {
+// Grid karet skeleton. cols=3 (default) nebo 2 sloupce na desktop.
+export function GridSkeleton({
+  cards = 6,
+  cols = 3,
+}: {
+  cards?: number;
+  cols?: 2 | 3;
+}) {
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+    <div
+      className={`grid grid-cols-1 gap-4 md:grid-cols-2 ${cols === 3 ? "lg:grid-cols-3" : ""}`}
+    >
       {Array.from({ length: cards }).map((_, i) => (
         <SkeletonBlock key={i} className="h-44" />
+      ))}
+    </div>
+  );
+}
+
+// Search řádek - velký input (h-11) + počet vpravo. Nad listy/tabulkami.
+export function SearchBarSkeleton() {
+  return (
+    <div className="flex items-center gap-3">
+      <SkeletonBlock className="h-11 w-full max-w-[420px] rounded-full" />
+      <SkeletonLine className="ml-auto w-16 opacity-60" />
+    </div>
+  );
+}
+
+// Řada filtračních pilulek (chips). Šířky střídám, ať to nepůsobí jako mřížka.
+export function FilterChipsSkeleton({ count = 6 }: { count?: number }) {
+  const widths = ["w-20", "w-28", "w-24", "w-32", "w-20", "w-24", "w-28", "w-16"];
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {Array.from({ length: count }).map((_, i) => (
+        <SkeletonBlock
+          key={i}
+          className={`h-9 ${widths[i % widths.length]} rounded-full`}
+        />
       ))}
     </div>
   );

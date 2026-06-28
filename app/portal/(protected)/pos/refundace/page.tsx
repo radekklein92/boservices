@@ -9,7 +9,7 @@ import type { SummaryRow } from "@/lib/portal/pos/types";
 import { PageHeader } from "@/components/portal/shell/PageHeader";
 import { PosSubNav } from "@/components/portal/pos/PosSubNav";
 import { PosFilterBarLoader } from "@/components/portal/pos/PosFilterBarLoader";
-import { FilterBarSkeleton, LeaderboardSkeleton } from "@/components/portal/pos/skeletons";
+import { FilterBarSkeleton, LeaderboardSkeleton, StatStripSkeleton } from "@/components/portal/pos/skeletons";
 import { ReceiptsTable } from "@/components/portal/pos/ReceiptsTable";
 import { formatPosMoney, formatPosNumber, formatPct } from "@/components/portal/pos/pos-shared";
 
@@ -57,7 +57,14 @@ export default async function PosRefundsPage({
       {!isPosApiConfigured() ? (
         <Notice title="POS data nejsou nakonfigurovaná" body="Nastavte POS_API_BASE a POS_API_KEY v prostředí (Vercel)." />
       ) : (
-        <Suspense fallback={<LeaderboardSkeleton rows={8} />}>
+        <Suspense
+          fallback={
+            <div className="flex flex-col gap-5">
+              <StatStripSkeleton />
+              <LeaderboardSkeleton rows={8} />
+            </div>
+          }
+        >
           <RefundsContent filter={filter} rp={rp} />
         </Suspense>
       )}

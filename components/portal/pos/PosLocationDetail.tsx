@@ -107,14 +107,14 @@ export function PosLocationDetailBody({ filter, cur, useNet }: { filter: PosFilt
 
       <section className="flex flex-col gap-3">
         <H2>Po dnech</H2>
-        <Suspense fallback={<ChartSkeleton height={300} />}>
+        <Suspense fallback={<ChartSkeleton height={300} hideTitle />}>
           <DailyBreakdownSection filter={filter} cur={cur} />
         </Suspense>
       </section>
 
       <section className="flex flex-col gap-3">
         <H2>Hodina x den</H2>
-        <Suspense fallback={<ChartSkeleton height={300} />}>
+        <Suspense fallback={<ChartSkeleton height={300} hideTitle />}>
           <HeatmapSection filter={filter} cur={cur} />
         </Suspense>
       </section>
