@@ -67,13 +67,22 @@ export default async function PairingPage() {
   }
 
   const brandName = new Map(brandsRaw.map((b) => [b.id, b.name]));
+  // Pozn.: protahujeme VŠECHNA pole z DW (ApiShop) až do řádku, aby šlo pokladnu
+  // jednoznačně identifikovat - název "zelená pokladna" sám o sobě nestačí.
   const shops = shopsRaw
     .map((s) => ({
       id: s.id,
       name: s.name,
       brandId: s.brand_id,
       brandName: brandName.get(s.brand_id) ?? s.brand_id,
+      code: s.code,
       city: s.city,
+      country: s.country,
+      currency: s.currency_code,
+      timezone: s.timezone,
+      isActive: s.is_active,
+      openedOn: s.opened_on,
+      closedOn: s.closed_on,
     }))
     .sort((a, b) => a.name.localeCompare(b.name, "cs"));
 
