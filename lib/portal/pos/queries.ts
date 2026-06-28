@@ -526,6 +526,39 @@ function nowPragueHourFrac(): number {
   return h + m / 60;
 }
 
+// Hodinová heatmapa POUZE pro frakci dne f (tvar typického dne). f je jen TVAR
+// (rozložení tržeb přes hodiny) - mění se pomalu, nepotřebuje 15min sync-čerstvost
+// ani FX (počítá se poměr). Proto cachujeme DLOUHO (6 h) a MIMO sync verzi: 30denní
+// heatmapa (cold ~5 s) se tak nečte po každém syncu DW (kde byla hlavní brzda Živě),
+// ale jen á 6 h - a warm cron ji drží teplou. Oddělené od _heatmap (sync-aligned,
+// pro graf/hodinový trend, kde čerstvost nutná je).
+const DAY_SHAPE_TTL = 21600; // 6 h
+const _heatmapShape = posStaticQuery(
+  (from: string, to: string, brand_id?: string, shop_id?: string, shop_ids?: string) =>
+    api.getHeatmap({ date_from: from, date_to: to, brand_id, shop_id, shop_ids }),
+  "heatmap-shape",
+  DAY_SHAPE_TTL,
+);
+
+// Frakce typického dne uplynulá do teď (0..1): podíl gross spadlý do uplynulých
+// hodin z ~30denní hodinové křivky, vážený dle uplynulé části aktuální hodiny. Bez
+// FX (jen tvar/poměr). Den v týdnu nerozlišuje (záměr - robustní nulová linie).
+async function getDayFraction(filter: PosFilter): Promise<number> {
+  const { resolved } = await scopeContext(filter);
+  const sp = scopeApiParams(resolved);
+  if (sp.__empty) return 1;
+  const range = rawWindow({ ...filter, preset: "poslednich-30-dni" });
+  const cells = (await _heatmapShape(range.from, range.to, sp.brand_id, sp.shop_id, sp.shop_ids)).data;
+  const nowFrac = nowPragueHourFrac();
+  let full = 0;
+  let soFar = 0;
+  for (const c of cells) {
+    full += c.gross;
+    soFar += c.gross * Math.min(1, Math.max(0, nowFrac - c.hour));
+  }
+  return full > 0 ? Math.min(1, Math.max(0.0001, soFar / full)) : 1;
+}
+
 export async function getLiveMovers(filter: PosFilter, topN = 5): Promise<LiveMovers> {
   const to = filter.currency;
   const todayRange = resolveDateRange({ ...filter, preset: "dnes" });
@@ -541,24 +574,14 @@ export async function getLiveMovers(filter: PosFilter, topN = 5): Promise<LiveMo
     return Promise.resolve(p).finally(() => console.log(`[PERF] getLiveMovers.${label} ${Date.now() - s}ms`));
   };
   const _tot = Date.now();
-  const [{ resolved, index, shops, locations }, rates, todayRows, baseRows, cells] = await Promise.all([
+  const [{ resolved, index, shops, locations }, rates, todayRows, baseRows, f] = await Promise.all([
     _t("scope", scopeContext(filter)) as ReturnType<typeof scopeContext>,
     _t("fx", getFxRates()) as ReturnType<typeof getFxRates>,
     _t("shopRevToday", _shopRev(todayRange.from, todayRange.to)) as ReturnType<typeof _shopRev>,
     _t("shopRevD7", _shopRev(baseRange.from, baseRange.to)) as ReturnType<typeof _shopRev>,
-    _t("heatmap30d", getHeatmap({ ...filter, preset: "poslednich-30-dni" })) as ReturnType<typeof getHeatmap>,
+    _t("dayFraction", getDayFraction(filter)) as ReturnType<typeof getDayFraction>,
   ]);
   console.log(`[PERF] getLiveMovers.allParallel ${Date.now() - _tot}ms`);
-
-  // f váženě: každá typická hodina × kolik z ní už uplynulo.
-  const nowFrac = nowPragueHourFrac();
-  let curveSoFar = 0;
-  let curveFull = 0;
-  for (const c of cells) {
-    curveFull += c.gross;
-    curveSoFar += c.gross * Math.min(1, Math.max(0, nowFrac - c.hour));
-  }
-  const f = curveFull > 0 ? Math.min(1, Math.max(0.0001, curveSoFar / curveFull)) : 1;
 
   const locName = new Map(locations.map((l) => [l.id, l.name]));
   const shopName = new Map(shops.map((s) => [s.id, s.name]));
