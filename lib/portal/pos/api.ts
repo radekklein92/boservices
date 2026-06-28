@@ -118,7 +118,9 @@ export const listShops = (p: { brand_id?: string } & PageParams = {}) =>
 export const getRevenueSummary = (p: RevenueParams) =>
   apiGet<Listed<SummaryRow>>("/revenue/summary", p);
 
-export const getRevenueDaily = (p: RevenueParams & PageParams) =>
+// bucket=month rolluje denní řadu na měsíční buckety (date_trunc, DW PR #39) -
+// pro roční/dlouhý trend (měsíční bary). Bez bucket = per-day jako dřív.
+export const getRevenueDaily = (p: RevenueParams & PageParams & { bucket?: "month" }) =>
   apiGet<Paged<DailyRevenueRow>>("/revenue/daily", p);
 
 export const getProductSales = (p: RevenueParams & PageParams & { sort?: "gross" | "qty" }) =>

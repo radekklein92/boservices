@@ -46,6 +46,20 @@ function fmtDayLabel(date: string): string {
   const [, m, d] = date.split("-");
   return `${Number(d)}.${Number(m)}.`;
 }
+
+const CZ_MONTHS_SHORT = ["led", "úno", "bře", "dub", "kvě", "čvn", "čvc", "srp", "zář", "říj", "lis", "pro"];
+function fmtMonthLabel(date: string, withYear: boolean): string {
+  const [y, m] = date.split("-");
+  const name = CZ_MONTHS_SHORT[Number(m) - 1] ?? m;
+  return withYear ? `${name} ${y.slice(2)}` : name;
+}
+
+// Popisek bodu/řádku trendu dle granularity (den vs měsíc); rok u měsíců jen při víceletém okně.
+function trendLabeler(grain: "day" | "month", points: { date: string }[]): (date: string) => string {
+  if (grain !== "month") return (date) => fmtDayLabel(date);
+  const multiYear = new Set(points.map((p) => p.date.slice(0, 4))).size > 1;
+  return (date) => fmtMonthLabel(date, multiYear);
+}
 function pickRow(rows: SummaryRow[] | null, currency: string): SummaryRow | null {
   return rows?.find((r) => r.currency === currency) ?? null;
 }
@@ -204,13 +218,14 @@ async function DailyBreakdownSection({ filter, cur }: { filter: PosFilter; cur: 
     );
   }
   const cmp = trend.comparison;
+  const labelOf = trendLabeler(trend.grain, trend.current);
   const rows = trend.current.map((d, i) => ({ d, prev: cmp ? cmp[i] : undefined })).reverse();
   return (
     <div className="overflow-x-auto rounded-2xl border border-edge bg-paper">
       <table className="w-full min-w-[560px] border-collapse text-[13px]">
         <thead>
           <tr className="border-b border-edge text-left text-[11px] uppercase tracking-[0.1em] text-ink-mid">
-            <th className="px-4 py-2.5 font-medium">Den</th>
+            <th className="px-4 py-2.5 font-medium">{trend.grain === "month" ? "Měsíc" : "Den"}</th>
             <th className="px-4 py-2.5 text-right font-medium">Účtenky</th>
             <th className="px-4 py-2.5 text-right font-medium">Tržby bez DPH</th>
             <th className="px-4 py-2.5 text-right font-medium">Tržby s DPH</th>
@@ -220,7 +235,7 @@ async function DailyBreakdownSection({ filter, cur }: { filter: PosFilter; cur: 
         <tbody>
           {rows.map(({ d, prev }) => (
             <tr key={d.date} className="border-b border-edge/60 last:border-0">
-              <td className="px-4 py-2.5 tabular-nums text-ink-base">{fmtDayLabel(d.date)}</td>
+              <td className="px-4 py-2.5 tabular-nums text-ink-base">{labelOf(d.date)}</td>
               <td className="px-4 py-2.5 text-right tabular-nums text-ink-mid">{formatPosNumber(d.receipts)}</td>
               <td className="px-4 py-2.5 text-right tabular-nums text-ink-deep">{formatPosMoney(d.net, cur)}</td>
               <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-ink-base">{formatPosMoney(d.gross, cur)}</td>
@@ -406,7 +421,8 @@ function Trend({
     );
   }
   const pick = (d: DayPoint) => (useNet ? d.net : d.gross);
-  const current = trend.current.map((d) => ({ label: fmtDayLabel(d.date), value: pick(d) }));
+  const labelOf = trendLabeler(trend.grain, trend.current);
+  const current = trend.current.map((d) => ({ label: labelOf(d.date), value: pick(d) }));
   const comparison = trend.comparison ? trend.comparison.map(pick) : null;
   return (
     <PosLineChart

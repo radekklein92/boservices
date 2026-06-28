@@ -326,21 +326,22 @@ async function collectDaily(p: {
   date_to: string;
   brand_id?: string;
   shop_ids?: string;
+  bucket?: "month";
 }): Promise<DailyRevenueRow[]> {
   return collectPaged((page) => api.getRevenueDaily({ ...p, page, limit: PAGE_SIZE }));
 }
 
 const _dailyTrend = posQuery(
-  (from: string, to: string, brand_id?: string) =>
-    collectDaily({ date_from: from, date_to: to, brand_id }),
+  (from: string, to: string, brand_id?: string, bucket?: "month") =>
+    collectDaily({ date_from: from, date_to: to, brand_id, bucket }),
   "daily-trend",
 );
 
 // Částečný výběr: JEDEN dotaz se shop_ids (DW agreguje denní řadu přes množinu
 // pokladen). Škáluje i na celé koncepty - žádný fanout po pokladnách ani degradace.
 const _dailyTrendShops = posQuery(
-  (from: string, to: string, shop_ids: string) =>
-    collectDaily({ date_from: from, date_to: to, shop_ids }),
+  (from: string, to: string, shop_ids: string, bucket?: "month") =>
+    collectDaily({ date_from: from, date_to: to, shop_ids, bucket }),
   "daily-trend-shops",
 );
 
@@ -354,6 +355,16 @@ function foldDaily(rows: DailyRevenueRow[]): DayPoint[] {
     byDate.set(r.date, d);
   }
   return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+}
+
+// Granularita trendu dle délky okna: krátká/střední po dnech, dlouhá (> ~3 měsíce,
+// typicky "Tento rok") po měsících. Denní čára přes celý rok je nečitelná a graf
+// stejně bary kreslí jen do 31 bodů; DW přitom denní řadu rolluje přes bucket=month
+// (~12 řádků), takže odpadá i strop stránkování u celoroční denní fetch.
+const MONTHLY_TREND_MIN_DAYS = 92;
+type TrendGrain = "day" | "month";
+function trendGrain(range: DateRange): TrendGrain {
+  return inclusiveDays(range) > MONTHLY_TREND_MIN_DAYS ? "month" : "day";
 }
 
 type DailyPlan =
@@ -378,33 +389,36 @@ function dailyPlan(resolved: ResolvedSelection, shops: ApiShop[]): DailyPlan {
   return { mode: "shopIds", shopIds: [...shopIds] };
 }
 
-async function dailyRows(plan: DailyPlan, range: DateRange): Promise<DailyRevenueRow[]> {
-  if (plan.mode === "all") return _dailyTrend(range.from, range.to);
+async function dailyRows(plan: DailyPlan, range: DateRange, grain: TrendGrain): Promise<DailyRevenueRow[]> {
+  const bucket = grain === "month" ? "month" : undefined;
+  if (plan.mode === "all") return _dailyTrend(range.from, range.to, undefined, bucket);
   if (plan.mode === "brands") {
-    const per = await Promise.all(plan.brands.map((b) => _dailyTrend(range.from, range.to, b)));
+    const per = await Promise.all(plan.brands.map((b) => _dailyTrend(range.from, range.to, b, bucket)));
     return per.flat();
   }
   // shopIds - jeden dotaz, DW agreguje přes množinu pokladen (i celé koncepty)
   if (plan.shopIds.length === 0) return [];
-  return _dailyTrendShops(range.from, range.to, plan.shopIds.join(","));
+  return _dailyTrendShops(range.from, range.to, plan.shopIds.join(","), bucket);
 }
 
 export async function getDailyTrend(
   filter: PosFilter,
-): Promise<{ current: DayPoint[]; comparison: DayPoint[] | null }> {
+): Promise<{ current: DayPoint[]; comparison: DayPoint[] | null; grain: TrendGrain }> {
   const { resolved, shops } = await scopeContext(filter);
   const to = filter.currency;
   const rates = await getFxRates();
   const plan = dailyPlan(resolved, shops);
   const range = aggWindow(filter);
+  const grain = trendGrain(range);
   const cmp = resolveComparisonRange(filter, range);
   const [curRows, prevRows] = await Promise.all([
-    dailyRows(plan, range),
-    cmp ? dailyRows(plan, cmp) : Promise.resolve<DailyRevenueRow[]>([]),
+    dailyRows(plan, range, grain),
+    cmp ? dailyRows(plan, cmp, grain) : Promise.resolve<DailyRevenueRow[]>([]),
   ]);
   return {
     current: foldDaily(convertRows(curRows, to, rates, DAILY_MONEY)),
     comparison: cmp ? foldDaily(convertRows(prevRows, to, rates, DAILY_MONEY)) : null,
+    grain,
   };
 }
 

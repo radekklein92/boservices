@@ -46,6 +46,22 @@ function fmtDayLabel(date: string): string {
   return `${Number(d)}.${Number(m)}.`;
 }
 
+const CZ_MONTHS_SHORT = ["led", "úno", "bře", "dub", "kvě", "čvn", "čvc", "srp", "zář", "říj", "lis", "pro"];
+// Popisek měsíčního bodu (date = první den měsíce). Rok přidá jen když řada
+// zasahuje do víc let (jinak by se u "Tento rok" zbytečně opakoval).
+function fmtMonthLabel(date: string, withYear: boolean): string {
+  const [y, m] = date.split("-");
+  const name = CZ_MONTHS_SHORT[Number(m) - 1] ?? m;
+  return withYear ? `${name} ${y.slice(2)}` : name;
+}
+
+// Sestaví popisky bodů trendu podle granularity (den vs měsíc).
+function trendLabeler(grain: "day" | "month", points: { date: string }[]): (d: { date: string }) => string {
+  if (grain !== "month") return (d) => fmtDayLabel(d.date);
+  const multiYear = new Set(points.map((p) => p.date.slice(0, 4))).size > 1;
+  return (d) => fmtMonthLabel(d.date, multiYear);
+}
+
 function searchParamsToUsp(sp: Record<string, string | string[] | undefined>): URLSearchParams {
   const usp = new URLSearchParams();
   for (const [k, v] of Object.entries(sp)) {
@@ -318,7 +334,8 @@ async function TrendSection({ filter, useNet }: { filter: PosFilter; useNet: boo
     );
   }
   const pick = (d: DayPoint) => (useNet ? d.net : d.gross);
-  const current = trend.current.map((d) => ({ label: fmtDayLabel(d.date), value: pick(d) }));
+  const label = trendLabeler(trend.grain, trend.current);
+  const current = trend.current.map((d) => ({ label: label(d), value: pick(d) }));
   const comparison = trend.comparison ? trend.comparison.map(pick) : null;
   return (
     <PosLineChart

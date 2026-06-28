@@ -52,8 +52,8 @@ export interface SummaryRow {
 // /v1/revenue/daily vrací union diskriminovaný `grain`. shop_id je jen u grain "shop"
 // (tj. když se posílá shop_id v dotazu). Bez shop_id je grain "brand".
 export interface DailyRevenueRow {
-  grain: "brand" | "shop";
-  date: string; // YYYY-MM-DD, shop-local
+  grain: "brand" | "shop" | "month"; // "month" = bucket=month (date = první den měsíce)
+  date: string; // YYYY-MM-DD, shop-local (u month = první den měsíce)
   brand_id: string;
   shop_id?: string;
   currency: string;
