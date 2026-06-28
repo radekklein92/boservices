@@ -192,20 +192,14 @@ export function PosFilterBar({
             title="Přepnout zobrazení s DPH / bez DPH"
           />
         </div>
-        <PosViewsMenu views={views} me={me} currentFilter={currentFilter} />
-        <PosMobileLinkButton
-          concepts={concepts}
-          currencies={currencies}
-          initialSelection={sel}
-          initialScope={filter.scope}
-          initialCurrency={filter.currency}
-          initialVatInclusive={filter.vatInclusive}
-        />
       </div>
 
-      {/* Řádek 2: období (datumové presety) + srovnání (label "vs ..."). Celé skryto na Živě. */}
-      {!hidePeriod && (
-        <div className="flex flex-wrap items-center gap-1.5">
+      {/* Řádek 2: období (datumové presety) + srovnání (label "vs ...") vlevo, ikonová
+          tlačítka (Pohledy, Na mobil) zarovnaná doprava. Řádek se vykresluje vždy - i na
+          Živě (hidePeriod), kde presety odpadnou, ať ikony nezůstanou viset v řádku 1. */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        {!hidePeriod && (
+          <>
             {PRESETS.map((p) => (
               <FilterChip
                 key={p}
@@ -249,8 +243,20 @@ export function PosFilterBar({
             <span className="hidden text-[11px] text-ink-soft sm:inline">
               vs {comparisonLabel(filter).toLowerCase()}
             </span>
+          </>
+        )}
+        <div className="ml-auto flex items-center gap-1.5">
+          <PosViewsMenu views={views} me={me} currentFilter={currentFilter} />
+          <PosMobileLinkButton
+            concepts={concepts}
+            currencies={currencies}
+            initialSelection={sel}
+            initialScope={filter.scope}
+            initialCurrency={filter.currency}
+            initialVatInclusive={filter.vatInclusive}
+          />
         </div>
-      )}
+      </div>
     </div>
   );
 }
