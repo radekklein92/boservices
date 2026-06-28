@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { listContracts } from "@/lib/portal/contracts-db";
+import { listContracts, type Contract } from "@/lib/portal/contracts-db";
 import { shouldExtractFeeTerms } from "@/lib/portal/contract-fee-terms";
 import { ensureContractFeeTerms } from "@/lib/portal/contract-fee-ai";
 
@@ -19,6 +19,19 @@ export const dynamic = "force-dynamic";
 const TIME_BUDGET_MS = 50_000;
 const MAX_BATCH = 10;
 
+// Smlouva, které cron (re)generuje poplatky. Kromě backfillu (bez feeTerms) i
+// migrace AI záznamů ve starém formátu (bez termEndsAt) a franšíz bez konce.
+// Ručně upravené (source != "ai") nikdy nepřepisuje; korektní coop/op s termEndsAt:""
+// (klíč existuje) nechá být - jinak by se zacyklil.
+function needsFeeTerms(c: Contract): boolean {
+  if (!shouldExtractFeeTerms(c)) return false;
+  if (!c.feeTerms) return true;
+  if (c.feeTerms.source !== "ai") return false;
+  if (!("termEndsAt" in c.feeTerms)) return true;
+  if (c.type === "franchise" && !c.feeTerms.termEndsAt) return true;
+  return false;
+}
+
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
   if (secret) {
@@ -30,7 +43,7 @@ export async function GET(req: Request) {
 
   const startedAt = Date.now();
   const all = await listContracts();
-  const pending = all.filter((c) => shouldExtractFeeTerms(c) && !c.feeTerms);
+  const pending = all.filter(needsFeeTerms);
 
   let processed = 0;
   let failed = 0;

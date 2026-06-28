@@ -131,26 +131,45 @@ export function resolveRelativePeriods(
 ): ContractFeeTerms {
   const base = (terms.effectiveFrom || effectiveISO || "").slice(0, 10);
   const end = (terms.termEndsAt || "").slice(0, 10);
-  return {
-    ...terms,
-    periods: terms.periods.map((p) => {
-      const from =
-        p.from ||
-        (base
-          ? p.relativeFromMonth > 0
-            ? addMonthsISO(base, p.relativeFromMonth)
-            : base
-          : "");
-      let to =
-        p.to ||
-        (base && p.relativeToMonth > 0 ? addMonthsISO(base, p.relativeToMonth) : "");
-      // Perioda bez vlastního konce -> konec smlouvy (u franšízy termEndsAt).
-      // Spolupráce/provozování mají termEndsAt="" -> konec zůstane prázdný a
-      // doplní se až při zobrazení z franšízy lokality (displayPeriodEnd).
-      if (!to && end) to = end;
-      return { ...p, from, to };
-    }),
-  };
+  const resolved = terms.periods.map((p) => {
+    const from =
+      p.from ||
+      (base
+        ? p.relativeFromMonth > 0
+          ? addMonthsISO(base, p.relativeFromMonth)
+          : base
+        : "");
+    let to =
+      p.to ||
+      (base && p.relativeToMonth > 0 ? addMonthsISO(base, p.relativeToMonth) : "");
+    // Perioda bez vlastního konce -> konec smlouvy (u franšízy termEndsAt).
+    // Spolupráce/provozování mají termEndsAt="" -> konec zůstane prázdný a
+    // doplní se až při zobrazení z franšízy lokality (displayPeriodEnd).
+    if (!to && end) to = end;
+    return { ...p, from, to };
+  });
+  // Navazující sazba začíná DEN PO konci předchozí (ne ve stejný den) - bez překryvu.
+  // Periody jdou chronologicky (zaváděcí -> standardní).
+  for (let i = 1; i < resolved.length; i++) {
+    const prev = resolved[i - 1]!;
+    const cur = resolved[i]!;
+    if (cur.from && prev.to && cur.from.slice(0, 10) <= prev.to.slice(0, 10)) {
+      cur.from = addDaysISO(prev.to, 1);
+    }
+  }
+  return { ...terms, periods: resolved };
+}
+
+// Přičte n dní k ISO datu (YYYY-MM-DD).
+function addDaysISO(iso: string, n: number): string {
+  const base = iso.slice(0, 10);
+  const [y, m, d] = base.split("-").map((s) => parseInt(s, 10));
+  if (!y || !m || !d) return base;
+  const t = new Date(Date.UTC(y, m - 1, d + n));
+  const yy = t.getUTCFullYear();
+  const mm = String(t.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(t.getUTCDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
 }
 
 // Konec smlouvy dopočtený z doby trvání (termMonths) vůči kotvě (účinnost / podpis).
