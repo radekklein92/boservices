@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { canSeePOS } from "@/lib/portal/auth-guard";
 import { getSession } from "@/lib/portal/get-session";
 import { parsePosFilter, serializePosFilter, type PosFilter } from "@/lib/portal/pos/filters";
-import { getHeatmap, getToday } from "@/lib/portal/pos/queries";
+import { getHeatmap, getToday, resolveDisplayCurrency } from "@/lib/portal/pos/queries";
 import { isPosApiConfigured } from "@/lib/portal/pos/api";
 import { PageHeader } from "@/components/portal/shell/PageHeader";
 import { PosSubNav } from "@/components/portal/pos/PosSubNav";
@@ -46,7 +46,7 @@ export default async function PosLivePage({
       <PosSubNav />
 
       <Suspense fallback={<FilterBarSkeleton />}>
-        <PosFilterBarLoader />
+        <PosFilterBarLoader filter={filter} />
       </Suspense>
       {!isPosApiConfigured() ? (
         <Notice title="POS data nejsou nakonfigurovaná" body="Nastavte POS_API_BASE a POS_API_KEY (Vercel)." />
@@ -60,13 +60,13 @@ export default async function PosLivePage({
 }
 
 async function LiveContent({ filter }: { filter: PosFilter }) {
-  const cur = filter.currency;
   const useNet = !filter.vatInclusive;
   const todayFilter: PosFilter = { ...filter, preset: "dnes" };
   let today: Awaited<ReturnType<typeof getToday>>;
   let heat: Awaited<ReturnType<typeof getHeatmap>>;
+  let cur: string;
   try {
-    [today, heat] = await Promise.all([getToday(filter), getHeatmap(todayFilter)]);
+    [today, heat, cur] = await Promise.all([getToday(filter), getHeatmap(todayFilter), resolveDisplayCurrency(filter)]);
   } catch {
     return <Notice title="Data dočasně nedostupná" body="Nepodařilo se načíst dnešní data z API Data Warehouse." />;
   }

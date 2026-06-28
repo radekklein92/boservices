@@ -1,7 +1,8 @@
 // Typy odpovědí veřejného API DW (api.boservices.cz/v1). Zrcadlí OpenAPI kontrakt
 // (api_v1 views) - portál se váže na TENTO kontrakt, ne na fyzické schéma DW.
 // Peníze jsou v nativních jednotkách měny, gross = vč. DPH, net = gross - vat.
-// FX se NIKDY nepřepočítává; každý řádek nese vlastní currency.
+// Každý řádek nese vlastní currency; do zobrazovací měny je přepočítá až portál
+// (lib/portal/pos/fx.ts, ČNB kurz) v datové vrstvě před agregací.
 
 import type { LocationConcept } from "@/lib/portal/locations-db";
 

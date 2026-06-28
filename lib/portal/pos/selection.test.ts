@@ -1,6 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { conceptOfShop, resolveSelection } from "./selection";
+import {
+  conceptOfShop,
+  effectiveCurrency,
+  resolveSelection,
+  selectionCurrencies,
+  type ResolvedSelection,
+} from "./selection";
 import type { PairingIndex } from "./pairing-db";
 import type { ApiShop } from "./types";
 import type { PosSelection } from "./filters";
@@ -8,6 +14,14 @@ import type { PosSelection } from "./filters";
 // Minimální ApiShop pro test (jen pole, která resolver čte: id, brand_id).
 function shop(id: string, brand_id: string): ApiShop {
   return { id, brand_id, name: id } as unknown as ApiShop;
+}
+
+// ApiShop s měnou (pro currency helpery).
+function cshop(id: string, currency_code: string): ApiShop {
+  return { id, brand_id: "b", name: id, currency_code } as unknown as ApiShop;
+}
+function resolvedOf(ids: string[]): ResolvedSelection {
+  return { shopIds: new Set(ids), isAll: false, coversWholeBrands: [], brandsPresent: [] };
 }
 
 // Síť: bA (KoP) = s1,s2 napárované; bB (OXO) = s3 napárovaná + s4 nenapárovaná;
@@ -117,4 +131,45 @@ test("resolveSelection - koncept ∪ lokalita (sjednocení, bez duplicit)", () =
 test("resolveSelection - neznámý token nic nepřidá", () => {
   const r = resolveSelection(sel({ locations: ["L-neexistuje", "shop:nope"] }), INDEX, SHOPS);
   assert.equal(r.shopIds.size, 0);
+});
+
+// --- Měny ve výběru ---
+
+const CSHOPS: ApiShop[] = [
+  cshop("c1", "CZK"),
+  cshop("c2", "CZK"),
+  cshop("p1", "PLN"),
+  cshop("e1", "EUR"),
+];
+
+test("effectiveCurrency - polská prodejna + default CZK -> PLN (bug fix)", () => {
+  // Jádro reportovaného bugu: vybraná jen PLN pokladna, filtr drží default CZK.
+  assert.equal(effectiveCurrency("CZK", resolvedOf(["p1"]), CSHOPS), "PLN");
+});
+
+test("effectiveCurrency - zvolená měna má data -> beze změny", () => {
+  assert.equal(effectiveCurrency("CZK", resolvedOf(["c1", "p1"]), CSHOPS), "CZK");
+  assert.equal(effectiveCurrency("PLN", resolvedOf(["c1", "p1"]), CSHOPS), "PLN");
+});
+
+test("effectiveCurrency - zvolená měna bez dat -> dominantní (nejvíc pokladen)", () => {
+  // EUR ve výběru není; CZK má 2 pokladny, PLN 1 -> dominantní CZK.
+  assert.equal(effectiveCurrency("EUR", resolvedOf(["c1", "c2", "p1"]), CSHOPS), "CZK");
+});
+
+test("effectiveCurrency - shoda počtů -> priorita CZK>EUR>PLN", () => {
+  // CZK 1, PLN 1 (shoda), zvolené EUR (bez dat) -> priorita CZK.
+  assert.equal(effectiveCurrency("EUR", resolvedOf(["c1", "p1"]), CSHOPS), "CZK");
+  // EUR 1, PLN 1 (shoda) -> priorita EUR.
+  assert.equal(effectiveCurrency("CZK", resolvedOf(["e1", "p1"]), CSHOPS), "EUR");
+});
+
+test("effectiveCurrency - prázdný výběr -> preferovaná beze změny", () => {
+  assert.equal(effectiveCurrency("CZK", resolvedOf([]), CSHOPS), "CZK");
+});
+
+test("selectionCurrencies - zastoupené měny v pořadí CZK, EUR, PLN", () => {
+  assert.deepEqual(selectionCurrencies(resolvedOf(["p1", "e1", "c1"]), CSHOPS), ["CZK", "EUR", "PLN"]);
+  assert.deepEqual(selectionCurrencies(resolvedOf(["p1"]), CSHOPS), ["PLN"]);
+  assert.deepEqual(selectionCurrencies(resolvedOf([]), CSHOPS), []);
 });

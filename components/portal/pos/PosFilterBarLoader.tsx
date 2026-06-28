@@ -5,6 +5,8 @@ import { buildPairingIndex } from "@/lib/portal/pos/pairing-db";
 import { cachedListLocations } from "@/lib/portal/cached-db";
 import { getViewsForUser } from "@/lib/portal/pos/views-db";
 import { isPosApiConfigured } from "@/lib/portal/pos/api";
+import { POS_CURRENCIES } from "@/lib/portal/pos/selection";
+import type { PosFilter } from "@/lib/portal/pos/filters";
 import { CONCEPT_LABEL } from "@/components/portal/locations/locations-shared";
 import type { LocationConcept } from "@/lib/portal/locations-db";
 import { PosFilterBar } from "./PosFilterBar";
@@ -18,7 +20,9 @@ const CONCEPT_ORDER: LocationConcept[] = [
 // Async server komponenta: postaví strom Koncept -> Prodejna z párování + lokalit,
 // nenapárované pokladny, uložené pohledy a info o uživateli. Žije pod <Suspense>,
 // takže shell paintne hned a filtr dostreamuje. Číselníky jsou cachované.
-export async function PosFilterBarLoader() {
+// Měny: z currency_code pokladen ve výběru spočítá dostupné měny + efektivní
+// (zvýrazněnou), aby přepínač nenabízel měny, ve kterých výběr nemá data.
+export async function PosFilterBarLoader({ filter }: { filter: PosFilter }) {
   const session = await getSession();
   const email = session?.user?.email ?? "";
   const me = { email, isAdmin: isAdminRole(session?.user?.role) };
@@ -26,6 +30,9 @@ export async function PosFilterBarLoader() {
   let concepts: ConceptGroup[] = [];
   let cities: CityOption[] = [];
   let unpaired: StoreOption[] = [];
+  // Zobrazovací měny v dropdownu jsou vždy plná trojice - vše se do zvolené
+  // přepočítá přes FX (fx.ts), takže nabídku neořezáváme dle měn ve výběru.
+  const currencies: string[] = [...POS_CURRENCIES];
   let views = { own: [] as ViewLite[], shared: [] as ViewLite[], defaultId: null as string | null };
 
   if (isPosApiConfigured()) {
@@ -89,7 +96,7 @@ export async function PosFilterBarLoader() {
       concepts={concepts}
       cities={cities}
       unpaired={unpaired}
-      currencies={["CZK", "EUR", "PLN"]}
+      currencies={currencies}
       views={views}
       me={me}
     />

@@ -2,8 +2,8 @@
 // procentní změny, denní doby). Žádný server-only import.
 import type { Daypart } from "@/lib/portal/pos/types";
 
-// Multi-měnové formátování (CZK/EUR/PLN/AED...). FX se nepřepočítává - každá
-// hodnota se zobrazí ve své měně.
+// Multi-měnové formátování (CZK/EUR/PLN...). Vstupní hodnota je už přepočtená do
+// `currency` v datové vrstvě (lib/portal/pos/fx.ts); tady jen formátujeme.
 export function formatPosMoney(
   value: number,
   currency: string,

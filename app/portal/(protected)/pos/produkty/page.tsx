@@ -32,7 +32,7 @@ export default async function PosProductsPage({
       <PosSubNav />
 
       <Suspense fallback={<FilterBarSkeleton />}>
-        <PosFilterBarLoader />
+        <PosFilterBarLoader filter={filter} />
       </Suspense>
       {!isPosApiConfigured() ? (
         <Notice title="POS data nejsou nakonfigurovaná" body="Nastavte POS_API_BASE a POS_API_KEY v prostředí (Vercel)." />
@@ -46,7 +46,6 @@ export default async function PosProductsPage({
 }
 
 async function ProductsTable({ filter }: { filter: PosFilter }) {
-  const cur = filter.currency;
   const useNet = !filter.vatInclusive;
 
   let rows: Awaited<ReturnType<typeof getTopProducts>>;
@@ -60,6 +59,8 @@ async function ProductsTable({ filter }: { filter: PosFilter }) {
     return <Notice title="Pro zvolené období nejsou produkty" body="Zkuste jiné období, značku nebo měnu ve filtru nahoře." />;
   }
 
+  // Měna z dat (efektivní měna výběru, viz queries.ts), ne čistě z filtru.
+  const cur = rows[0]?.currency ?? filter.currency;
   const maxGross = Math.max(...rows.map((r) => r.gross), 1);
 
   return (

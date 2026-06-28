@@ -195,9 +195,14 @@ export function PosFilterBar({ concepts, cities, unpaired, currencies, views, me
         </button>
 
         <div className="ml-auto flex flex-wrap items-center gap-1.5">
-          {currencies.map((c) => (
-            <FilterChip key={c} active={filter.currency === c} onClick={() => update({ currency: c })} label={c} />
-          ))}
+          {/* Zobrazovací měna - vše se do ní přepočítá přes FX (ČNB kurz). Dropdown
+              místo chipů, ať šetří místo v liště. */}
+          <Select
+            label="Měna"
+            value={filter.currency}
+            onChange={(v) => update({ currency: v })}
+            options={currencies.map((c) => ({ value: c, label: c }))}
+          />
           <span className="mx-1 hidden h-5 w-px bg-edge sm:block" aria-hidden="true" />
           <Toggle
             checked={filter.vatInclusive}

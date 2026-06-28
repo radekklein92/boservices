@@ -12,7 +12,14 @@ import {
   serializePosFilter,
   type PosFilter,
 } from "@/lib/portal/pos/filters";
-import { getDailyTrend, getHourlyTrend, getKpiSummary, getLocationLeaderboardFull, getPeriodTotals } from "@/lib/portal/pos/queries";
+import {
+  getDailyTrend,
+  getHourlyTrend,
+  getKpiSummary,
+  getLocationLeaderboardFull,
+  getPeriodTotals,
+  resolveDisplayCurrency,
+} from "@/lib/portal/pos/queries";
 import { getDefaultView } from "@/lib/portal/pos/views-db";
 import { isPosApiConfigured } from "@/lib/portal/pos/api";
 import type { DayPoint, HourPoint, LocationRevenueRowWithPrev, SummaryRow } from "@/lib/portal/pos/types";
@@ -69,7 +76,6 @@ export default async function PosOverviewPage({
   }
 
   const filter = parsePosFilter(searchParamsToUsp(spObj));
-  const cur = filter.currency;
   const useNet = !filter.vatInclusive;
   const qs = serializePosFilter(filter).toString();
 
@@ -86,11 +92,11 @@ export default async function PosOverviewPage({
         }
       />
 
-      <PosSubNav />
-
       <Suspense fallback={<FilterBarSkeleton />}>
-        <PosFilterBarLoader />
+        <PosFilterBarLoader filter={filter} />
       </Suspense>
+
+      <PosSubNav />
 
       {!isPosApiConfigured() ? (
         <Notice
@@ -100,7 +106,7 @@ export default async function PosOverviewPage({
       ) : (
         <div className="flex flex-col gap-6">
           <Suspense fallback={<KpiStripSkeleton cards={4} />}>
-            <KpiSection filter={filter} cur={cur} useNet={useNet} />
+            <KpiSection filter={filter} useNet={useNet} />
           </Suspense>
 
           <div className="grid gap-5 lg:grid-cols-3">
@@ -113,7 +119,7 @@ export default async function PosOverviewPage({
               </Suspense>
             </section>
             <Suspense fallback={<PanelSkeleton />}>
-              <PeriodSection filter={filter} cur={cur} useNet={useNet} />
+              <PeriodSection filter={filter} useNet={useNet} />
             </Suspense>
           </div>
 
@@ -128,14 +134,15 @@ export default async function PosOverviewPage({
 
 // --- 4 KPI: Tržby (net|gross dle DPH), Účtenky, Průměrný ticket, Refundace ---
 
-async function KpiSection({ filter, cur, useNet }: { filter: PosFilter; cur: string; useNet: boolean }) {
+async function KpiSection({ filter, useNet }: { filter: PosFilter; useNet: boolean }) {
   // Denní zobrazení: férové srovnání "do teď" z hodinových dat (ne celý den vs část dne).
-  if (filter.preset === "dnes") return <KpiSectionDaily filter={filter} cur={cur} />;
+  if (filter.preset === "dnes") return <KpiSectionDaily filter={filter} useNet={useNet} />;
 
   let kpi: Awaited<ReturnType<typeof getKpiSummary>>;
   let trend: Awaited<ReturnType<typeof getDailyTrend>>;
+  let cur: string;
   try {
-    [kpi, trend] = await Promise.all([getKpiSummary(filter), getDailyTrend(filter)]);
+    [kpi, trend, cur] = await Promise.all([getKpiSummary(filter), getDailyTrend(filter), resolveDisplayCurrency(filter)]);
   } catch {
     return <WidgetError />;
   }
@@ -201,38 +208,76 @@ async function KpiSection({ filter, cur, useNet }: { filter: PosFilter; cur: str
   );
 }
 
-// Denní KPI ("Dnes"): rychle ze summary (MV), bez delty - srovnání celého dne vs
-// část dne by bylo zavádějící (falešná červená); férové hodinové srovnání se vrátí
-// po optimalizaci DW (hodinová data přes celou síť jsou zatím pomalá).
-async function KpiSectionDaily({ filter, cur }: { filter: PosFilter; cur: string }) {
-  const useNet = !filter.vatInclusive;
+// Denní KPI: vše z hodinových dat, srovnání jen do aktuální hodiny (férová frakce).
+async function KpiSectionDaily({ filter, useNet }: { filter: PosFilter; useNet: boolean }) {
+  let hourly: Awaited<ReturnType<typeof getHourlyTrend>>;
   let kpi: Awaited<ReturnType<typeof getKpiSummary>>;
+  let cur: string;
   try {
-    kpi = await getKpiSummary(filter);
+    [hourly, kpi, cur] = await Promise.all([getHourlyTrend(filter), getKpiSummary(filter), resolveDisplayCurrency(filter)]);
   } catch {
     return <WidgetError />;
   }
-  const c = pickRow(kpi.current, cur);
-  if (!c) {
+  if (hourly.current.length === 0) {
     return (
-      <Notice title={`Pro ${cur} dnes zatím nejsou data`} body="Zkuste jiný výběr prodejen nebo měnu ve filtru nahoře." />
+      <Notice
+        title={`Pro ${cur} dnes zatím nejsou data`}
+        body="Zkuste jiný výběr prodejen nebo měnu ve filtru nahoře."
+      />
     );
   }
-  const revenue = useNet ? c.net : c.gross;
+  const sum = (pts: HourPoint[], pred: (h: HourPoint) => boolean = () => true) =>
+    pts.reduce(
+      (a, h) => (pred(h) ? { gross: a.gross + h.gross, net: a.net + h.net, receipts: a.receipts + h.receipts } : a),
+      { gross: 0, net: 0, receipts: 0 },
+    );
+  const curT = sum(hourly.current);
+  const cmpT = hourly.comparison ? sum(hourly.comparison, (h) => h.hour <= hourly.nowHour) : null;
+  const revenue = useNet ? curT.net : curT.gross;
+  const prevRevenue = cmpT ? (useNet ? cmpT.net : cmpT.gross) : null;
+  const curAtv = curT.receipts > 0 ? curT.gross / curT.receipts : null;
+  const cmpAtv = cmpT && cmpT.receipts > 0 ? cmpT.gross / cmpT.receipts : null;
+  const refund = pickRow(kpi.current, cur)?.refund_rate ?? null;
+  const spark = hourly.current.map((h) => (useNet ? h.net : h.gross));
+  const sparkRec = hourly.current.map((h) => h.receipts);
+  const sparkAtv = hourly.current.map((h) => (h.receipts > 0 ? h.gross / h.receipts : 0));
+
   return (
     <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
       <PosKpiCard
-        label={`Tržby dnes (${useNet ? "bez DPH" : "s DPH"})`}
+        label={`Tržby (${useNet ? "bez DPH" : "s DPH"})`}
         value={formatPosMoneyCompact(revenue, cur)}
         valueTitle={formatPosMoney(revenue, cur)}
+        current={revenue}
+        previous={prevRevenue}
+        absolute={prevRevenue != null ? signedMoneyCompact(revenue - prevRevenue, cur) : undefined}
+        spark={spark}
         emphasis
       />
-      <PosKpiCard label="Účtenky" value={formatPosNumber(c.receipts)} />
+      <PosKpiCard
+        label="Účtenky"
+        value={formatPosNumber(curT.receipts)}
+        current={curT.receipts}
+        previous={cmpT?.receipts ?? null}
+        absolute={cmpT ? signedNumber(curT.receipts - cmpT.receipts) : undefined}
+        spark={sparkRec}
+      />
       <PosKpiCard
         label="Průměrný ticket"
-        value={c.avg_ticket != null ? formatPosMoney(c.avg_ticket, cur) : "—"}
+        value={curAtv != null ? formatPosMoney(curAtv, cur) : "—"}
+        current={curAtv ?? undefined}
+        previous={cmpAtv}
+        absolute={curAtv != null && cmpAtv != null ? signedMoneyCompact(curAtv - cmpAtv, cur) : undefined}
+        spark={sparkAtv}
       />
-      <PosKpiCard label="Refundace" value={c.refund_rate != null ? formatPct(c.refund_rate) : "—"} />
+      <PosKpiCard
+        label="Refundace"
+        value={refund != null ? formatPct(refund) : "—"}
+        current={refund ?? undefined}
+        previous={null}
+        goodDir="down"
+        deltaMode="pp"
+      />
     </div>
   );
 }
@@ -241,8 +286,9 @@ async function TrendSection({ filter, useNet }: { filter: PosFilter; useNet: boo
   if (filter.preset === "dnes") return <TrendSectionDaily filter={filter} useNet={useNet} />;
 
   let trend: Awaited<ReturnType<typeof getDailyTrend>>;
+  let cur: string;
   try {
-    trend = await getDailyTrend(filter);
+    [trend, cur] = await Promise.all([getDailyTrend(filter), resolveDisplayCurrency(filter)]);
   } catch {
     return <WidgetError />;
   }
@@ -267,7 +313,7 @@ async function TrendSection({ filter, useNet }: { filter: PosFilter; useNet: boo
     <PosLineChart
       current={current}
       comparison={comparison}
-      currency={filter.currency}
+      currency={cur}
       comparisonLabel={COMPARISON_LABEL[filter.comparison]}
       height={260}
     />
@@ -277,8 +323,9 @@ async function TrendSection({ filter, useNet }: { filter: PosFilter; useNet: boo
 // Hodinový graf pro denní zobrazení: dnešní hodiny + srovnávací den (stejné hodiny).
 async function TrendSectionDaily({ filter, useNet }: { filter: PosFilter; useNet: boolean }) {
   let hourly: Awaited<ReturnType<typeof getHourlyTrend>>;
+  let cur: string;
   try {
-    hourly = await getHourlyTrend(filter);
+    [hourly, cur] = await Promise.all([getHourlyTrend(filter), resolveDisplayCurrency(filter)]);
   } catch {
     return <WidgetError />;
   }
@@ -297,17 +344,18 @@ async function TrendSectionDaily({ filter, useNet }: { filter: PosFilter; useNet
     <PosLineChart
       current={current}
       comparison={comparison}
-      currency={filter.currency}
+      currency={cur}
       comparisonLabel={COMPARISON_LABEL[filter.comparison]}
       height={260}
     />
   );
 }
 
-async function PeriodSection({ filter, cur, useNet }: { filter: PosFilter; cur: string; useNet: boolean }) {
+async function PeriodSection({ filter, useNet }: { filter: PosFilter; useNet: boolean }) {
   let periods: Awaited<ReturnType<typeof getPeriodTotals>>;
+  let cur: string;
   try {
-    periods = await getPeriodTotals(filter);
+    [periods, cur] = await Promise.all([getPeriodTotals(filter), resolveDisplayCurrency(filter)]);
   } catch {
     return (
       <section className="flex flex-col gap-3">
@@ -357,7 +405,9 @@ async function HighlightsSection({ filter, useNet, qs }: { filter: PosFilter; us
   } catch {
     return <WidgetError />;
   }
-  const cur = filter.currency;
+  // Žebříček nese efektivní měnu na řádcích (viz queries.ts) - vezmeme ji, ať
+  // labely sedí s daty i u cizoměnového výběru.
+  const cur = leaderboard[0]?.currency ?? filter.currency;
   const rows: HiRow[] = leaderboard.map((r) => ({
     id: r.locationId,
     name: r.name,

@@ -106,3 +106,52 @@ export function resolveSelection(
     brandsPresent: brandsIn(set),
   };
 }
+
+// --- Měny ve výběru ---
+// POZN.: od zavedení FX přepočtu (lib/portal/pos/fx.ts) se vše přepočítá do
+// zvolené zobrazovací měny, takže "tiché 0 Kč" u cizoměnové prodejny už nehrozí a
+// queries/loader tyto helpery nepoužívají. Necháváme je (+ testy) jako utilitu pro
+// segmentaci výběru per měna (currency_code pokladen).
+
+// Pořadí/priorita měn pro stabilní zobrazení i tie-break dominantní měny.
+export const POS_CURRENCIES = ["CZK", "EUR", "PLN"] as const;
+const CURRENCY_RANK = new Map<string, number>(POS_CURRENCIES.map((c, i) => [c, i]));
+function currencyRank(c: string): number {
+  return CURRENCY_RANK.get(c) ?? CURRENCY_RANK.size;
+}
+
+// Počet vybraných pokladen podle měny (z currency_code pokladny).
+function currencyCounts(resolved: ResolvedSelection, shops: ApiShop[]): Map<string, number> {
+  const curByShop = new Map(shops.map((s) => [s.id, s.currency_code]));
+  const counts = new Map<string, number>();
+  for (const id of resolved.shopIds) {
+    const c = curByShop.get(id);
+    if (c) counts.set(c, (counts.get(c) ?? 0) + 1);
+  }
+  return counts;
+}
+
+// Měny zastoupené ve výběru, seřazené pro zobrazení (CZK, EUR, PLN, pak ostatní).
+export function selectionCurrencies(resolved: ResolvedSelection, shops: ApiShop[]): string[] {
+  return [...currencyCounts(resolved, shops).keys()].sort(
+    (a, b) => currencyRank(a) - currencyRank(b) || a.localeCompare(b),
+  );
+}
+
+// Efektivní měna výběru: preferovaná (zvolená ve filtru), pokud v ní výběr má
+// aspoň jednu pokladnu; jinak DOMINANTNÍ měna výběru (nejvíc pokladen, při shodě
+// priorita CZK > EUR > PLN). Prázdný výběr / žádná pokladna -> preferovaná beze
+// změny. Brání tichému "0 Kč" u prodejny účtující jen v cizí měně.
+export function effectiveCurrency(preferred: string, resolved: ResolvedSelection, shops: ApiShop[]): string {
+  const counts = currencyCounts(resolved, shops);
+  if (counts.size === 0 || counts.has(preferred)) return preferred;
+  let best = "";
+  let bestCount = -1;
+  for (const [c, n] of counts) {
+    if (n > bestCount || (n === bestCount && currencyRank(c) < currencyRank(best))) {
+      best = c;
+      bestCount = n;
+    }
+  }
+  return best || preferred;
+}

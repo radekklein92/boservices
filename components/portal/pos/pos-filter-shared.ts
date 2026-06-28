@@ -43,7 +43,7 @@ export interface FilterBarData {
   concepts: ConceptGroup[];
   cities: CityOption[];
   unpaired: StoreOption[]; // nenapárované pokladny (token "shop:{id}")
-  currencies: string[];
+  currencies: string[]; // zobrazovací měny v dropdownu (vše se do zvolené přepočte přes FX)
   views: ViewsData;
   me: MeInfo;
 }

@@ -3,6 +3,7 @@ import { Download } from "lucide-react";
 import { canSeePOS } from "@/lib/portal/auth-guard";
 import { getSession } from "@/lib/portal/get-session";
 import { posFilterFromSearchParams, serializePosFilter, DATE_PRESET_LABEL } from "@/lib/portal/pos/filters";
+import { resolveDisplayCurrency } from "@/lib/portal/pos/queries";
 import { PageHeader } from "@/components/portal/shell/PageHeader";
 import { PosSubNav } from "@/components/portal/pos/PosSubNav";
 import { PosFilterBarLoader } from "@/components/portal/pos/PosFilterBarLoader";
@@ -21,6 +22,14 @@ export default async function PosReportsPage({
   const filter = posFilterFromSearchParams(await searchParams);
   const qs = serializePosFilter(filter).toString();
   const href = (type: string) => `/api/portal/pos/export?type=${type}${qs ? `&${qs}` : ""}`;
+  // Měna, ve které export reálně poběží (efektivní měna výběru). Bezpečně - když
+  // POS není nakonfigurováno, zůstane zvolená měna.
+  let cur = filter.currency;
+  try {
+    cur = await resolveDisplayCurrency(filter);
+  } catch {
+    /* fallback na filter.currency */
+  }
 
   return (
     <>
@@ -33,12 +42,12 @@ export default async function PosReportsPage({
       <PosSubNav />
 
       <Suspense fallback={<FilterBarSkeleton />}>
-        <PosFilterBarLoader />
+        <PosFilterBarLoader filter={filter} />
       </Suspense>
 
       <section className="flex flex-col gap-3">
         <h2 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink-mid">
-          Export ({DATE_PRESET_LABEL[filter.preset]}, {filter.currency})
+          Export ({DATE_PRESET_LABEL[filter.preset]}, {cur})
         </h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <ExportCard
