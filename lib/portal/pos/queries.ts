@@ -60,6 +60,7 @@ import type {
   PaymentMixRow,
   ProductSalesRow,
   ReceiptDetail,
+  ReceiptListItem,
   ReceiptListRow,
   ShopRevenueRow,
   SummaryRow,
@@ -792,8 +793,8 @@ export async function getReceiptsPage(
   filter: PosFilter,
   page = 0,
   opts: { limit?: number; channel?: string } = {},
-): Promise<Paged<ReceiptListRow>> {
-  const { resolved } = await scopeContext(filter);
+): Promise<Paged<ReceiptListItem>> {
+  const { resolved, index, locations, shops } = await scopeContext(filter);
   const sp = scopeApiParams(resolved);
   if (sp.__empty) return { data: [], meta: { page: 0, limit: opts.limit ?? 50, total: 0 } };
   const to = filter.currency;
@@ -808,12 +809,34 @@ export async function getReceiptsPage(
     sp.shop_ids,
     opts.channel,
   );
-  return { data: convertRows(res.data, to, rates, RECEIPT_MONEY), meta: res.meta };
+  // Obohacení o prodejnu + město z párování (indexy už scopeContext načetl, zadarmo).
+  // Nenapárovaná pokladna padá zpět na surový shop_name; město na ApiShop.city.
+  const locName = new Map(locations.map((l) => [l.id, l.name]));
+  const shopCity = new Map(shops.map((s) => [s.id, s.city]));
+  const data: ReceiptListItem[] = convertRows(res.data, to, rates, RECEIPT_MONEY).map((r) => {
+    const locId = index.locationByShop.get(r.shop_id);
+    const locationName = (locId ? locName.get(locId) : undefined) ?? r.shop_name;
+    const city = index.cityByShop.get(r.shop_id) ?? shopCity.get(r.shop_id) ?? null;
+    return { ...r, locationName, city };
+  });
+  return { data, meta: res.meta };
 }
 
 const _receiptDetail = posQuery((id: string) => api.getReceipt(id), "receipt-detail");
 export function getReceiptDetail(id: string): Promise<ReceiptDetail> {
   return _receiptDetail(id);
+}
+
+// Prodejna + město pro jednu pokladnu (header detailu účtenky). Čte tytéž cachované
+// indexy jako seznam, takže deep-link na detail ukáže stejné jako řádek v listu.
+export async function getReceiptShopDisplay(
+  shopId: string,
+): Promise<{ locationName: string | null; city: string | null }> {
+  const [index, locations, shops] = await Promise.all([_pairingIndex(), _locations(), getAllShops()]);
+  const locId = index.locationByShop.get(shopId);
+  const locationName = (locId ? locations.find((l) => l.id === locId)?.name : undefined) ?? null;
+  const city = index.cityByShop.get(shopId) ?? shops.find((s) => s.id === shopId)?.city ?? null;
+  return { locationName, city };
 }
 
 // --- Analytics (heatmapa/daypart jsou raw -> kratší okno) ---

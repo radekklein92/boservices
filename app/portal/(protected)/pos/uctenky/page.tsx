@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
 import { canSeePOS } from "@/lib/portal/auth-guard";
 import { getSession } from "@/lib/portal/get-session";
 import { parsePosFilter, serializePosFilter, type PosFilter } from "@/lib/portal/pos/filters";
@@ -10,7 +9,8 @@ import { PageHeader } from "@/components/portal/shell/PageHeader";
 import { PosSubNav } from "@/components/portal/pos/PosSubNav";
 import { PosFilterBarLoader } from "@/components/portal/pos/PosFilterBarLoader";
 import { FilterBarSkeleton, LeaderboardSkeleton } from "@/components/portal/pos/skeletons";
-import { formatLocalDateTime, formatPosMoney, formatPosNumber } from "@/components/portal/pos/pos-shared";
+import { ReceiptsTable } from "@/components/portal/pos/ReceiptsTable";
+import { formatPosNumber } from "@/components/portal/pos/pos-shared";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Tržby - Účtenky" };
@@ -97,32 +97,7 @@ async function ReceiptsList({ filter, rp }: { filter: PosFilter; rp: number }) {
         </span>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-edge bg-paper">
-        {rows.map((r) => (
-          <Link
-            key={r.id}
-            href={`/portal/pos/uctenky/${r.id}${filterQs ? `?${filterQs}` : ""}`}
-            className="flex items-center gap-3 border-b border-edge/60 px-4 py-3 text-[13px] transition-colors last:border-0 hover:bg-edge-warm"
-          >
-            <span className="w-[104px] shrink-0 tabular-nums text-ink-mid">{formatLocalDateTime(r.opened_at)}</span>
-            <span className="flex min-w-0 flex-1 items-center gap-2">
-              <span className="truncate text-ink-base">{r.shop_name || "—"}</span>
-              {r.is_refund && (
-                <span className="shrink-0 rounded-md bg-rose-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-rose-700">
-                  refundace
-                </span>
-              )}
-            </span>
-            <span className="hidden w-[96px] shrink-0 truncate text-right text-[12px] text-ink-soft sm:block">
-              {r.channel ?? "—"}
-            </span>
-            <span className="w-[120px] shrink-0 text-right font-semibold tabular-nums text-ink-base">
-              {formatPosMoney(useNet ? r.net : r.gross, r.currency)}
-            </span>
-            <ChevronRight className="h-4 w-4 shrink-0 text-ink-soft" strokeWidth={1.5} aria-hidden="true" />
-          </Link>
-        ))}
-      </div>
+      <ReceiptsTable rows={rows} useNet={useNet} filterQs={filterQs} />
 
       <div className="flex items-center justify-between text-[12.5px]">
         <PageLink href={pageHref(rp - 1)} disabled={rp === 0} label="Předchozí" />
