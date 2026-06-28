@@ -96,7 +96,7 @@ export function PosLineChart({
   const yOf = (v: number) => yBot - (v / yMax) * plotH;
   const barW = Math.min(44, slot * 0.62);
 
-  const labelEvery = n <= 10 ? 1 : Math.ceil(n / 8);
+  const labelEvery = n <= 12 ? 1 : Math.ceil(n / 8);
   const showXLabel = (i: number) => i === 0 || i === n - 1 || i % labelEvery === 0;
 
   const curCoords = current.map((p, i) => [xOf(i), yOf(p.value)] as const);
