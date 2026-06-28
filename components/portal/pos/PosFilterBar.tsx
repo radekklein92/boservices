@@ -198,11 +198,32 @@ export function PosFilterBar({ concepts, cities, unpaired, currencies, views, me
         </button>
 
         <div className="ml-auto flex flex-wrap items-center gap-1.5">
-          {/* Zobrazovací měna - vše se do ní přepočítá přes FX (ČNB kurz). Chips
-              (3 měny) místo nativního selectu - hezčí a konzistentní s presety. */}
-          {currencies.map((c) => (
-            <FilterChip key={c} active={filter.currency === c} onClick={() => update({ currency: c })} label={c} />
-          ))}
+          {/* Zobrazovací měna - vše se do ní přepočítá přes FX (ČNB kurz). Segmented
+              control: jeden pill se segmenty (něco mezi chipem a radiem), kompaktní
+              a šetří místo. Aktivní segment = bg-ink-base (sémantika výběru portálu). */}
+          <div
+            role="radiogroup"
+            aria-label="Zobrazovací měna"
+            className="inline-flex h-9 shrink-0 items-center rounded-full border border-edge bg-paper p-0.5"
+          >
+            {currencies.map((c) => {
+              const active = filter.currency === c;
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => update({ currency: c })}
+                  className={`inline-flex h-8 items-center rounded-full px-3 text-[12.5px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-1 focus-visible:ring-offset-paper ${
+                    active ? "bg-ink-base text-paper" : "text-ink-mid hover:text-ink-base"
+                  }`}
+                >
+                  {c}
+                </button>
+              );
+            })}
+          </div>
           <span className="mx-1 hidden h-5 w-px bg-edge sm:block" aria-hidden="true" />
           <Toggle
             checked={filter.vatInclusive}
