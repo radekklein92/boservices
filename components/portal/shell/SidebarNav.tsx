@@ -11,7 +11,6 @@ import {
   Cloud,
   FileText,
   FilePenLine,
-  Gauge,
   GitPullRequest,
   HandCoins,
   KeyRound,
@@ -64,7 +63,6 @@ const commissionsItem: Item = {
 };
 
 const admin: Item[] = [
-  { href: "/portal/admin/prehled", label: "Přehled systému", Icon: Gauge },
   { href: "/portal/admin/pos-pairing", label: "Párování pokladen", Icon: Store },
   // Dotykačka = správa cloudů i API klíčů; obojí žije v DW dashboardu
   // (dw.boservices.cz, vlastní nav). Odkaz jde přes /api/portal/sso-dw (SSO
