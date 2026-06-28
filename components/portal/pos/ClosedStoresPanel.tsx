@@ -38,7 +38,7 @@ export function ClosedStoresKpiCard({ report }: { report: ClosedStoresReport }) 
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
         aria-label="Neotevřené prodejny - otevřít přehled"
-        className="group flex min-w-0 flex-col gap-2 rounded-2xl border border-edge bg-paper p-5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-ink-soft hover:shadow-[0_10px_30px_-14px_rgba(14,14,14,0.22)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2 focus-visible:ring-offset-paper"
+        className="group flex min-w-0 flex-col gap-1.5 rounded-2xl border border-edge bg-paper p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-ink-soft hover:shadow-[0_10px_30px_-14px_rgba(14,14,14,0.22)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2 focus-visible:ring-offset-paper"
       >
         <div className="flex items-start justify-between gap-2">
           <span className="text-[10.5px] font-medium uppercase tracking-[0.16em] text-ink-mid">
