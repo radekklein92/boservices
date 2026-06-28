@@ -130,7 +130,9 @@ export const getProductSales = (p: RevenueParams & PageParams & { sort?: "gross"
 export const getProductDetail = (p: { product_id: string } & RevenueParams) =>
   apiGet<{ data: ProductDetailRaw }>("/products/detail", p);
 
-export const listReceipts = (p: RevenueParams & PageParams & { channel?: string }) =>
+// is_refund=true vrátí jen refundace, false jen prodeje; vynecháno = oboje.
+// Drill-down "Refundace" ho potřebuje server-side (refundace jsou ~0,3 % dokladů).
+export const listReceipts = (p: RevenueParams & PageParams & { channel?: string; is_refund?: boolean }) =>
   apiGet<Paged<ReceiptListRow>>("/receipts", p);
 
 export const getReceipt = (id: string) => apiGet<ReceiptDetail>(`/receipts/${encodeURIComponent(id)}`);

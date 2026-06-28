@@ -122,7 +122,7 @@ export default async function PosOverviewPage({
       ) : (
         <div className="flex flex-col gap-6">
           <Suspense fallback={<KpiStripSkeleton cards={4} />}>
-            <KpiSection filter={filter} useNet={useNet} />
+            <KpiSection filter={filter} useNet={useNet} qs={qs} />
           </Suspense>
 
           <div className="grid gap-5 lg:grid-cols-3">
@@ -150,9 +150,9 @@ export default async function PosOverviewPage({
 
 // --- 4 KPI: Tržby (net|gross dle DPH), Účtenky, Průměrný ticket, Refundace ---
 
-async function KpiSection({ filter, useNet }: { filter: PosFilter; useNet: boolean }) {
+async function KpiSection({ filter, useNet, qs }: { filter: PosFilter; useNet: boolean; qs: string }) {
   // Denní zobrazení: férové srovnání "do teď" z hodinových dat (ne celý den vs část dne).
-  if (filter.preset === "dnes") return <KpiSectionDaily filter={filter} useNet={useNet} />;
+  if (filter.preset === "dnes") return <KpiSectionDaily filter={filter} useNet={useNet} qs={qs} />;
 
   let kpi: Awaited<ReturnType<typeof getKpiSummary>>;
   let trend: Awaited<ReturnType<typeof getDailyTrend>>;
@@ -230,6 +230,7 @@ async function KpiSection({ filter, useNet }: { filter: PosFilter; useNet: boole
           previous={lflP?.refund_rate ?? null}
           goodDir="down"
           deltaMode="pp"
+          href={`/portal/pos/refundace${qs ? `?${qs}` : ""}`}
         />
       </div>
       {lflC && (
@@ -243,7 +244,7 @@ async function KpiSection({ filter, useNet }: { filter: PosFilter; useNet: boole
 }
 
 // Denní KPI: vše z hodinových dat, srovnání jen do aktuální hodiny (férová frakce).
-async function KpiSectionDaily({ filter, useNet }: { filter: PosFilter; useNet: boolean }) {
+async function KpiSectionDaily({ filter, useNet, qs }: { filter: PosFilter; useNet: boolean; qs: string }) {
   let hourly: Awaited<ReturnType<typeof getHourlyTrend>>;
   let kpi: Awaited<ReturnType<typeof getKpiSummary>>;
   let cur: string;
@@ -311,6 +312,7 @@ async function KpiSectionDaily({ filter, useNet }: { filter: PosFilter; useNet: 
         previous={null}
         goodDir="down"
         deltaMode="pp"
+        href={`/portal/pos/refundace${qs ? `?${qs}` : ""}`}
       />
     </div>
   );

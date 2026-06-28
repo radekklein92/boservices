@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Activity, Layers, LayoutDashboard, MapPin, Package, Receipt, Store } from "lucide-react";
+import { Activity, Layers, LayoutDashboard, MapPin, Package, Receipt, Store, Undo2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 // Podsekční navigace POS jako řada pilulkových tlačítek (jazyk portálu, ne taby).
@@ -17,6 +17,7 @@ const ITEMS: { seg: string; label: string; Icon: LucideIcon }[] = [
   { seg: "mesta", label: "Města", Icon: MapPin },
   { seg: "produkty", label: "Produkty", Icon: Package },
   { seg: "uctenky", label: "Účtenky", Icon: Receipt },
+  { seg: "refundace", label: "Refundace", Icon: Undo2 },
 ];
 
 const BASE = "/portal/pos";

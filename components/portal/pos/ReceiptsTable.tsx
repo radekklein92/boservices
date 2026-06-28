@@ -37,6 +37,8 @@ export function ReceiptsTable({
   useNet,
   filterQs,
   hideLocation = false,
+  hideRefundBadge = false,
+  detailExtraQs,
 }: {
   rows: ReceiptListItem[];
   useNet: boolean;
@@ -44,9 +46,16 @@ export function ReceiptsTable({
   // Na detailu prodejny je prodejna v hlavičce - skryjeme redundantní sloupec
   // prodejna+město a uvolníme místo výpisu produktů.
   hideLocation?: boolean;
+  // Na stránce Refundace je každý řádek refundace - odznak by byl redundantní.
+  hideRefundBadge?: boolean;
+  // Přimíchá se do odkazu na detail (např. "from=refundace" pro kontextový návrat).
+  detailExtraQs?: string;
 }) {
   const [selected, setSelected] = useState<ReceiptListItem | null>(null);
-  const hrefFor = (id: string) => `/portal/pos/uctenky/${id}${filterQs ? `?${filterQs}` : ""}`;
+  const hrefFor = (id: string) => {
+    const q = [filterQs, detailExtraQs].filter(Boolean).join("&");
+    return `/portal/pos/uctenky/${id}${q ? `?${q}` : ""}`;
+  };
 
   return (
     <>
@@ -59,6 +68,7 @@ export function ReceiptsTable({
             href={hrefFor(r.id)}
             onOpen={setSelected}
             hideLocation={hideLocation}
+            hideRefundBadge={hideRefundBadge}
           />
         ))}
       </div>
@@ -76,12 +86,14 @@ function ReceiptRow({
   href,
   onOpen,
   hideLocation,
+  hideRefundBadge,
 }: {
   row: ReceiptListItem;
   useNet: boolean;
   href: string;
   onOpen: (r: ReceiptListItem) => void;
   hideLocation: boolean;
+  hideRefundBadge: boolean;
 }) {
   const ref = useRef<HTMLAnchorElement>(null);
   const [items, setItems] = useState<ReceiptItem[] | null>(null);
@@ -145,7 +157,7 @@ function ReceiptRow({
         /* Detail prodejny: prodejnu už nese hlavička stránky - místo ní rovnou
            výpis produktů (na mobilu počet); refundační odznak jde dovnitř. */
         <span className="flex min-w-0 flex-1 items-center gap-2 text-[12px] text-ink-mid">
-          {row.is_refund && <RefundBadge />}
+          {row.is_refund && !hideRefundBadge && <RefundBadge />}
           <span className="min-w-0 truncate">{productsLine}</span>
         </span>
       ) : (
@@ -154,7 +166,7 @@ function ReceiptRow({
           <span className="flex min-w-0 flex-1 flex-col gap-0.5 lg:flex-none lg:w-[300px]">
             <span className="flex items-center gap-2">
               <span className="truncate font-medium text-ink-base">{row.locationName || "—"}</span>
-              {row.is_refund && <RefundBadge />}
+              {row.is_refund && !hideRefundBadge && <RefundBadge />}
             </span>
             {row.city && <span className="truncate text-[12px] text-ink-soft">{row.city}</span>}
           </span>

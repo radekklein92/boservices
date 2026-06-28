@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import { canSeePOS } from "@/lib/portal/auth-guard";
 import { getSession } from "@/lib/portal/get-session";
 import { posFilterFromSearchParams, serializePosFilter } from "@/lib/portal/pos/filters";
@@ -21,8 +21,13 @@ export default async function PosReceiptDetailPage({
   const session = await getSession();
   if (!canSeePOS(session?.user?.role)) return null;
   const { id } = await params;
-  const backQs = serializePosFilter(posFilterFromSearchParams(await searchParams)).toString();
-  const backHref = backQs ? `/portal/pos/uctenky?${backQs}` : "/portal/pos/uctenky";
+  const sp = await searchParams;
+  // ?from=refundace -> doklad jsme otevřeli ze stránky Refundace; vrať se tam (ne na Účtenky).
+  const fromRefunds = (typeof sp.from === "string" ? sp.from : undefined) === "refundace";
+  const backQs = serializePosFilter(posFilterFromSearchParams(sp)).toString();
+  const backBase = fromRefunds ? "/portal/pos/refundace" : "/portal/pos/uctenky";
+  const backHref = backQs ? `${backBase}?${backQs}` : backBase;
+  const backLabel = fromRefunds ? "Zpět na refundace" : "Zpět na účtenky";
 
   let r: ReceiptDetail;
   try {
@@ -30,11 +35,16 @@ export default async function PosReceiptDetailPage({
   } catch {
     return (
       <div className="flex flex-col gap-4">
-        <BackLink href={backHref} />
+        <BackLink href={backHref} label={backLabel} />
         <Notice title="Účtenka nenalezena" body="Doklad se nepodařilo načíst z API Data Warehouse." />
       </div>
     );
   }
+
+  // Refundace odkazuje na původní prodejní doklad - proklik na to, co se reálně vrátilo.
+  const originalHref = r.original_receipt_id
+    ? `/portal/pos/uctenky/${r.original_receipt_id}${backQs ? `?${backQs}` : ""}`
+    : null;
 
   const display = await getReceiptShopDisplay(r.shop_id);
   const title = display.locationName || r.shop_name || "Účtenka";
@@ -42,7 +52,7 @@ export default async function PosReceiptDetailPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <BackLink href={backHref} />
+      <BackLink href={backHref} label={backLabel} />
 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -55,9 +65,20 @@ export default async function PosReceiptDetailPage({
           </p>
         </div>
         {r.is_refund && (
-          <span className="rounded-md bg-rose-50 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-rose-700">
-            Refundace
-          </span>
+          <div className="flex flex-col items-end gap-1.5">
+            <span className="rounded-md bg-rose-50 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-rose-700">
+              Refundace
+            </span>
+            {originalHref && (
+              <Link
+                href={originalHref}
+                className="inline-flex items-center gap-1 text-[12px] font-medium text-ink-mid transition-colors hover:text-ink-base"
+              >
+                Původní účtenka
+                <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+              </Link>
+            )}
+          </div>
         )}
       </div>
 
@@ -66,14 +87,14 @@ export default async function PosReceiptDetailPage({
   );
 }
 
-function BackLink({ href }: { href: string }) {
+function BackLink({ href, label }: { href: string; label: string }) {
   return (
     <Link
       href={href}
       className="inline-flex w-fit items-center gap-1.5 text-[12.5px] font-medium text-ink-mid transition-colors hover:text-ink-base"
     >
       <ArrowLeft className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
-      Zpět na účtenky
+      {label}
     </Link>
   );
 }
