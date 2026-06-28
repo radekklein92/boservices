@@ -103,7 +103,7 @@ export function PosFilterBar({
 
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-edge bg-paper p-3 sm:p-4">
-      {/* Řádek 1: výběr prodejen + měna + DPH + "Stejné prodejny" + uložené pohledy */}
+      {/* Řádek 1: výběr prodejen + "Stejné prodejny" + měna + DPH + uložené pohledy */}
       <div className="flex flex-wrap items-center gap-2">
         <PosStorePicker concepts={concepts} selection={sel} onChange={setSelection} />
 
@@ -136,6 +136,23 @@ export function PosFilterBar({
           <span className="flex-1 text-[12.5px] text-ink-soft">Celá síť</span>
         )}
 
+        {/* Filtr ŽEBŘÍČKU "Stejné prodejny" (like-for-like): skryje prodejny bez
+            srovnatelného základu. Na deltu KPI nemá vliv - ta je vždy like-for-like. */}
+        {!hidePeriod && (
+          <button
+            type="button"
+            onClick={() => update({ sameStore: !filter.sameStore })}
+            aria-pressed={filter.sameStore}
+            title="Skrýt v žebříčku prodejny bez tržby v obou obdobích (srovnatelná báze). Na deltu KPI nemá vliv."
+            className={`${TOGGLE_BASE} ${
+              filter.sameStore
+                ? "border-ink-base bg-ink-base text-paper"
+                : "border-edge bg-paper text-ink-deep hover:border-ink-soft"
+            }`}
+          >
+            Stejné prodejny
+          </button>
+        )}
         {/* Zobrazovací měna + Ceny s DPH na řádku 1 (na řádek presetů se vedle nich nevejdou;
             zobrazují se vždy, i na Živě). Měna: vše se přepočítá přes FX (ČNB kurz). */}
         <div className="flex flex-wrap items-center gap-1.5">
@@ -170,23 +187,6 @@ export function PosFilterBar({
             title="Přepnout zobrazení s DPH / bez DPH"
           />
         </div>
-        {/* Filtr ŽEBŘÍČKU "Stejné prodejny" (like-for-like): skryje prodejny bez
-            srovnatelného základu. Na deltu KPI nemá vliv - ta je vždy like-for-like. */}
-        {!hidePeriod && (
-          <button
-            type="button"
-            onClick={() => update({ sameStore: !filter.sameStore })}
-            aria-pressed={filter.sameStore}
-            title="Skrýt v žebříčku prodejny bez tržby v obou obdobích (srovnatelná báze). Na deltu KPI nemá vliv."
-            className={`${TOGGLE_BASE} ${
-              filter.sameStore
-                ? "border-ink-base bg-ink-base text-paper"
-                : "border-edge bg-paper text-ink-deep hover:border-ink-soft"
-            }`}
-          >
-            Stejné prodejny
-          </button>
-        )}
         <PosViewsMenu views={views} me={me} currentFilter={currentFilter} />
       </div>
 
