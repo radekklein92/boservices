@@ -23,6 +23,7 @@ import { PosKpiCard } from "@/components/portal/pos/PosKpiCard";
 import { PosLineChart } from "@/components/portal/pos/PosLineChart";
 import { PosHeatmap } from "@/components/portal/pos/PosHeatmap";
 import { PosBars, type BarRow } from "@/components/portal/pos/PosBars";
+import { PosDeltaBadge } from "@/components/portal/pos/PosDeltaBadge";
 import { BarsRowSkeleton, ChartSkeleton, KpiStripSkeleton } from "@/components/portal/pos/skeletons";
 import {
   DAYPART_LABEL,
@@ -114,6 +115,13 @@ export default async function PosLocationDetailPage({
           </Suspense>
 
           <section className="flex flex-col gap-3">
+            <H2>Po dnech</H2>
+            <Suspense fallback={<ChartSkeleton height={300} />}>
+              <DailyBreakdownSection filter={filter} cur={cur} />
+            </Suspense>
+          </section>
+
+          <section className="flex flex-col gap-3">
             <H2>Hodina x den</H2>
             <Suspense fallback={<ChartSkeleton height={300} />}>
               <HeatmapSection filter={filter} cur={cur} />
@@ -196,6 +204,59 @@ async function DetailHeader({ filter, cur, useNet }: { filter: PosFilter; cur: s
         <H2>Vývoj tržeb ({useNet ? "bez DPH" : "s DPH"})</H2>
         <Trend trend={trend} cur={cur} filter={filter} useNet={useNet} />
       </section>
+    </div>
+  );
+}
+
+// Tabulka tržeb po jednotlivých dnech období: 1 řádek = 1 den, tržby bez/s DPH,
+// účtenky + srovnání se stejně dlouhým předchozím obdobím (např. D-28), zarovnané
+// po indexu (den i vs den i v předchozím okně).
+async function DailyBreakdownSection({ filter, cur }: { filter: PosFilter; cur: string }) {
+  let trend: Awaited<ReturnType<typeof getDailyTrend>>;
+  try {
+    trend = await getDailyTrend(filter);
+  } catch {
+    return <WidgetError />;
+  }
+  if (trend.degraded || trend.current.length === 0) {
+    return (
+      <div className="grid h-[120px] place-items-center rounded-2xl border border-edge bg-paper text-[13px] text-ink-mid">
+        Pro zvolené období nejsou data.
+      </div>
+    );
+  }
+  const cmp = trend.comparison;
+  const rows = trend.current.map((d, i) => ({ d, prev: cmp ? cmp[i] : undefined })).reverse();
+  return (
+    <div className="overflow-x-auto rounded-2xl border border-edge bg-paper">
+      <table className="w-full min-w-[560px] border-collapse text-[13px]">
+        <thead>
+          <tr className="border-b border-edge text-left text-[11px] uppercase tracking-[0.1em] text-ink-mid">
+            <th className="px-4 py-2.5 font-medium">Den</th>
+            <th className="px-4 py-2.5 text-right font-medium">Účtenky</th>
+            <th className="px-4 py-2.5 text-right font-medium">Tržby bez DPH</th>
+            <th className="px-4 py-2.5 text-right font-medium">Tržby s DPH</th>
+            <th className="px-4 py-2.5 text-right font-medium">vs předchozí</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(({ d, prev }) => (
+            <tr key={d.date} className="border-b border-edge/60 last:border-0">
+              <td className="px-4 py-2.5 tabular-nums text-ink-base">{fmtDayLabel(d.date)}</td>
+              <td className="px-4 py-2.5 text-right tabular-nums text-ink-mid">{formatPosNumber(d.receipts)}</td>
+              <td className="px-4 py-2.5 text-right tabular-nums text-ink-deep">{formatPosMoney(d.net, cur)}</td>
+              <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-ink-base">{formatPosMoney(d.gross, cur)}</td>
+              <td className="px-4 py-2.5">
+                <PosDeltaBadge
+                  current={d.gross}
+                  previous={prev?.gross ?? null}
+                  className="justify-end text-[11px]"
+                />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

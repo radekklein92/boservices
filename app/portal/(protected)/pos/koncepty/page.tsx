@@ -41,11 +41,11 @@ export default async function PosConceptsPage({
         lede="Tržby po konceptech (skupinách prodejen). Klikni na koncept pro jeho prodejny."
       />
 
+      <PosSubNav />
+
       <Suspense fallback={<FilterBarSkeleton />}>
         <PosFilterBarLoader filter={filter} />
       </Suspense>
-
-      <PosSubNav />
 
       {!isPosApiConfigured() ? (
         <Notice title="POS data nejsou nakonfigurovaná" body="Nastavte POS_API_BASE a POS_API_KEY v prostředí (Vercel)." />

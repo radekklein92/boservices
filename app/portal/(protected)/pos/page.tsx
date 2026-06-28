@@ -92,11 +92,11 @@ export default async function PosOverviewPage({
         }
       />
 
+      <PosSubNav />
+
       <Suspense fallback={<FilterBarSkeleton />}>
         <PosFilterBarLoader filter={filter} />
       </Suspense>
-
-      <PosSubNav />
 
       {!isPosApiConfigured() ? (
         <Notice

@@ -10,7 +10,7 @@ import type { PosFilter } from "@/lib/portal/pos/filters";
 import { CONCEPT_LABEL } from "@/components/portal/locations/locations-shared";
 import type { LocationConcept } from "@/lib/portal/locations-db";
 import { PosFilterBar } from "./PosFilterBar";
-import type { ConceptGroup, StoreOption, ViewLite } from "./pos-filter-shared";
+import type { CityOption, ConceptGroup, StoreOption, ViewLite } from "./pos-filter-shared";
 
 // Pořadí konceptů ve filtru (zrcadlí LocationConcept enum).
 const CONCEPT_ORDER: LocationConcept[] = [
@@ -28,6 +28,7 @@ export async function PosFilterBarLoader({ filter }: { filter: PosFilter }) {
   const me = { email, isAdmin: isAdminRole(session?.user?.role) };
 
   let concepts: ConceptGroup[] = [];
+  let cities: CityOption[] = [];
   let unpaired: StoreOption[] = [];
   // Zobrazovací měny v dropdownu jsou vždy plná trojice - vše se do zvolené
   // přepočítá přes FX (fx.ts), takže nabídku neořezáváme dle měn ve výběru.
@@ -58,6 +59,25 @@ export async function PosFilterBarLoader({ filter }: { filter: PosFilter }) {
         locations: (byConcept.get(c) ?? []).sort((a, b) => a.name.localeCompare(b.name, "cs")),
       }));
 
+      // Města: pro každou prodejnu vezmi město z její první pokladny; počítej prodejny.
+      const cityCount = new Map<string, number>();
+      for (const [locId, shopIds] of index.shopsByLocation) {
+        if (!locById.has(locId)) continue;
+        let city = "";
+        for (const sid of shopIds) {
+          const c = index.cityByShop.get(sid);
+          if (c) {
+            city = c;
+            break;
+          }
+        }
+        if (!city) continue;
+        cityCount.set(city, (cityCount.get(city) ?? 0) + 1);
+      }
+      cities = [...cityCount.entries()]
+        .map(([city, count]) => ({ city, count }))
+        .sort((a, b) => a.city.localeCompare(b.city, "cs"));
+
       const paired = new Set(index.locationByShop.keys());
       unpaired = shops
         .filter((s) => !paired.has(s.id))
@@ -74,6 +94,7 @@ export async function PosFilterBarLoader({ filter }: { filter: PosFilter }) {
   return (
     <PosFilterBar
       concepts={concepts}
+      cities={cities}
       unpaired={unpaired}
       currencies={currencies}
       views={views}

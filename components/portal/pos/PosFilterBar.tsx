@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { X } from "lucide-react";
 import {
@@ -50,7 +50,7 @@ function isoDaysAgo(n: number): string {
 const TOGGLE_BASE =
   "inline-flex h-9 shrink-0 items-center rounded-full border px-3.5 text-[12.5px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2 focus-visible:ring-offset-paper disabled:opacity-50";
 
-export function PosFilterBar({ concepts, unpaired, currencies, views, me }: FilterBarData) {
+export function PosFilterBar({ concepts, cities, unpaired, currencies, views, me }: FilterBarData) {
   const sp = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -62,12 +62,28 @@ export function PosFilterBar({ concepts, unpaired, currencies, views, me }: Filt
   };
   const setSelection = (selection: PosSelection) => update({ selection });
 
+  // Vlastní období: lokální draft + debounce, ať se nefiltruje při každém úhozu.
+  const [draftFrom, setDraftFrom] = useState(filter.from ?? "");
+  const [draftTo, setDraftTo] = useState(filter.to ?? "");
+  useEffect(() => {
+    setDraftFrom(filter.from ?? "");
+    setDraftTo(filter.to ?? "");
+  }, [filter.from, filter.to]);
+  const dateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const commitDates = (from: string, to: string) => {
+    if (dateTimer.current) clearTimeout(dateTimer.current);
+    dateTimer.current = setTimeout(() => {
+      if (from && to) update({ preset: "vlastni", from, to });
+    }, 600);
+  };
+
   const nameById = useMemo(() => {
     const m = new Map<string, string>();
     for (const g of concepts) for (const l of g.locations) m.set(l.id, l.name);
     for (const u of unpaired) m.set(u.id, u.name);
     return m;
   }, [concepts, unpaired]);
+  const locLabel = (id: string) => (id.startsWith("city:") ? id.slice(5) : nameById.get(id) ?? id);
   const labelByConcept = useMemo(() => {
     const m = new Map<string, string>();
     for (const g of concepts) m.set(g.concept, g.label);
@@ -82,7 +98,7 @@ export function PosFilterBar({ concepts, unpaired, currencies, views, me }: Filt
     <div className="flex flex-col gap-3 rounded-2xl border border-edge bg-paper p-3 sm:p-4">
       {/* Řádek 1: výběr prodejen + uložené pohledy */}
       <div className="flex flex-wrap items-center gap-2">
-        <PosStorePicker concepts={concepts} selection={sel} onChange={setSelection} />
+        <PosStorePicker concepts={concepts} cities={cities} selection={sel} onChange={setSelection} />
 
         {hasSelection ? (
           <div className="flex flex-1 flex-wrap items-center gap-1.5">
@@ -97,7 +113,7 @@ export function PosFilterBar({ concepts, unpaired, currencies, views, me }: Filt
             {sel.locations.map((id) => (
               <Chip
                 key={`l-${id}`}
-                label={nameById.get(id) ?? id}
+                label={locLabel(id)}
                 onRemove={() => update({ selection: { ...sel, locations: sel.locations.filter((x) => x !== id) } })}
               />
             ))}
@@ -135,17 +151,23 @@ export function PosFilterBar({ concepts, unpaired, currencies, views, me }: Filt
           <span className="inline-flex items-center gap-1.5">
             <input
               type="date"
-              value={filter.from ?? ""}
-              max={filter.to}
-              onChange={(e) => update({ from: e.target.value })}
+              value={draftFrom}
+              max={draftTo || undefined}
+              onChange={(e) => {
+                setDraftFrom(e.target.value);
+                commitDates(e.target.value, draftTo);
+              }}
               className="h-9 rounded-full border border-edge bg-paper px-3 text-[12.5px] tabular-nums text-ink-base outline-none transition-colors focus-visible:border-ink-base focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2 focus-visible:ring-offset-paper"
             />
             <span className="text-ink-soft" aria-hidden="true">-</span>
             <input
               type="date"
-              value={filter.to ?? ""}
-              min={filter.from}
-              onChange={(e) => update({ to: e.target.value })}
+              value={draftTo}
+              min={draftFrom || undefined}
+              onChange={(e) => {
+                setDraftTo(e.target.value);
+                commitDates(draftFrom, e.target.value);
+              }}
               className="h-9 rounded-full border border-edge bg-paper px-3 text-[12.5px] tabular-nums text-ink-base outline-none transition-colors focus-visible:border-ink-base focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2 focus-visible:ring-offset-paper"
             />
           </span>
@@ -173,14 +195,11 @@ export function PosFilterBar({ concepts, unpaired, currencies, views, me }: Filt
         </button>
 
         <div className="ml-auto flex flex-wrap items-center gap-1.5">
-          {/* Zobrazovací měna - vše se do ní přepočítá přes FX (ČNB kurz). Dropdown
-              místo chipů, ať šetří místo v liště. */}
-          <Select
-            label="Měna"
-            value={filter.currency}
-            onChange={(v) => update({ currency: v })}
-            options={currencies.map((c) => ({ value: c, label: c }))}
-          />
+          {/* Zobrazovací měna - vše se do ní přepočítá přes FX (ČNB kurz). Chips
+              (3 měny) místo nativního selectu - hezčí a konzistentní s presety. */}
+          {currencies.map((c) => (
+            <FilterChip key={c} active={filter.currency === c} onClick={() => update({ currency: c })} label={c} />
+          ))}
           <span className="mx-1 hidden h-5 w-px bg-edge sm:block" aria-hidden="true" />
           <Toggle
             checked={filter.vatInclusive}

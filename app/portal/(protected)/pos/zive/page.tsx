@@ -43,11 +43,11 @@ export default async function PosLivePage({
         title="Živě"
         lede="Dnešní průběžné tržby - obnova á 90 s."
       />
+      <PosSubNav />
+
       <Suspense fallback={<FilterBarSkeleton />}>
         <PosFilterBarLoader filter={filter} />
       </Suspense>
-
-      <PosSubNav />
       {!isPosApiConfigured() ? (
         <Notice title="POS data nejsou nakonfigurovaná" body="Nastavte POS_API_BASE a POS_API_KEY (Vercel)." />
       ) : (

@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronDown, ChevronRight, Search } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, MapPin, Search } from "lucide-react";
 import type { PosSelection } from "@/lib/portal/pos/filters";
-import type { ConceptGroup } from "./pos-filter-shared";
+import type { CityOption, ConceptGroup } from "./pos-filter-shared";
 
 // Výběr prodejen jako COMBOBOX: vždy viditelné vyhledávací pole (zároveň spouštěč),
-// klik/psaní rovnou filtruje strom Koncept→Prodejna. Checkbox konceptu vybere celou
-// skupinu; jednotlivé prodejny mají vlastní checkboxy. Vybrané se zobrazují jako
-// chips vedle pole (v PosFilterBar). Nenapárované pokladny se zde NEzobrazují.
+// klik na pole i šipku otevře. Strom Koncept→Prodejna + sekce Města. Checkbox
+// konceptu/města vybere celou skupinu (token konceptu / "city:" token), jednotlivé
+// prodejny mají vlastní checkboxy. Nenapárované pokladny se zde NEzobrazují.
 
 function Box({ checked, muted = false }: { checked: boolean; muted?: boolean }) {
   return (
@@ -29,10 +29,12 @@ function Box({ checked, muted = false }: { checked: boolean; muted?: boolean }) 
 
 export function PosStorePicker({
   concepts,
+  cities,
   selection,
   onChange,
 }: {
   concepts: ConceptGroup[];
+  cities: CityOption[];
   selection: PosSelection;
   onChange: (next: PosSelection) => void;
 }) {
@@ -63,6 +65,7 @@ export function PosStorePicker({
 
   const conceptSet = useMemo(() => new Set(selection.concepts), [selection.concepts]);
   const locSet = useMemo(() => new Set(selection.locations), [selection.locations]);
+  const cityToken = (city: string) => `city:${city}`;
 
   const toggleConcept = (c: ConceptGroup["concept"]) => {
     const next = new Set(conceptSet);
@@ -83,6 +86,7 @@ export function PosStorePicker({
         .map((g) => ({ ...g, locations: g.locations.filter((l) => match(l.name)) }))
         .filter((g) => g.locations.length > 0 || match(g.label))
     : concepts;
+  const cityList = ql ? cities.filter((c) => match(c.city)) : cities;
   const isExpanded = (key: string) => expanded.has(key) || ql.length > 0;
   const toggleExpand = (key: string) => {
     const next = new Set(expanded);
@@ -95,7 +99,11 @@ export function PosStorePicker({
   return (
     <div className="relative" ref={ref}>
       <div
-        className={`flex h-9 w-[260px] max-w-full items-center gap-2 rounded-full border bg-paper px-3.5 transition-colors ${
+        onClick={() => {
+          setOpen(true);
+          inputRef.current?.focus();
+        }}
+        className={`flex h-9 w-[260px] max-w-full cursor-text items-center gap-2 rounded-full border bg-paper px-3.5 transition-colors ${
           open ? "border-ink-base" : "border-edge hover:border-ink-soft"
         }`}
       >
@@ -108,23 +116,34 @@ export function PosStorePicker({
             setQ(e.target.value);
             setOpen(true);
           }}
-          placeholder="Hledat prodejnu nebo koncept"
+          placeholder="Hledat prodejnu, koncept nebo město"
           className="h-full w-full bg-transparent text-[12.5px] text-ink-base outline-none placeholder:text-ink-mid"
         />
-        <ChevronDown
-          className={`h-3.5 w-3.5 shrink-0 text-ink-mid transition-transform ${open ? "rotate-180" : ""}`}
-          strokeWidth={2}
-          aria-hidden="true"
-        />
+        <button
+          type="button"
+          aria-label={open ? "Zavřít" : "Otevřít"}
+          onClick={(e) => {
+            e.stopPropagation();
+            setOpen((o) => !o);
+          }}
+          className="grid h-5 w-5 shrink-0 place-items-center text-ink-mid"
+        >
+          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""}`} strokeWidth={2} aria-hidden="true" />
+        </button>
       </div>
 
       {open && (
-        <div className="absolute left-0 top-[calc(100%+6px)] z-30 w-[330px] max-w-[88vw] overflow-hidden rounded-2xl border border-edge bg-paper shadow-[0_12px_40px_-12px_rgba(0,0,0,0.25)]">
-          <div className="max-h-[min(60vh,420px)] overflow-y-auto p-1.5">
-            {groups.length === 0 && (
+        <div className="absolute left-0 top-[calc(100%+6px)] z-30 w-[340px] max-w-[88vw] overflow-hidden rounded-2xl border border-edge bg-paper shadow-[0_12px_40px_-12px_rgba(0,0,0,0.25)]">
+          <div className="max-h-[min(60vh,440px)] overflow-y-auto p-1.5">
+            {groups.length === 0 && cityList.length === 0 && (
               <p className="px-3 py-6 text-center text-[12.5px] text-ink-mid">Nic nenalezeno.</p>
             )}
 
+            {groups.length > 0 && (
+              <div className="px-2 py-1 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-ink-soft">
+                Koncepty
+              </div>
+            )}
             {groups.map((g) => {
               const conceptOn = conceptSet.has(g.concept);
               const expandedNow = isExpanded(g.concept);
@@ -179,6 +198,27 @@ export function PosStorePicker({
                 </div>
               );
             })}
+
+            {cityList.length > 0 && (
+              <div className="mt-1 border-t border-edge pt-1">
+                <div className="px-2 py-1 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-ink-soft">
+                  Města
+                </div>
+                {cityList.map((c) => (
+                  <button
+                    key={c.city}
+                    type="button"
+                    onClick={() => toggleLocation(cityToken(c.city))}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-edge-warm"
+                  >
+                    <Box checked={locSet.has(cityToken(c.city))} />
+                    <MapPin className="h-3.5 w-3.5 shrink-0 text-ink-soft" strokeWidth={1.5} aria-hidden="true" />
+                    <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink-deep">{c.city}</span>
+                    <span className="font-mono text-[10.5px] text-ink-soft">{c.count}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center justify-between gap-2 border-t border-edge px-2.5 py-2">
