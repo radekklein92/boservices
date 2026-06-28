@@ -65,28 +65,19 @@ async function LiveContent({ filter }: { filter: PosFilter }) {
   const todayFilter: PosFilter = { ...filter, preset: "dnes" };
   // Vše spustíme naráz, ale selhání oddělíme. getToday (dnešní tržby) je jádro
   // stránky. Graf po hodinách (heatmapa "dnes") a hybatelé + srovnání KPI
-  // (getLiveMovers - těžká 30denní heatmapa, na studené cache občas timeoutuje)
-  // jsou doplňky: jejich pád NESMÍ shodit dnešní KPI, proto degradují na null.
-  const _pt = (label: string, p: Promise<unknown>) => {
-    const s = Date.now();
-    return Promise.resolve(p).finally(() => console.log(`[PERF] zive.${label} ${Date.now() - s}ms`));
-  };
-  const _pageStart = Date.now();
-  const heatP = (_pt("getHeatmap", getHeatmap(todayFilter)) as ReturnType<typeof getHeatmap>).catch(() => null);
-  const moversP = (_pt("getLiveMovers", getLiveMovers(filter)) as ReturnType<typeof getLiveMovers>).catch(() => null);
+  // (getLiveMovers) jsou doplňky: jejich pád NESMÍ shodit dnešní KPI, proto
+  // degradují na null.
+  const heatP = getHeatmap(todayFilter).catch(() => null);
+  const moversP = getLiveMovers(filter).catch(() => null);
   let today: Awaited<ReturnType<typeof getToday>>;
   let cur: string;
   try {
-    [today, cur] = await Promise.all([
-      _pt("getToday", getToday(filter)) as ReturnType<typeof getToday>,
-      _pt("resolveDisplayCurrency", resolveDisplayCurrency(filter)) as ReturnType<typeof resolveDisplayCurrency>,
-    ]);
+    [today, cur] = await Promise.all([getToday(filter), resolveDisplayCurrency(filter)]);
   } catch {
     return <Notice title="Data dočasně nedostupná" body="Nepodařilo se načíst dnešní data z API Data Warehouse." />;
   }
   const heat = await heatP;
   const movers = await moversP;
-  console.log(`[PERF] zive.TOTAL ${Date.now() - _pageStart}ms`);
 
   const t = today.find((r) => r.currency === cur) ?? null;
   const byHour = new Map<number, { gross: number; net: number }>();

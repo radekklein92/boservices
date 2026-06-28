@@ -548,19 +548,13 @@ export async function getLiveMovers(filter: PosFilter, topN = 5): Promise<LiveMo
   // Data-okna jsou čistě z filtru (nezávisí na scope ani FX), a by-shop/heatmap se
   // filtrují přes resolved.shopIds až po dotažení -> všech pět dotazů může běžet
   // naráz. Ušetří sériové čekání na studené cestě (po syncu DW, než doběhne warm).
-  const _t = (label: string, p: Promise<unknown>) => {
-    const s = Date.now();
-    return Promise.resolve(p).finally(() => console.log(`[PERF] getLiveMovers.${label} ${Date.now() - s}ms`));
-  };
-  const _tot = Date.now();
   const [{ resolved, index, shops, locations }, rates, todayRows, baseRows, f] = await Promise.all([
-    _t("scope", scopeContext(filter)) as ReturnType<typeof scopeContext>,
-    _t("fx", getFxRates()) as ReturnType<typeof getFxRates>,
-    _t("shopRevToday", _shopRev(todayRange.from, todayRange.to)) as ReturnType<typeof _shopRev>,
-    _t("shopRevD7", _shopRev(baseRange.from, baseRange.to)) as ReturnType<typeof _shopRev>,
-    _t("dayFraction", getDayFraction(filter)) as ReturnType<typeof getDayFraction>,
+    scopeContext(filter),
+    getFxRates(),
+    _shopRev(todayRange.from, todayRange.to),
+    _shopRev(baseRange.from, baseRange.to),
+    getDayFraction(filter),
   ]);
-  console.log(`[PERF] getLiveMovers.allParallel ${Date.now() - _tot}ms`);
 
   const locName = new Map(locations.map((l) => [l.id, l.name]));
   const shopName = new Map(shops.map((s) => [s.id, s.name]));
