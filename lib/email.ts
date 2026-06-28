@@ -216,6 +216,48 @@ export async function notifyLocationProblem(opts: {
   await resend.emails.send({ from: FROM, to: [NOTIFY], subject, html });
 }
 
+// Notifikace adminovi: pokladny (DW shops) bez napárované prodejny. Posílá se na
+// NOTIFY, když denní cron (nebo admin na vyžádání) najde nenapárované pokladny.
+export async function notifyUnpairedShops(
+  items: {
+    name: string;
+    cloudId: string | null; // číslo cloudu (Dotykačka), null u Trdlokafe
+    brandName: string;
+  }[],
+  opts: { pairingUrl: string } = { pairingUrl: "https://www.boservices.cz/portal/admin/pos-pairing" },
+): Promise<void> {
+  const resend = getResend();
+  if (!resend || items.length === 0) return;
+
+  const subject =
+    items.length === 1
+      ? `Nenapárovaná pokladna - ${items[0]!.name}`
+      : `${items.length} nenapárovaných pokladen`;
+
+  const rows = items
+    .map(
+      (it) => `
+        <tr>
+          <td style="padding:8px 0;border-top:1px solid #E8ECE9">${escapeHtml(it.name)}<br/><span style="font-size:12px;color:#6F7672">${escapeHtml(it.brandName)}</span></td>
+          <td style="padding:8px 0;border-top:1px solid #E8ECE9;text-align:right;white-space:nowrap;vertical-align:top;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px">${it.cloudId ? "Cloud " + escapeHtml(it.cloudId) : "<span style='color:#6F7672'>bez cloudu</span>"}</td>
+        </tr>`,
+    )
+    .join("");
+
+  const html = `
+    <div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#0E0E0E">
+      <div style="font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#B42318">BOServices · párování pokladen</div>
+      <h1 style="font-size:22px;font-weight:800;letter-spacing:-.02em;margin:6px 0 16px">${items.length} ${items.length === 1 ? "pokladna nemá" : items.length < 5 ? "pokladny nemají" : "pokladen nemá"} prodejnu</h1>
+      <div style="font-size:14px;line-height:1.55;color:#2A2A2A;margin-bottom:16px">Následující pokladny z pokladního systému zatím nejsou napárované na žádnou prodejnu (a nejsou ignorované):</div>
+      <table style="border-collapse:collapse;width:100%;font-size:14px">${rows}</table>
+      <hr style="border:none;border-top:1px solid #E8ECE9;margin:20px 0"/>
+      <div style="font-size:13px;line-height:1.55;color:#6F7672">Napárovat je můžete v portálu: <a href="${escapeHtml(opts.pairingUrl)}" style="color:#0E0E0E">Párování pokladen</a>.</div>
+    </div>
+  `;
+
+  await resend.emails.send({ from: FROM, to: [NOTIFY], subject, html });
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")
