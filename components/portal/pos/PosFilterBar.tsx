@@ -103,7 +103,7 @@ export function PosFilterBar({
 
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-edge bg-paper p-3 sm:p-4">
-      {/* Řádek 1: výběr prodejen + filtr "Stejné prodejny" + uložené pohledy */}
+      {/* Řádek 1: výběr prodejen + měna + DPH + "Stejné prodejny" + uložené pohledy */}
       <div className="flex flex-wrap items-center gap-2">
         <PosStorePicker concepts={concepts} selection={sel} onChange={setSelection} />
 
@@ -136,6 +136,40 @@ export function PosFilterBar({
           <span className="flex-1 text-[12.5px] text-ink-soft">Celá síť</span>
         )}
 
+        {/* Zobrazovací měna + Ceny s DPH na řádku 1 (na řádek presetů se vedle nich nevejdou;
+            zobrazují se vždy, i na Živě). Měna: vše se přepočítá přes FX (ČNB kurz). */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <div
+            role="radiogroup"
+            aria-label="Zobrazovací měna"
+            className="inline-flex h-9 shrink-0 items-center rounded-full border border-edge bg-paper p-0.5"
+          >
+            {currencies.map((c) => {
+              const active = filter.currency === c;
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => update({ currency: c })}
+                  className={`inline-flex h-8 items-center rounded-full px-3 text-[12.5px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-1 focus-visible:ring-offset-paper ${
+                    active ? "bg-ink-base text-paper" : "text-ink-mid hover:text-ink-base"
+                  }`}
+                >
+                  {c}
+                </button>
+              );
+            })}
+          </div>
+          <span className="mx-1 hidden h-5 w-px bg-edge sm:block" aria-hidden="true" />
+          <Toggle
+            checked={filter.vatInclusive}
+            onChange={(next) => update({ vatInclusive: next })}
+            label="Ceny s DPH"
+            title="Přepnout zobrazení s DPH / bez DPH"
+          />
+        </div>
         {/* Filtr ŽEBŘÍČKU "Stejné prodejny" (like-for-like): skryje prodejny bez
             srovnatelného základu. Na deltu KPI nemá vliv - ta je vždy like-for-like. */}
         {!hidePeriod && (
@@ -156,10 +190,9 @@ export function PosFilterBar({
         <PosViewsMenu views={views} me={me} currentFilter={currentFilter} />
       </div>
 
-      {/* Řádek 2: období + srovnání (label) + měna + DPH (na Živě jen měna + DPH) */}
-      <div className="flex flex-wrap items-center gap-1.5">
-        {!hidePeriod && (
-          <>
+      {/* Řádek 2: období (datumové presety) + srovnání (label "vs ..."). Celé skryto na Živě. */}
+      {!hidePeriod && (
+        <div className="flex flex-wrap items-center gap-1.5">
             {PRESETS.map((p) => (
               <FilterChip
                 key={p}
@@ -203,45 +236,8 @@ export function PosFilterBar({
             <span className="hidden text-[11px] text-ink-soft sm:inline">
               vs {comparisonLabel(filter).toLowerCase()}
             </span>
-          </>
-        )}
-
-        <div className="ml-auto flex flex-wrap items-center gap-1.5">
-          {/* Zobrazovací měna - vše se do ní přepočítá přes FX (ČNB kurz). Segmented
-              control: jeden pill se segmenty (něco mezi chipem a radiem), kompaktní
-              a šetří místo. Aktivní segment = bg-ink-base (sémantika výběru portálu). */}
-          <div
-            role="radiogroup"
-            aria-label="Zobrazovací měna"
-            className="inline-flex h-9 shrink-0 items-center rounded-full border border-edge bg-paper p-0.5"
-          >
-            {currencies.map((c) => {
-              const active = filter.currency === c;
-              return (
-                <button
-                  key={c}
-                  type="button"
-                  role="radio"
-                  aria-checked={active}
-                  onClick={() => update({ currency: c })}
-                  className={`inline-flex h-8 items-center rounded-full px-3 text-[12.5px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-1 focus-visible:ring-offset-paper ${
-                    active ? "bg-ink-base text-paper" : "text-ink-mid hover:text-ink-base"
-                  }`}
-                >
-                  {c}
-                </button>
-              );
-            })}
-          </div>
-          <span className="mx-1 hidden h-5 w-px bg-edge sm:block" aria-hidden="true" />
-          <Toggle
-            checked={filter.vatInclusive}
-            onChange={(next) => update({ vatInclusive: next })}
-            label="Ceny s DPH"
-            title="Přepnout zobrazení s DPH / bez DPH"
-          />
         </div>
-      </div>
+      )}
     </div>
   );
 }
