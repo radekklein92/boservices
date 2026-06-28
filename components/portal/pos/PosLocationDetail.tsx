@@ -31,10 +31,9 @@ import {
   signedNumber,
 } from "./pos-shared";
 
-// Sdílený obsah detailu prodejny - používá ho jak plná stránka
-// (prodejny/[locationId]), tak modal (intercepting route @modal). Detail =
-// výběr zúžený na jednu lokalitu (rollup jejích pokladen). Sekce streamují
-// nezávisle pod <Suspense>; heatmapa (drahý DW scan) má vlastní boundary.
+// Obsah detailu prodejny pro stránku prodejny/[locationId]. Detail = výběr
+// zúžený na jednu lokalitu (rollup jejích pokladen). Sekce streamují nezávisle
+// pod <Suspense>; heatmapa (drahý DW scan) má vlastní boundary.
 
 const DP_ORDER: Daypart[] = ["rano", "dopoledne", "poledne", "odpoledne", "vecer", "noc"];
 
