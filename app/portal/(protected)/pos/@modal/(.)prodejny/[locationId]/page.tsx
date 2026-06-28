@@ -1,13 +1,10 @@
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { canSeePOS } from "@/lib/portal/auth-guard";
 import { getSession } from "@/lib/portal/get-session";
-import { PageHeader } from "@/components/portal/shell/PageHeader";
-import { parsePosFilter, serializePosFilter } from "@/lib/portal/pos/filters";
+import { parsePosFilter } from "@/lib/portal/pos/filters";
 import { PosLocationDetailBody, resolvePosLocationMeta } from "@/components/portal/pos/PosLocationDetail";
+import { PosModal } from "@/components/portal/pos/PosModal";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Tržby - Detail prodejny" };
 
 function searchParamsToUsp(sp: Record<string, string | string[] | undefined>): URLSearchParams {
   const usp = new URLSearchParams();
@@ -18,9 +15,9 @@ function searchParamsToUsp(sp: Record<string, string | string[] | undefined>): U
   return usp;
 }
 
-// Plná stránka detailu prodejny (přímý odkaz / refresh / když modal neintercepuje).
-// Z žebříčku se otevírá jako modal přes intercepting route @modal/(.)prodejny.
-export default async function PosLocationDetailPage({
+// Intercepting route: detail prodejny otevřený ze žebříčku se zobrazí jako modal
+// (nad seznamem) místo nové stránky. Stejný obsah jako plná stránka.
+export default async function PosLocationModal({
   params,
   searchParams,
 }: {
@@ -34,21 +31,9 @@ export default async function PosLocationDetailPage({
   const baseFilter = parsePosFilter(searchParamsToUsp(await searchParams));
   const { name, cur, filter, useNet } = await resolvePosLocationMeta(locationId, baseFilter);
 
-  const backQs = serializePosFilter(baseFilter).toString();
-  const backHref = `/portal/pos/prodejny${backQs ? `?${backQs}` : ""}`;
-
   return (
-    <>
-      <PageHeader
-        eyebrow={
-          <Link href={backHref} className="inline-flex items-center gap-1.5 transition-colors hover:text-ink-base">
-            <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
-            Prodejny
-          </Link>
-        }
-        title={name}
-      />
+    <PosModal title={name}>
       <PosLocationDetailBody filter={filter} cur={cur} useNet={useNet} />
-    </>
+    </PosModal>
   );
 }
