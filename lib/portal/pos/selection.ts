@@ -108,10 +108,10 @@ export function resolveSelection(
 }
 
 // --- Měny ve výběru ---
-// POS segmentuje per měna a FX se NEpřepočítává (viz types.ts). Default filtru je
-// CZK; když ale výběr drží jen pokladny účtující v jiné měně (typicky polská PLN
-// prodejna), dotaz na CZK vrátí 0 řádků -> tiché "0 Kč". Tyhle helpery z
-// currency_code pokladen určí měny zastoupené ve výběru a efektivní měnu.
+// POZN.: od zavedení FX přepočtu (lib/portal/pos/fx.ts) se vše přepočítá do
+// zvolené zobrazovací měny, takže "tiché 0 Kč" u cizoměnové prodejny už nehrozí a
+// queries/loader tyto helpery nepoužívají. Necháváme je (+ testy) jako utilitu pro
+// segmentaci výběru per měna (currency_code pokladen).
 
 // Pořadí/priorita měn pro stabilní zobrazení i tie-break dominantní měny.
 export const POS_CURRENCIES = ["CZK", "EUR", "PLN"] as const;

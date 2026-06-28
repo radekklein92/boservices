@@ -58,7 +58,7 @@ export interface PosFilter {
   to?: string;
   comparison: PosComparison;
   sameStore: boolean; // like-for-like toggle
-  currency: string; // segmentace per měna; default CZK; FX se nepřepočítává
+  currency: string; // zobrazovací měna; default CZK; vše se do ní přepočítá přes FX (fx.ts)
   vatInclusive: boolean; // true = gross (s DPH), false = net (bez DPH)
 }
 
