@@ -291,7 +291,10 @@ export async function extractContractFeeTerms(
     // effectiveFrom vždy konkrétní datum: odložená účinnost z textu, jinak datum
     // podpisu - ať se v UI nikdy nezobrazí fráze („dnem podpisu").
     const effectiveFrom = String(parsed.effectiveFrom ?? "").trim() || signedISO;
-    const termMonths = Math.max(0, Math.trunc(Number(parsed.termMonths) || 0));
+    let termMonths = Math.max(0, Math.trunc(Number(parsed.termMonths) || 0));
+    // Franšíza je dle šablony vždy na dobu určitou (10 let). Když ji AI z textu
+    // nevytáhne, použij default - ať má franšíza (a od ní odvozené smlouvy) vždy konec.
+    if (contract.type === "franchise" && termMonths <= 0) termMonths = 120;
     const termEndsAt = computeTermEndsAt(effectiveFrom, termMonths);
 
     const terms: ContractFeeTerms = {
