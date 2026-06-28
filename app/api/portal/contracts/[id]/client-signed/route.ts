@@ -7,6 +7,11 @@ import {
   locationRequiredError,
   upsertContract,
 } from "@/lib/portal/contracts-db";
+import { ensureContractFeeTerms } from "@/lib/portal/contract-fee-ai";
+
+// AI extrakce poplatků při podpisu může trvat několik sekund (Claude přes text
+// smlouvy) - povolíme delší běh než výchozí limit.
+export const maxDuration = 60;
 
 export async function POST(
   _req: Request,
@@ -34,6 +39,10 @@ export async function POST(
   };
   updated.status = computeContractStatus(updated);
   await upsertContract(updated);
+
+  // Poplatky ze smlouvy (AI) - jen approval-gated typy, idempotentní a best-effort:
+  // selhání NEzablokuje podpis (uloží feeTermsError, cron/tlačítko zkusí znovu).
+  await ensureContractFeeTerms(updated);
 
   bustContracts();
   return NextResponse.json({ ok: true });

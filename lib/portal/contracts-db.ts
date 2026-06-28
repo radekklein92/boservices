@@ -11,6 +11,7 @@ import type {
   LocationMode,
 } from "./locations-db";
 import type { ClaimItem } from "./claims";
+import type { ContractFeeTerms } from "./contract-fee-terms";
 
 // Status flow:
 //   koncept → [ke-schvaleni] → schvaleno → k-podpisu → podepsano-bos → podepsano-klientem → archivovano
@@ -283,6 +284,12 @@ export interface Contract {
   // Mezistav: klient podepsal v DigiSign, čeká se na druhou stranu (převzato
   // z ClamoraPortalu). Informativní - status se počítá dál z clientSignedAt.
   digisignClientSignedAt?: string;
+  // Poplatky vytažené ze smlouvy (AI při podpisu, ručně upravitelné na detailu
+  // lokality). Jen approval-gated typy (franšíza/spolupráce/provozování). Příprava
+  // pod budoucí automatické vystavování faktur. feeTermsError = poslední chyba
+  // extrakce (cron/tlačítko zkusí znovu; maže se při úspěchu).
+  feeTerms?: ContractFeeTerms;
+  feeTermsError?: string;
   // Uživatelský zámek úprav konceptu: jen `by` + `allowed` smí upravovat, ostatní
   // jen prohlížet. Nezávislé na status-zámku (schváleno+). Mění/ruší jen `by` nebo
   // superadmin. Bez tohoto pole je smlouva editovatelná dle statusu (jako dosud).

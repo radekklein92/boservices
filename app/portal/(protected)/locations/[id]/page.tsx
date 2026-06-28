@@ -5,7 +5,11 @@ import {
   cachedListLocationFranchiseContracts,
   cachedListReFlags,
 } from "@/lib/portal/cached-db";
-import { contractDisplayStatus, statusOrder } from "@/lib/portal/contracts-db";
+import {
+  clientSignedAtEffective,
+  contractDisplayStatus,
+  statusOrder,
+} from "@/lib/portal/contracts-db";
 import {
   isBosStore,
   bosStoreReason,
@@ -81,6 +85,10 @@ export default async function LocationDetailPage({
       number: c.number ?? null,
       cancelled: Boolean(c.cancelledAt),
       createdAt: c.createdAt,
+      variant: c.variant ?? null,
+      clientSignedAt: clientSignedAtEffective(c) ?? null,
+      feeTerms: c.feeTerms ?? null,
+      feeTermsError: c.feeTermsError ?? null,
     }))
     .sort((a, b) => {
       if (a.cancelled !== b.cancelled) return a.cancelled ? 1 : -1;

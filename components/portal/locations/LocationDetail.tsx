@@ -23,6 +23,8 @@ import {
 } from "@/lib/portal/contracts-db";
 import type { ContractType } from "@/lib/portal/contract-types";
 import { CONTRACT_TYPE_META } from "@/lib/portal/contract-types";
+import type { ContractFeeTerms } from "@/lib/portal/contract-fee-terms";
+import { LocationFeeTermsSection } from "./LocationFeeTerms";
 import type { ReFlag } from "@/lib/portal/re-flags-shared";
 import { CONTRACT_STATUS_ICON } from "@/components/portal/contracts/contract-status-meta";
 import { Section } from "@/components/portal/ui/Section";
@@ -64,6 +66,11 @@ export type LocationContractRow = {
   number: string | null;
   cancelled: boolean;
   createdAt: string;
+  // Pro sekci Poplatky a fakturace (jen approval-gated podepsané smlouvy).
+  variant: string | null;
+  clientSignedAt: string | null;
+  feeTerms: ContractFeeTerms | null;
+  feeTermsError: string | null;
 };
 
 export function LocationDetail({
@@ -306,6 +313,8 @@ export function LocationDetail({
       </div>
 
       <LocationContracts contracts={contracts} />
+
+      <LocationFeeTermsSection contracts={contracts} />
 
       {l.note && (
         <Section title="Poznámka z Transition">
