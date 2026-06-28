@@ -667,7 +667,7 @@ export function RealEstateTable({
       {base.length === 0 ? (
         <EmptyState hasAnyLocations={rows.length > 0} onShowAll={() => setShowAll(true)} />
       ) : (
-        <div className="overflow-auto rounded-3xl border border-edge bg-paper max-h-[calc(100dvh-260px)]">
+        <div className="overflow-x-auto rounded-3xl border border-edge bg-paper">
           <table className="w-full min-w-[1180px] border-collapse text-[13px]">
             <thead>
               <tr>
