@@ -30,12 +30,11 @@ export default async function PosReportsPage({
         lede="Exporty dat pro aktuální výběr a období."
       />
 
-      <PosSubNav />
-
-
       <Suspense fallback={<FilterBarSkeleton />}>
         <PosFilterBarLoader />
       </Suspense>
+
+      <PosSubNav />
 
       <section className="flex flex-col gap-3">
         <h2 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink-mid">

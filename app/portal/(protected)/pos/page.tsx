@@ -12,10 +12,10 @@ import {
   serializePosFilter,
   type PosFilter,
 } from "@/lib/portal/pos/filters";
-import { getDailyTrend, getKpiSummary, getLocationLeaderboardFull, getPeriodTotals } from "@/lib/portal/pos/queries";
+import { getDailyTrend, getHourlyTrend, getKpiSummary, getLocationLeaderboardFull, getPeriodTotals } from "@/lib/portal/pos/queries";
 import { getDefaultView } from "@/lib/portal/pos/views-db";
 import { isPosApiConfigured } from "@/lib/portal/pos/api";
-import type { DayPoint, LocationRevenueRowWithPrev, SummaryRow } from "@/lib/portal/pos/types";
+import type { DayPoint, HourPoint, LocationRevenueRowWithPrev, SummaryRow } from "@/lib/portal/pos/types";
 import { PosKpiCard } from "@/components/portal/pos/PosKpiCard";
 import { PosLineChart } from "@/components/portal/pos/PosLineChart";
 import { PosDeltaBadge } from "@/components/portal/pos/PosDeltaBadge";
@@ -86,11 +86,11 @@ export default async function PosOverviewPage({
         }
       />
 
-      <PosSubNav />
-
       <Suspense fallback={<FilterBarSkeleton />}>
         <PosFilterBarLoader />
       </Suspense>
+
+      <PosSubNav />
 
       {!isPosApiConfigured() ? (
         <Notice
@@ -106,7 +106,7 @@ export default async function PosOverviewPage({
           <div className="grid gap-5 lg:grid-cols-3">
             <section className="flex flex-col gap-3 lg:col-span-2">
               <h2 className="text-[12px] font-semibold uppercase tracking-[0.14em] text-ink-mid">
-                Vývoj tržeb ({useNet ? "bez DPH" : "s DPH"})
+                Vývoj tržeb {filter.preset === "dnes" ? "dnes po hodinách " : ""}({useNet ? "bez DPH" : "s DPH"})
               </h2>
               <Suspense fallback={<ChartSkeleton />}>
                 <TrendSection filter={filter} useNet={useNet} />
@@ -129,6 +129,9 @@ export default async function PosOverviewPage({
 // --- 4 KPI: Tržby (net|gross dle DPH), Účtenky, Průměrný ticket, Refundace ---
 
 async function KpiSection({ filter, cur, useNet }: { filter: PosFilter; cur: string; useNet: boolean }) {
+  // Denní zobrazení: férové srovnání "do teď" z hodinových dat (ne celý den vs část dne).
+  if (filter.preset === "dnes") return <KpiSectionDaily filter={filter} cur={cur} useNet={useNet} />;
+
   let kpi: Awaited<ReturnType<typeof getKpiSummary>>;
   let trend: Awaited<ReturnType<typeof getDailyTrend>>;
   try {
@@ -198,7 +201,82 @@ async function KpiSection({ filter, cur, useNet }: { filter: PosFilter; cur: str
   );
 }
 
+// Denní KPI: vše z hodinových dat, srovnání jen do aktuální hodiny (férová frakce).
+async function KpiSectionDaily({ filter, cur, useNet }: { filter: PosFilter; cur: string; useNet: boolean }) {
+  let hourly: Awaited<ReturnType<typeof getHourlyTrend>>;
+  let kpi: Awaited<ReturnType<typeof getKpiSummary>>;
+  try {
+    [hourly, kpi] = await Promise.all([getHourlyTrend(filter), getKpiSummary(filter)]);
+  } catch {
+    return <WidgetError />;
+  }
+  if (hourly.current.length === 0) {
+    return (
+      <Notice
+        title={`Pro ${cur} dnes zatím nejsou data`}
+        body="Zkuste jiný výběr prodejen nebo měnu ve filtru nahoře."
+      />
+    );
+  }
+  const sum = (pts: HourPoint[], pred: (h: HourPoint) => boolean = () => true) =>
+    pts.reduce(
+      (a, h) => (pred(h) ? { gross: a.gross + h.gross, net: a.net + h.net, receipts: a.receipts + h.receipts } : a),
+      { gross: 0, net: 0, receipts: 0 },
+    );
+  const curT = sum(hourly.current);
+  const cmpT = hourly.comparison ? sum(hourly.comparison, (h) => h.hour <= hourly.nowHour) : null;
+  const revenue = useNet ? curT.net : curT.gross;
+  const prevRevenue = cmpT ? (useNet ? cmpT.net : cmpT.gross) : null;
+  const curAtv = curT.receipts > 0 ? curT.gross / curT.receipts : null;
+  const cmpAtv = cmpT && cmpT.receipts > 0 ? cmpT.gross / cmpT.receipts : null;
+  const refund = pickRow(kpi.current, cur)?.refund_rate ?? null;
+  const spark = hourly.current.map((h) => (useNet ? h.net : h.gross));
+  const sparkRec = hourly.current.map((h) => h.receipts);
+  const sparkAtv = hourly.current.map((h) => (h.receipts > 0 ? h.gross / h.receipts : 0));
+
+  return (
+    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <PosKpiCard
+        label={`Tržby (${useNet ? "bez DPH" : "s DPH"})`}
+        value={formatPosMoneyCompact(revenue, cur)}
+        valueTitle={formatPosMoney(revenue, cur)}
+        current={revenue}
+        previous={prevRevenue}
+        absolute={prevRevenue != null ? signedMoneyCompact(revenue - prevRevenue, cur) : undefined}
+        spark={spark}
+        emphasis
+      />
+      <PosKpiCard
+        label="Účtenky"
+        value={formatPosNumber(curT.receipts)}
+        current={curT.receipts}
+        previous={cmpT?.receipts ?? null}
+        absolute={cmpT ? signedNumber(curT.receipts - cmpT.receipts) : undefined}
+        spark={sparkRec}
+      />
+      <PosKpiCard
+        label="Průměrný ticket"
+        value={curAtv != null ? formatPosMoney(curAtv, cur) : "—"}
+        current={curAtv ?? undefined}
+        previous={cmpAtv}
+        absolute={curAtv != null && cmpAtv != null ? signedMoneyCompact(curAtv - cmpAtv, cur) : undefined}
+        spark={sparkAtv}
+      />
+      <PosKpiCard
+        label="Refundace"
+        value={refund != null ? formatPct(refund) : "—"}
+        current={refund ?? undefined}
+        previous={null}
+        goodDir="down"
+        deltaMode="pp"
+      />
+    </div>
+  );
+}
+
 async function TrendSection({ filter, useNet }: { filter: PosFilter; useNet: boolean }) {
+  if (filter.preset === "dnes") return <TrendSectionDaily filter={filter} useNet={useNet} />;
+
   let trend: Awaited<ReturnType<typeof getDailyTrend>>;
   try {
     trend = await getDailyTrend(filter);
@@ -222,6 +300,36 @@ async function TrendSection({ filter, useNet }: { filter: PosFilter; useNet: boo
   const pick = (d: DayPoint) => (useNet ? d.net : d.gross);
   const current = trend.current.map((d) => ({ label: fmtDayLabel(d.date), value: pick(d) }));
   const comparison = trend.comparison ? trend.comparison.map(pick) : null;
+  return (
+    <PosLineChart
+      current={current}
+      comparison={comparison}
+      currency={filter.currency}
+      comparisonLabel={COMPARISON_LABEL[filter.comparison]}
+      height={260}
+    />
+  );
+}
+
+// Hodinový graf pro denní zobrazení: dnešní hodiny + srovnávací den (stejné hodiny).
+async function TrendSectionDaily({ filter, useNet }: { filter: PosFilter; useNet: boolean }) {
+  let hourly: Awaited<ReturnType<typeof getHourlyTrend>>;
+  try {
+    hourly = await getHourlyTrend(filter);
+  } catch {
+    return <WidgetError />;
+  }
+  if (hourly.current.length === 0) {
+    return (
+      <div className="grid h-[200px] place-items-center rounded-2xl border border-edge bg-paper text-[13px] text-ink-mid">
+        Dnes zatím nejsou data.
+      </div>
+    );
+  }
+  const pick = (h: HourPoint) => (useNet ? h.net : h.gross);
+  const current = hourly.current.map((h) => ({ label: `${h.hour}`, value: pick(h) }));
+  const cmpByHour = new Map((hourly.comparison ?? []).map((h) => [h.hour, pick(h)]));
+  const comparison = hourly.comparison ? hourly.current.map((h) => cmpByHour.get(h.hour) ?? 0) : null;
   return (
     <PosLineChart
       current={current}

@@ -137,6 +137,14 @@ export interface DayPoint {
   receipts: number;
 }
 
+// Bod hodinového trendu (pro denní zobrazení "Dnes") - sečteno přes scope/dny.
+export interface HourPoint {
+  hour: number; // 0-23 (shop-local)
+  gross: number;
+  net: number;
+  receipts: number;
+}
+
 // KPI souhrn pro aktuální okno + (volitelné) srovnávací okno. Per měna.
 export interface KpiSummary {
   current: SummaryRow[];
