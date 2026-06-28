@@ -37,11 +37,19 @@ export function ClosedStoresKpiCard({ report }: { report: ClosedStoresReport }) 
         type="button"
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
+        aria-label="Neotevřené prodejny - otevřít přehled"
         className="group flex min-w-0 flex-col gap-2 rounded-2xl border border-edge bg-paper p-5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-ink-soft hover:shadow-[0_10px_30px_-14px_rgba(14,14,14,0.22)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2 focus-visible:ring-offset-paper"
       >
-        <span className="text-[10.5px] font-medium uppercase tracking-[0.16em] text-ink-mid">
-          Neotevřené prodejny
-        </span>
+        <div className="flex items-start justify-between gap-2">
+          <span className="text-[10.5px] font-medium uppercase tracking-[0.16em] text-ink-mid">
+            Neotevřené prodejny
+          </span>
+          <ArrowUpRight
+            className="h-4 w-4 shrink-0 text-ink-mid transition-colors group-hover:text-ink-base"
+            strokeWidth={1.75}
+            aria-hidden="true"
+          />
+        </div>
         <div className="truncate text-[1.5rem] font-extrabold leading-[1.05] tracking-[-0.03em] tabular-nums text-ink-base">
           {report.count}
         </div>
@@ -59,9 +67,6 @@ export function ClosedStoresKpiCard({ report }: { report: ClosedStoresReport }) 
           )}
           {has && <span className="tabular-nums text-ink-soft">· až {gapText(worst)} bez tržby</span>}
         </div>
-        <span className="mt-auto pt-1 text-[11px] font-medium text-ink-mid underline-offset-2 group-hover:underline">
-          Zobrazit přehled
-        </span>
       </button>
       {open && <ClosedStoresModal report={report} onClose={() => setOpen(false)} />}
     </>
