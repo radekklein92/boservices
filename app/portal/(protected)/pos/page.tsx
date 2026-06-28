@@ -322,7 +322,7 @@ async function TrendSection({ filter, useNet }: { filter: PosFilter; useNet: boo
   let trend: Awaited<ReturnType<typeof getDailyTrend>>;
   let cur: string;
   try {
-    [trend, cur] = await Promise.all([getDailyTrend(filter), resolveDisplayCurrency(filter)]);
+    [trend, cur] = await Promise.all([getDailyTrend(filter, { fullYearMonths: true }), resolveDisplayCurrency(filter)]);
   } catch {
     return <WidgetError />;
   }

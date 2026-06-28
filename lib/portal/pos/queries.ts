@@ -401,8 +401,51 @@ async function dailyRows(plan: DailyPlan, range: DateRange, grain: TrendGrain): 
   return _dailyTrendShops(range.from, range.to, plan.shopIds.join(","), bucket);
 }
 
+// Fold měsíčních řádků (date = první den měsíce) podle ČÍSLA měsíce (1-12).
+function foldByMonthNum(rows: DailyRevenueRow[]): Map<number, DayPoint> {
+  const byNum = new Map<number, DayPoint>();
+  for (const r of rows) {
+    const mn = Number(r.date.slice(5, 7));
+    const d = byNum.get(mn) ?? { date: r.date, gross: 0, net: 0, receipts: 0 };
+    d.gross += r.gross;
+    d.net += r.net;
+    d.receipts += r.receipts;
+    byNum.set(mn, d);
+  }
+  return byNum;
+}
+
+// "Tento rok" jako Dotykačka: osa vždy celých 12 měsíců. Letošek je vyplněný jen
+// po aktuální měsíc (zbytek = nulové = neviditelné sloupce), LOŇSKÝ rok je CELÝ -
+// srovnávací linka tak jede přes všech 12 měsíců. Zarovnání po čísle měsíce (led
+// letos vs led loni), ne po indexu. Pouze pro Přehled graf (detail lokality drží
+// klasický měsíční trend bez budoucích nul).
+async function yearMonthlyTrend(
+  plan: DailyPlan,
+  year: number,
+  to: string,
+  rates: FxRates,
+): Promise<{ current: DayPoint[]; comparison: DayPoint[]; grain: TrendGrain }> {
+  const prev = year - 1;
+  const [curRows, prevRows] = await Promise.all([
+    dailyRows(plan, { from: `${year}-01-01`, to: `${year}-12-31` }, "month"),
+    dailyRows(plan, { from: `${prev}-01-01`, to: `${prev}-12-31` }, "month"),
+  ]);
+  const curByM = foldByMonthNum(convertRows(curRows, to, rates, DAILY_MONEY));
+  const prevByM = foldByMonthNum(convertRows(prevRows, to, rates, DAILY_MONEY));
+  const current: DayPoint[] = [];
+  const comparison: DayPoint[] = [];
+  for (let m = 1; m <= 12; m++) {
+    const mm = String(m).padStart(2, "0");
+    current.push(curByM.get(m) ?? { date: `${year}-${mm}-01`, gross: 0, net: 0, receipts: 0 });
+    comparison.push(prevByM.get(m) ?? { date: `${prev}-${mm}-01`, gross: 0, net: 0, receipts: 0 });
+  }
+  return { current, comparison, grain: "month" };
+}
+
 export async function getDailyTrend(
   filter: PosFilter,
+  opts?: { fullYearMonths?: boolean },
 ): Promise<{ current: DayPoint[]; comparison: DayPoint[] | null; grain: TrendGrain }> {
   const { resolved, shops } = await scopeContext(filter);
   const to = filter.currency;
@@ -410,6 +453,10 @@ export async function getDailyTrend(
   const plan = dailyPlan(resolved, shops);
   const range = aggWindow(filter);
   const grain = trendGrain(range);
+  // Roční pohled v Přehledu: celých 12 měsíců (letošek po aktuální měsíc + celý loňský rok).
+  if (opts?.fullYearMonths && grain === "month" && filter.preset === "tento-rok") {
+    return yearMonthlyTrend(plan, Number(range.from.slice(0, 4)), to, rates);
+  }
   const cmp = resolveComparisonRange(filter, range);
   const [curRows, prevRows] = await Promise.all([
     dailyRows(plan, range, grain),
