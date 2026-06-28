@@ -75,7 +75,8 @@ export interface PosLocationMeta {
 // měnu, ve které pokladny prodejny účtují (cizoměnová prodejna -> její měna).
 // Výběr ve filtru zúžen na jednu lokalitu.
 export async function resolvePosLocationMeta(locationId: string, baseFilter: PosFilter): Promise<PosLocationMeta> {
-  const filter: PosFilter = { ...baseFilter, selection: { concepts: [], locations: [locationId] } };
+  // Detail jedné lokality: vždy celá síť (jinak by BOS okruh ne-BOS prodejnu vynuloval).
+  const filter: PosFilter = { ...baseFilter, scope: "all", selection: { concepts: [], locations: [locationId] } };
   let name = "Prodejna";
   let cur = filter.currency;
   try {

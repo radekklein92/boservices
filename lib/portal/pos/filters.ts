@@ -49,6 +49,13 @@ export type PosDatePreset =
 
 export interface PosFilter {
   selection: PosSelection;
+  // Okruh prodejen ("store scope"): "bos" = jen BOS prodejny (DEFAULT), "all" = celá
+  // síť. Sdílený toggle vedle výběru (jako měna CZK/EUR/PLN). Default BOS znamená, že
+  // dashboard ukazuje jen BOS prodejny, dokud uživatel nepřepne na celou síť. Okruh
+  // se aplikuje i na výběr konceptů/lokalit (resolver protne výběr s BOS množinou) a
+  // omezuje obsah pickeru (loader). Single-location panely (detail lokality) si vynutí
+  // "all", aby ne-BOS prodejna nevypadla.
+  scope: "all" | "bos";
   preset: PosDatePreset;
   from?: string; // jen u preset "vlastni"
   to?: string;
@@ -65,6 +72,7 @@ export const EMPTY_SELECTION: PosSelection = { concepts: [], locations: [] };
 
 export const DEFAULT_POS_FILTER: PosFilter = {
   selection: EMPTY_SELECTION,
+  scope: "bos",
   preset: "tento-tyden",
   sameStore: false,
   currency: "CZK",
@@ -326,6 +334,8 @@ export function parsePosFilter(sp: URLSearchParams): PosFilter {
 
   return {
     selection,
+    // Okruh prodejen: ?stores=all = celá síť; cokoli jiného (vč. chybějícího) = BOS default.
+    scope: sp.get("stores") === "all" ? "all" : "bos",
     preset,
     from: sp.get("from") ?? undefined,
     to: sp.get("to") ?? undefined,
@@ -353,6 +363,7 @@ export function serializePosFilter(f: PosFilter): URLSearchParams {
   const sp = new URLSearchParams();
   if (f.selection.concepts.length > 0) sp.set("c", f.selection.concepts.join(","));
   if (f.selection.locations.length > 0) sp.set("l", f.selection.locations.join(","));
+  if (f.scope === "all") sp.set("stores", "all"); // default "bos" se vynechává (krátké URL)
   if (f.preset !== DEFAULT_POS_FILTER.preset) sp.set("preset", f.preset);
   if (f.preset === "vlastni") {
     if (f.from) sp.set("from", f.from);

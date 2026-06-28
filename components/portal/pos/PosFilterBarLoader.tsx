@@ -1,6 +1,6 @@
 import { getSession } from "@/lib/portal/get-session";
 import { isAdminRole } from "@/lib/portal/auth-guard";
-import { getAllShops } from "@/lib/portal/pos/queries";
+import { getAllShops, bosLocationIdSet } from "@/lib/portal/pos/queries";
 import { buildPairingIndex } from "@/lib/portal/pos/pairing-db";
 import { cachedListLocations } from "@/lib/portal/cached-db";
 import { getViewsForUser } from "@/lib/portal/pos/views-db";
@@ -42,11 +42,15 @@ export async function PosFilterBarLoader({
 
   if (isPosApiConfigured()) {
     try {
-      const [shops, index, locations, viewsForUser] = await Promise.all([
+      // Okruh "bos": picker nabízí jen BOS prodejny (sdílený bosLocationIdSet -
+      // stejná množina jako agregace). Počty i města tím reflektují BOS.
+      const bosOnly = filter.scope === "bos";
+      const [shops, index, locations, viewsForUser, bosLoc] = await Promise.all([
         getAllShops(),
         buildPairingIndex(),
         cachedListLocations(),
         email ? getViewsForUser(email) : Promise.resolve({ own: [], shared: [], defaultId: null }),
+        bosOnly ? bosLocationIdSet() : Promise.resolve(new Set<string>()),
       ]);
 
       const locById = new Map(locations.map((l) => [l.id, l]));
@@ -68,6 +72,7 @@ export async function PosFilterBarLoader({
       for (const [locId] of index.shopsByLocation) {
         const loc = locById.get(locId);
         if (!loc) continue;
+        if (bosOnly && !bosLoc.has(locId)) continue;
         const arr = byConcept.get(loc.concept) ?? [];
         arr.push({ id: locId, name: loc.name });
         byConcept.set(loc.concept, arr);

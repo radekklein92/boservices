@@ -182,6 +182,45 @@ export async function getAllShops(): Promise<ApiShop[]> {
 const _pairingIndex = cache(() => buildPairingIndex());
 const _locations = cache(() => cachedListLocations());
 
+// Lokality patřící do BOS sítě (predikát isBosStore - stejné zdroje jako Real Estate
+// tabulka i bosShopScope: podepsaná franšíza NEBO NewCo bez nevyřešené červené). Per
+// request memoizováno (React cache). Vlastní helper (ne přes bosShopScope), ať okruh
+// filtru nezasahuje do dashboard-snapshot větve. Sdílí: okruh "bos" (scopeContext) i
+// picker (loader přes tento export).
+export const bosLocationIdSet = cache(async (): Promise<Set<string>> => {
+  const [locations, localMap, franchiseByLocation] = await Promise.all([
+    _locations(),
+    listLocationLocalMap(),
+    cachedListLocationFranchiseContracts(),
+  ]);
+  const out = new Set<string>();
+  for (const l of locations) {
+    const local = localMap.get(l.id);
+    if (
+      isBosStore({
+        franchiseContractId: franchiseByLocation[l.id] ?? null,
+        hasNewco: Boolean(local?.newco),
+        newco: local?.newco ?? null,
+        manualRed: local?.manualRed ?? null,
+        solveDespiteRed: local?.solveDespiteRed ?? false,
+      })
+    ) {
+      out.add(l.id);
+    }
+  }
+  return out;
+});
+
+// BOS pokladny (dwShopId) pro okruh "bos" ve filtru = pokladny napárované na BOS lokality.
+const bosScopeShopIds = cache(async (): Promise<Set<string>> => {
+  const [bosLoc, index] = await Promise.all([bosLocationIdSet(), _pairingIndex()]);
+  const out = new Set<string>();
+  for (const locId of bosLoc) {
+    for (const sid of index.shopsByLocation.get(locId) ?? []) out.add(sid);
+  }
+  return out;
+});
+
 interface ScopeContext {
   shops: ApiShop[];
   locations: MirroredLocation[];
@@ -194,8 +233,17 @@ interface ScopeContext {
 
 async function scopeContext(filter: PosFilter): Promise<ScopeContext> {
   const [shops, index, locations] = await Promise.all([getAllShops(), _pairingIndex(), _locations()]);
-  const resolved = resolveSelection(filter.selection, index, shops);
+  // Okruh "bos" omezí výběr na BOS pokladny (resolver protne); "all" = celá síť.
+  const bos = filter.scope === "bos" ? await bosScopeShopIds() : undefined;
+  const resolved = resolveSelection(filter.selection, index, shops, bos ? { bosShopIds: bos } : undefined);
   return { shops, index, locations, resolved, currency: filter.currency };
+}
+
+// Celá síť = okruh "all" A prázdný výběr. Jen tehdy smí dotaz použít whole-network
+// fast-path (/revenue/summary). V okruhu "bos" se i prázdný výběr počítá rollupem
+// přes resolved.shopIds (BOS podmnožina), takže fast-path NEpoužije.
+function isWholeNetwork(filter: PosFilter): boolean {
+  return filter.scope === "all" && isAllSelection(filter.selection);
 }
 
 // Měna, ve které se zobrazují peníze (labely, formátování) = zvolená zobrazovací
@@ -241,7 +289,7 @@ export async function getKpiSummary(filter: PosFilter): Promise<KpiSummary> {
   const to = filter.currency;
   const rates = await getFxRates();
 
-  if (isAllSelection(filter.selection)) {
+  if (isWholeNetwork(filter)) {
     // All-store číslo (zobrazení) z přesného /summary; like-for-like základ delty z
     // per-pokladna /by-shop (na Přehledu i v cronu cache HIT - leaderboard ho tahá taky).
     const { resolved, index } = await scopeContext(filter);
@@ -292,7 +340,7 @@ export async function getPeriodTotals(
   const to = filter.currency;
   const rates = await getFxRates();
 
-  if (isAllSelection(filter.selection)) {
+  if (isWholeNetwork(filter)) {
     return Promise.all(
       PERIOD_PRESETS.map(async (p) => {
         const range = resolveDateRange({ ...filter, preset: p.key });
@@ -1177,6 +1225,7 @@ export async function getBosDashboardRevenue(): Promise<BosDashboardRevenue> {
   const currency = "CZK";
   const weekFilter: PosFilter = {
     selection: EMPTY_SELECTION,
+    scope: "bos",
     preset: "tento-tyden",
     sameStore: false,
     currency,

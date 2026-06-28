@@ -133,6 +133,24 @@ test("resolveSelection - neznámý token nic nepřidá", () => {
   assert.equal(r.shopIds.size, 0);
 });
 
+// --- Okruh BOS (opts.bosShopIds) ---
+
+test("resolveSelection - okruh BOS: prázdný výběr = jen BOS pokladny (ne celá síť)", () => {
+  const r = resolveSelection(sel({}), INDEX, SHOPS, { bosShopIds: new Set(["s1", "s3"]) });
+  assert.equal(r.isAll, false); // BOS podmnožina není "celá síť"
+  assert.deepEqual([...r.shopIds].sort(), ["s1", "s3"]);
+});
+
+test("resolveSelection - okruh BOS protne koncept (KoP -> jen BOS-KoP)", () => {
+  const r = resolveSelection(sel({ concepts: ["KoP"] }), INDEX, SHOPS, { bosShopIds: new Set(["s1", "s3"]) });
+  assert.deepEqual([...r.shopIds].sort(), ["s1"]); // s2 (KoP) není BOS -> vypadne
+});
+
+test("resolveSelection - okruh BOS vyřadí ne-BOS token", () => {
+  const r = resolveSelection(sel({ locations: ["shop:s5"] }), INDEX, SHOPS, { bosShopIds: new Set(["s1"]) });
+  assert.equal(r.shopIds.size, 0); // s5 není v BOS množině
+});
+
 // --- Měny ve výběru ---
 
 const CSHOPS: ApiShop[] = [

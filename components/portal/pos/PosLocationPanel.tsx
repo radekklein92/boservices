@@ -23,6 +23,8 @@ export async function PosLocationPanel({ locationId }: { locationId: string }) {
 
   const filter: PosFilter = {
     ...DEFAULT_POS_FILTER,
+    // Detail jedné lokality: vždy celá síť (jinak by BOS okruh ne-BOS prodejnu vynuloval).
+    scope: "all",
     preset: "poslednich-30-dni",
     selection: { concepts: [], locations: [locationId] },
   };

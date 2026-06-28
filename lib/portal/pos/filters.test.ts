@@ -66,6 +66,7 @@ test("resolveComparisonRange - clamping konce měsíce (březen -> únor)", () =
 test("parse/serialize round-trip - multi-select výběr", () => {
   const f: PosFilter = {
     selection: { concepts: ["KoP", "BB"], locations: ["loc-1", "shop:abc-123"] },
+    scope: "all", // serializuje se jako stores=all
     preset: "minuly-mesic",
     sameStore: true, // serializuje se jako same=1
     currency: "EUR",
@@ -97,6 +98,17 @@ test("parsePosFilter - prázdné = default (vše)", () => {
     from: undefined,
     to: undefined,
   });
+});
+
+test("scope (okruh prodejen) - default bos, ?stores=all = celá síť", () => {
+  // Default = BOS prodejny; neserializuje se (krátké URL).
+  assert.equal(parsePosFilter(new URLSearchParams("")).scope, "bos");
+  assert.equal(serializePosFilter(DEFAULT_POS_FILTER).has("stores"), false);
+  // Celá síť -> ?stores=all (a zpět).
+  assert.equal(serializePosFilter({ ...DEFAULT_POS_FILTER, scope: "all" }).get("stores"), "all");
+  assert.equal(parsePosFilter(new URLSearchParams("stores=all")).scope, "all");
+  // Neznámá hodnota -> bezpečný default bos.
+  assert.equal(parsePosFilter(new URLSearchParams("stores=xyz")).scope, "bos");
 });
 
 test("decodeConcepts - zahodí neznámé kódy a duplicity", () => {
