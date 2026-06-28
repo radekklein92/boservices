@@ -9,14 +9,17 @@ import {
 } from "@/components/portal/pos/pos-shared";
 import type { BosDashboardRevenue } from "@/lib/portal/pos/queries";
 
-// Světlá KPI dlaždice tržeb (jen BOS prodejny) na dashboardu - místo "Podepsané
-// smlouvy". Velké číslo + like-for-like delta + jemný emerald sparkline u dna
-// bubliny (graf na pozadí). Klik -> sekce Tržby. Chrome konzistentní se
-// SecondaryStat / peněžní dlaždicí pohledávek.
+// Světlá KPI dlaždice tržeb za POSLEDNÍCH 30 DNÍ (jen BOS prodejny) - místo
+// "Podepsané smlouvy". Týden je v grafu nad ní; tady je 30denní souhrn. Velké
+// číslo + like-for-like delta (vs předchozích 30 dní) + jemný emerald sparkline
+// u dna bubliny. Klik -> sekce Tržby. Chrome konzistentní se SecondaryStat /
+// peněžní dlaždicí pohledávek.
 export function RevenueKpiCard({ data }: { data: BosDashboardRevenue | null }) {
-  const spark = data?.daily.map((d) => d.gross) ?? [];
+  const spark = data?.last30Spark ?? [];
   const hasDelta =
-    data != null && data.lflCurrentGross != null && data.lflPreviousGross != null;
+    data != null &&
+    data.last30LflCurrentGross != null &&
+    data.last30LflPreviousGross != null;
 
   return (
     <Link
@@ -51,38 +54,37 @@ export function RevenueKpiCard({ data }: { data: BosDashboardRevenue | null }) {
             <div className="mt-5 font-extrabold leading-none tracking-[-0.045em] text-ink-soft text-[clamp(2rem,4.6vw,2.85rem)]">
               —
             </div>
-            <div className="mt-2.5 text-[13px] text-ink-mid">data dočasně nedostupná</div>
+            <div className="mt-2.5 text-[13px] text-ink-mid">data se připravují</div>
           </>
         ) : (
           <>
             <div
-              title={formatPosMoney(data.headlineGross, data.currency)}
+              title={formatPosMoney(data.last30Gross, data.currency)}
               className="mt-5 font-extrabold leading-none tracking-[-0.045em] text-ink-base text-[clamp(2rem,4.6vw,2.85rem)]"
             >
-              {formatPosMoneyCompact(data.headlineGross, data.currency)}
+              {formatPosMoneyCompact(data.last30Gross, data.currency)}
             </div>
-            <div className="mt-3 flex items-center gap-1.5 text-[13px]">
-              {hasDelta ? (
+            <div className="mt-3 flex min-h-[18px] items-center gap-1.5 text-[13px]">
+              {hasDelta && (
                 <>
                   <PosDeltaBadge
-                    current={data.lflCurrentGross as number}
-                    previous={data.lflPreviousGross}
+                    current={data.last30LflCurrentGross as number}
+                    previous={data.last30LflPreviousGross}
                     goodDir="up"
                   />
                   <span className="tabular-nums text-ink-soft">
                     {"· "}
                     {signedMoneyCompact(
-                      (data.lflCurrentGross as number) - (data.lflPreviousGross as number),
+                      (data.last30LflCurrentGross as number) -
+                        (data.last30LflPreviousGross as number),
                       data.currency,
                     )}
                   </span>
                 </>
-              ) : (
-                <span className="text-ink-mid">tento týden</span>
               )}
             </div>
-            <div className="mt-1 text-[12px] text-ink-soft">
-              {hasDelta ? "tento týden vs minulý · jen BOS prodejny" : "jen BOS prodejny"}
+            <div className="mt-1.5 text-[13px] text-ink-mid">
+              posledních 30 dní · jen BOS prodejny
             </div>
           </>
         )}

@@ -3,7 +3,6 @@ import { isPosApiConfigured } from "@/lib/portal/pos/api";
 import { DEFAULT_POS_FILTER, type PosFilter } from "@/lib/portal/pos/filters";
 import {
   getAllShops,
-  getBosDashboardRevenue,
   getBrands,
   getConceptLeaderboardFull,
   getDailyTrend,
@@ -16,6 +15,7 @@ import {
   getReceiptsPage,
   getToday,
 } from "@/lib/portal/pos/queries";
+import { refreshBosDashboardSnapshot } from "@/lib/portal/pos/bos-dashboard-snapshot";
 
 // Musí sedět s LIMIT na /portal/pos/uctenky, jinak warm trefí jiný cache klíč.
 const RECEIPTS_LIMIT = 50;
@@ -63,9 +63,10 @@ export async function GET(req: Request) {
     periods: getPeriodTotals(f),
     prodejny: getLocationLeaderboardFull(f),
     koncepty: getConceptLeaderboardFull(f),
-    // Dashboard /portal: týdenní tržby jen za BOS prodejny (graf + KPI). Drží
-    // teplý 1 cache-hit, aby dashboard nečekal na ~14 by-shop dotazů.
-    bosDashboard: getBosDashboardRevenue(),
+    // Dashboard /portal: tržby jen za BOS prodejny (graf týdne + KPI 30 dní).
+    // Spočítá (5 DW dotazů) a uloží snapshot do Redis -> dashboard čte jen snapshot
+    // (1 GET) a nikdy se nezdrží. Běží á 5 min, takže snapshot je vždy čerstvý.
+    bosDashboard: refreshBosDashboardSnapshot(),
     // Účtenky (drahý raw DW dotaz) se dosud nepředehřívaly -> seznam byl po každém
     // syncu studený. Warmíme default ("tento týden") i "dnes" (častý, časově citlivý).
     receipts: warmReceipts(f),

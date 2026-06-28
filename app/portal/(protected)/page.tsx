@@ -32,7 +32,7 @@ import { buildReTrendPoints, type ReTrendPoint } from "@/lib/portal/re-snapshots
 import { ReTrendPanel } from "@/components/portal/locations/ReTrendChart";
 import { RevenueWeekCard } from "@/components/portal/dashboard/RevenueWeekCard";
 import { RevenueKpiCard } from "@/components/portal/dashboard/RevenueKpiCard";
-import { getBosDashboardRevenue } from "@/lib/portal/pos/queries";
+import { getBosDashboardSnapshot } from "@/lib/portal/pos/bos-dashboard-snapshot";
 import { isPosApiConfigured } from "@/lib/portal/pos/api";
 
 // Dashboard - jediný story: postup k cíli 100 franšízových lokalit.
@@ -94,7 +94,7 @@ export default async function PortalDashboardPage({
       cachedGetClaimsOverlay(),
       cachedGetClamoraClaims(),
       buildReTrendPoints(new Date()),
-      showRevenue ? getBosDashboardRevenue().catch(() => null) : Promise.resolve(null),
+      showRevenue ? getBosDashboardSnapshot().catch(() => null) : Promise.resolve(null),
       searchParams,
     ]);
   // Provize vidí admini + sami obchodníci (Toman/Ebermann dle e-mailu).
