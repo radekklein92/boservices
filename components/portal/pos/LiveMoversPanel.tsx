@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowUpRight, X } from "lucide-react";
 import type { LiveMoverRow, LiveMovers } from "@/lib/portal/pos/types";
 import { PosDeltaBadge } from "@/components/portal/pos/PosDeltaBadge";
@@ -93,10 +93,26 @@ function MoverRow({ rank, row, currency }: { rank: number; row: LiveMoverRow; cu
   );
 }
 
-// Modal s celým žebříčkem hybatelů - všechny prodejny seřazené od největšího
-// náskoku po největší pokles (deltaAbs DESC). Konvence modalů portálu (Escape,
-// scroll-lock, klik na pozadí).
+type SortMode = "narust" | "trzba";
+
+// Řazení celého žebříčku: dle nárůstu (Δ % vs minulý týden, prodejny bez báze na
+// konec) nebo dle dnešní tržby. Vrací novou kopii, nemutuje vstup.
+function sortMovers(rows: LiveMoverRow[], mode: SortMode): LiveMoverRow[] {
+  const out = [...rows];
+  if (mode === "trzba") {
+    out.sort((a, b) => b.todaySoFar - a.todaySoFar);
+  } else {
+    out.sort((a, b) => (b.deltaPct ?? -Infinity) - (a.deltaPct ?? -Infinity));
+  }
+  return out;
+}
+
+// Modal s celým žebříčkem hybatelů. Nahoře přepínač řazení (dle nárůstu / dle
+// tržby). Konvence modalů portálu (Escape, scroll-lock, klik na pozadí).
 function MoversModal({ movers, onClose }: { movers: LiveMovers; onClose: () => void }) {
+  const [sort, setSort] = useState<SortMode>("narust");
+  const sorted = useMemo(() => sortMovers(movers.all, sort), [movers.all, sort]);
+
   useEffect(() => {
     const original = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -140,11 +156,44 @@ function MoversModal({ movers, onClose }: { movers: LiveMovers; onClose: () => v
           </button>
         </div>
 
+        {movers.all.length > 0 && (
+          <div className="mb-2 flex justify-end">
+            <div
+              role="radiogroup"
+              aria-label="Řazení žebříčku"
+              className="inline-flex h-9 shrink-0 items-center rounded-full border border-edge bg-paper p-0.5"
+            >
+              {(
+                [
+                  { key: "narust", label: "Dle nárůstu" },
+                  { key: "trzba", label: "Dle tržby" },
+                ] as { key: SortMode; label: string }[]
+              ).map((o) => {
+                const active = sort === o.key;
+                return (
+                  <button
+                    key={o.key}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    onClick={() => setSort(o.key)}
+                    className={`inline-flex h-8 items-center rounded-full px-3 text-[12.5px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-1 focus-visible:ring-offset-paper ${
+                      active ? "bg-ink-base text-paper" : "text-ink-mid hover:text-ink-base"
+                    }`}
+                  >
+                    {o.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {movers.all.length === 0 ? (
           <p className="py-2 text-[12.5px] text-ink-soft">Zatím žádná prodejna se srovnatelnou bází.</p>
         ) : (
           <ol className="flex flex-col">
-            {movers.all.map((r, i) => (
+            {sorted.map((r, i) => (
               <MoverRow key={r.locationId} rank={i + 1} row={r} currency={movers.currency} />
             ))}
           </ol>
