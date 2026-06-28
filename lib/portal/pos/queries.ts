@@ -53,6 +53,8 @@ import type {
   HeatmapCell,
   HourPoint,
   KpiSummary,
+  LiveMoverRow,
+  LiveMovers,
   LocationRevenueRowWithPrev,
   Paged,
   PaymentMixRow,
@@ -513,6 +515,90 @@ export async function getLocationLeaderboardFull(filter: PosFilter): Promise<Loc
   // Same-store: jen prodejny s tržbou v obou obdobích (srovnatelná báze), aplikováno
   // až PO součtu na prodejnu (ne na pokladně).
   return filter.sameStore ? rows.filter((r) => r.prevGross != null) : rows;
+}
+
+// --- Hybatelé dne (Živě): nej/nejhorší prodejny DoD "k této hodině" ---
+// Per prodejna: dnešek-zatím vs očekávání podle včerejška přepočteného na frakci
+// dne uplynulou do teď. f = podíl typické denní tržby spadlý do uplynulých hodin
+// (z ~4týdenní hodinové křivky napříč dny - bez konvence dne v týdnu). Pořadí
+// moverů je na f nezávislé (f je konstanta), takže robustní; f jen určuje nulovou
+// linii "náskok/skluz".
+function nowPragueHourFrac(): number {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Prague",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date());
+  const h = Number(parts.find((p) => p.type === "hour")?.value ?? "0") % 24;
+  const m = Number(parts.find((p) => p.type === "minute")?.value ?? "0");
+  return h + m / 60;
+}
+
+export async function getLiveMovers(filter: PosFilter, topN = 5): Promise<LiveMovers> {
+  const { resolved, index, shops, locations } = await scopeContext(filter);
+  const to = filter.currency;
+  const rates = await getFxRates();
+  const todayRange = resolveDateRange({ ...filter, preset: "dnes" });
+  const ydayRange = resolveDateRange({ ...filter, preset: "vcera" });
+
+  const [todayRows, ydayRows, cells] = await Promise.all([
+    _shopRev(todayRange.from, todayRange.to),
+    _shopRev(ydayRange.from, ydayRange.to),
+    getHeatmap({ ...filter, preset: "poslednich-30-dni", comparison: "zadne" }),
+  ]);
+
+  // f váženě: každá typická hodina × kolik z ní už uplynulo.
+  const nowFrac = nowPragueHourFrac();
+  let curveSoFar = 0;
+  let curveFull = 0;
+  for (const c of cells) {
+    curveFull += c.gross;
+    curveSoFar += c.gross * Math.min(1, Math.max(0, nowFrac - c.hour));
+  }
+  const f = curveFull > 0 ? Math.min(1, Math.max(0.0001, curveSoFar / curveFull)) : 1;
+
+  const locName = new Map(locations.map((l) => [l.id, l.name]));
+  const shopName = new Map(shops.map((s) => [s.id, s.name]));
+  const sumByLoc = (rows: ShopRevenueRow[]) => {
+    const m = new Map<string, number>();
+    for (const r of rows) {
+      if (!resolved.shopIds.has(r.shop_id)) continue;
+      m.set(locationKeyOf(r.shop_id, index), (m.get(locationKeyOf(r.shop_id, index)) ?? 0) + r.gross);
+    }
+    return m;
+  };
+  const todayByLoc = sumByLoc(convertRows(todayRows, to, rates, SHOP_MONEY));
+  const ydayByLoc = sumByLoc(convertRows(ydayRows, to, rates, SHOP_MONEY));
+
+  // Báze = prodejny s tržbou včera (mají co srovnávat). Dnešek může být 0 (pokles).
+  const rows: LiveMoverRow[] = [];
+  for (const [key, yFull] of ydayByLoc) {
+    if (yFull <= 0) continue;
+    const todaySoFar = todayByLoc.get(key) ?? 0;
+    const expectedByNow = yFull * f;
+    const isPseudo = key.startsWith("shop:");
+    const name = isPseudo ? shopName.get(key.slice(5)) ?? key : locName.get(key) ?? key;
+    rows.push({
+      locationId: key,
+      name,
+      concept: conceptOfLocationKey(key, index),
+      currency: to,
+      todaySoFar,
+      yesterdayFull: yFull,
+      expectedByNow,
+      deltaAbs: todaySoFar - expectedByNow,
+      deltaPct: expectedByNow > 0 ? todaySoFar / expectedByNow - 1 : null,
+    });
+  }
+  rows.sort((a, b) => b.deltaAbs - a.deltaAbs);
+  const best = rows.slice(0, topN);
+  const bestIds = new Set(best.map((r) => r.locationId));
+  const worst = rows
+    .filter((r) => r.deltaAbs < 0 && !bestIds.has(r.locationId))
+    .slice(-topN)
+    .reverse();
+  return { best, worst, dayFraction: f, currency: to };
 }
 
 // --- Žebříček KONCEPTŮ (rollup pokladen -> lokalita -> koncept) ---
