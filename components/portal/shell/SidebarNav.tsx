@@ -63,7 +63,7 @@ const commissionsItem: Item = {
   Icon: HandCoins,
 };
 
-// Poplatky: pod Provizemi ve Franšízingu, stejné publikum (admini + obchodníci).
+// Poplatky: pod Provizemi ve Franšízingu, viditelné pro všechny (jako Smlouvy).
 const feesItem: Item = {
   href: "/portal/fees",
   label: "Poplatky",
@@ -122,13 +122,12 @@ export function SidebarNav({
         {fransizing.map((item) => (
           <NavItem key={item.href} {...item} active={isActive(pathname, item.href)} />
         ))}
-        {/* Provize + Poplatky ve Franšízingu - jen pro adminy + obchodníky (canSeeCommissions). */}
+        {/* Provize - jen pro adminy + obchodníky (canSeeCommissions). */}
         {canSeeCommissions && (
-          <>
-            <NavItem {...commissionsItem} active={isActive(pathname, commissionsItem.href)} />
-            <NavItem {...feesItem} active={isActive(pathname, feesItem.href)} />
-          </>
+          <NavItem {...commissionsItem} active={isActive(pathname, commissionsItem.href)} />
         )}
+        {/* Poplatky - pro všechny, kdo vidí Smlouvy (celá sekce Franšízing). */}
+        <NavItem {...feesItem} active={isActive(pathname, feesItem.href)} />
       </NavSection>
 
       <NavSection label="Provoz">
