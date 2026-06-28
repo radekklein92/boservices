@@ -30,6 +30,7 @@ export function FilterChip({
       aria-pressed={active}
       className={[
         "inline-flex h-9 items-center gap-2 rounded-full border px-3.5 text-[12.5px] font-medium transition-colors",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2 focus-visible:ring-offset-paper",
         active
           ? "border-ink-base bg-ink-base text-paper"
           : "border-edge bg-paper text-ink-deep hover:border-ink-soft",
@@ -42,7 +43,7 @@ export function FilterChip({
       <span>{label}</span>
       {count !== undefined && (
         <span
-          className={`font-mono text-[11px] ${active ? "text-paper/70" : "text-ink-soft"}`}
+          className={`font-mono text-[11px] ${active ? "text-paper/70" : "text-ink-mid"}`}
         >
           {count}
         </span>
