@@ -103,7 +103,7 @@ export function PosStorePicker({
           setOpen(true);
           inputRef.current?.focus();
         }}
-        className={`flex h-9 w-[260px] max-w-full cursor-text items-center gap-2 rounded-full border bg-paper px-3.5 transition-colors ${
+        className={`flex h-9 w-[340px] max-w-full cursor-text items-center gap-2 rounded-full border bg-paper px-3.5 transition-colors ${
           open ? "border-ink-base" : "border-edge hover:border-ink-soft"
         }`}
       >
