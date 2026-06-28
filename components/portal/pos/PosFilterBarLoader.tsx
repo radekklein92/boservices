@@ -5,13 +5,8 @@ import { buildPairingIndex } from "@/lib/portal/pos/pairing-db";
 import { cachedListLocations } from "@/lib/portal/cached-db";
 import { getViewsForUser } from "@/lib/portal/pos/views-db";
 import { isPosApiConfigured } from "@/lib/portal/pos/api";
-import {
-  resolveSelection,
-  selectionCurrencies,
-  effectiveCurrency,
-  POS_CURRENCIES,
-} from "@/lib/portal/pos/selection";
-import { isAllSelection, type PosFilter } from "@/lib/portal/pos/filters";
+import { POS_CURRENCIES } from "@/lib/portal/pos/selection";
+import type { PosFilter } from "@/lib/portal/pos/filters";
 import { CONCEPT_LABEL } from "@/components/portal/locations/locations-shared";
 import type { LocationConcept } from "@/lib/portal/locations-db";
 import { PosFilterBar } from "./PosFilterBar";
@@ -34,8 +29,9 @@ export async function PosFilterBarLoader({ filter }: { filter: PosFilter }) {
 
   let concepts: ConceptGroup[] = [];
   let unpaired: StoreOption[] = [];
-  let currencies: string[] = [...POS_CURRENCIES];
-  let activeCurrency = filter.currency;
+  // Zobrazovací měny v dropdownu jsou vždy plná trojice - vše se do zvolené
+  // přepočítá přes FX (fx.ts), takže nabídku neořezáváme dle měn ve výběru.
+  const currencies: string[] = [...POS_CURRENCIES];
   let views = { own: [] as ViewLite[], shared: [] as ViewLite[], defaultId: null as string | null };
 
   if (isPosApiConfigured()) {
@@ -68,26 +64,10 @@ export async function PosFilterBarLoader({ filter }: { filter: PosFilter }) {
         .map((s) => ({ id: `shop:${s.id}`, name: s.name }))
         .sort((a, b) => a.name.localeCompare(b.name, "cs"));
 
-      // Měny dle aktuálního výběru (currency_code pokladen). Pro "vše" zůstává
-      // standardní trojice a zvolená měna (summary umí všechny měny + grácní
-      // Notice) - drží to konzistenci s resolveDisplayCurrency. Pro konkrétní
-      // výběr nabízíme jen měny, ve kterých má data, a zvýrazníme efektivní.
-      if (isAllSelection(filter.selection)) {
-        currencies = [...POS_CURRENCIES];
-        activeCurrency = filter.currency;
-      } else {
-        const resolved = resolveSelection(filter.selection, index, shops);
-        const sel = selectionCurrencies(resolved, shops);
-        currencies = sel.length > 0 ? sel : [...POS_CURRENCIES];
-        activeCurrency = effectiveCurrency(filter.currency, resolved, shops);
-      }
-
       views = viewsForUser;
     } catch {
       concepts = [];
       unpaired = [];
-      currencies = [...POS_CURRENCIES];
-      activeCurrency = filter.currency;
     }
   }
 
@@ -96,7 +76,6 @@ export async function PosFilterBarLoader({ filter }: { filter: PosFilter }) {
       concepts={concepts}
       unpaired={unpaired}
       currencies={currencies}
-      activeCurrency={activeCurrency}
       views={views}
       me={me}
     />

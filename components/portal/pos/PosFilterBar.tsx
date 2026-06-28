@@ -50,7 +50,7 @@ function isoDaysAgo(n: number): string {
 const TOGGLE_BASE =
   "inline-flex h-9 shrink-0 items-center rounded-full border px-3.5 text-[12.5px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2 focus-visible:ring-offset-paper disabled:opacity-50";
 
-export function PosFilterBar({ concepts, unpaired, currencies, activeCurrency, views, me }: FilterBarData) {
+export function PosFilterBar({ concepts, unpaired, currencies, views, me }: FilterBarData) {
   const sp = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -173,12 +173,14 @@ export function PosFilterBar({ concepts, unpaired, currencies, activeCurrency, v
         </button>
 
         <div className="ml-auto flex flex-wrap items-center gap-1.5">
-          {/* Zvýrazněná je EFEKTIVNÍ měna (activeCurrency, ze serveru) - ne čistě
-              filter.currency: výběr cizoměnové prodejny se zobrazí v její měně,
-              i když URL drží default CZK. */}
-          {currencies.map((c) => (
-            <FilterChip key={c} active={activeCurrency === c} onClick={() => update({ currency: c })} label={c} />
-          ))}
+          {/* Zobrazovací měna - vše se do ní přepočítá přes FX (ČNB kurz). Dropdown
+              místo chipů, ať šetří místo v liště. */}
+          <Select
+            label="Měna"
+            value={filter.currency}
+            onChange={(v) => update({ currency: v })}
+            options={currencies.map((c) => ({ value: c, label: c }))}
+          />
           <span className="mx-1 hidden h-5 w-px bg-edge sm:block" aria-hidden="true" />
           <Toggle
             checked={filter.vatInclusive}
