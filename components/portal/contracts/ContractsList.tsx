@@ -307,6 +307,10 @@ export function ContractsList({
   const [busy, setBusy] = useState<string | null>(null);
   const [bulkPending, setBulkPending] = useState<BulkAction | null>(null);
   const [bulkToast, setBulkToast] = useState<string | null>(null);
+  // Datum podpisu klienta pro hromadné „Podepsáno klientem" (kotva poplatků); default dnes.
+  const [bulkSignDate, setBulkSignDate] = useState(() =>
+    new Date().toISOString().slice(0, 10),
+  );
   const [signerPickerOpen, setSignerPickerOpen] = useState(false);
   // Zámek úprav přímo z přehledu: id smlouvy s otevřeným modálem + probíhající uložení.
   const [lockForId, setLockForId] = useState<string | null>(null);
@@ -465,7 +469,12 @@ export function ContractsList({
       const res = await fetch("/api/portal/contracts/bulk", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids, action, ...extra }),
+        body: JSON.stringify({
+          ids,
+          action,
+          ...extra,
+          ...(action === "client-signed" ? { signedAt: bulkSignDate } : {}),
+        }),
       });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error ?? "Hromadná akce selhala.");
@@ -693,14 +702,24 @@ export function ContractsList({
             >
               Podepsáno BOS
             </BulkButton>
-            <BulkButton
-              onClick={() => bulkStatus("client-signed")}
-              disabled={bulkPending !== null}
-              Icon={PenLine}
-              pending={bulkPending === "client-signed"}
-            >
-              Podepsáno klientem
-            </BulkButton>
+            <div className="flex items-center gap-1.5">
+              <input
+                type="date"
+                value={bulkSignDate}
+                onChange={(e) => setBulkSignDate(e.target.value)}
+                aria-label="Datum podpisu klienta"
+                title="Datum podpisu klienta (kotva pro výpočet poplatků)"
+                className="h-9 rounded-lg border border-edge bg-paper px-2 text-[12.5px] text-ink-base outline-none transition-colors focus:border-ink-base"
+              />
+              <BulkButton
+                onClick={() => bulkStatus("client-signed")}
+                disabled={bulkPending !== null}
+                Icon={PenLine}
+                pending={bulkPending === "client-signed"}
+              >
+                Podepsáno klientem
+              </BulkButton>
+            </div>
             <BulkButton
               onClick={bulkDownloadZip}
               disabled={bulkPending !== null}

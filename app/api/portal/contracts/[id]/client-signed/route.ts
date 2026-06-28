@@ -14,7 +14,7 @@ import { ensureContractFeeTerms } from "@/lib/portal/contract-fee-ai";
 export const maxDuration = 60;
 
 export async function POST(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const g = await requireSession();
@@ -30,10 +30,19 @@ export async function POST(
     return NextResponse.json({ ok: false, error: locErr }, { status: 409 });
   }
 
+  // Datum, kdy klient skutečně podepsal (zadané v UI; klient mohl podepsat dřív).
+  // Slouží jako kotva pro výpočet poplatků (účinnost, konec, periody). Bez zadání
+  // (nebo neplatné) = dnes. Ukládáme na poledne UTC, ať se datum neposune přes TZ.
+  const body = await req.json().catch(() => null);
+  const rawDate =
+    body && typeof body.signedAt === "string" ? body.signedAt.trim() : "";
   const now = new Date().toISOString();
+  const clientSignedAt = /^\d{4}-\d{2}-\d{2}$/.test(rawDate)
+    ? `${rawDate}T12:00:00.000Z`
+    : now;
   const updated = {
     ...contract,
-    clientSignedAt: now,
+    clientSignedAt,
     clientSignedBy: g.session.user!.email!,
     updatedAt: now,
   };

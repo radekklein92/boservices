@@ -20,6 +20,11 @@ const bulkSchema = z.object({
   signerEmail: z.string().trim().toLowerCase().email().optional(),
   // pick-signer: „zachovat původního" - nenastaví signerEmail.
   keepOriginal: z.boolean().optional(),
+  // action=client-signed: datum podpisu klienta (kotva pro poplatky). Bez něj = dnes.
+  signedAt: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
 });
 
 export async function POST(req: Request) {
@@ -40,9 +45,11 @@ export async function POST(req: Request) {
     );
   }
 
-  const { ids, action, signerEmail, keepOriginal } = parsed.data;
+  const { ids, action, signerEmail, keepOriginal, signedAt } = parsed.data;
   const email = g.session.user!.email!;
   const nowIso = new Date().toISOString();
+  // Datum podpisu klienta (kotva pro poplatky); poledne UTC proti TZ posunu. Bez něj = dnes.
+  const clientSignedAnchor = signedAt ? `${signedAt}T12:00:00.000Z` : nowIso;
 
   // Pro action=approve si načteme aktuálního uživatele - u typů posuzovaných
   // podle lokality smí hromadně schvalovat jen schvalovatel šablon.
@@ -193,10 +200,13 @@ export async function POST(req: Request) {
       }
       // Dorovná předchozí milníky podle FLOW. U postoupení leží „Podepsáno BOS"
       // AŽ ZA klientským podpisem, takže se signedAt NEdoplní (jinak by status
-      // omylem spadl na Podepsáno BOS).
+      // omylem spadl na Podepsáno BOS). clientSignedAt přepíšeme na zadané datum
+      // (kotva poplatků); předchozí milníky zůstanou na dnešku.
       const updated = {
         ...contract,
         ...backfillToStatus(contract, "podepsano-klientem", nowIso, email),
+        clientSignedAt: clientSignedAnchor,
+        clientSignedBy: email,
         updatedAt: nowIso,
       };
       updated.status = computeContractStatus(updated);
