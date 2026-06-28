@@ -7,7 +7,7 @@ import { isPosApiConfigured } from "@/lib/portal/pos/api";
 import { PageHeader } from "@/components/portal/shell/PageHeader";
 import { PosSubNav } from "@/components/portal/pos/PosSubNav";
 import { PosFilterBarLoader } from "@/components/portal/pos/PosFilterBarLoader";
-import { formatPosMoney, formatPosNumber } from "@/components/portal/pos/pos-shared";
+import { PosProductsTable, type ProductRow } from "@/components/portal/pos/PosProductsTable";
 import { FilterBarSkeleton, LeaderboardSkeleton } from "@/components/portal/pos/skeletons";
 
 export const dynamic = "force-dynamic";
@@ -62,56 +62,25 @@ async function ProductsTable({ filter }: { filter: PosFilter }) {
   // Měna z dat (efektivní měna výběru, viz queries.ts), ne čistě z filtru.
   const cur = rows[0]?.currency ?? filter.currency;
   const maxGross = Math.max(...rows.map((r) => r.gross), 1);
+  const qs = serializePosFilter(filter).toString();
+  const tableRows: ProductRow[] = rows.map((r) => ({
+    productId: r.product_id,
+    name: r.name,
+    href: `/portal/pos/produkty/${encodeURIComponent(r.product_id)}${qs ? `?${qs}` : ""}`,
+    qty: r.qty,
+    value: useNet ? r.net : r.gross,
+    unit: useNet ? r.avg_unit_price_net : r.avg_unit_price,
+    bar: r.gross / maxGross,
+  }));
 
   return (
     <section className="flex flex-col gap-3">
       <h2 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink-mid">
         Top produkty dle tržeb ({useNet ? "čisté" : "s DPH"}, {cur})
       </h2>
-      <div className="overflow-x-auto rounded-2xl border border-edge bg-paper">
-        <table className="w-full min-w-[640px] border-collapse text-[13px]">
-          <thead>
-            <tr className="border-b border-edge text-left text-[11px] uppercase tracking-[0.1em] text-ink-mid">
-              <th className="px-4 py-3 font-medium">Produkt</th>
-              <th className="px-4 py-3 text-right font-medium">Množství</th>
-              <th className="px-4 py-3 text-right font-medium">Tržby</th>
-              <th className="px-4 py-3 text-right font-medium">Ø cena</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => {
-              const gross = useNet ? r.net : r.gross;
-              const unit = useNet ? r.avg_unit_price_net : r.avg_unit_price;
-              return (
-                <tr key={r.product_id} className="border-b border-edge/60 last:border-0">
-                  <td className="px-4 py-2.5">
-                    <div className="flex flex-col gap-1">
-                      <span className="font-medium text-ink-base">{r.name || "—"}</span>
-                      <span className="h-1 w-full max-w-[180px] overflow-hidden rounded-full bg-edge">
-                        <span
-                          className="block h-full rounded-full bg-ink-base"
-                          style={{ width: `${Math.max(2, (r.gross / maxGross) * 100)}%` }}
-                        />
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-ink-deep">
-                    {formatPosNumber(r.qty, 0)}
-                  </td>
-                  <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-ink-base">
-                    {formatPosMoney(gross, cur)}
-                  </td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-ink-mid">
-                    {unit != null ? formatPosMoney(unit, cur) : "—"}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      <PosProductsTable rows={tableRows} currency={cur} />
       <p className="text-[11px] text-ink-soft">
-        Kategorie zatím API nevystavuje; rozpad podle kategorií přibude rozšířením DW. Top 50 produktů.
+        Kategorie zatím API nevystavuje; rozpad podle kategorií přibude rozšířením DW. Top 50 produktů. Klik na produkt = detail (kde se prodává).
       </p>
     </section>
   );

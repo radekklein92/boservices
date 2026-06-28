@@ -59,7 +59,11 @@ import type {
   LocationRevenueRowWithPrev,
   Paged,
   PaymentMixRow,
+  ProductDetail,
+  ProductDayRow,
+  ProductLocationRow,
   ProductSalesRow,
+  ProductShopRow,
   ReceiptDetail,
   ReceiptListItem,
   ReceiptListRow,
@@ -87,6 +91,8 @@ const PAYMIX_MONEY: readonly (keyof PaymentMixRow)[] = ["total"];
 const RECEIPT_MONEY: readonly (keyof ReceiptListRow)[] = ["gross", "net", "vat"];
 const BRAND_MONEY: readonly (keyof BrandRevenueRow)[] = ["gross", "net", "vat"];
 const PRODUCT_MONEY: readonly (keyof ProductSalesRow)[] = ["gross", "net", "vat"];
+const PRODUCT_SHOP_MONEY: readonly (keyof ProductShopRow)[] = ["gross", "net", "vat"];
+const PRODUCT_DAY_MONEY: readonly (keyof ProductDayRow)[] = ["gross", "net"];
 
 // Sečte per-měnové SummaryRow do JEDNOHO řádku v cílové měně (převod přes FX).
 // refund_rate se kombinuje jako vážený průměr přes (převedený) gross. Prázdný
@@ -783,6 +789,84 @@ export async function getTopProducts(
   }));
   merged.sort((a, b) => (sort === "qty" ? b.qty - a.qty : b.gross - a.gross));
   return merged.slice(0, want);
+}
+
+// --- Detail produktu (/v1/products/detail): rozpad po prodejnách + denní trend ---
+// Scope (brand_id/shop_id/shop_ids) posíláme do DW, takže by_shop i daily sedí na
+// výběr. Pokladny pak rolneme na prodejny (jako leaderboard) a přepočteme přes FX.
+
+const _productDetail = posQuery(
+  (productId: string, from: string, to: string, brand_id?: string, shop_id?: string, shop_ids?: string) =>
+    api.getProductDetail({ product_id: productId, date_from: from, date_to: to, brand_id, shop_id, shop_ids }),
+  "product-detail",
+);
+
+export async function getProductDetail(productId: string, filter: PosFilter): Promise<ProductDetail> {
+  const { resolved, index, shops, locations } = await scopeContext(filter);
+  const to = filter.currency;
+  const empty: ProductDetail = {
+    productId,
+    name: null,
+    currency: to,
+    totalQty: 0,
+    totalGross: 0,
+    totalNet: 0,
+    byLocation: [],
+    daily: [],
+  };
+  const sp = scopeApiParams(resolved);
+  if (sp.__empty) return empty;
+  const rates = await getFxRates();
+  const range = aggWindow(filter);
+  const raw = (await _productDetail(productId, range.from, range.to, sp.brand_id, sp.shop_id, sp.shop_ids)).data;
+  if (!raw) return empty;
+
+  const locName = new Map(locations.map((l) => [l.id, l.name]));
+  const shopName = new Map(shops.map((s) => [s.id, s.name]));
+
+  // by_shop -> FX -> filtr na výběr (pojistka) -> rollup na prodejny
+  const byLoc = new Map<string, { qty: number; gross: number; net: number }>();
+  for (const r of convertRows(raw.by_shop, to, rates, PRODUCT_SHOP_MONEY)) {
+    if (!resolved.shopIds.has(r.shop_id)) continue;
+    const key = locationKeyOf(r.shop_id, index);
+    const e = byLoc.get(key) ?? { qty: 0, gross: 0, net: 0 };
+    e.qty += r.qty;
+    e.gross += r.gross;
+    e.net += r.net;
+    byLoc.set(key, e);
+  }
+  const byLocation: ProductLocationRow[] = [...byLoc.entries()]
+    .map(([key, v]) => {
+      const isPseudo = key.startsWith("shop:");
+      return {
+        locationId: key,
+        name: isPseudo ? shopName.get(key.slice(5)) ?? key : locName.get(key) ?? key,
+        concept: conceptOfLocationKey(key, index),
+        qty: v.qty,
+        gross: v.gross,
+        net: v.net,
+      };
+    })
+    .sort((a, b) => b.gross - a.gross);
+
+  // daily -> FX -> fold po dnech (endpoint už scopoval dle výběru)
+  const byDay = new Map<string, { gross: number; net: number; qty: number }>();
+  for (const r of convertRows(raw.daily, to, rates, PRODUCT_DAY_MONEY)) {
+    const e = byDay.get(r.date) ?? { gross: 0, net: 0, qty: 0 };
+    e.gross += r.gross;
+    e.net += r.net;
+    e.qty += r.qty;
+    byDay.set(r.date, e);
+  }
+  const daily = [...byDay.entries()]
+    .map(([date, v]) => ({ date, gross: v.gross, net: v.net, qty: v.qty }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  const totalQty = byLocation.reduce((s, r) => s + r.qty, 0);
+  const totalGross = byLocation.reduce((s, r) => s + r.gross, 0);
+  const totalNet = byLocation.reduce((s, r) => s + r.net, 0);
+
+  return { productId, name: raw.name, currency: to, totalQty, totalGross, totalNet, byLocation, daily };
 }
 
 // --- Účtenky: list (stránkovaný) + detail (/v1/receipts(+/{id})) ---

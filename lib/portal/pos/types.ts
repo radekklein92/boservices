@@ -75,6 +75,51 @@ export interface ProductSalesRow {
   // u Trdlokafe). Kategorizaci buď doplníme do api_v1 view, nebo degradujeme.
 }
 
+// --- Detail produktu (GET /v1/products/detail) ---
+// Rozpad jednoho produktu po pokladnách + denní trend (MV-backed). Portál
+// pokladny rolluje na prodejny a přepočte přes FX.
+export interface ProductShopRow {
+  shop_id: string;
+  currency: string;
+  qty: number;
+  gross: number;
+  net: number;
+  vat: number;
+}
+export interface ProductDayRow {
+  date: string;
+  currency: string;
+  qty: number;
+  gross: number;
+  net: number;
+}
+export interface ProductDetailRaw {
+  product_id: string;
+  name: string | null;
+  by_shop: ProductShopRow[];
+  daily: ProductDayRow[];
+}
+
+// Prodejna v rozpadu produktu (po rollupu pokladen).
+export interface ProductLocationRow {
+  locationId: string;
+  name: string;
+  concept: LocationConcept;
+  qty: number;
+  gross: number;
+  net: number;
+}
+export interface ProductDetail {
+  productId: string;
+  name: string | null;
+  currency: string;
+  totalQty: number;
+  totalGross: number;
+  totalNet: number;
+  byLocation: ProductLocationRow[];
+  daily: { date: string; gross: number; net: number; qty: number }[];
+}
+
 export interface ReceiptListRow {
   id: string;
   brand_id: string;
