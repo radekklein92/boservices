@@ -76,6 +76,7 @@ import type {
   ReceiptListItem,
   ReceiptListRow,
   ShopRevenueRow,
+  ShopSeriesRow,
   SummaryRow,
   TodayRow,
   VatSplitRow,
@@ -743,68 +744,105 @@ export async function getLiveMovers(filter: PosFilter, topN = 5): Promise<LiveMo
 
 // --- Neotevřené prodejny (report výpadků) ---
 // Prodejna, která NEDÁVNO prodávala, ale teď N po sobě jdoucích dní nemá tržbu.
-// Data: per-pokladna denní tržba přes _shopRev(d, d) pro každý den okna (by-shop
-// vrací VŽDY per pokladnu; /revenue/daily se shop_ids naopak SUMuje GROUP BY date
-// a per-shop rozpad zahodí -> pro tenhle report nepoužitelný). Rollup na prodejny
-// jako leaderboard (locationKeyOf). _shopRev je cachované a sdílené s Hybateli dne
-// (dnes + D-7) i s warm cronem, takže okno není drahé.
 //
-// Výpadek = počet po sobě jdoucích dní s nulovou tržbou ke dnešku. Dnešek (D-0) se
-// započte JEN po 12:00 a jen když dnes zatím není tržba (před polednem prodejna
-// mohla ještě neotevřít - to není výpadek). Spodní práh 1 den. Strop CLOSED_MAX_GAP
-// dní: delší výpadek = nejspíš trvale zavřená -> do reportu nepatří. Okno je o den
-// delší než strop, ať se gap == strop spolehlivě odliší od trvale zavřené.
-const CLOSED_MAX_GAP = 7; // > týden bez tržby = trvale zavřená (skrýt)
-const CLOSED_WINDOW = CLOSED_MAX_GAP + 2; // dnes (0) .. D-(strop+1)
+// Data: JEDEN dotaz /revenue/daily?split=shop (per-pokladnu denní řada jako json
+// pole, DW rontoday/bo-service #43) za 4týdenní okno -> rollup na prodejny. Dřív 9
+// denních by-shop dotazů; split=shop je 1 dotaz a navíc nese historii na profil dne
+// v týdnu. Cachované (sdílené s warm cronem), scope/FX se aplikují po dotažení.
+//
+// Výpadek = počet po sobě jdoucích dní BEZ tržby ke dnešku, ale počítají se jen dny,
+// kdy prodejna OBVYKLE jede. Den v týdnu, kdy historicky většinou neprodává (víkend
+// u kancelářských poboček apod.), se NEbere jako výpadek a streak nepřeruší (jen se
+// přeskočí) - tím nepadají do reportu prodejny typu Florentinum/Kaprova, které o
+// víkendu nejsou každý týden otevřené. Dnešek (D-0) se započítá jen po 12:00 a jen
+// když dnes zatím není tržba. Strop CLOSED_MAX_GAP "provozních" dní bez tržby; delší
+// = nejspíš trvale zavřená -> do reportu nepatří.
+const CLOSED_MAX_GAP = 7; // > týden provozních dní bez tržby = trvale zavřená (skrýt)
+const CLOSED_WINDOW = 28; // 4 týdny zpět vč. dneška - dost na profil dne v týdnu (3-4 výskyty)
 const CLOSED_NOON = 12; // dnešek se počítá jako výpadek až po této hodině
+
+// Per-pokladnu denní řada (split=shop) za okno - cachované, sdílené s warm cronem.
+const _shopSeries = posQuery(
+  (from: string, to: string, shopIds: string) =>
+    collectPaged((page) => api.getShopDailySeries({ date_from: from, date_to: to, shop_ids: shopIds, page, limit: PAGE_SIZE })),
+  "shop-series",
+);
+
+// Den v týdnu z "YYYY-MM-DD" (0=Ne..6=So), TZ-bezpečně (poledne UTC, ať posun zóny
+// nehodí datum na sousední den).
+function dowOf(date: string): number {
+  return new Date(`${date}T12:00:00Z`).getUTCDay();
+}
 
 export async function getClosedStores(filter: PosFilter): Promise<ClosedStoresReport> {
   const to = filter.currency;
-  const today = resolveDateRange({ ...filter, preset: "dnes" }).from;
-  const days = Array.from({ length: CLOSED_WINDOW }, (_, i) => addDays(today, -i)); // [dnes, D-1, ...]
-
-  // Data-okna jsou čistě z filtru; scope (resolved.shopIds) i FX se aplikují po
-  // dotažení, takže scopeContext + kurzy + všechny denní dotazy běží naráz.
-  const [{ resolved, index, shops, locations }, rates, dayData] = await Promise.all([
-    scopeContext(filter),
-    getFxRates(),
-    Promise.all(days.map((d) => _shopRev(d, d))),
-  ]);
-
-  // gross per prodejna a den (index 0 = dnes). Pseudo-prodejny (nenapárované
-  // pokladny) se drží jako jinde, ať se neztratí.
-  const series = new Map<string, number[]>();
-  days.forEach((_, di) => {
-    for (const r of convertRows(dayData[di], to, rates, SHOP_MONEY)) {
-      if (!resolved.shopIds.has(r.shop_id)) continue;
-      const key = locationKeyOf(r.shop_id, index);
-      let arr = series.get(key);
-      if (!arr) {
-        arr = new Array(CLOSED_WINDOW).fill(0);
-        series.set(key, arr);
-      }
-      arr[di] += r.gross;
-    }
-  });
-
   const afternoon = nowPragueHourFrac() >= CLOSED_NOON;
+  const today = resolveDateRange({ ...filter, preset: "dnes" }).from;
+  const { resolved, index, shops, locations } = await scopeContext(filter);
+  if (resolved.shopIds.size === 0) return { rows: [], count: 0, currency: to, afternoon };
+
+  const rates = await getFxRates();
+  const dayList = Array.from({ length: CLOSED_WINDOW }, (_, i) => addDays(today, -i)); // [dnes, D-1, ...]
+  const idxByDate = new Map(dayList.map((d, i) => [d, i] as const));
+  const series: ShopSeriesRow[] = await _shopSeries(
+    addDays(today, -(CLOSED_WINDOW - 1)),
+    today,
+    [...resolved.shopIds].join(","),
+  );
+
+  // gross per prodejna a den (index 0 = dnes); FX přepočet, AED bez kurzu vynechán.
+  // Pseudo-prodejny (nenapárované pokladny) se drží jako jinde, ať se neztratí.
+  const byLoc = new Map<string, number[]>();
+  for (const sr of series) {
+    if (!resolved.shopIds.has(sr.shop_id)) continue;
+    if (!hasRate(sr.currency, rates)) continue;
+    const f = fxFactor(sr.currency, to, rates);
+    const key = locationKeyOf(sr.shop_id, index);
+    let arr = byLoc.get(key);
+    if (!arr) {
+      arr = new Array(CLOSED_WINDOW).fill(0);
+      byLoc.set(key, arr);
+    }
+    for (const d of sr.days) {
+      const di = idxByDate.get(d.date);
+      if (di !== undefined) arr[di] += d.gross * f;
+    }
+  }
+
   const startIdx = afternoon ? 0 : 1; // dnešek se uvažuje jen po poledni
   const locName = new Map(locations.map((l) => [l.id, l.name]));
   const shopName = new Map(shops.map((s) => [s.id, s.name]));
 
   const rows: ClosedStoreRow[] = [];
-  for (const [key, arr] of series) {
-    // Po sobě jdoucí dny bez tržby od startu; i skončí na posledním dni s tržbou.
-    let gap = 0;
-    let i = startIdx;
-    while (i < arr.length && arr[i] === 0) {
-      gap++;
-      i++;
+  for (const [key, arr] of byLoc) {
+    // Profil dne v týdnu z DOKONČENÝCH dní (D-1..): jede prodejna ten den obvykle?
+    const dowTotal = new Array(7).fill(0);
+    const dowSold = new Array(7).fill(0);
+    for (let i = 1; i < CLOSED_WINDOW; i++) {
+      const dow = dowOf(dayList[i]);
+      dowTotal[dow] += 1;
+      if (arr[i] > 0) dowSold[dow] += 1;
     }
-    if (gap < 1) continue; // dnes/včera prodávala -> v provozu
-    if (i >= arr.length) continue; // celé okno bez tržby -> trvale zavřená (nemáme co srovnávat)
+    // "Obvykle otevřeno" = tržba ve VĚTŠINĚ výskytů toho dne v týdnu (konzervativní
+    // vůči planým poplachům: den s historicky častým volnem se nebere jako výpadek).
+    const usuallyOpen = (dow: number) => dowTotal[dow] > 0 && dowSold[dow] * 2 > dowTotal[dow];
+
+    // Streak výpadku od startu: den s tržbou ho ukončí; "obvykle zavřený" den se
+    // přeskočí (nepočítá se ani nepřeruší); "obvykle otevřený" bez tržby = výpadek.
+    let gap = 0;
+    let lastSaleIdx = -1;
+    for (let i = startIdx; i < CLOSED_WINDOW; i++) {
+      if (arr[i] > 0) {
+        lastSaleIdx = i;
+        break;
+      }
+      if (usuallyOpen(dowOf(dayList[i]))) gap += 1;
+    }
+    if (lastSaleIdx === -1) continue; // žádná tržba v okně -> trvale zavřená/neznámá
+    if (gap < 1) continue; // žádný provozní den bez tržby -> v provozu
     if (gap > CLOSED_MAX_GAP) continue; // delší výpadek než týden -> trvale zavřená
-    // Obvyklá denní tržba z DOKONČENÝCH dní s tržbou (dnešek je jen částečný den -> vynechán).
+
+    // Obvyklá denní tržba z DOKONČENÝCH dní s tržbou (dnešek je jen částečný den).
     const complete = arr.slice(1).filter((g) => g > 0);
     const avgDailyGross = complete.length ? complete.reduce((a, b) => a + b, 0) / complete.length : 0;
     const isPseudo = key.startsWith("shop:");
@@ -814,9 +852,9 @@ export async function getClosedStores(filter: PosFilter): Promise<ClosedStoresRe
       concept: conceptOfLocationKey(key, index),
       currency: to,
       gapDays: gap,
-      lastSaleDate: days[i],
+      lastSaleDate: dayList[lastSaleIdx],
       avgDailyGross,
-      todayCounts: afternoon && arr[0] === 0,
+      todayCounts: afternoon && arr[0] === 0 && usuallyOpen(dowOf(today)),
     });
   }
   // Nejdéle zavřené nahoru; při shodě ty, kde uniká nejvíc tržeb.

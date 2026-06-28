@@ -20,6 +20,7 @@ import type {
   PaymentMixRow,
   VatSplitRow,
   ShopRevenueRow,
+  ShopSeriesRow,
   BrandRevenueRow,
   TodayRow,
 } from "./types";
@@ -122,6 +123,12 @@ export const getRevenueSummary = (p: RevenueParams) =>
 // pro roční/dlouhý trend (měsíční bary). Bez bucket = per-day jako dřív.
 export const getRevenueDaily = (p: RevenueParams & PageParams & { bucket?: "month" }) =>
   apiGet<Paged<DailyRevenueRow>>("/revenue/daily", p);
+
+// split=shop: per-pokladnu denní řada (json pole) místo SUM přes pokladny - jeden
+// řádek na pokladnu. shop_ids povinné. (DW: rontoday/bo-service #43.)
+export const getShopDailySeries = (
+  p: { date_from: string; date_to: string; shop_ids: string; brand_id?: string; currency?: string } & PageParams,
+) => apiGet<Paged<ShopSeriesRow>>("/revenue/daily", { ...p, split: "shop" });
 
 export const getProductSales = (p: RevenueParams & PageParams & { sort?: "gross" | "qty" }) =>
   apiGet<Paged<ProductSalesRow>>("/products/sales", p);
