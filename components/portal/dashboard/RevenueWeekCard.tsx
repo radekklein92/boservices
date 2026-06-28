@@ -11,10 +11,13 @@ function fmtDayLabel(date: string): string {
 }
 
 // Graf týdenních tržeb (jen BOS prodejny) pod kartou Real Estate na dashboardu.
-// Denní sloupce (emerald gradient) + srovnávací linka minulého týdne. Chrome
-// identický s ReTrendCard. "Detail" otevře sekci Tržby.
+// Denní sloupce zelené (>= ekvivalentu min. týdne) / červené (nižší) + srovnávací
+// linka minulého týdne. Chrome identický s ReTrendCard. "Detail" otevře sekci Tržby.
 export function RevenueWeekCard({ data }: { data: BosDashboardRevenue }) {
   const current = data.daily.map((d) => ({ label: fmtDayLabel(d.date), value: d.gross }));
+  // Sloupec zelený, když je den vyšší než ekvivalent min. týdne, jinak červený
+  // (u dneška vs ekvivalentní část dne - viz getBosDashboardRevenue).
+  const barColors = data.daily.map((d) => (d.up ? "#10b981" : "#ef4444"));
   const prevTotal = data.comparison.reduce((a, b) => a + b, 0);
 
   return (
@@ -72,11 +75,12 @@ export function RevenueWeekCard({ data }: { data: BosDashboardRevenue }) {
         currency={data.currency}
         comparisonLabel={data.comparisonLabel}
         height={240}
-        colors={{ bar: "#34d399", barTo: "#059669", comparison: "#BFC3C7" }}
+        barColors={barColors}
       />
 
-      <p className="mt-3 text-[12px] leading-relaxed text-ink-soft">
-        Jen BOS prodejny · s DPH · změna je like-for-like vs minulý týden.
+      <p className="mt-3 text-[11px] leading-relaxed text-ink-soft">
+        Jen BOS prodejny · s DPH · zelená/červená dle dne vs minulý týden (dnešek
+        k ekvivalentní části dne) · změna je like-for-like.
       </p>
     </section>
   );

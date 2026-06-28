@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CHART } from "./chart-theme";
 import { formatPosMoney } from "./pos-shared";
 
@@ -38,16 +38,16 @@ export function PosLineChart({
   currency,
   comparisonLabel = "Předchozí období",
   height = 300,
-  colors,
+  barColors,
 }: {
   current: LinePoint[];
   comparison?: number[] | null;
   currency: string;
   comparisonLabel?: string;
   height?: number;
-  // Volitelné barvy (default = monochromní CHART z chart-theme). bar/barTo =
-  // vertikální gradient sloupců (i linka aktuální série), comparison = srovnávací linka.
-  colors?: { bar?: string; barTo?: string; comparison?: string };
+  // Volitelná barva per sloupec (index sedí s `current`); default monochrom
+  // CHART.current. Dashboard: zelená/červená dle výkonu vs minulý týden.
+  barColors?: ReadonlyArray<string>;
 }) {
   const [active, setActive] = useState<number | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -62,14 +62,6 @@ export function PosLineChart({
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-
-  // Barvy: default monochrom (CHART), nebo přebité přes `colors` (dashboard = emerald).
-  const uid = useId().replace(/[:]/g, "");
-  const accent = colors?.bar ?? CHART.current;
-  const accentTo = colors?.barTo ?? accent;
-  const compareColor = colors?.comparison ?? CHART.comparison;
-  const areaGradId = `pos-area-${uid}`;
-  const barGradId = `pos-bar-${uid}`;
 
   const n = current.length;
   const hasCmp = !!comparison && comparison.length > 0;
@@ -137,13 +129,9 @@ export function PosLineChart({
           style={{ display: "block", overflow: "visible" }}
         >
           <defs>
-            <linearGradient id={areaGradId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={accent} stopOpacity={0.12} />
-              <stop offset="100%" stopColor={accent} stopOpacity={0} />
-            </linearGradient>
-            <linearGradient id={barGradId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={accent} />
-              <stop offset="100%" stopColor={accentTo} />
+            <linearGradient id="pos-line-grad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={CHART.current} stopOpacity={0.12} />
+              <stop offset="100%" stopColor={CHART.current} stopOpacity={0} />
             </linearGradient>
           </defs>
 
@@ -180,7 +168,7 @@ export function PosLineChart({
                     width={barW}
                     height={h}
                     rx={Math.min(4, barW / 4)}
-                    fill={`url(#${barGradId})`}
+                    fill={barColors?.[i] ?? CHART.current}
                     opacity={dim ? 0.5 : 1}
                     style={{ transition: "opacity 150ms" }}
                   />
@@ -188,12 +176,12 @@ export function PosLineChart({
               })
             : (
               <>
-                {n > 1 && <path d={area} fill={`url(#${areaGradId})`} />}
+                {n > 1 && <path d={area} fill="url(#pos-line-grad)" />}
                 {n > 1 && (
                   <polyline
                     points={line(curCoords)}
                     fill="none"
-                    stroke={accent}
+                    stroke={CHART.current}
                     strokeWidth={2.25}
                     strokeLinejoin="round"
                     strokeLinecap="round"
@@ -208,7 +196,7 @@ export function PosLineChart({
               <polyline
                 points={line(cmpCoords)}
                 fill="none"
-                stroke={compareColor}
+                stroke={CHART.comparison}
                 strokeWidth={2}
                 strokeLinejoin="round"
                 strokeLinecap="round"
@@ -216,7 +204,7 @@ export function PosLineChart({
               />
               {bars &&
                 cmpCoords.map((c, i) => (
-                  <circle key={`cmp-${i}`} cx={c[0]} cy={c[1]} r={2.5} fill={compareColor} />
+                  <circle key={`cmp-${i}`} cx={c[0]} cy={c[1]} r={2.5} fill={CHART.comparison} />
                 ))}
             </>
           )}
@@ -227,7 +215,7 @@ export function PosLineChart({
               y1={yTop}
               x2={xOf(active)}
               y2={yBot}
-              stroke={compareColor}
+              stroke={CHART.comparison}
               strokeWidth={1}
               strokeDasharray="3 4"
             />
@@ -238,7 +226,7 @@ export function PosLineChart({
             current.map((p, i) => {
               const isActive = active === i;
               if (!isActive && n > 14) return null;
-              return <circle key={`pt-${i}`} cx={xOf(i)} cy={yOf(p.value)} r={isActive ? 4.5 : 3} fill={accent} />;
+              return <circle key={`pt-${i}`} cx={xOf(i)} cy={yOf(p.value)} r={isActive ? 4.5 : 3} fill={CHART.current} />;
             })}
 
           {/* X popisky */}
@@ -284,7 +272,7 @@ export function PosLineChart({
             </div>
             <div className="flex flex-col gap-2 text-[12px] leading-none">
               <div className="flex items-center gap-2">
-                <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: accent }} aria-hidden="true" />
+                <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: barColors?.[active] ?? CHART.current }} aria-hidden="true" />
                 <span className="text-ink-mid">Aktuální</span>
                 <span className="ml-auto font-bold tabular-nums text-ink-base">
                   {formatPosMoney(current[active].value, currency)}
@@ -292,7 +280,7 @@ export function PosLineChart({
               </div>
               {hasCmp && active < (comparison as number[]).length && (
                 <div className="flex items-center gap-2">
-                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: compareColor }} aria-hidden="true" />
+                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: CHART.comparison }} aria-hidden="true" />
                   <span className="text-ink-mid">{comparisonLabel}</span>
                   <span className="ml-auto font-bold tabular-nums text-ink-base">
                     {formatPosMoney((comparison as number[])[active], currency)}

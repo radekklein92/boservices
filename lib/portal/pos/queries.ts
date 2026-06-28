@@ -1091,24 +1091,35 @@ export async function getToday(filter: PosFilter): Promise<TodayRow[]> {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// BOS dashboard tržby - týdenní přehled JEN za BOS prodejny (graf + KPI na /portal)
+// BOS dashboard tržby - JEN za BOS prodejny (graf týdne + KPI 30 dní na /portal)
 // ─────────────────────────────────────────────────────────────────────
 //
-// Denní tržby tohoto týdne (sloupce) + srovnání s minulým týdnem (linka) +
-// headline a like-for-like delta. Filtr na BOS prodejny (isBosStore: podepsaná
-// franšíza, nebo NewCo bez nevyřešené červené) -> jejich pokladny (pairing index)
-// -> filtr nad by-shop tržbami. Denní řadu skládáme po dnech z _shopRev(d,d),
-// protože /revenue/daily neumí množinu shop_id (a pro desítky prodejen by
-// degradoval). Vše v CZK (FX přepočet), s DPH (gross).
+// Graf: denní tržby tohoto týdne (sloupce) + minulý týden (linka). KPI dlaždice:
+// tržby za posledních 30 dní + like-for-like delta + sparkline. Filtr na BOS
+// prodejny (isBosStore: podepsaná franšíza, nebo NewCo bez nevyřešené červené) ->
+// jejich pokladny (pairing index). Denní řada jde JEDNÍM dotazem _dailyTrendShops
+// (DW agreguje přes množinu shop_ids, PR #134) - 30denní okno pokryje sparkline
+// i graf týdne (tento i minulý týden jsou uvnitř). Headline/LFL z by-shop oken.
+// Vše v CZK (FX přepočet), s DPH (gross).
+//
+// VÝKON: funkce je DRAHÁ (5 DW dotazů) a běží JEN v cronu (pos-cache-warm), který
+// výsledek uloží do Redis (bos-dashboard-snapshot.ts). Dashboard čte jen snapshot
+// (1 Redis GET přes getBosDashboardSnapshot) - nikdy nepočítá, nikdy se nezdrží.
 
 export interface BosDashboardRevenue {
   currency: string;
-  headlineGross: number; // součet všech BOS prodejen, tento týden
-  lflCurrentGross: number | null; // like-for-like (prodejny aktivní v obou obdobích)
-  lflPreviousGross: number | null;
-  daily: { date: string; gross: number }[]; // tento týden po dnech (sloupce)
+  // Graf "Tržby za poslední týden":
+  daily: { date: string; gross: number; up: boolean }[]; // tento týden; up = >= ekvivalentu min. týdne (zelený sloupec)
   comparison: number[]; // minulý týden po dnech, zarovnáno indexem (linka)
   comparisonLabel: string;
+  headlineGross: number; // tento týden celkem (legenda grafu)
+  lflCurrentGross: number | null; // like-for-like (prodejny aktivní v obou týdnech)
+  lflPreviousGross: number | null;
+  // KPI dlaždice "Tržby (s DPH)" - posledních 30 dní:
+  last30Gross: number;
+  last30LflCurrentGross: number | null; // LFL vs předchozích 30 dní
+  last30LflPreviousGross: number | null;
+  last30Spark: number[]; // denní gross za 30 dní (sparkline)
 }
 
 // Množina BOS pokladen (dwShopId) + mapování pokladna -> prodejna (locationId pro LFL).
@@ -1146,52 +1157,94 @@ function enumerateDays(range: DateRange): string[] {
   return out;
 }
 
-// Skládá cachované primitivy (_shopRev po dnech, _pairingIndex, _locations,
-// franšízy, FX) - jako ostatní kompozitní dotazy (getKpiSummary). Sám se NEobaluje
-// do unstable_cache (žádná vnořená cache); warm cron (pos-cache-warm) drží teplé
-// per-day _shopRev, takže dashboard skládá z teplých cache + levné agregace.
+// DRAHÝ výpočet (5 DW dotazů) - volá ho JEN cron (pos-cache-warm), který výsledek
+// uloží do Redis. Dashboard čte snapshot (getBosDashboardSnapshot), nikdy nepočítá.
 export async function getBosDashboardRevenue(): Promise<BosDashboardRevenue> {
   const currency = "CZK";
-  const filter: PosFilter = {
+  const weekFilter: PosFilter = {
     selection: EMPTY_SELECTION,
     preset: "tento-tyden",
     sameStore: false,
     currency,
     vatInclusive: true,
   };
-  const [{ shopIds, keyOf }, rates] = await Promise.all([bosShopScope(), getFxRates()]);
-  const range = resolveDateRange(filter);
-  const cmp = resolveComparisonRange(filter, range);
-  const curDays = enumerateDays(range);
-  const cmpDays = enumerateDays(cmp);
-
-  // Denní by-shop tržby (přepočtené do CZK) po jednotlivých dnech. _shopRev(d,d) je
-  // cachovaný (posQuery) -> warm cron i opakovaná čtení jsou levná.
-  const [curRowsPerDay, cmpRowsPerDay] = await Promise.all([
-    Promise.all(curDays.map(async (d) => convertRows(await _shopRev(d, d), currency, rates, SHOP_MONEY))),
-    Promise.all(cmpDays.map(async (d) => convertRows(await _shopRev(d, d), currency, rates, SHOP_MONEY))),
+  const [{ shopIds, keyOf }, rates, dayFraction] = await Promise.all([
+    bosShopScope(),
+    getFxRates(),
+    getDayFraction(weekFilter),
   ]);
 
-  const daily = curDays.map((date, i) => ({
-    date,
-    gross: rollupSummary(curRowsPerDay[i]!, shopIds, currency).gross,
-  }));
-  const comparison = cmpDays.map((_, i) => rollupSummary(cmpRowsPerDay[i]!, shopIds, currency).gross);
+  const weekRange = resolveDateRange(weekFilter);
+  const weekCmp = resolveComparisonRange(weekFilter, weekRange);
+  const r30 = resolveDateRange({ ...weekFilter, preset: "poslednich-30-dni" });
+  const c30 = resolveComparisonRange({ ...weekFilter, preset: "poslednich-30-dni" }, r30);
+  const weekDays = enumerateDays(weekRange);
+  const cmpDays = enumerateDays(weekCmp);
+  const days30 = enumerateDays(r30);
 
-  // Headline a LFL z konkatenace denních řádků (rollupSummary sčítá, computeLfl
-  // pracuje s množinou "aktivních" prodejen) -> žádné window dotazy navíc.
-  const curAll = curRowsPerDay.flat();
-  const prevAll = cmpRowsPerDay.flat();
-  const headlineGross = rollupSummary(curAll, shopIds, currency).gross;
-  const lfl = computeLfl(curAll, prevAll, shopIds, keyOf, currency);
+  // Bez napárovaných BOS pokladen -> validní nulový výsledek (žádné DW dotazy).
+  if (shopIds.size === 0) {
+    return {
+      currency,
+      daily: weekDays.map((date) => ({ date, gross: 0, up: true })),
+      comparison: cmpDays.map(() => 0),
+      comparisonLabel: "Minulý týden",
+      headlineGross: 0,
+      lflCurrentGross: null,
+      lflPreviousGross: null,
+      last30Gross: 0,
+      last30LflCurrentGross: null,
+      last30LflPreviousGross: null,
+      last30Spark: days30.map(() => 0),
+    };
+  }
+
+  const csv = [...shopIds].join(",");
+  // Denní řada za 30 dní JEDNÍM dotazem (DW agreguje přes množinu shop_ids); pokryje
+  // sparkline i graf týdne. Headline/LFL z by-shop oken (týden i 30 dní vč. srovnání).
+  const [daily30Rows, weekCurRows, weekPrevRows, m30CurRows, m30PrevRows] = await Promise.all([
+    _dailyTrendShops(r30.from, r30.to, csv),
+    _shopRev(weekRange.from, weekRange.to),
+    _shopRev(weekCmp.from, weekCmp.to),
+    _shopRev(r30.from, r30.to),
+    _shopRev(c30.from, c30.to),
+  ]);
+
+  const grossByDate = new Map(
+    foldDaily(convertRows(daily30Rows, currency, rates, DAILY_MONEY)).map((d) => [d.date, d.gross]),
+  );
+  const at = (date: string) => grossByDate.get(date) ?? 0;
+
+  // Graf týdne: sloupce (tento týden) + linka (minulý týden), zarovnáno indexem.
+  // Sloupec zelený, když je >= ekvivalentu min. týdne; dnešek (poslední, NEÚPLNÝ
+  // den) se porovnává s ekvivalentní ČÁSTÍ dne (× frakce dne f), ne s celým dnem.
+  const comparison = cmpDays.map(at);
+  const lastIdx = weekDays.length - 1;
+  const daily = weekDays.map((date, i) => {
+    const gross = at(date);
+    const equiv = (comparison[i] ?? 0) * (i === lastIdx ? dayFraction : 1);
+    return { date, gross, up: gross >= equiv };
+  });
+
+  const weekCur = convertRows(weekCurRows, currency, rates, SHOP_MONEY);
+  const weekPrev = convertRows(weekPrevRows, currency, rates, SHOP_MONEY);
+  const weekLfl = computeLfl(weekCur, weekPrev, shopIds, keyOf, currency);
+
+  const m30Cur = convertRows(m30CurRows, currency, rates, SHOP_MONEY);
+  const m30Prev = convertRows(m30PrevRows, currency, rates, SHOP_MONEY);
+  const m30Lfl = computeLfl(m30Cur, m30Prev, shopIds, keyOf, currency);
 
   return {
     currency,
-    headlineGross,
-    lflCurrentGross: lfl.lflCurrent ? lfl.lflCurrent.gross : null,
-    lflPreviousGross: lfl.lflComparison ? lfl.lflComparison.gross : null,
     daily,
     comparison,
     comparisonLabel: "Minulý týden",
+    headlineGross: rollupSummary(weekCur, shopIds, currency).gross,
+    lflCurrentGross: weekLfl.lflCurrent ? weekLfl.lflCurrent.gross : null,
+    lflPreviousGross: weekLfl.lflComparison ? weekLfl.lflComparison.gross : null,
+    last30Gross: rollupSummary(m30Cur, shopIds, currency).gross,
+    last30LflCurrentGross: m30Lfl.lflCurrent ? m30Lfl.lflCurrent.gross : null,
+    last30LflPreviousGross: m30Lfl.lflComparison ? m30Lfl.lflComparison.gross : null,
+    last30Spark: days30.map(at),
   };
 }
