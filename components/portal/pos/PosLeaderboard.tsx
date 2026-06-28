@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { formatPosMoney, formatPosNumber } from "./pos-shared";
@@ -33,6 +34,7 @@ export function PosLeaderboard({
   currency: string;
   valueLabel: string;
 }) {
+  const router = useRouter();
   const [sortKey, setSortKey] = useState<SortKey>("value");
   const [dir, setDir] = useState<"desc" | "asc">("desc");
 
@@ -79,12 +81,28 @@ export function PosLeaderboard({
         </thead>
         <tbody>
           {sorted.map((r, i) => (
-            <tr key={r.id} className="border-b border-edge/60 last:border-0 hover:bg-edge-warm/60">
+            <tr
+              key={r.id}
+              onClick={
+                r.href
+                  ? (e) => {
+                      // necháme prohlížeč na cmd/ctrl/shift/prostřední klik (nový tab)
+                      if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
+                      router.push(r.href!);
+                    }
+                  : undefined
+              }
+              className={`border-b border-edge/60 last:border-0 hover:bg-edge-warm/60 ${r.href ? "cursor-pointer" : ""}`}
+            >
               <td className="px-4 py-2.5 tabular-nums text-ink-soft">{i + 1}</td>
               <td className="px-4 py-2.5">
                 <div className="flex flex-col gap-1">
                   {r.href ? (
-                    <Link href={r.href} className="font-medium text-ink-base hover:underline">
+                    <Link
+                      href={r.href}
+                      onClick={(e) => e.stopPropagation()}
+                      className="font-medium text-ink-base hover:underline"
+                    >
                       {r.label}
                     </Link>
                   ) : (
