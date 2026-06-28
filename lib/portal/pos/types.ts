@@ -155,10 +155,15 @@ export interface HourPoint {
   receipts: number;
 }
 
-// KPI souhrn pro aktuální okno + (volitelné) srovnávací okno. Per měna.
+// KPI souhrn pro aktuální okno + srovnávací okno. Per měna.
+// current/comparison = ALL-STORE (zobrazené číslo). lfl* = like-for-like základ
+// pro deltu (% a rozdíl): jen prodejny aktivní v OBOU obdobích. null = žádný
+// srovnatelný průnik prodejen.
 export interface KpiSummary {
   current: SummaryRow[];
   comparison: SummaryRow[] | null;
+  lflCurrent: SummaryRow[] | null;
+  lflComparison: SummaryRow[] | null;
 }
 
 // Leaderboard řádky s hodnotami srovnávacího okna (pro delty). prev* = null,

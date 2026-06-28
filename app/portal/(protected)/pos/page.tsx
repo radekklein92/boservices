@@ -147,7 +147,6 @@ async function KpiSection({ filter, useNet }: { filter: PosFilter; useNet: boole
     return <WidgetError />;
   }
   const c = pickRow(kpi.current, cur);
-  const p = pickRow(kpi.comparison, cur);
   if (!c) {
     return (
       <Notice
@@ -160,50 +159,69 @@ async function KpiSection({ filter, useNet }: { filter: PosFilter; useNet: boole
   const sparkRevenue = days.map((d) => (useNet ? d.net : d.gross));
   const sparkReceipts = days.map((d) => d.receipts);
   const sparkAtv = days.map((d) => (d.receipts > 0 ? d.gross / d.receipts : 0));
+  // Zobrazené číslo (value) = ALL-STORE (všechny prodejny). Delta (% i rozdíl) =
+  // LIKE-FOR-LIKE: jen prodejny aktivní v OBOU obdobích (lflC/lflP). Headline a delta si
+  // proto nemusí číselně "sednout" (rozdíl != headline - headline) - vysvětluje popisek pod
+  // stripem. lfl* = null (žádný srovnatelný průnik) -> current=undefined -> delta se nevykreslí.
+  const lflC = pickRow(kpi.lflCurrent, cur);
+  const lflP = pickRow(kpi.lflComparison, cur);
   const revenue = useNet ? c.net : c.gross;
-  const prevRevenue = useNet ? p?.net : p?.gross;
+  const lflRevenue = lflC ? (useNet ? lflC.net : lflC.gross) : undefined;
+  const lflPrevRevenue = lflP ? (useNet ? lflP.net : lflP.gross) : null;
 
   return (
-    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-      <PosKpiCard
-        label={`Tržby (${useNet ? "bez DPH" : "s DPH"})`}
-        value={formatPosMoneyCompact(revenue, cur)}
-        valueTitle={formatPosMoney(revenue, cur)}
-        current={revenue}
-        previous={prevRevenue ?? null}
-        absolute={prevRevenue != null ? signedMoneyCompact(revenue - prevRevenue, cur) : undefined}
-        spark={sparkRevenue}
-        emphasis
-      />
-      <PosKpiCard
-        label="Účtenky"
-        value={formatPosNumber(c.receipts)}
-        current={c.receipts}
-        previous={p?.receipts ?? null}
-        absolute={p ? signedNumber(c.receipts - p.receipts) : undefined}
-        spark={sparkReceipts}
-      />
-      <PosKpiCard
-        label="Průměrný ticket"
-        value={c.avg_ticket != null ? formatPosMoney(c.avg_ticket, cur) : "—"}
-        current={c.avg_ticket ?? undefined}
-        previous={p?.avg_ticket ?? null}
-        absolute={
-          c.avg_ticket != null && p?.avg_ticket != null
-            ? signedMoneyCompact(c.avg_ticket - p.avg_ticket, cur)
-            : undefined
-        }
-        spark={sparkAtv}
-      />
-      <PosKpiCard
-        label="Refundace"
-        value={c.refund_rate != null ? formatPct(c.refund_rate) : "—"}
-        valueTitle={c.refund_rate == null ? "Pro tento výběr zatím neevidováno" : undefined}
-        current={c.refund_rate ?? undefined}
-        previous={p?.refund_rate ?? null}
-        goodDir="down"
-        deltaMode="pp"
-      />
+    <div className="space-y-2">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <PosKpiCard
+          label={`Tržby (${useNet ? "bez DPH" : "s DPH"})`}
+          value={formatPosMoneyCompact(revenue, cur)}
+          valueTitle={formatPosMoney(revenue, cur)}
+          current={lflRevenue}
+          previous={lflPrevRevenue}
+          absolute={
+            lflRevenue != null && lflPrevRevenue != null
+              ? signedMoneyCompact(lflRevenue - lflPrevRevenue, cur)
+              : undefined
+          }
+          spark={sparkRevenue}
+          emphasis
+        />
+        <PosKpiCard
+          label="Účtenky"
+          value={formatPosNumber(c.receipts)}
+          current={lflC?.receipts ?? undefined}
+          previous={lflP?.receipts ?? null}
+          absolute={lflC && lflP ? signedNumber(lflC.receipts - lflP.receipts) : undefined}
+          spark={sparkReceipts}
+        />
+        <PosKpiCard
+          label="Průměrný ticket"
+          value={c.avg_ticket != null ? formatPosMoney(c.avg_ticket, cur) : "—"}
+          current={lflC?.avg_ticket ?? undefined}
+          previous={lflP?.avg_ticket ?? null}
+          absolute={
+            lflC?.avg_ticket != null && lflP?.avg_ticket != null
+              ? signedMoneyCompact(lflC.avg_ticket - lflP.avg_ticket, cur)
+              : undefined
+          }
+          spark={sparkAtv}
+        />
+        <PosKpiCard
+          label="Refundace"
+          value={c.refund_rate != null ? formatPct(c.refund_rate) : "—"}
+          valueTitle={c.refund_rate == null ? "Pro tento výběr zatím neevidováno" : undefined}
+          current={lflC?.refund_rate ?? undefined}
+          previous={lflP?.refund_rate ?? null}
+          goodDir="down"
+          deltaMode="pp"
+        />
+      </div>
+      {lflC && (
+        <p className="text-[11px] leading-relaxed text-ink-soft">
+          Změna a rozdíl jsou like-for-like - počítané jen z prodejen aktivních v obou
+          srovnávaných obdobích. Zobrazená tržba je za všechny prodejny.
+        </p>
+      )}
     </div>
   );
 }

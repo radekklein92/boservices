@@ -37,6 +37,7 @@ import {
   type PosFilter,
 } from "./filters";
 import { buildPairingIndex, type PairingIndex } from "./pairing-db";
+import { rollupSummary, computeLfl } from "./aggregate";
 import { resolveSelection, conceptOfShop, type ResolvedSelection } from "./selection";
 import { cachedListLocations } from "@/lib/portal/cached-db";
 import type { MirroredLocation, LocationConcept } from "@/lib/portal/locations-db";
@@ -243,37 +244,6 @@ const _summary = posQuery(
   "summary",
 );
 
-// Sečte by-shop řádky vybraných pokladen do jednoho SummaryRow. Řádky musí být
-// už přepočtené do cílové měny (currency = `currency`).
-function rollupSummary(rows: ShopRevenueRow[], shopIds: Set<string>, currency: string): SummaryRow {
-  let gross = 0;
-  let net = 0;
-  let vat = 0;
-  let receipts = 0;
-  let refunds = 0;
-  let hasRefunds = false;
-  for (const r of rows) {
-    if (!shopIds.has(r.shop_id)) continue;
-    gross += r.gross;
-    net += r.net;
-    vat += r.vat;
-    receipts += r.receipts;
-    if (typeof r.refunds === "number") {
-      refunds += r.refunds;
-      hasRefunds = true;
-    }
-  }
-  return {
-    currency,
-    gross,
-    net,
-    vat,
-    receipts,
-    avg_ticket: receipts > 0 ? gross / receipts : null,
-    refund_rate: hasRefunds && gross + refunds > 0 ? refunds / (gross + refunds) : null,
-  };
-}
-
 export async function getKpiSummary(filter: PosFilter): Promise<KpiSummary> {
   const range = aggWindow(filter);
   const cmp = resolveComparisonRange(filter, range);
@@ -281,27 +251,38 @@ export async function getKpiSummary(filter: PosFilter): Promise<KpiSummary> {
   const rates = await getFxRates();
 
   if (isAllSelection(filter.selection)) {
-    const [cur, prev] = await Promise.all([
+    // All-store číslo (zobrazení) z přesného /summary; like-for-like základ delty z
+    // per-pokladna /by-shop (na Přehledu i v cronu cache HIT - leaderboard ho tahá taky).
+    const { resolved, index } = await scopeContext(filter);
+    const [cur, prev, curRev, prevRev] = await Promise.all([
       _summary(range.from, range.to),
-      cmp ? _summary(cmp.from, cmp.to) : Promise.resolve<{ data: SummaryRow[] } | null>(null),
+      _summary(cmp.from, cmp.to),
+      _shopRev(range.from, range.to),
+      _shopRev(cmp.from, cmp.to),
     ]);
+    const curC = convertRows(curRev, to, rates, SHOP_MONEY);
+    const prevC = convertRows(prevRev, to, rates, SHOP_MONEY);
+    const lfl = computeLfl(curC, prevC, resolved.shopIds, (id) => locationKeyOf(id, index), to);
     return {
       current: sumSummaryRows(cur.data, to, rates),
-      comparison: prev ? sumSummaryRows(prev.data, to, rates) : null,
+      comparison: sumSummaryRows(prev.data, to, rates),
+      lflCurrent: lfl.lflCurrent ? [lfl.lflCurrent] : null,
+      lflComparison: lfl.lflComparison ? [lfl.lflComparison] : null,
     };
   }
 
-  const { resolved } = await scopeContext(filter);
-  if (resolved.shopIds.size === 0) return { current: [], comparison: cmp ? [] : null };
-  const [cur, prev] = await Promise.all([
-    _shopRev(range.from, range.to),
-    cmp ? _shopRev(cmp.from, cmp.to) : Promise.resolve<ShopRevenueRow[]>([]),
-  ]);
+  const { resolved, index } = await scopeContext(filter);
+  if (resolved.shopIds.size === 0)
+    return { current: [], comparison: [], lflCurrent: null, lflComparison: null };
+  const [cur, prev] = await Promise.all([_shopRev(range.from, range.to), _shopRev(cmp.from, cmp.to)]);
   const curC = convertRows(cur, to, rates, SHOP_MONEY);
   const prevC = convertRows(prev, to, rates, SHOP_MONEY);
+  const lfl = computeLfl(curC, prevC, resolved.shopIds, (id) => locationKeyOf(id, index), to);
   return {
     current: [rollupSummary(curC, resolved.shopIds, to)],
-    comparison: cmp ? [rollupSummary(prevC, resolved.shopIds, to)] : null,
+    comparison: [rollupSummary(prevC, resolved.shopIds, to)],
+    lflCurrent: lfl.lflCurrent ? [lfl.lflCurrent] : null,
+    lflComparison: lfl.lflComparison ? [lfl.lflComparison] : null,
   };
 }
 
@@ -517,7 +498,7 @@ export async function getLocationLeaderboardFull(filter: PosFilter): Promise<Loc
   }
   // Same-store: jen prodejny s tržbou v obou obdobích (srovnatelná báze), aplikováno
   // až PO součtu na prodejnu (ne na pokladně).
-  return filter.sameStore && cmp ? rows.filter((r) => r.prevGross != null) : rows;
+  return filter.sameStore ? rows.filter((r) => r.prevGross != null) : rows;
 }
 
 // --- Hybatelé dne (Živě): nej/nejhorší prodejny vs stejný den minulý týden "k této hodině" ---
@@ -551,7 +532,7 @@ export async function getLiveMovers(filter: PosFilter, topN = 5): Promise<LiveMo
   const [todayRows, baseRows, cells] = await Promise.all([
     _shopRev(todayRange.from, todayRange.to),
     _shopRev(baseRange.from, baseRange.to),
-    getHeatmap({ ...filter, preset: "poslednich-30-dni", compare: false }),
+    getHeatmap({ ...filter, preset: "poslednich-30-dni" }),
   ]);
 
   // f váženě: každá typická hodina × kolik z ní už uplynulo.
@@ -673,7 +654,7 @@ export async function getConceptLeaderboardFull(filter: PosFilter): Promise<Conc
       prevReceipts: p?.receipts ?? null,
     });
   }
-  return filter.sameStore && cmp ? rows.filter((r) => r.prevGross != null) : rows;
+  return filter.sameStore ? rows.filter((r) => r.prevGross != null) : rows;
 }
 
 // --- Žebříček MĚST (rollup pokladen -> město z párování) ---
@@ -719,7 +700,7 @@ export async function getCityLeaderboardFull(filter: PosFilter): Promise<CityRev
       prevReceipts: p?.receipts ?? null,
     });
   }
-  return filter.sameStore && cmp ? rows.filter((r) => r.prevGross != null) : rows;
+  return filter.sameStore ? rows.filter((r) => r.prevGross != null) : rows;
 }
 
 // Ponecháno pro zpětnou kompatibilitu (žebříček značek nahrazen Koncepty).
@@ -756,7 +737,7 @@ export async function getBrandLeaderboardFull(filter: PosFilter): Promise<BrandR
     const p = prevMap.get(r.brand_id);
     return { ...r, prevGross: p?.gross ?? null, prevNet: p?.net ?? null, prevReceipts: p?.receipts ?? null };
   });
-  return filter.sameStore && cmp ? merged.filter((r) => r.prevGross != null) : merged;
+  return filter.sameStore ? merged.filter((r) => r.prevGross != null) : merged;
 }
 
 // --- Top/bottom produkty (/v1/products/sales) ---
