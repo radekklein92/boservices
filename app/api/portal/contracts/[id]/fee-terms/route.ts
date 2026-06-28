@@ -44,6 +44,7 @@ const periodSchema = z.object({
 const bodySchema = z.object({
   effectiveFrom: dateStr,
   invoicingStartsFrom: dateStr,
+  termEndsAt: dateStr,
   currency: z.string().max(10),
   periods: z.array(periodSchema).max(20),
   summary: z.string().max(2000),
@@ -94,6 +95,7 @@ export async function PUT(
   let feeTerms: ContractFeeTerms = {
     effectiveFrom: data.effectiveFrom,
     invoicingStartsFrom: data.invoicingStartsFrom,
+    termEndsAt: data.termEndsAt,
     currency: data.currency.trim() || "CZK",
     periods: data.periods.map((p) => ({ ...p, id: p.id || newId() })),
     summary: data.summary.trim(),

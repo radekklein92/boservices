@@ -22,6 +22,7 @@ import {
   operatingFeeAmountValue,
 } from "./contract-fees";
 import {
+  computeTermEndsAt,
   resolveRelativePeriods,
   shouldExtractFeeTerms,
   type AmountPeriod,
@@ -134,6 +135,11 @@ const FEE_TERMS_SCHEMA = {
       description:
         "Měna fakturace (CZK/EUR/PLN). Default CZK, pokud text neurčuje jinak.",
     },
+    termMonths: {
+      type: "number",
+      description:
+        "Doba trvání smlouvy v MĚSÍCÍCH, pokud je na dobu určitou (např. „10 let od uzavření\" => 120). 0 = na dobu neurčitou nebo vázáno na jinou smlouvu (typicky spolupráce a provozování).",
+    },
     periods: {
       type: "array",
       items: FEE_PERIOD_SCHEMA,
@@ -161,6 +167,7 @@ const FEE_TERMS_SCHEMA = {
     "effectiveFrom",
     "invoicingStartsFrom",
     "currency",
+    "termMonths",
     "periods",
     "summary",
     "aiConfidence",
@@ -179,6 +186,7 @@ Pravidla:
 - Datum účinnosti (effectiveFrom) vyplň JEN když je odložené (jiné než den podpisu). „nabývá účinnosti dnem podpisu" => effectiveFrom prázdné.
 - Odloženou fakturaci (invoicingStartsFrom) vyplň jen když text říká, že se začíná fakturovat později než od účinnosti.
 - RELATIVNÍ období („prvních 6 měsíců", „od účinnosti") vracej v polích relativeFromMonth / relativeToMonth. Absolutní from/to vyplň jen tehdy, když je v textu KONKRÉTNÍ datum (např. „do 31. 12. 2026"). Nepřepočítávej relativní na absolutní sám - to udělá aplikace z data podpisu.
+- DOBA TRVÁNÍ (termMonths): u franšízingové smlouvy vytáhni dobu trvání v měsících z textu (např. „uzavřena na dobu určitou, a to 10 let od uzavření" => termMonths=120). U smluv o spolupráci a o provozování (na dobu neurčitou / vázáno na franšízu) vrať termMonths=0. Standardní (poslední, neukončenou) periodu nech bez konce (to prázdné, relativeToMonth=0) - aplikace ji ukončí dnem konce smlouvy.
 - Měna: default CZK, pokud text výslovně neurčuje jinou.
 - Veškeré částky jsou bez DPH (čísla bez měny a oddělovačů: „30 000 Kč" => 30000).`;
 
@@ -280,10 +288,16 @@ export async function extractContractFeeTerms(
     const confidence = String(parsed.aiConfidence ?? "none");
     const periodsRaw = Array.isArray(parsed.periods) ? parsed.periods : [];
     const now = new Date().toISOString();
+    // effectiveFrom vždy konkrétní datum: odložená účinnost z textu, jinak datum
+    // podpisu - ať se v UI nikdy nezobrazí fráze („dnem podpisu").
+    const effectiveFrom = String(parsed.effectiveFrom ?? "").trim() || signedISO;
+    const termMonths = Math.max(0, Math.trunc(Number(parsed.termMonths) || 0));
+    const termEndsAt = computeTermEndsAt(effectiveFrom, termMonths);
 
     const terms: ContractFeeTerms = {
-      effectiveFrom: String(parsed.effectiveFrom ?? "").trim(),
+      effectiveFrom,
       invoicingStartsFrom: String(parsed.invoicingStartsFrom ?? "").trim(),
+      termEndsAt,
       currency: String(parsed.currency ?? "").trim() || "CZK",
       periods: periodsRaw.map(normalizePeriod),
       summary: String(parsed.summary ?? "").trim(),

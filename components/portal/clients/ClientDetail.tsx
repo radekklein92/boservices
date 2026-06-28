@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowUpRight, FileText, Coins } from "lucide-react";
+import { ArrowUpRight, FileText } from "lucide-react";
 import type { Client } from "@/lib/portal/clients-db";
 import {
   clientSignedAtEffective,
@@ -8,8 +8,12 @@ import {
   CONTRACT_STATUS_STYLE,
   type Contract,
 } from "@/lib/portal/contracts-db";
-import { CONTRACT_TYPE_META, isApprovalGated } from "@/lib/portal/contract-types";
-import { summarizeContractFee } from "@/lib/portal/contract-fee-terms";
+import { CONTRACT_TYPE_META, getVariantMeta, isApprovalGated } from "@/lib/portal/contract-types";
+import {
+  displayPeriodEnd,
+  FEE_KIND_LABEL,
+  formatFeePeriod,
+} from "@/lib/portal/contract-fee-terms";
 import { Section } from "@/components/portal/ui/Section";
 import { InfoRow as Row } from "@/components/portal/ui/InfoRow";
 import { Chip } from "@/components/portal/ui/Chip";
@@ -96,8 +100,21 @@ export function ClientDetail({
   );
 }
 
-// Souhrn poplatků napříč lokalitami klienta (read-only). Edituje se na detailu
-// lokality. Seskupeno podle lokality; jen approval-gated podepsané smlouvy.
+function feeContractLabel(c: Contract): string {
+  const short = CONTRACT_TYPE_META[c.type].shortName;
+  if (c.type === "franchise" && c.variant && getVariantMeta(c.type, c.variant)) {
+    return `${short} ${c.variant === "AB" ? "A" : "B"}`;
+  }
+  return short;
+}
+
+function fmtFeeDate(iso: string): string {
+  return iso ? formatDate(iso) : "";
+}
+
+// Souhrn poplatků napříč lokalitami klienta (read-only) v jedné tabulce. Edituje
+// se na detailu lokality. Jen approval-gated podepsané smlouvy; konec u spolupráce/
+// provozování = konec franšízy téže lokality.
 function ClientFeeSummary({ contracts }: { contracts: Contract[] }) {
   const eligible = contracts.filter(
     (c) =>
@@ -116,43 +133,122 @@ function ClientFeeSummary({ contracts }: { contracts: Contract[] }) {
     else groups.set(id, { name: c.locationSnapshot?.name ?? "Lokalita", rows: [c] });
   }
 
+  type TRow = {
+    key: string;
+    locationId: string;
+    locationName: string;
+    firstOfLocation: boolean;
+    contractLabel: string;
+    firstOfContract: boolean;
+    periodLabel: string;
+    rate: string;
+    from: string;
+    to: string;
+    pending?: string;
+  };
+  const rows: TRow[] = [];
+  for (const [locationId, group] of groups) {
+    // Konec franšízy lokality - od něj se odvozuje konec spolupráce/provozování.
+    const franchiseEnd =
+      group.rows.find((c) => c.type === "franchise" && c.feeTerms?.termEndsAt)?.feeTerms
+        ?.termEndsAt ?? "";
+    let firstLoc = true;
+    for (const c of group.rows) {
+      const label = feeContractLabel(c);
+      const ft = c.feeTerms;
+      if (ft && ft.periods.length > 0) {
+        ft.periods.forEach((p, i) => {
+          rows.push({
+            key: `${c.id}:${p.id}`,
+            locationId,
+            locationName: group.name,
+            firstOfLocation: firstLoc,
+            contractLabel: label,
+            firstOfContract: i === 0,
+            periodLabel: p.label || FEE_KIND_LABEL[p.kind],
+            rate: formatFeePeriod(p, ft.currency),
+            from: p.from,
+            to: displayPeriodEnd(p, franchiseEnd),
+          });
+          firstLoc = false;
+        });
+      } else {
+        rows.push({
+          key: c.id,
+          locationId,
+          locationName: group.name,
+          firstOfLocation: firstLoc,
+          contractLabel: label,
+          firstOfContract: true,
+          periodLabel: "—",
+          rate: "—",
+          from: "",
+          to: "",
+          pending: c.feeTermsError ? "chyba extrakce" : "zpracovává se",
+        });
+        firstLoc = false;
+      }
+    }
+  }
+
   return (
     <Section
       title="Poplatky a fakturace"
       hint="Souhrn ze všech lokalit klienta. Vytaženo ze smluv, upravit lze na detailu lokality."
     >
-      <div className="flex flex-col gap-4">
-        {Array.from(groups.entries()).map(([locationId, group]) => (
-          <div key={locationId} className="rounded-2xl border border-edge bg-paper px-4 py-3.5">
-            <Link
-              href={`/portal/locations/${locationId}`}
-              className="group inline-flex items-center gap-1.5 text-[13.5px] font-bold tracking-[-0.01em] text-ink-base"
-            >
-              <span className="truncate">{group.name}</span>
-              <ArrowUpRight
-                className="h-3.5 w-3.5 shrink-0 text-ink-soft transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
-                strokeWidth={1.5}
-                aria-hidden="true"
-              />
-            </Link>
-            <ul className="mt-2 flex flex-col gap-1.5">
-              {group.rows.map((c) => (
-                <li
-                  key={c.id}
-                  className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5"
+      <div className="overflow-x-auto rounded-2xl border border-edge">
+        <table className="w-full border-collapse text-[13px]">
+          <thead>
+            <tr>
+              {["Lokalita", "Smlouva", "Poplatek", "Sazba", "Od", "Do"].map((h) => (
+                <th
+                  key={h}
+                  className="whitespace-nowrap border-b border-edge bg-paper-warm px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-mid"
                 >
-                  <span className="inline-flex items-center gap-1.5 text-[12.5px] text-ink-mid">
-                    <Coins className="h-3.5 w-3.5 shrink-0 text-ink-soft" strokeWidth={1.5} aria-hidden="true" />
-                    {CONTRACT_TYPE_META[c.type].shortName}
-                  </span>
-                  <span className="text-right text-[13px] font-medium text-ink-deep">
-                    {summarizeContractFee(c.feeTerms)}
-                  </span>
-                </li>
+                  {h}
+                </th>
               ))}
-            </ul>
-          </div>
-        ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.key} className="transition-colors hover:bg-paper-warm">
+                <td className="border-t border-edge px-3 py-2.5 align-middle">
+                  {r.firstOfLocation ? (
+                    <Link
+                      href={`/portal/locations/${r.locationId}`}
+                      className="group inline-flex items-center gap-1 font-medium text-ink-base hover:text-ink-deep"
+                    >
+                      <span>{r.locationName}</span>
+                      <ArrowUpRight
+                        className="h-3 w-3 shrink-0 text-ink-soft transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+                        strokeWidth={1.5}
+                        aria-hidden="true"
+                      />
+                    </Link>
+                  ) : (
+                    ""
+                  )}
+                </td>
+                <td className="border-t border-edge px-3 py-2.5 align-middle text-ink-base">
+                  {r.firstOfContract ? r.contractLabel : ""}
+                </td>
+                <td className="border-t border-edge px-3 py-2.5 align-middle text-ink-deep">
+                  {r.pending ? <span className="text-ink-soft">{r.pending}</span> : r.periodLabel}
+                </td>
+                <td className="whitespace-nowrap border-t border-edge px-3 py-2.5 align-middle font-medium text-ink-base">
+                  {r.pending ? "—" : r.rate}
+                </td>
+                <td className="whitespace-nowrap border-t border-edge px-3 py-2.5 align-middle text-ink-deep">
+                  {fmtFeeDate(r.from) || "—"}
+                </td>
+                <td className="whitespace-nowrap border-t border-edge px-3 py-2.5 align-middle text-ink-deep">
+                  {r.pending ? "—" : fmtFeeDate(r.to) || "dle franšízové smlouvy"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </Section>
   );
