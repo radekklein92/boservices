@@ -9,9 +9,11 @@ const API = "https://api.github.com";
 
 function cfg(): { token: string; owner: string; repo: string } | null {
   const token = process.env.GITHUB_BOT_TOKEN;
-  const owner = process.env.GITHUB_OWNER;
-  const repo = process.env.GITHUB_REPO;
-  if (!token || !owner || !repo) return null;
+  // Owner/repo nejsou tajné a jsou fixní -> mají default; stačí tedy nastavit
+  // jen GITHUB_BOT_TOKEN. (Env je přepíše, kdyby se repo přesunulo.)
+  const owner = process.env.GITHUB_OWNER || "radekklein92";
+  const repo = process.env.GITHUB_REPO || "boservices";
+  if (!token) return null;
   return { token, owner, repo };
 }
 
