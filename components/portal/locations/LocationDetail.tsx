@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
@@ -69,11 +69,15 @@ export function LocationDetail({
   location,
   contracts,
   flags,
+  posPanel,
 }: {
   location: LocationView;
   contracts: LocationContractRow[];
   // Flagy přiřazené této lokalitě (LocationLocal.flagIds přeložené přes katalog).
   flags: ReFlag[];
+  // Panel Tržeb (server komponenta předaná z page.tsx). Vykreslí se hned pod
+  // hlavičkou; je-li null (bez přístupu/bez napárované pokladny), nic se nepřidá.
+  posPanel?: ReactNode;
 }) {
   const l = location;
   const recon = RECON_META[reconcile(l.lease_current_status, l.lease_target_status)];
@@ -124,6 +128,8 @@ export function LocationDetail({
           </div>
         </div>
       </header>
+
+      {posPanel}
 
       <div className="flex items-center gap-2 rounded-2xl border border-edge bg-paper-warm px-5 py-3 text-[12.5px] text-ink-mid">
         <Lock className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} aria-hidden="true" />

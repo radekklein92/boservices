@@ -68,8 +68,12 @@ export default async function LocationDetailPage({
 
   return (
     <div className="flex flex-col gap-10">
-      <LocationDetail location={location} contracts={contracts} flags={flags} />
-      <PosLocationPanel locationId={id} />
+      <LocationDetail
+        location={location}
+        contracts={contracts}
+        flags={flags}
+        posPanel={<PosLocationPanel locationId={id} />}
+      />
       <EntityTasks kind="location" id={id} />
     </div>
   );
