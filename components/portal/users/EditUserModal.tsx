@@ -102,7 +102,7 @@ export function EditUserModal({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="w-full max-w-[520px] rounded-[28px] border border-edge bg-paper p-8 shadow-[0_24px_60px_-20px_rgba(14,14,14,0.35)]">
+      <div className="w-full max-w-[520px] rounded-2xl border border-edge bg-paper p-6 md:p-7 shadow-[0_24px_60px_-20px_rgba(14,14,14,0.35)]">
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="text-[10.5px] font-medium uppercase tracking-[0.22em] text-ink-mid">

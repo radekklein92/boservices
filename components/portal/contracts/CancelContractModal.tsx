@@ -103,7 +103,7 @@ export function CancelContractModal({
               type="button"
               onClick={() => onConfirm(reason.trim() || undefined)}
               disabled={pending}
-              className="inline-flex h-10 items-center gap-2 rounded-full border border-red-300 bg-red-600 px-5 text-[13px] font-semibold text-paper transition-transform active:translate-y-px disabled:opacity-60"
+              className="inline-flex h-10 items-center gap-2 rounded-full border border-red-600 bg-red-600 px-5 text-[13px] font-semibold text-paper transition-transform active:translate-y-px disabled:opacity-60"
             >
               <Ban className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
               {pending ? "Ruším…" : "Označit jako zrušenou"}

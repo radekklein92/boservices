@@ -83,7 +83,7 @@ function StatTiles({ live, prev }: { live: Point; prev: Point | null }) {
         return (
           <div
             key={s.key}
-            className="rounded-[18px] border border-edge bg-paper-warm px-4 py-3.5"
+            className="rounded-2xl border border-edge bg-paper-warm px-4 py-3.5"
           >
             <span className="flex items-center gap-1.5 text-[10.5px] font-medium uppercase tracking-[0.12em] text-ink-mid">
               <span
@@ -236,7 +236,7 @@ function TrendChart({
   return (
     <div
       className={
-        bordered ? "rounded-[20px] border border-edge bg-paper p-3 sm:p-4" : ""
+        bordered ? "rounded-2xl border border-edge bg-paper p-3 sm:p-4" : ""
       }
     >
       <div ref={wrapRef} className="relative">
