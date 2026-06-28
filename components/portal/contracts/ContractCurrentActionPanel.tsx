@@ -98,6 +98,10 @@ export function ContractCurrentActionPanel({
 }) {
   const [pending, setPending] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  // Datum podpisu klienta (kotva pro výpočet poplatků); default dnes, lze změnit.
+  const [signDate, setSignDate] = useState(() =>
+    new Date().toISOString().slice(0, 10),
+  );
   const [noteModalOpen, setNoteModalOpen] = useState(false);
   const [checklistOpen, setChecklistOpen] = useState(false);
   const [dsConfirmed, setDsConfirmed] = useState(false);
@@ -222,7 +226,12 @@ export function ContractCurrentActionPanel({
   }
 
   async function markClientSigned() {
-    await callMilestone("POST", "client-signed", "Označeno jako Podepsáno klientem.");
+    await callMilestone(
+      "POST",
+      "client-signed",
+      "Označeno jako Podepsáno klientem.",
+      { signedAt: signDate },
+    );
   }
 
   async function unmarkClientSigned() {
@@ -646,9 +655,20 @@ export function ContractCurrentActionPanel({
           headline={
             isWithdrawalLike ? "Připraveno k podpisu klientem" : "Čeká na podpis klienta"
           }
-          description="Předej finální PDF klientovi a po jeho podpisu označ jako Podepsáno klientem."
+          description="Předej finální PDF klientovi. Zadej datum, kdy klient podepsal - od něj se počítají poplatky."
           primary={
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-end gap-2">
+              <label className="flex flex-col gap-1">
+                <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-ink-soft">
+                  Datum podpisu klientem
+                </span>
+                <input
+                  type="date"
+                  value={signDate}
+                  onChange={(e) => setSignDate(e.target.value)}
+                  className="h-11 rounded-xl border border-edge bg-paper px-3 text-[13.5px] text-ink-base outline-none transition-colors focus:border-ink-base"
+                />
+              </label>
               <PrimaryButton
                 onClick={markClientSigned}
                 pending={pending === "POST:client-signed"}
