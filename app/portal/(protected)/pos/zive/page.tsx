@@ -63,24 +63,25 @@ export default async function PosLivePage({
 async function LiveContent({ filter }: { filter: PosFilter }) {
   const useNet = !filter.vatInclusive;
   const todayFilter: PosFilter = { ...filter, preset: "dnes" };
+  // Vše spustíme naráz, ale selhání oddělíme. getToday (dnešní tržby) je jádro
+  // stránky. Graf po hodinách (heatmapa "dnes") a hybatelé + srovnání KPI
+  // (getLiveMovers - těžká 30denní heatmapa, na studené cache občas timeoutuje)
+  // jsou doplňky: jejich pád NESMÍ shodit dnešní KPI, proto degradují na null.
+  const heatP = getHeatmap(todayFilter).catch(() => null);
+  const moversP = getLiveMovers(filter).catch(() => null);
   let today: Awaited<ReturnType<typeof getToday>>;
-  let heat: Awaited<ReturnType<typeof getHeatmap>>;
-  let movers: Awaited<ReturnType<typeof getLiveMovers>>;
   let cur: string;
   try {
-    [today, heat, movers, cur] = await Promise.all([
-      getToday(filter),
-      getHeatmap(todayFilter),
-      getLiveMovers(filter),
-      resolveDisplayCurrency(filter),
-    ]);
+    [today, cur] = await Promise.all([getToday(filter), resolveDisplayCurrency(filter)]);
   } catch {
     return <Notice title="Data dočasně nedostupná" body="Nepodařilo se načíst dnešní data z API Data Warehouse." />;
   }
+  const heat = await heatP;
+  const movers = await moversP;
 
   const t = today.find((r) => r.currency === cur) ?? null;
   const byHour = new Map<number, { gross: number; net: number }>();
-  for (const c of heat) {
+  for (const c of heat ?? []) {
     const a = byHour.get(c.hour) ?? { gross: 0, net: 0 };
     a.gross += c.gross;
     a.net += c.net;
@@ -93,14 +94,15 @@ async function LiveContent({ filter }: { filter: PosFilter }) {
 
   // Srovnání KPI vs stejný den minulý týden "k této hodině": baseline (celý den) ×
   // frakce dne uplynulá do teď. Průměrný ticket je poměr -> frakce se vykrátí
-  // (porovnává se s celodenním ticketem minulého týdne).
-  const f = movers.dayFraction;
-  const base = movers.baseline;
+  // (porovnává se s celodenním ticketem minulého týdne). Když hybatelé selžou
+  // (movers == null po timeoutu), KPI se zobrazí bez srovnání.
+  const f = movers?.dayFraction ?? null;
+  const base = movers?.baseline ?? null;
   const todayRevenue = t ? (useNet ? t.net : t.gross) : 0;
-  const baseRevenue = useNet ? base.net : base.gross;
-  const expectedRevenue = baseRevenue > 0 ? baseRevenue * f : null;
-  const expectedReceipts = base.receipts > 0 ? base.receipts * f : null;
-  const baseAtv = base.receipts > 0 ? base.gross / base.receipts : null;
+  const baseRevenue = base ? (useNet ? base.net : base.gross) : 0;
+  const expectedRevenue = base && f != null && baseRevenue > 0 ? baseRevenue * f : null;
+  const expectedReceipts = base && f != null && base.receipts > 0 ? base.receipts * f : null;
+  const baseAtv = base && base.receipts > 0 ? base.gross / base.receipts : null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -140,14 +142,16 @@ async function LiveContent({ filter }: { filter: PosFilter }) {
         </div>
       )}
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-[12px] font-semibold uppercase tracking-[0.14em] text-ink-mid">
-          Dnešní vývoj po hodinách ({useNet ? "bez DPH" : "s DPH"})
-        </h2>
-        <PosLineChart current={current} currency={cur} height={240} />
-      </section>
+      {current.length > 0 && (
+        <section className="flex flex-col gap-3">
+          <h2 className="text-[12px] font-semibold uppercase tracking-[0.14em] text-ink-mid">
+            Dnešní vývoj po hodinách ({useNet ? "bez DPH" : "s DPH"})
+          </h2>
+          <PosLineChart current={current} currency={cur} height={240} />
+        </section>
+      )}
 
-      {movers.best.length + movers.worst.length >= 2 && <LiveMoversPanel movers={movers} />}
+      {movers && movers.best.length + movers.worst.length >= 2 && <LiveMoversPanel movers={movers} />}
     </div>
   );
 }
