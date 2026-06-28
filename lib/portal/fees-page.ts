@@ -16,7 +16,6 @@ import type { Contract } from "./contracts-db";
 import { clientSignedAtEffective } from "./contracts-db";
 import {
   CONTRACT_TYPE_META,
-  getVariantMeta,
   isApprovalGated,
   type ContractType,
 } from "./contract-types";
@@ -70,12 +69,9 @@ export interface FeeMonthResult {
   currency: string;
 }
 
+// Na stránce Poplatky stačí typ smlouvy bez varianty (A/B) - „Franšízingová".
 function feeContractLabel(c: Contract): string {
-  const short = CONTRACT_TYPE_META[c.type].shortName;
-  if (c.type === "franchise" && c.variant && getVariantMeta(c.type, c.variant)) {
-    return `${short} ${c.variant === "AB" ? "A" : "B"}`;
-  }
-  return short;
+  return CONTRACT_TYPE_META[c.type].shortName;
 }
 
 // Ploché řádky poplatků napříč smlouvami. Filtr: approval-gated, nezrušená, s
