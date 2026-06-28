@@ -44,6 +44,10 @@
     {
       "path": "/api/cron/pos-unpaired-alert",
       "schedule": "30 7 * * *"
+    },
+    {
+      "path": "/api/cron/extract-fee-terms",
+      "schedule": "*/15 * * * *"
     }
   ]
 }

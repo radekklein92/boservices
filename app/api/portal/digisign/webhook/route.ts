@@ -11,6 +11,7 @@ import {
 import { downloadSignedPdf, getEnvelope } from "@/lib/portal/digisign";
 import { getRedis } from "@/lib/redis";
 import { bustContracts } from "@/lib/portal/revalidate";
+import { ensureContractFeeTerms } from "@/lib/portal/contract-fee-ai";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -241,5 +242,13 @@ export async function POST(req: NextRequest) {
 
   await upsertContract(updated);
   bustContracts();
+
+  // Po dokončení podpisu (klient i BOS) vytáhnout poplatky ze smlouvy (AI) -
+  // jen approval-gated typy, idempotentní a best-effort (selhání nezablokuje
+  // webhook, uloží feeTermsError, cron/tlačítko zkusí znovu).
+  if (newStatus === "signed") {
+    await ensureContractFeeTerms(updated);
+  }
+
   return NextResponse.json({ ok: true, status: newStatus });
 }
