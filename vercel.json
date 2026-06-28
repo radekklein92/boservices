@@ -40,6 +40,10 @@
     {
       "path": "/api/cron/pos-cache-warm",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/pos-unpaired-alert",
+      "schedule": "30 7 * * *"
     }
   ]
 }
