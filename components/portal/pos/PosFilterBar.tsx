@@ -107,6 +107,10 @@ export function PosFilterBar({
       <div className="flex flex-wrap items-center gap-2">
         <PosStorePicker concepts={concepts} selection={sel} onChange={setSelection} />
 
+        {/* Okruh prodejen: BOS prodejny (default) vs celá síť - segmentovaný control
+            jako měna. Omezuje obsah pickeru i agregaci (queries protnou s BOS). */}
+        <ScopeToggle scope={filter.scope} onChange={(scope) => update({ scope })} />
+
         {hasSelection ? (
           <div className="flex flex-1 flex-wrap items-center gap-1.5">
             {sel.concepts.map((c) => (
@@ -133,7 +137,7 @@ export function PosFilterBar({
             </button>
           </div>
         ) : (
-          <span className="flex-1 text-[12.5px] text-ink-soft">Celá síť</span>
+          <div className="flex-1" aria-hidden="true" />
         )}
 
         {/* Filtr ŽEBŘÍČKU "Stejné prodejny" (like-for-like): skryje prodejny bez
@@ -260,6 +264,46 @@ function Chip({ label, accent = false, onRemove }: { label: string; accent?: boo
         <X className="h-3 w-3" strokeWidth={2.25} aria-hidden="true" />
       </button>
     </span>
+  );
+}
+
+// Okruh prodejen (BOS prodejny / celá síť): segmentovaný control sladěný s přepínačem
+// měny (h-9 pilulka, role=radiogroup). Default je BOS - dashboard ukazuje jen BOS síť.
+function ScopeToggle({
+  scope,
+  onChange,
+}: {
+  scope: PosFilter["scope"];
+  onChange: (scope: PosFilter["scope"]) => void;
+}) {
+  const OPTIONS: { value: PosFilter["scope"]; label: string }[] = [
+    { value: "bos", label: "BOS prodejny" },
+    { value: "all", label: "Celá síť" },
+  ];
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Okruh prodejen"
+      className="inline-flex h-9 shrink-0 items-center rounded-full border border-edge bg-paper p-0.5"
+    >
+      {OPTIONS.map((o) => {
+        const active = scope === o.value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            onClick={() => onChange(o.value)}
+            className={`inline-flex h-8 items-center rounded-full px-3 text-[12.5px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-1 focus-visible:ring-offset-paper ${
+              active ? "bg-ink-base text-paper" : "text-ink-mid hover:text-ink-base"
+            }`}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 

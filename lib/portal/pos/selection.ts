@@ -30,6 +30,12 @@ export function conceptOfShop(shopId: string, index: PairingIndex): LocationConc
   return index.conceptByShop.get(shopId) ?? "other";
 }
 
+function intersect(a: Set<string>, b: Set<string>): Set<string> {
+  const out = new Set<string>();
+  for (const x of a) if (b.has(x)) out.add(x);
+  return out;
+}
+
 function computeCoveredBrands(shops: ApiShop[], selected: Set<string>): string[] {
   const stat = new Map<string, { total: number; covered: number }>();
   for (const s of shops) {
@@ -47,25 +53,35 @@ function computeCoveredBrands(shops: ApiShop[], selected: Set<string>): string[]
 
 // `shops` = getAllShops() (bez test/AED). Pro "vše" i pro expanzi brand:/city:
 // tokenů potřebujeme úplný seznam pokladen s brand_id.
+//
+// opts.bosShopIds = množina pokladen BOS prodejen (okruh "bos"). Když je předaná,
+// výsledek se s ní PROTNE a isAll je vždy false (i prázdný výběr = konkrétní BOS
+// podmnožina, ne celá síť). Bez ní se chová jako dřív (okruh "all"). BOS množinu
+// počítá server (queries.ts) ze stejných zdrojů jako Real Estate (isBosStore).
 export function resolveSelection(
   selection: PosSelection,
   index: PairingIndex,
   shops: ApiShop[],
+  opts?: { bosShopIds?: Set<string> },
 ): ResolvedSelection {
+  const bos = opts?.bosShopIds;
   const brandsIn = (set: Set<string>) => {
     const b = new Set<string>();
     for (const s of shops) if (set.has(s.id)) b.add(s.brand_id);
     return [...b];
   };
+  const result = (shopIds: Set<string>, isAll: boolean): ResolvedSelection => ({
+    shopIds,
+    isAll,
+    coversWholeBrands: computeCoveredBrands(shops, shopIds),
+    brandsPresent: brandsIn(shopIds),
+  });
 
+  // Prázdný výběr: bez BOS okruhu = celá síť (isAll, whole-network fast-path). S BOS
+  // okruhem = celá BOS podmnožina (isAll=false -> dotazy jdou rollupem přes shopIds).
   if (isAllSelection(selection)) {
-    const shopIds = new Set(shops.map((s) => s.id));
-    return {
-      shopIds,
-      isAll: true,
-      coversWholeBrands: computeCoveredBrands(shops, shopIds),
-      brandsPresent: brandsIn(shopIds),
-    };
+    const all = new Set(shops.map((s) => s.id));
+    return bos ? result(intersect(all, bos), false) : result(all, true);
   }
 
   const set = new Set<string>();
@@ -99,12 +115,10 @@ export function resolveSelection(
     }
   }
 
-  return {
-    shopIds: set,
-    isAll: false,
-    coversWholeBrands: computeCoveredBrands(shops, set),
-    brandsPresent: brandsIn(set),
-  };
+  // BOS okruh: protni výběr s BOS množinou. Koncept "TK" v okruhu BOS = jen BOS-TK;
+  // ne-BOS tokeny (z uloženého pohledu/URL) vypadnou. V pickeru jsou v BOS okruhu
+  // stejně jen BOS prodejny, takže pro běžnou interakci je to no-op.
+  return result(bos ? intersect(set, bos) : set, false);
 }
 
 // --- Měny ve výběru ---

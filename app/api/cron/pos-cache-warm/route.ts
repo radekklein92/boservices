@@ -54,7 +54,8 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: true, skipped: "POS API not configured" });
   }
 
-  const f = DEFAULT_POS_FILTER;
+  const f = DEFAULT_POS_FILTER; // okruh "bos" (default pohled na Tržby)
+  const fAll: PosFilter = { ...DEFAULT_POS_FILTER, scope: "all" }; // celá síť (toggle)
   const tasks: Record<string, Promise<unknown>> = {
     brands: getBrands(),
     shops: getAllShops(),
@@ -63,6 +64,13 @@ export async function GET(req: Request) {
     periods: getPeriodTotals(f),
     prodejny: getLocationLeaderboardFull(f),
     koncepty: getConceptLeaderboardFull(f),
+    // Celá síť (toggle vedle výběru): předehřát i whole-network pohled, ať přepnutí
+    // z BOS na celou síť není po každém syncu studené. Sdílí _shopRev s BOS větví.
+    kpiAll: getKpiSummary(fAll),
+    trendAll: getDailyTrend(fAll),
+    periodsAll: getPeriodTotals(fAll),
+    prodejnyAll: getLocationLeaderboardFull(fAll),
+    konceptyAll: getConceptLeaderboardFull(fAll),
     // Dashboard /portal: tržby jen za BOS prodejny (graf týdne + KPI 30 dní).
     // Spočítá (5 DW dotazů) a uloží snapshot do Redis -> dashboard čte jen snapshot
     // (1 GET) a nikdy se nezdrží. Běží á 5 min, takže snapshot je vždy čerstvý.
