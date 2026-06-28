@@ -70,15 +70,23 @@ async function CitiesLeaderboard({ filter }: { filter: PosFilter }) {
 
   const useNet = !filter.vatInclusive;
   const cur = rows[0]?.currency ?? filter.currency;
-  const leaderRows: LeaderRow[] = rows.map((r) => ({
-    id: r.city,
-    label: r.city,
-    sublabel: r.locationCount > 0 ? `${r.locationCount} prodejen` : undefined,
-    value: useNet ? r.net : r.gross,
-    prev: useNet ? r.prevNet : r.prevGross,
-    receipts: r.receipts,
-    atv: r.receipts > 0 ? r.gross / r.receipts : null,
-  }));
+  const leaderRows: LeaderRow[] = rows.map((r) => {
+    // Klik na město -> Prodejny zúžené na to město (token "city:"); jako u Konceptů.
+    const scoped = serializePosFilter({
+      ...filter,
+      selection: { concepts: [], locations: [`city:${r.city}`] },
+    }).toString();
+    return {
+      id: r.city,
+      label: r.city,
+      sublabel: r.locationCount > 0 ? `${r.locationCount} prodejen` : undefined,
+      href: `/portal/pos/prodejny${scoped ? `?${scoped}` : ""}`,
+      value: useNet ? r.net : r.gross,
+      prev: useNet ? r.prevNet : r.prevGross,
+      receipts: r.receipts,
+      atv: r.receipts > 0 ? r.gross / r.receipts : null,
+    };
+  });
 
   return (
     <section className="flex flex-col gap-3">
