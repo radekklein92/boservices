@@ -29,9 +29,11 @@ import {
 } from "./guards";
 import {
   addDays,
+  inclusiveDays,
   isAllSelection,
   resolveComparisonRange,
   resolveDateRange,
+  EMPTY_SELECTION,
   type DateRange,
   type PosDatePreset,
   type PosFilter,
@@ -39,7 +41,12 @@ import {
 import { buildPairingIndex, type PairingIndex } from "./pairing-db";
 import { rollupSummary, computeLfl } from "./aggregate";
 import { resolveSelection, conceptOfShop, type ResolvedSelection } from "./selection";
-import { cachedListLocations } from "@/lib/portal/cached-db";
+import {
+  cachedListLocations,
+  cachedListLocationFranchiseContracts,
+} from "@/lib/portal/cached-db";
+import { listLocationLocalMap } from "@/lib/portal/locations-db";
+import { isBosStore } from "@/components/portal/locations/real-estate-shared";
 import type { MirroredLocation, LocationConcept } from "@/lib/portal/locations-db";
 import type {
   ApiBrand,
@@ -1091,4 +1098,110 @@ export async function getToday(filter: PosFilter): Promise<TodayRow[]> {
   const rates = await getFxRates();
   const rows = (await _today(sp.brand_id, sp.shop_id, sp.shop_ids)).data;
   return sumTodayRows(rows, to, rates);
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// BOS dashboard tržby - týdenní přehled JEN za BOS prodejny (graf + KPI na /portal)
+// ─────────────────────────────────────────────────────────────────────
+//
+// Denní tržby tohoto týdne (sloupce) + srovnání s minulým týdnem (linka) +
+// headline a like-for-like delta. Filtr na BOS prodejny (isBosStore: podepsaná
+// franšíza, nebo NewCo bez nevyřešené červené) -> jejich pokladny (pairing index)
+// -> filtr nad by-shop tržbami. Denní řadu skládáme po dnech z _shopRev(d,d),
+// protože /revenue/daily neumí množinu shop_id (a pro desítky prodejen by
+// degradoval). Vše v CZK (FX přepočet), s DPH (gross).
+
+export interface BosDashboardRevenue {
+  currency: string;
+  headlineGross: number; // součet všech BOS prodejen, tento týden
+  lflCurrentGross: number | null; // like-for-like (prodejny aktivní v obou obdobích)
+  lflPreviousGross: number | null;
+  daily: { date: string; gross: number }[]; // tento týden po dnech (sloupce)
+  comparison: number[]; // minulý týden po dnech, zarovnáno indexem (linka)
+  comparisonLabel: string;
+}
+
+// Množina BOS pokladen (dwShopId) + mapování pokladna -> prodejna (locationId pro LFL).
+async function bosShopScope(): Promise<{ shopIds: Set<string>; keyOf: (shopId: string) => string }> {
+  const [locations, localMap, franchiseByLocation, index] = await Promise.all([
+    _locations(),
+    listLocationLocalMap(),
+    cachedListLocationFranchiseContracts(),
+    _pairingIndex(),
+  ]);
+  const bosLocationIds = new Set<string>();
+  for (const l of locations) {
+    const local = localMap.get(l.id);
+    const isBos = isBosStore({
+      franchiseContractId: franchiseByLocation[l.id] ?? null,
+      hasNewco: Boolean(local?.newco),
+      newco: local?.newco ?? null,
+      manualRed: local?.manualRed ?? null,
+      solveDespiteRed: local?.solveDespiteRed ?? false,
+    });
+    if (isBos) bosLocationIds.add(l.id);
+  }
+  const shopIds = new Set<string>();
+  for (const locId of bosLocationIds) {
+    for (const sid of index.shopsByLocation.get(locId) ?? []) shopIds.add(sid);
+  }
+  const keyOf = (shopId: string) => index.locationByShop.get(shopId) ?? `shop:${shopId}`;
+  return { shopIds, keyOf };
+}
+
+function enumerateDays(range: DateRange): string[] {
+  const out: string[] = [];
+  const n = inclusiveDays(range);
+  for (let i = 0; i < n; i++) out.push(addDays(range.from, i));
+  return out;
+}
+
+// Skládá cachované primitivy (_shopRev po dnech, _pairingIndex, _locations,
+// franšízy, FX) - jako ostatní kompozitní dotazy (getKpiSummary). Sám se NEobaluje
+// do unstable_cache (žádná vnořená cache); warm cron (pos-cache-warm) drží teplé
+// per-day _shopRev, takže dashboard skládá z teplých cache + levné agregace.
+export async function getBosDashboardRevenue(): Promise<BosDashboardRevenue> {
+  const currency = "CZK";
+  const filter: PosFilter = {
+    selection: EMPTY_SELECTION,
+    preset: "tento-tyden",
+    sameStore: false,
+    currency,
+    vatInclusive: true,
+  };
+  const [{ shopIds, keyOf }, rates] = await Promise.all([bosShopScope(), getFxRates()]);
+  const range = resolveDateRange(filter);
+  const cmp = resolveComparisonRange(filter, range);
+  const curDays = enumerateDays(range);
+  const cmpDays = enumerateDays(cmp);
+
+  // Denní by-shop tržby (přepočtené do CZK) po jednotlivých dnech. _shopRev(d,d) je
+  // cachovaný (posQuery) -> warm cron i opakovaná čtení jsou levná.
+  const [curRowsPerDay, cmpRowsPerDay] = await Promise.all([
+    Promise.all(curDays.map(async (d) => convertRows(await _shopRev(d, d), currency, rates, SHOP_MONEY))),
+    Promise.all(cmpDays.map(async (d) => convertRows(await _shopRev(d, d), currency, rates, SHOP_MONEY))),
+  ]);
+
+  const daily = curDays.map((date, i) => ({
+    date,
+    gross: rollupSummary(curRowsPerDay[i]!, shopIds, currency).gross,
+  }));
+  const comparison = cmpDays.map((_, i) => rollupSummary(cmpRowsPerDay[i]!, shopIds, currency).gross);
+
+  // Headline a LFL z konkatenace denních řádků (rollupSummary sčítá, computeLfl
+  // pracuje s množinou "aktivních" prodejen) -> žádné window dotazy navíc.
+  const curAll = curRowsPerDay.flat();
+  const prevAll = cmpRowsPerDay.flat();
+  const headlineGross = rollupSummary(curAll, shopIds, currency).gross;
+  const lfl = computeLfl(curAll, prevAll, shopIds, keyOf, currency);
+
+  return {
+    currency,
+    headlineGross,
+    lflCurrentGross: lfl.lflCurrent ? lfl.lflCurrent.gross : null,
+    lflPreviousGross: lfl.lflComparison ? lfl.lflComparison.gross : null,
+    daily,
+    comparison,
+    comparisonLabel: "Minulý týden",
+  };
 }
