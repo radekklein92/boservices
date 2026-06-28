@@ -1,10 +1,10 @@
 import { Suspense } from "react";
-import Link from "next/link";
-import { ArrowLeft, Download } from "lucide-react";
+import { Download } from "lucide-react";
 import { canSeePOS } from "@/lib/portal/auth-guard";
 import { getSession } from "@/lib/portal/get-session";
 import { posFilterFromSearchParams, serializePosFilter, DATE_PRESET_LABEL } from "@/lib/portal/pos/filters";
 import { PageHeader } from "@/components/portal/shell/PageHeader";
+import { PosSubNav } from "@/components/portal/pos/PosSubNav";
 import { PosFilterBarLoader } from "@/components/portal/pos/PosFilterBarLoader";
 import { FilterBarSkeleton } from "@/components/portal/pos/skeletons";
 
@@ -25,18 +25,13 @@ export default async function PosReportsPage({
   return (
     <>
       <PageHeader
-        eyebrow={
-          <Link
-            href={`/portal/pos${qs ? `?${qs}` : ""}`}
-            className="inline-flex items-center gap-1.5 transition-colors hover:text-ink-base"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
-            Tržby
-          </Link>
-        }
+        eyebrow="Provoz"
         title="Reporty"
         lede="Exporty dat pro aktuální výběr a období."
       />
+
+      <PosSubNav />
+
 
       <Suspense fallback={<FilterBarSkeleton />}>
         <PosFilterBarLoader />

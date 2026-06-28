@@ -35,6 +35,16 @@ const PRESETS: PosDatePreset[] = [
 ];
 const COMPARISONS: PosComparison[] = ["predchozi-obdobi", "predchozi-rok", "zadne"];
 
+// Výchozí rozsah pro „Vlastní" období (posledních 30 dní), YYYY-MM-DD.
+function isoToday(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+function isoDaysAgo(n: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d.toISOString().slice(0, 10);
+}
+
 // Pilulkové tlačítko sladěné s FilterChip (h-9, rounded-full, a11y ring).
 const TOGGLE_BASE =
   "inline-flex h-9 shrink-0 items-center rounded-full border px-3.5 text-[12.5px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2 focus-visible:ring-offset-paper disabled:opacity-50";
@@ -71,7 +81,7 @@ export function PosFilterBar({ concepts, unpaired, currencies, views, me }: Filt
     <div className="flex flex-col gap-3 rounded-2xl border border-edge bg-paper p-3 sm:p-4">
       {/* Řádek 1: výběr prodejen + uložené pohledy */}
       <div className="flex flex-wrap items-center gap-2">
-        <PosStorePicker concepts={concepts} unpaired={unpaired} selection={sel} onChange={setSelection} />
+        <PosStorePicker concepts={concepts} selection={sel} onChange={setSelection} />
 
         {hasSelection ? (
           <div className="flex flex-1 flex-wrap items-center gap-1.5">
@@ -115,6 +125,30 @@ export function PosFilterBar({ concepts, unpaired, currencies, views, me }: Filt
             label={DATE_PRESET_LABEL[p]}
           />
         ))}
+        <FilterChip
+          active={filter.preset === "vlastni"}
+          onClick={() => update({ preset: "vlastni", from: filter.from ?? isoDaysAgo(29), to: filter.to ?? isoToday() })}
+          label="Vlastní"
+        />
+        {filter.preset === "vlastni" && (
+          <span className="inline-flex items-center gap-1.5">
+            <input
+              type="date"
+              value={filter.from ?? ""}
+              max={filter.to}
+              onChange={(e) => update({ from: e.target.value })}
+              className="h-9 rounded-full border border-edge bg-paper px-3 text-[12.5px] tabular-nums text-ink-base outline-none transition-colors focus-visible:border-ink-base focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2 focus-visible:ring-offset-paper"
+            />
+            <span className="text-ink-soft" aria-hidden="true">-</span>
+            <input
+              type="date"
+              value={filter.to ?? ""}
+              min={filter.from}
+              onChange={(e) => update({ to: e.target.value })}
+              className="h-9 rounded-full border border-edge bg-paper px-3 text-[12.5px] tabular-nums text-ink-base outline-none transition-colors focus-visible:border-ink-base focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2 focus-visible:ring-offset-paper"
+            />
+          </span>
+        )}
         <span className="mx-1 hidden h-5 w-px bg-edge sm:block" aria-hidden="true" />
         <Select
           label="Srovnání"

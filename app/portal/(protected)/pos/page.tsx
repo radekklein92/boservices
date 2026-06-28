@@ -1,11 +1,11 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Activity, ArrowUpRight, Info, Layers, MapPin, Package, Receipt, Store } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { canSeePOS } from "@/lib/portal/auth-guard";
 import { getSession } from "@/lib/portal/get-session";
 import { PageHeader } from "@/components/portal/shell/PageHeader";
+import { PosSubNav } from "@/components/portal/pos/PosSubNav";
 import {
   COMPARISON_LABEL,
   parsePosFilter,
@@ -72,7 +72,6 @@ export default async function PosOverviewPage({
   const cur = filter.currency;
   const useNet = !filter.vatInclusive;
   const qs = serializePosFilter(filter).toString();
-  const sub = (path: string) => `/portal/pos/${path}${qs ? `?${qs}` : ""}`;
 
   return (
     <>
@@ -87,6 +86,8 @@ export default async function PosOverviewPage({
         }
       />
 
+      <PosSubNav />
+
       <Suspense fallback={<FilterBarSkeleton />}>
         <PosFilterBarLoader />
       </Suspense>
@@ -98,16 +99,6 @@ export default async function PosOverviewPage({
         />
       ) : (
         <div className="flex flex-col gap-6">
-          {filter.comparison === "predchozi-rok" && (
-            <div className="flex items-start gap-2.5 rounded-xl border border-edge bg-edge-warm px-4 py-2.5 text-[12.5px] text-ink-deep">
-              <Info className="mt-0.5 h-4 w-4 shrink-0 text-ink-mid" strokeWidth={1.75} aria-hidden="true" />
-              <span>
-                Srovnání s předchozím rokem je orientační - síť byla loni výrazně menší (souvislá data od ledna 2026),
-                takže delty odrážejí hlavně růst počtu prodejen, ne výkon. Pro srovnání výkonu použijte „Předchozí období".
-              </span>
-            </div>
-          )}
-
           <Suspense fallback={<KpiStripSkeleton cards={4} />}>
             <KpiSection filter={filter} cur={cur} useNet={useNet} />
           </Suspense>
@@ -128,10 +119,6 @@ export default async function PosOverviewPage({
 
           <Suspense fallback={<LeaderboardSkeleton />}>
             <HighlightsSection filter={filter} useNet={useNet} qs={qs} />
-          </Suspense>
-
-          <Suspense fallback={null}>
-            <TilesSection filter={filter} sub={sub} />
           </Suspense>
         </div>
       )}
@@ -351,77 +338,6 @@ function HiPanel({ title, href, rows, cur }: { title: string; href?: string; row
         ))}
       </div>
     </section>
-  );
-}
-
-// --- Rozcestník dlaždic na podsekce ---
-
-async function TilesSection({ filter, sub }: { filter: PosFilter; sub: (p: string) => string }) {
-  let leaderboard: LocationRevenueRowWithPrev[] = [];
-  try {
-    leaderboard = await getLocationLeaderboardFull(filter);
-  } catch {
-    leaderboard = [];
-  }
-  const prodejny = leaderboard.length;
-  const koncepty = new Set(leaderboard.map((r) => r.concept)).size;
-
-  return (
-    <section className="flex flex-col gap-3">
-      <h2 className="text-[12px] font-semibold uppercase tracking-[0.14em] text-ink-mid">Procházet</h2>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Tile Icon={Store} label="Prodejny" value={prodejny} caption="Žebříček prodejen" href={sub("prodejny")} />
-        <Tile Icon={Layers} label="Koncepty" value={koncepty} caption="Tržby podle konceptů" href={sub("koncepty")} />
-        <Tile Icon={MapPin} label="Města" caption="Tržby podle měst" href={sub("mesta")} />
-        <Tile Icon={Package} label="Produkty" caption="Nejprodávanější položky" href={sub("produkty")} />
-        <Tile Icon={Receipt} label="Účtenky" caption="Jednotlivé doklady" href={sub("uctenky")} />
-        <Tile Icon={Activity} label="Živě" caption="Dnešní průběžné tržby" href={sub("zive")} />
-      </div>
-    </section>
-  );
-}
-
-function Tile({
-  Icon,
-  label,
-  value,
-  caption,
-  href,
-}: {
-  Icon: LucideIcon;
-  label: string;
-  value?: number;
-  caption: string;
-  href: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="group relative overflow-hidden rounded-[20px] border border-edge bg-paper p-5 transition-colors hover:border-ink-soft"
-    >
-      <Icon className="absolute -bottom-3 -right-3 h-24 w-24 text-ink-base/[0.04]" strokeWidth={1} aria-hidden="true" />
-      <div className="relative flex flex-col gap-1">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-[10.5px] font-medium uppercase tracking-[0.18em] text-ink-mid">
-            <Icon className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
-            {label}
-          </div>
-          <ArrowUpRight
-            className="h-4 w-4 text-ink-mid transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
-            strokeWidth={1.5}
-            aria-hidden="true"
-          />
-        </div>
-        {value !== undefined ? (
-          <div className="mt-1 font-extrabold leading-none tracking-[-0.04em] text-ink-base text-[clamp(1.6rem,3vw,2rem)] tabular-nums">
-            {value.toLocaleString("cs-CZ")}
-          </div>
-        ) : (
-          <div className="mt-1 h-[2rem]" aria-hidden="true" />
-        )}
-        <div className="text-[12.5px] text-ink-mid">{caption}</div>
-      </div>
-    </Link>
   );
 }
 

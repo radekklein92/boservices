@@ -1,12 +1,11 @@
 import { Suspense } from "react";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { canSeePOS } from "@/lib/portal/auth-guard";
 import { getSession } from "@/lib/portal/get-session";
 import { parsePosFilter, serializePosFilter, type PosFilter } from "@/lib/portal/pos/filters";
 import { getCityLeaderboardFull } from "@/lib/portal/pos/queries";
 import { isPosApiConfigured } from "@/lib/portal/pos/api";
 import { PageHeader } from "@/components/portal/shell/PageHeader";
+import { PosSubNav } from "@/components/portal/pos/PosSubNav";
 import { PosLeaderboard, type LeaderRow } from "@/components/portal/pos/PosLeaderboard";
 import { PosFilterBarLoader } from "@/components/portal/pos/PosFilterBarLoader";
 import { FilterBarSkeleton, LeaderboardSkeleton } from "@/components/portal/pos/skeletons";
@@ -36,18 +35,13 @@ export default async function PosCitiesPage({
   return (
     <>
       <PageHeader
-        eyebrow={
-          <Link
-            href={`/portal/pos${backQs ? `?${backQs}` : ""}`}
-            className="inline-flex items-center gap-1.5 transition-colors hover:text-ink-base"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
-            Tržby
-          </Link>
-        }
+        eyebrow="Provoz"
         title="Města"
         lede="Tržby po městech (z párování pokladen) v rámci výběru a období."
       />
+
+      <PosSubNav />
+
 
       <Suspense fallback={<FilterBarSkeleton />}>
         <PosFilterBarLoader />
