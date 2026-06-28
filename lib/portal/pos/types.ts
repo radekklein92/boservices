@@ -1,6 +1,8 @@
 // Typy odpovědí veřejného API DW (api.boservices.cz/v1). Zrcadlí OpenAPI kontrakt
 // (api_v1 views) - portál se váže na TENTO kontrakt, ne na fyzické schéma DW.
 // Peníze jsou v nativních jednotkách měny, gross = vč. DPH, net = gross - vat.
+// gross/net/vat jsou NETTO po refundacích (od 28.6.2026: gross = prodeje + refundace,
+// refundace záporné) -> sedí na prodejní report Dotykačky "Přehled tržeb".
 // Každý řádek nese vlastní currency; do zobrazovací měny je přepočítá až portál
 // (lib/portal/pos/fx.ts, ČNB kurz) v datové vrstvě před agregací.
 
@@ -44,7 +46,7 @@ export interface SummaryRow {
   vat: number;
   receipts: number;
   avg_ticket: number | null; // gross / receipts; null když receipts = 0
-  refund_rate: number | null; // refunds_gross / (gross + refunds_gross)
+  refund_rate: number | null; // refunds_gross / gross (gross je netto po refundacích); záporné, ~ -0.18 %
 }
 
 // /v1/revenue/daily vrací union diskriminovaný `grain`. shop_id je jen u grain "shop"
@@ -353,7 +355,7 @@ export interface ShopRevenueRow {
   net: number;
   vat: number;
   receipts: number;
-  refunds?: number; // částka vrácená v období; doplněno do DW -> rozsvítí KPI Refundace pro výběr
+  refunds?: number; // částka refundací v období (ZÁPORNÁ, vč. DPH); rozsvítí KPI Refundace pro výběr
 }
 
 export interface BrandRevenueRow {
