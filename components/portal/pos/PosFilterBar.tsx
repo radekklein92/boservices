@@ -171,25 +171,19 @@ export function PosFilterBar({ concepts, unpaired, currencies, views, me }: Filt
           </span>
         )}
         <span className="mx-1 hidden h-5 w-px bg-edge sm:block" aria-hidden="true" />
-        <Toggle
-          checked={filter.compare}
-          onChange={(next) => update(next ? { compare: true } : { compare: false, sameStore: false })}
-          label="Srovnání"
-          title="Srovnat s předchozím obdobím"
-        />
-        {filter.compare && (
-          <span className="hidden text-[11px] text-ink-soft sm:inline">
-            vs {comparisonLabel(filter).toLowerCase()}
-          </span>
-        )}
+        {/* Srovnání s předchozím obdobím je vždy zapnuté - jen ukážeme baseline. */}
+        <span className="hidden text-[11px] text-ink-soft sm:inline">
+          vs {comparisonLabel(filter).toLowerCase()}
+        </span>
+        {/* Volitelný filtr ŽEBŘÍČKU: skryje prodejny bez srovnatelného základu. Na deltu
+            KPI nemá vliv - ta je vždy like-for-like. */}
         <button
           type="button"
-          disabled={!filter.compare}
           onClick={() => update({ sameStore: !filter.sameStore })}
           aria-pressed={filter.sameStore}
-          title="Jen prodejny s tržbou v obou obdobích (srovnatelná báze)"
+          title="Skrýt v žebříčku prodejny bez tržby v obou obdobích (srovnatelná báze). Na deltu KPI nemá vliv."
           className={`${TOGGLE_BASE} ${
-            filter.sameStore && filter.compare
+            filter.sameStore
               ? "border-ink-base bg-ink-base text-paper"
               : "border-edge bg-paper text-ink-deep hover:border-ink-soft"
           }`}

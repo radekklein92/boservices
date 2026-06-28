@@ -63,17 +63,11 @@ test("resolveComparisonRange - clamping konce měsíce (březen -> únor)", () =
   assert.deepEqual(resolveComparisonRange(f, resolveDateRange(f, "2026-04-15")), { from: "2026-02-01", to: "2026-02-28" });
 });
 
-test("resolveComparisonRange - vypnuté srovnání = null", () => {
-  const f: PosFilter = { ...DEFAULT_POS_FILTER, compare: false };
-  assert.equal(resolveComparisonRange(f, resolveDateRange(f, TODAY)), null);
-});
-
 test("parse/serialize round-trip - multi-select výběr", () => {
   const f: PosFilter = {
     selection: { concepts: ["KoP", "BB"], locations: ["loc-1", "shop:abc-123"] },
     preset: "minuly-mesic",
-    compare: false, // serializuje se jako cmp=0
-    sameStore: true,
+    sameStore: true, // serializuje se jako same=1
     currency: "EUR",
     vatInclusive: false,
   };
@@ -81,15 +75,12 @@ test("parse/serialize round-trip - multi-select výběr", () => {
   assert.deepEqual(parsed, { ...f, from: undefined, to: undefined });
 });
 
-test("compare - default zapnuto; vypnutí přes cmp=0; zpětná kompat se starým cmp", () => {
-  assert.equal(parsePosFilter(new URLSearchParams("")).compare, true); // default
-  assert.equal(parsePosFilter(new URLSearchParams("cmp=0")).compare, false);
-  assert.equal(parsePosFilter(new URLSearchParams("cmp=zadne")).compare, false); // legacy "bez srovnání"
-  assert.equal(parsePosFilter(new URLSearchParams("cmp=predchozi-rok")).compare, true); // legacy -> zapnuto
-  assert.equal(parsePosFilter(new URLSearchParams("cmp=predchozi-obdobi")).compare, true);
-  // default (zapnuto) se neserializuje, vypnutí ano
+test("sameStore - filtr žebříčku; default vypnuto; přes same=1", () => {
+  assert.equal(parsePosFilter(new URLSearchParams("")).sameStore, false); // default
+  assert.equal(parsePosFilter(new URLSearchParams("same=1")).sameStore, true);
+  // staré odkazy cmp=0 (zrušené srovnání-toggle) se tiše ignorují - bez chyby
   assert.equal(serializePosFilter(DEFAULT_POS_FILTER).has("cmp"), false);
-  assert.equal(serializePosFilter({ ...DEFAULT_POS_FILTER, compare: false }).get("cmp"), "0");
+  assert.equal(serializePosFilter({ ...DEFAULT_POS_FILTER, sameStore: true }).get("same"), "1");
 });
 
 test("serializePosFilter - prázdný výběr ('vše') se neserializuje", () => {

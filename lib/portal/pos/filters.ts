@@ -52,10 +52,11 @@ export interface PosFilter {
   preset: PosDatePreset;
   from?: string; // jen u preset "vlastni"
   to?: string;
-  // Srovnání je prostý toggle. Když je zapnuté, baseline se odvodí AUTOMATICKY
+  // Srovnání s předchozím obdobím je VŽDY zapnuté; baseline se odvodí automaticky
   // z presetu jako přirozené předchozí kalendářní období (viz resolveComparisonRange).
-  compare: boolean;
-  sameStore: boolean; // like-for-like toggle
+  // sameStore = volitelný filtr ŽEBŘÍČKU (skryje prodejny bez srovnatelného základu).
+  // Na deltu KPI nemá vliv - ta je vždy like-for-like (viz getKpiSummary/computeLfl).
+  sameStore: boolean;
   currency: string; // zobrazovací měna; default CZK; vše se do ní přepočítá přes FX (fx.ts)
   vatInclusive: boolean; // true = gross (s DPH), false = net (bez DPH)
 }
@@ -65,9 +66,6 @@ export const EMPTY_SELECTION: PosSelection = { concepts: [], locations: [] };
 export const DEFAULT_POS_FILTER: PosFilter = {
   selection: EMPTY_SELECTION,
   preset: "tento-tyden",
-  // Srovnání zapnuté: baseline = přirozené předchozí kalendářní období dle presetu
-  // (den/týden/měsíc/30 dní/rok). Viz resolveComparisonRange.
-  compare: true,
   sameStore: false,
   currency: "CZK",
   vatInclusive: true,
@@ -200,14 +198,13 @@ export function resolveDateRange(filter: PosFilter, today: string = todayPrague(
   }
 }
 
-// Srovnávací okno (baseline). null = srovnání vypnuté. Když je zapnuté, baseline
-// se odvodí z presetu jako PŘIROZENÉ PŘEDCHOZÍ KALENDÁŘNÍ období: den->předchozí den,
-// týden->předchozí týden, měsíc->předchozí kalendářní měsíc (MTD vs MTD), rok->předchozí
-// rok (YTD vs YTD). U "vlastni" dle délky okna L: do měsíce předchozí stejně dlouhé okno,
-// nad měsíc předchozí rok. Pozn.: u dne/měsíce/roku se mohou rozjet dny v týdnu (záměr -
-// kalendářní srovnání má přednost před weekday-alignmentem).
-export function resolveComparisonRange(filter: PosFilter, range: DateRange): DateRange | null {
-  if (!filter.compare) return null;
+// Srovnávací okno (baseline). Srovnání je vždy zapnuté: baseline se odvodí z presetu
+// jako PŘIROZENÉ PŘEDCHOZÍ KALENDÁŘNÍ období: den->předchozí den, týden->předchozí týden,
+// měsíc->předchozí kalendářní měsíc (MTD vs MTD), rok->předchozí rok (YTD vs YTD).
+// U "vlastni" dle délky okna L: do měsíce předchozí stejně dlouhé okno, nad měsíc předchozí
+// rok. Pozn.: u dne/měsíce/roku se mohou rozjet dny v týdnu (záměr - kalendářní srovnání má
+// přednost před weekday-alignmentem).
+export function resolveComparisonRange(filter: PosFilter, range: DateRange): DateRange {
   const byDays = (n: number): DateRange => ({ from: addDays(range.from, -n), to: addDays(range.to, -n) });
   const byMonths = (n: number): DateRange => ({ from: shiftMonths(range.from, -n), to: shiftMonths(range.to, -n) });
   const byYears = (n: number): DateRange => ({ from: shiftYears(range.from, -n), to: shiftYears(range.to, -n) });
@@ -318,10 +315,6 @@ const PRESETS = new Set<PosDatePreset>([
 export function parsePosFilter(sp: URLSearchParams): PosFilter {
   const presetRaw = sp.get("preset") as PosDatePreset | null;
   const preset = presetRaw && PRESETS.has(presetRaw) ? presetRaw : DEFAULT_POS_FILTER.preset;
-  // Srovnání = toggle. Default zapnuto; vypnuté jen explicitně přes cmp=0. Zpětná
-  // kompat: legacy cmp=zadne -> vypnuto; cmp=predchozi-rok/predchozi-obdobi -> zapnuto.
-  const cmpRaw = sp.get("cmp");
-  const compare = cmpRaw !== "0" && cmpRaw !== "zadne";
 
   // Nový multi-select (c=, l=) má přednost; když chybí, zkus legacy ?scope=.
   const concepts = decodeConcepts(sp.get("c"));
@@ -336,7 +329,6 @@ export function parsePosFilter(sp: URLSearchParams): PosFilter {
     preset,
     from: sp.get("from") ?? undefined,
     to: sp.get("to") ?? undefined,
-    compare,
     sameStore: sp.get("same") === "1",
     currency: sp.get("cur") || DEFAULT_POS_FILTER.currency,
     vatInclusive: sp.get("dph") !== "0", // default true
@@ -366,7 +358,6 @@ export function serializePosFilter(f: PosFilter): URLSearchParams {
     if (f.from) sp.set("from", f.from);
     if (f.to) sp.set("to", f.to);
   }
-  if (!f.compare) sp.set("cmp", "0"); // default = zapnuto, serializujeme jen vypnutí
   if (f.sameStore) sp.set("same", "1");
   if (f.currency !== DEFAULT_POS_FILTER.currency) sp.set("cur", f.currency);
   if (!f.vatInclusive) sp.set("dph", "0");
