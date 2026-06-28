@@ -19,13 +19,18 @@ const GRID = CHART.grid;
 const AXIS = CHART.axis;
 const BAR_MODE_MAX = 31;
 
+// Osa Y se přizpůsobí datům: krok je nejbližší "hezké" číslo (1/2/2,5/5 × 10^k)
+// kolem max/4 a horní hranice je nejmenší násobek kroku, který data pokryje
+// (ne pevně step×4). Tím se graf nahoře neroztahuje zbytečně prázdným místem,
+// když je max výrazně pod nejbližší mocninou (např. max 4,3 mil. -> osa do 6, ne 8).
 function niceScale(maxVal: number): { yMax: number; ticks: number[] } {
   const m = Math.max(maxVal, 1);
   const rough = m / 4;
   const pow = Math.pow(10, Math.floor(Math.log10(rough)));
-  const cand = [1, 2, 5, 10].map((c) => c * pow);
+  const cand = [1, 2, 2.5, 5, 10].map((c) => c * pow);
   const step = cand.find((c) => c >= rough) ?? 10 * pow;
-  return { yMax: step * 4, ticks: [0, 1, 2, 3, 4].map((i) => i * step) };
+  const divs = Math.max(1, Math.ceil(m / step));
+  return { yMax: step * divs, ticks: Array.from({ length: divs + 1 }, (_, i) => i * step) };
 }
 
 function fmtCompact(v: number): string {
