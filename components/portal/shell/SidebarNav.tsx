@@ -87,11 +87,13 @@ export function SidebarNav({
   canSeeCommissions = false,
   canSeePOS = false,
   tasksBadge = 0,
+  changesBadge = 0,
 }: {
   isAdmin: boolean;
   canSeeCommissions?: boolean;
   canSeePOS?: boolean;
   tasksBadge?: number;
+  changesBadge?: number;
 }) {
   const pathname = usePathname() ?? "/portal";
 
@@ -129,7 +131,13 @@ export function SidebarNav({
       {isAdmin && (
         <CollapsibleNavSection label="Administrace" storageKey="sidebar:admin-open">
           {admin.map((item) => (
-            <NavItem key={item.href} {...item} active={isActive(pathname, item.href)} />
+            <NavItem
+              key={item.href}
+              {...item}
+              active={isActive(pathname, item.href)}
+              badge={item.href === "/portal/admin/changes" ? changesBadge : 0}
+              badgeLabel="Nové návrhy změn"
+            />
           ))}
         </CollapsibleNavSection>
       )}
@@ -223,7 +231,8 @@ function NavItem({
   external,
   newTab,
   badge = 0,
-}: Item & { active: boolean; badge?: number }) {
+  badgeLabel = "Nové úkoly",
+}: Item & { active: boolean; badge?: number; badgeLabel?: string }) {
   const base =
     "group flex h-10 items-center gap-3 rounded-lg px-3 text-[13.5px] font-medium transition-all duration-200";
   const state = active
@@ -251,8 +260,8 @@ function NavItem({
       {badge > 0 && (
         <span
           role="status"
-          aria-label="Nové úkoly"
-          title="Nové úkoly"
+          aria-label={badgeLabel}
+          title={badgeLabel}
           className={`h-2 w-2 shrink-0 rounded-full bg-rose-500 ${
             active ? "ring-2 ring-ink-base" : ""
           }`}

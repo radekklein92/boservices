@@ -287,3 +287,47 @@ export async function sendDeployNotificationEmail(opts: {
     html: shell("Nasazeno do produkce.", "BOServices portál", body),
   });
 }
+
+// HTML escape pro uživatelem zadaný text (název/zadání feedbacku) - na rozdíl od
+// interních dat jinde v tomto souboru je tohle volně psaný vstup.
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>]/g, (c) => (c === "&" ? "&amp;" : c === "<" ? "&lt;" : "&gt;"));
+}
+
+// E-mail superadminům, že přišel nový návrh změny z feedback widgetu. Pojistka
+// viditelnosti - návrh stejně sedí v Konzoli změn (/portal/admin/changes), tohle
+// jen upozorní. Bez Resendu i bez příjemců je no-op.
+export async function sendFeedbackNotificationEmail(opts: {
+  to: string[];
+  draft: {
+    title: string;
+    spec: string;
+    authorName: string;
+    routeLabel: string;
+    path: string;
+  };
+  deepLink: string;
+}): Promise<void> {
+  const resend = getResend();
+  if (!resend) {
+    console.warn("[portal email] Resend not configured");
+    return;
+  }
+  if (!opts.to.length) return;
+
+  const d = opts.draft;
+  const specPreview = d.spec.length > 700 ? `${d.spec.slice(0, 700)}…` : d.spec;
+  const meta = `<table style="width:100%;border-collapse:collapse;margin:8px 0 4px">
+    <tr><td style="padding:6px 0;font-size:13px;color:#6F7672;width:120px">Od</td><td style="padding:6px 0;font-size:14px;color:#0E0E0E;font-weight:600">${escapeHtml(d.authorName)}</td></tr>
+    <tr><td style="padding:6px 0;font-size:13px;color:#6F7672">Stránka</td><td style="padding:6px 0;font-size:14px;color:#0E0E0E">${escapeHtml(d.routeLabel)} <span style="color:#6F7672">(${escapeHtml(d.path)})</span></td></tr>
+  </table>`;
+  const specBox = `<div style="white-space:pre-wrap;font-size:13.5px;line-height:1.55;color:#2A2A2A;background:#F2F3F1;border-radius:12px;padding:14px 16px;margin:8px 0">${escapeHtml(specPreview)}</div>`;
+  const body = `<p style="font-size:15px;line-height:1.6">Z portálu přišel nový návrh změny:</p><h2 style="font-size:19px;font-weight:800;letter-spacing:-.01em;margin:14px 0 4px;line-height:1.25">${escapeHtml(d.title)}</h2>${meta}${specBox}${button(opts.deepLink, "Otevřít Konzoli změn")}${fallbackLink(opts.deepLink)}`;
+
+  await resend.emails.send({
+    from: FROM,
+    to: opts.to,
+    subject: `Nový návrh změny: ${d.title}`,
+    html: shell("Nový návrh změny z portálu.", "BOServices portál", body),
+  });
+}

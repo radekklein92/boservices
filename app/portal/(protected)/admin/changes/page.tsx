@@ -11,6 +11,7 @@ import {
   listEditors,
   listRequests,
 } from "@/lib/portal/devtools-db";
+import { listFeedbackDrafts } from "@/lib/portal/feedback-db";
 import { ChangesConsole } from "@/components/portal/admin/ChangesConsole";
 
 export const dynamic = "force-dynamic";
@@ -23,10 +24,11 @@ export default async function ChangesAdminPage() {
   if (!isAdminRole(role)) redirect("/portal");
 
   const email = session.user.email.toLowerCase();
-  const [requests, editors, enabled] = await Promise.all([
+  const [requests, editors, enabled, feedback] = await Promise.all([
     listRequests(20),
     listEditors(),
     isDevtoolsEnabled(),
+    listFeedbackDrafts("pending", 100),
   ]);
   const configured = isGithubConfigured();
   const withStatus = await Promise.all(
@@ -39,6 +41,7 @@ export default async function ChangesAdminPage() {
   return (
     <ChangesConsole
       initialRequests={withStatus}
+      initialFeedback={feedback}
       configured={configured}
       enabled={enabled}
       canSubmit={enabled && editors.includes(email)}

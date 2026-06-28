@@ -7,12 +7,18 @@ import {
   Check,
   ChevronDown,
   Clock,
+  Copy,
   ExternalLink,
   GitPullRequest,
   Loader2,
+  MapPin,
+  MessageSquarePlus,
+  MousePointerClick,
   RefreshCw,
+  Rocket,
   Send,
   ShieldAlert,
+  Trash2,
 } from "lucide-react";
 import { PageHeader } from "@/components/portal/shell/PageHeader";
 import { Section } from "@/components/portal/ui/Section";
@@ -47,6 +53,24 @@ export type RequestRow = {
   requestedByName: string;
   createdAt: string;
   live: LiveStatus;
+};
+
+// Návrh z feedback widgetu (mezistav před požadavkem). Zrcadlí FeedbackDraft
+// z lib/portal/feedback-db.ts (jen pole potřebná pro zobrazení).
+export type FeedbackDraftRow = {
+  id: string;
+  title: string;
+  spec: string;
+  authorName: string;
+  authorEmail: string;
+  createdAt: string;
+  page: {
+    path: string;
+    title: string;
+    routeLabel: string;
+    selection?: string;
+    picked?: { text: string; selector: string; role?: string };
+  };
 };
 
 type Mgmt = {
@@ -130,6 +154,7 @@ function Activity({
 
 export function ChangesConsole({
   initialRequests,
+  initialFeedback,
   configured,
   enabled,
   canSubmit,
@@ -137,6 +162,7 @@ export function ChangesConsole({
   repoSlug,
 }: {
   initialRequests: RequestRow[];
+  initialFeedback: FeedbackDraftRow[];
   configured: boolean;
   enabled: boolean;
   canSubmit: boolean;
@@ -144,6 +170,9 @@ export function ChangesConsole({
   repoSlug: string | null;
 }) {
   const [rows, setRows] = useState<RequestRow[]>(initialRequests);
+  const [feedback, setFeedback] = useState<FeedbackDraftRow[]>(initialFeedback);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [request, setRequest] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -156,15 +185,63 @@ export function ChangesConsole({
   const refresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      const res = await fetch("/api/portal/admin/changes");
-      const json = await res.json();
-      if (json.ok) setRows(json.requests as RequestRow[]);
+      const [reqRes, fbRes] = await Promise.all([
+        fetch("/api/portal/admin/changes"),
+        fetch("/api/portal/admin/feedback"),
+      ]);
+      const reqJson = await reqRes.json();
+      if (reqJson.ok) setRows(reqJson.requests as RequestRow[]);
+      const fbJson = await fbRes.json();
+      if (fbJson.ok) setFeedback(fbJson.drafts as FeedbackDraftRow[]);
     } catch {
       /* tichá chyba - příští tik to zkusí znovu */
     } finally {
       setRefreshing(false);
     }
   }, []);
+
+  async function promoteFeedback(id: string) {
+    setBusyId(id);
+    setMsg(null);
+    try {
+      const res = await fetch(`/api/portal/admin/feedback/${id}/promote`, { method: "POST" });
+      const json = await res.json();
+      if (!res.ok || !json.ok) throw new Error(json.error || "Spuštění selhalo");
+      setFeedback((prev) => prev.filter((f) => f.id !== id));
+      setRows((prev) => [json.request as RequestRow, ...prev]);
+      setMsg({
+        kind: "ok",
+        text: `Spuštěno (issue #${json.request.issueNumber}). Claude se do toho pustí.`,
+      });
+    } catch (e) {
+      setMsg({ kind: "err", text: e instanceof Error ? e.message : "Spuštění selhalo" });
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function dismissFeedback(id: string) {
+    setBusyId(id);
+    try {
+      const res = await fetch(`/api/portal/admin/feedback/${id}/dismiss`, { method: "POST" });
+      const json = await res.json();
+      if (json.ok) setFeedback((prev) => prev.filter((f) => f.id !== id));
+    } catch {
+      /* ignore */
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function copyFeedback(f: FeedbackDraftRow) {
+    try {
+      await navigator.clipboard.writeText(`${f.title}\n\n${f.spec}`);
+      setCopiedId(f.id);
+      setTimeout(() => setCopiedId(null), 1600);
+    } catch {
+      /* clipboard nedostupný */
+    }
+  }
 
   // Auto-poll, dokud je aspoň jeden požadavek v neukončeném stavu.
   useEffect(() => {
@@ -285,6 +362,28 @@ export function ChangesConsole({
           Konzole změn je teď vypnutá (kill switch).{" "}
           {isSuperadmin ? "Zapnout ji můžete dole v sekci Přístup a vypínač." : "Zapne ji superadmin."}
         </Banner>
+      )}
+
+      {feedback.length > 0 && (
+        <Section
+          title="Návrhy z portálu"
+          hint="Podněty od uživatelů portálu (přes feedback widget). Spusťte implementaci, zkopírujte si zadání, nebo návrh zamítněte."
+        >
+          <div className="flex flex-col divide-y divide-edge">
+            {feedback.map((f) => (
+              <FeedbackItem
+                key={f.id}
+                draft={f}
+                canPromote={canSubmit && configured}
+                busy={busyId === f.id}
+                copied={copiedId === f.id}
+                onPromote={() => void promoteFeedback(f.id)}
+                onDismiss={() => void dismissFeedback(f.id)}
+                onCopy={() => void copyFeedback(f)}
+              />
+            ))}
+          </div>
+        </Section>
       )}
 
       <Section
@@ -513,6 +612,112 @@ function Banner({ tone, children }: { tone: "amber"; children: ReactNode }) {
     <div className={`flex items-start gap-2 rounded-2xl border px-4 py-3 text-[13px] leading-relaxed ${cls}`}>
       <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
       <span>{children}</span>
+    </div>
+  );
+}
+
+// Jeden návrh z feedbacku v Konzoli změn. „Spustit implementaci" = stejná akce
+// jako ruční požadavek (gated editor+konzole), jen předvyplněná z návrhu.
+function FeedbackItem({
+  draft,
+  canPromote,
+  busy,
+  copied,
+  onPromote,
+  onDismiss,
+  onCopy,
+}: {
+  draft: FeedbackDraftRow;
+  canPromote: boolean;
+  busy: boolean;
+  copied: boolean;
+  onPromote: () => void;
+  onDismiss: () => void;
+  onCopy: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="flex flex-col gap-2 py-3.5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-[14px] font-semibold text-ink-base">{draft.title}</span>
+        <Chip tone="border-violet-200 bg-violet-50 text-violet-700">
+          <MessageSquarePlus className="h-3 w-3" strokeWidth={2} aria-hidden="true" />
+          Návrh
+        </Chip>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-ink-soft">
+        <span className="inline-flex items-center gap-1">
+          <MapPin className="h-3 w-3" strokeWidth={1.5} aria-hidden="true" />
+          {draft.page.routeLabel || draft.page.title || draft.page.path}
+        </span>
+        <span>
+          {draft.authorName} · {fmt(draft.createdAt)}
+        </span>
+        {draft.page.picked?.text && (
+          <span className="inline-flex items-center gap-1" title={draft.page.picked.selector}>
+            <MousePointerClick className="h-3 w-3" strokeWidth={1.5} aria-hidden="true" />
+            „{draft.page.picked.text.slice(0, 40)}"
+          </span>
+        )}
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-1.5 text-[12px] font-medium text-ink-mid transition-colors hover:text-ink-base"
+      >
+        <ChevronDown
+          className={`h-3.5 w-3.5 shrink-0 transition-transform ${open ? "" : "-rotate-90"}`}
+          strokeWidth={1.75}
+        />
+        Zadání
+      </button>
+      <div
+        className={`whitespace-pre-wrap text-[12.5px] leading-relaxed text-ink-deep ${
+          open ? "" : "line-clamp-2"
+        }`}
+      >
+        {draft.spec}
+      </div>
+
+      <div className="mt-1 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={onPromote}
+          disabled={!canPromote || busy}
+          className={BTN_ROW}
+          title={
+            canPromote
+              ? "Založí požadavek (issue) a spustí Claude"
+              : "Spustit může jen editor se zapnutou konzolí"
+          }
+        >
+          {busy ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />
+          ) : (
+            <Rocket className="h-3.5 w-3.5" strokeWidth={1.5} />
+          )}
+          Spustit implementaci
+        </button>
+        <button type="button" onClick={onCopy} className={BTN_ROW}>
+          {copied ? (
+            <Check className="h-3.5 w-3.5" strokeWidth={2} />
+          ) : (
+            <Copy className="h-3.5 w-3.5" strokeWidth={1.5} />
+          )}
+          {copied ? "Zkopírováno" : "Kopírovat zadání"}
+        </button>
+        <button
+          type="button"
+          onClick={onDismiss}
+          disabled={busy}
+          className="inline-flex h-9 items-center gap-2 rounded-full px-3 text-[12px] font-medium text-ink-mid transition-colors hover:text-red-600 disabled:opacity-50"
+        >
+          <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+          Zamítnout
+        </button>
+      </div>
     </div>
   );
 }
