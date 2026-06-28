@@ -19,7 +19,7 @@ import "server-only";
 import { cache } from "react";
 import * as api from "./api";
 import { posQuery, posStaticQuery } from "./cache";
-import { getFxRates, convertRows, fxFactor, type FxRates } from "./fx";
+import { getFxRates, convertRows, fxFactor, hasRate, type FxRates } from "./fx";
 import {
   clampWindow,
   clampLimit,
@@ -96,7 +96,10 @@ function sumSummaryRows(rows: SummaryRow[], to: string, rates: FxRates): Summary
   let refundWeighted = 0;
   let refundBase = 0;
   let hasRefund = false;
+  let included = 0;
   for (const r of rows) {
+    if (!hasRate(r.currency, rates)) continue; // vynech nepřevoditelné (AED apod.)
+    included++;
     const f = fxFactor(r.currency, to, rates);
     gross += r.gross * f;
     net += r.net * f;
@@ -108,6 +111,7 @@ function sumSummaryRows(rows: SummaryRow[], to: string, rates: FxRates): Summary
       refundBase += r.gross * f;
     }
   }
+  if (included === 0) return [];
   return [
     {
       currency: to,
@@ -128,13 +132,17 @@ function sumTodayRows(rows: TodayRow[], to: string, rates: FxRates): TodayRow[] 
   let net = 0;
   let receipts = 0;
   let asOf = "";
+  let included = 0;
   for (const r of rows) {
+    if (!hasRate(r.currency, rates)) continue; // vynech nepřevoditelné (AED apod.)
+    included++;
     const f = fxFactor(r.currency, to, rates);
     gross += r.gross * f;
     net += r.net * f;
     receipts += r.receipts;
     if (r.as_of > asOf) asOf = r.as_of;
   }
+  if (included === 0) return [];
   return [{ currency: to, gross, net, receipts, as_of: asOf }];
 }
 

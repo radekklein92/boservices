@@ -85,6 +85,13 @@ export function convertMoney(value: number, from: string, to: string, rates: FxR
   return value * fxFactor(from, to, rates);
 }
 
+// Lze měnu převést? = má v kurzovním lístku kurz (CZK má 1). Pozor: DW agreguje
+// fakta přes VŠECHNY měny včetně AED (testovací pobočka, není v ČNB) - takové
+// řádky se z přepočtu/agregace VYNECHAJÍ, ať nekontaminují součet nominálem.
+export function hasRate(currency: string, rates: FxRates): boolean {
+  return rates.czkPerUnit[currency] != null;
+}
+
 // Převede vybraná peněžní pole řádku z row.currency na `to` a přepíše currency.
 // Nepeněžní pole (počty, qty) zůstanou. Vrací mělkou kopii (originál se nemění).
 // Pozn.: u neznámé měny (factor 1, from!==to) řádek NEpřeznačí - nechá nativní
@@ -107,12 +114,13 @@ export function convertRow<T extends { currency: string }>(
   return out;
 }
 
-// Převede celé pole řádků na cílovou měnu.
+// Převede celé pole řádků na cílovou měnu. Řádky v nepřevoditelné měně (bez kurzu,
+// typicky AED) VYNECHÁ - jinak by se přičetly v nominále jako cílová měna.
 export function convertRows<T extends { currency: string }>(
   rows: T[],
   to: string,
   rates: FxRates,
   moneyKeys: readonly (keyof T)[],
 ): T[] {
-  return rows.map((r) => convertRow(r, to, rates, moneyKeys));
+  return rows.filter((r) => hasRate(r.currency, rates)).map((r) => convertRow(r, to, rates, moneyKeys));
 }
