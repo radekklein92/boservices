@@ -23,3 +23,20 @@ Portálová API vrstva je v `lib/portal/pos/` (`api.ts`, `types.ts`, `queries.ts
 
 - Když se na API něco nezdá (čísla nesedí na zdroj, chybí endpoint/parametr), ověř to nejdřív proti
   `/openapi.json` a případně u skladu (`rontoday/bo-service`), než začneš obcházet/dopočítávat v portálu.
+
+## Změny UI portálu - po každé úpravě ověřit (Playwright + konzistence)
+
+Po **jakékoli změně UI** (layout, komponenta, styl, nový prvek) automaticky ještě před deployem - bez
+čekání na výzvu uživatele - proveď tyto dva kroky:
+
+- **Playwright na desktopu i na mobilu (úzký viewport).** Ověř, že se dotčená stránka načte a vypadá
+  správně v obou šířkách. Reálná data přes testovací účet (`claude-pos-test@boservices.cz`),
+  systémový Chrome (`channel: "chrome"`), úspěšný login potvrď přes `waitForURL` pryč z `/login`.
+- **Kontrola konzistence komponent.** Změna nesmí zavést bespoke variantu ani rozbít sdílené
+  komponenty - drž se `PageHeader`, `FilterChip`, `Chip`, `KpiCard`, `buttons.ts` a sémantiky barev.
+  Hlídej hlavně **regrese neviditelné na první pohled**: výška karet, velikost a váha písma nadpisů,
+  mezery, pořadí prvků. Tyto se opakovaně rozbíjely jako vedlejší efekt jiné úpravy.
+
+Důvod: bez tohoto kroku vzniká churn (uživatel pak ručně reportuje „zmenši zpátky", „to není
+konzistentní se zbytkem Portálu") a tiché regrese se chytají až se zpožděním. Ověření na místě je
+levnější než cyklus přes uživatele.
