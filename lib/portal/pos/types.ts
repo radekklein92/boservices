@@ -123,6 +123,15 @@ export interface ReceiptDetail extends ReceiptListRow {
   payments: ReceiptPayment[];
 }
 
+// Řádek seznamu účtenek OBOHACENÝ portálem o prodejnu a město (z párovacího
+// indexu podle shop_id). API vrací jen surový název pokladny (shop_name) - tohle
+// je to, co se reálně zobrazuje v seznamu. locationName padá zpět na shop_name
+// u nenapárovaných pokladen; city je null, když párování město nezná.
+export interface ReceiptListItem extends ReceiptListRow {
+  locationName: string; // prodejna (z párování); fallback = shop_name
+  city: string | null; // město z párování (fallback ApiShop.city); null = neznámé
+}
+
 export interface LastSync {
   last_successful_run_at: string;
   next_expected_at: string;

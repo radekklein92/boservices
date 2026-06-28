@@ -33,7 +33,8 @@ export async function GET(req: Request) {
         name: "Účtenky",
         columns: [
           { header: "Čas", width: 18 },
-          { header: "Provozovna", width: 28 },
+          { header: "Prodejna", width: 28 },
+          { header: "Město", width: 18 },
           { header: "Měna", width: 8 },
           { header: "S DPH", width: 12 },
           { header: "Bez DPH", width: 12 },
@@ -41,7 +42,7 @@ export async function GET(req: Request) {
           { header: "Kanál", width: 14 },
           { header: "Refundace", width: 10 },
         ],
-        rows: rows.map((r) => [r.opened_at, r.shop_name, r.currency, r.gross, r.net, r.vat, r.channel ?? "", r.is_refund ? "ano" : ""]),
+        rows: rows.map((r) => [r.opened_at, r.locationName, r.city ?? "", r.currency, r.gross, r.net, r.vat, r.channel ?? "", r.is_refund ? "ano" : ""]),
       };
     } else {
       const rows = await getTopProducts(filter, "gross", 500);
