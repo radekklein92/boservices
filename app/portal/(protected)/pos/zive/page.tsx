@@ -12,7 +12,7 @@ import { LiveMoversPanel } from "@/components/portal/pos/LiveMoversPanel";
 import { PosAutoRefresh } from "@/components/portal/pos/PosAutoRefresh";
 import { PosFilterBarLoader } from "@/components/portal/pos/PosFilterBarLoader";
 import { ChartSkeleton, FilterBarSkeleton, KpiStripSkeleton } from "@/components/portal/pos/skeletons";
-import { formatLocalDateTime, formatPosMoney, formatPosMoneyCompact, formatPosNumber } from "@/components/portal/pos/pos-shared";
+import { formatPosMoney, formatPosMoneyCompact, formatPosNumber } from "@/components/portal/pos/pos-shared";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Tržby - Živě" };
@@ -113,6 +113,20 @@ async function LiveContent({ filter }: { filter: PosFilter }) {
   const expectedReceipts = base && f != null && base.receipts > 0 ? base.receipts * f : null;
   const baseAtv = base && base.receipts > 0 ? base.gross / base.receipts : null;
 
+  // as_of = čas posledního syncu DW (data se obnovují v 15min cyklu). Formátujeme
+  // TZ-správně (Europe/Prague) - je to ISO čas, ne naivní lokální razítko.
+  const asOfRaw = t?.as_of ? new Date(t.as_of) : null;
+  const asOf =
+    asOfRaw && !Number.isNaN(asOfRaw.getTime())
+      ? new Intl.DateTimeFormat("cs-CZ", {
+          timeZone: "Europe/Prague",
+          day: "numeric",
+          month: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        }).format(asOfRaw)
+      : "";
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center gap-2 text-[12.5px] text-ink-mid">
@@ -120,7 +134,7 @@ async function LiveContent({ filter }: { filter: PosFilter }) {
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
           <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
         </span>
-        Dnes průběžně{t?.as_of ? ` · poslední doklad ${formatLocalDateTime(t.as_of)}` : ""}
+        Dnes průběžně{asOf ? ` · data k ${asOf}` : ""}
       </div>
 
       {!t ? (
