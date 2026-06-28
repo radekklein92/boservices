@@ -375,7 +375,7 @@ async function ReceiptsSection({ filter, useNet }: { filter: PosFilter; useNet: 
         </span>
       </div>
 
-      <ReceiptsTable rows={rows} useNet={useNet} filterQs={qs} />
+      <ReceiptsTable rows={rows} useNet={useNet} filterQs={qs} hideLocation />
 
       <div className="flex justify-center pt-1">
         <Link href={allHref} className={BTN_OUTLINE}>
