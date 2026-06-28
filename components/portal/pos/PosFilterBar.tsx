@@ -4,11 +4,10 @@ import { useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { X } from "lucide-react";
 import {
-  COMPARISON_LABEL,
+  comparisonLabel,
   DATE_PRESET_LABEL,
   parsePosFilter,
   serializePosFilter,
-  type PosComparison,
   type PosDatePreset,
   type PosFilter,
   type PosSelection,
@@ -34,7 +33,6 @@ const PRESETS: PosDatePreset[] = [
   "poslednich-30-dni",
   "tento-rok",
 ];
-const COMPARISONS: PosComparison[] = ["predchozi-obdobi", "predchozi-rok", "zadne"];
 
 // Výchozí rozsah pro „Vlastní" období (posledních 30 dní), YYYY-MM-DD.
 function isoToday(): string {
@@ -151,20 +149,25 @@ export function PosFilterBar({ concepts, unpaired, currencies, views, me }: Filt
           </span>
         )}
         <span className="mx-1 hidden h-5 w-px bg-edge sm:block" aria-hidden="true" />
-        <Select
+        <Toggle
+          checked={filter.compare}
+          onChange={(next) => update(next ? { compare: true } : { compare: false, sameStore: false })}
           label="Srovnání"
-          value={filter.comparison}
-          onChange={(v) => update({ comparison: v as PosComparison })}
-          options={COMPARISONS.map((c) => ({ value: c, label: COMPARISON_LABEL[c] }))}
+          title="Srovnat s předchozím obdobím"
         />
+        {filter.compare && (
+          <span className="hidden text-[11px] text-ink-soft sm:inline">
+            vs {comparisonLabel(filter).toLowerCase()}
+          </span>
+        )}
         <button
           type="button"
-          disabled={filter.comparison === "zadne"}
+          disabled={!filter.compare}
           onClick={() => update({ sameStore: !filter.sameStore })}
           aria-pressed={filter.sameStore}
           title="Jen prodejny s tržbou v obou obdobích (srovnatelná báze)"
           className={`${TOGGLE_BASE} ${
-            filter.sameStore && filter.comparison !== "zadne"
+            filter.sameStore && filter.compare
               ? "border-ink-base bg-ink-base text-paper"
               : "border-edge bg-paper text-ink-deep hover:border-ink-soft"
           }`}

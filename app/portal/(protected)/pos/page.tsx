@@ -7,7 +7,7 @@ import { getSession } from "@/lib/portal/get-session";
 import { PageHeader } from "@/components/portal/shell/PageHeader";
 import { PosSubNav } from "@/components/portal/pos/PosSubNav";
 import {
-  COMPARISON_LABEL,
+  comparisonLabel,
   parsePosFilter,
   serializePosFilter,
   type PosFilter,
@@ -314,7 +314,7 @@ async function TrendSection({ filter, useNet }: { filter: PosFilter; useNet: boo
       current={current}
       comparison={comparison}
       currency={cur}
-      comparisonLabel={COMPARISON_LABEL[filter.comparison]}
+      comparisonLabel={comparisonLabel(filter)}
       height={260}
     />
   );
@@ -345,7 +345,7 @@ async function TrendSectionDaily({ filter, useNet }: { filter: PosFilter; useNet
       current={current}
       comparison={comparison}
       currency={cur}
-      comparisonLabel={COMPARISON_LABEL[filter.comparison]}
+      comparisonLabel={comparisonLabel(filter)}
       height={260}
     />
   );
@@ -428,7 +428,7 @@ async function HighlightsSection({ filter, useNet, qs }: { filter: PosFilter; us
     <div className={`grid gap-5 ${decliners.length > 0 ? "lg:grid-cols-2" : ""}`}>
       <HiPanel title="Nejlepší prodejny" href={allHref} rows={top} cur={cur} />
       {decliners.length > 0 && (
-        <HiPanel title={`Pokles vs ${COMPARISON_LABEL[filter.comparison].toLowerCase()}`} rows={decliners} cur={cur} />
+        <HiPanel title={`Pokles vs ${comparisonLabel(filter).toLowerCase()}`} rows={decliners} cur={cur} />
       )}
     </div>
   );
