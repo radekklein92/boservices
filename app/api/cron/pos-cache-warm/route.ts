@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { isPosApiConfigured } from "@/lib/portal/pos/api";
-import { DEFAULT_POS_FILTER } from "@/lib/portal/pos/filters";
+import { DEFAULT_POS_FILTER, type PosFilter } from "@/lib/portal/pos/filters";
 import {
   getAllShops,
   getBrands,
@@ -9,7 +9,21 @@ import {
   getKpiSummary,
   getLocationLeaderboardFull,
   getPeriodTotals,
+  getReceiptDetail,
+  getReceiptsPage,
 } from "@/lib/portal/pos/queries";
+
+// Musí sedět s LIMIT na /portal/pos/uctenky, jinak warm trefí jiný cache klíč.
+const RECEIPTS_LIMIT = 50;
+// Předehřát i prvních pár detailů (první obrazovka) -> náhledy produktů naskočí
+// hned, ne až po lazy dotažení.
+const RECEIPTS_DETAIL_WARM = 8;
+
+// Předehřeje seznam účtenek (strana 0) i detaily první obrazovky pro daný filtr.
+async function warmReceipts(filter: PosFilter): Promise<void> {
+  const page = await getReceiptsPage(filter, 0, { limit: RECEIPTS_LIMIT });
+  await Promise.allSettled(page.data.slice(0, RECEIPTS_DETAIL_WARM).map((r) => getReceiptDetail(r.id)));
+}
 
 // Předehřátí POS cache (vercel.json cron). POS dotazy jsou cachované s klíčem
 // obsahujícím razítko syncu DW - po každém syncu se klíč změní a první návštěvník
@@ -45,6 +59,10 @@ export async function GET(req: Request) {
     periods: getPeriodTotals(f),
     prodejny: getLocationLeaderboardFull(f),
     koncepty: getConceptLeaderboardFull(f),
+    // Účtenky (drahý raw DW dotaz) se dosud nepředehřívaly -> seznam byl po každém
+    // syncu studený. Warmíme default ("tento týden") i "dnes" (častý, časově citlivý).
+    receipts: warmReceipts(f),
+    receiptsDnes: warmReceipts({ ...f, preset: "dnes" }),
   };
   const settled = await Promise.allSettled(Object.values(tasks));
   const keys = Object.keys(tasks);
