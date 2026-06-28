@@ -12,7 +12,7 @@ import { ClosedStoresKpiCard } from "@/components/portal/pos/ClosedStoresPanel";
 import { LiveMoversPanel } from "@/components/portal/pos/LiveMoversPanel";
 import { PosAutoRefresh } from "@/components/portal/pos/PosAutoRefresh";
 import { PosFilterBarLoader } from "@/components/portal/pos/PosFilterBarLoader";
-import { ChartSkeleton, FilterBarSkeleton, KpiStripSkeleton } from "@/components/portal/pos/skeletons";
+import { ChartSkeleton, FilterBarSkeleton, KpiCardSkeleton, KpiStripSkeleton } from "@/components/portal/pos/skeletons";
 import { formatPosMoney, formatPosMoneyCompact, formatPosNumber } from "@/components/portal/pos/pos-shared";
 
 export const dynamic = "force-dynamic";
@@ -70,8 +70,6 @@ async function LiveContent({ filter }: { filter: PosFilter }) {
   // degradují na null.
   const heatP = getHeatmap(todayFilter).catch(() => null);
   const moversP = getLiveMovers(filter).catch(() => null);
-  // Neotevřené prodejny (4. KPI). Doplněk - jeho pád nesmí shodit dnešní KPI.
-  const closedP = getClosedStores(filter).catch(() => null);
   let today: Awaited<ReturnType<typeof getToday>>;
   let cur: string;
   try {
@@ -81,7 +79,6 @@ async function LiveContent({ filter }: { filter: PosFilter }) {
   }
   const heat = await heatP;
   const movers = await moversP;
-  const closed = await closedP;
 
   const t = today.find((r) => r.currency === cur) ?? null;
   const byHour = new Map<number, { gross: number; net: number }>();
@@ -135,7 +132,7 @@ async function LiveContent({ filter }: { filter: PosFilter }) {
       {!t ? (
         <Notice title={`Pro ${cur} dnes zatím nejsou data`} body="Zkuste jinou měnu nebo se vraťte později." />
       ) : (
-        <div className={`grid grid-cols-1 gap-4 sm:grid-cols-2 ${closed ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <PosKpiCard
             label={`Dnešní tržby (${useNet ? "bez DPH" : "s DPH"})`}
             value={formatPosMoneyCompact(todayRevenue, cur)}
@@ -157,7 +154,11 @@ async function LiveContent({ filter }: { filter: PosFilter }) {
             current={atv ?? undefined}
             previous={baseAtv}
           />
-          {closed && <ClosedStoresKpiCard report={closed} />}
+          {/* Neotevřené prodejny tahají ~týdenní okno denních dotazů -> vlastní Suspense,
+              ať 4. karta dotéká zvlášť a nezdrží zbytek Živě (KPI/graf/hybatele). */}
+          <Suspense fallback={<KpiCardSkeleton />}>
+            <ClosedStoresCell filter={filter} />
+          </Suspense>
         </div>
       )}
 
@@ -173,6 +174,18 @@ async function LiveContent({ filter }: { filter: PosFilter }) {
       {movers && movers.best.length + movers.worst.length >= 2 && <LiveMoversPanel movers={movers} />}
     </div>
   );
+}
+
+// 4. KPI dlaždice (neotevřené prodejny) ve vlastním Suspense boundary - dotéká
+// nezávisle. Při chybě tiše vypadne (zbytek Živě běží dál).
+async function ClosedStoresCell({ filter }: { filter: PosFilter }) {
+  let report: Awaited<ReturnType<typeof getClosedStores>>;
+  try {
+    report = await getClosedStores(filter);
+  } catch {
+    return null;
+  }
+  return <ClosedStoresKpiCard report={report} />;
 }
 
 function Notice({ title, body }: { title: string; body: string }) {
