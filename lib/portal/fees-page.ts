@@ -24,6 +24,7 @@ import {
   displayPeriodEnd,
   formatFeePeriod,
   type FeeKind,
+  type FeePeriod,
 } from "./contract-fee-terms";
 import * as posApi from "./pos/api";
 import { posQuery } from "./pos/cache";
@@ -129,7 +130,7 @@ export function buildFeeRows(contracts: Contract[]): FeeRow[] {
             currency: ft.currency || "CZK",
             rate: formatFeePeriod(p, ft.currency),
             from: billingFrom,
-            to: displayPeriodEnd(p, franchiseEnd),
+            to: periodEndOrDefault(c, p, franchiseEnd),
             signedMonth,
           });
         }
@@ -168,11 +169,25 @@ export function buildFeeRows(contracts: Contract[]): FeeRow[] {
 // účinnosti franšízy (shodně s PR #166) - ať vždy ukážeme konkrétní datum místo
 // „dle franšízové smlouvy".
 function franchiseEndForGroup(group: Contract[]): string {
-  const fr = group.find((c) => c.type === "franchise" && c.feeTerms);
-  if (!fr?.feeTerms) return "";
-  if (fr.feeTerms.termEndsAt) return fr.feeTerms.termEndsAt;
-  const froms = fr.feeTerms.periods.map((p) => p.from).filter(Boolean).sort();
-  return froms[0] ? addMonthsISO(froms[0], 120) : "";
+  // Jakákoli franšíza lokality - i bez vytažených feeTerms (ještě „zpracovává se"):
+  // pak konec dopočteme z data podpisu + 10 let, ať operace/spolupráce nezůstanou
+  // viset na „dle franšízové smlouvy".
+  const fr = group.find((c) => c.type === "franchise");
+  if (!fr) return "";
+  if (fr.feeTerms?.termEndsAt) return fr.feeTerms.termEndsAt;
+  const froms = (fr.feeTerms?.periods ?? []).map((p) => p.from).filter(Boolean).sort();
+  const anchor = froms[0] || (clientSignedAtEffective(fr) ?? "").slice(0, 10);
+  return anchor ? addMonthsISO(anchor, 120) : "";
+}
+
+// Konec periody pro zobrazení - vždy konkrétní datum. Vlastní konec periody /
+// konec franšízy lokality; poslední záchrana = účinnost periody (nebo podpis
+// smlouvy) + 10 let, aby se nikdy nezobrazovalo „dle franšízové smlouvy".
+function periodEndOrDefault(c: Contract, p: FeePeriod, franchiseEnd: string): string {
+  const e = displayPeriodEnd(p, franchiseEnd);
+  if (e) return e;
+  const anchor = (p.from || clientSignedAtEffective(c) || "").slice(0, 10);
+  return anchor ? addMonthsISO(anchor, 120) : "";
 }
 
 // Přičte n měsíců k ISO datu (YYYY-MM-DD) s clampem na konec měsíce.
@@ -457,28 +472,29 @@ export async function computeMonthResults(
     else if (isCurrent && elapsedEnd >= w.winStart) rangeKeys.add(`${w.winStart}|${elapsedEnd}`);
   }
 
-  // Načti distinct okna paralelně (cachováno).
+  // Načti distinct okna i HISTORICKOU měsíční sérii paralelně (cachováno).
+  // Historie slouží (a) pro sezónní odhad budoucích měsíců a (b) jako FALLBACK,
+  // když pro zvolený měsíc ještě nejsou přímá data (run-rate/reálná tržba) - pak
+  // se poplatek dopočítá z minulých tržeb, místo aby zůstal jen u sazby.
   const rangeNets = new Map<string, Map<string, MonthNet>>();
-  try {
-    await Promise.all(
+  let wholeSeries = new Map<string, Map<string, MonthNet>>();
+  await Promise.all([
+    Promise.all(
       [...rangeKeys].map(async (key) => {
         const [from, to] = key.split("|");
         rangeNets.set(key, await aggregateRangeByLocation(index, from!, to!));
       }),
-    );
-  } catch {
-    /* degradace: chybějící okna -> řádky spadnou na "none" */
-  }
-
-  // Sezónní podklad pro budoucí měsíc.
-  let wholeSeries = new Map<string, Map<string, MonthNet>>();
-  if (isFuture) {
-    try {
-      wholeSeries = await buildWholeMonthSeries(index, seasonalMonthsFor(selectedMonth, today));
-    } catch {
-      /* degradace */
-    }
-  }
+    ).catch(() => {
+      /* degradace: chybějící okna -> historický fallback / "none" */
+    }),
+    buildWholeMonthSeries(index, seasonalMonthsFor(selectedMonth, today))
+      .then((s) => {
+        wholeSeries = s;
+      })
+      .catch(() => {
+        /* degradace */
+      }),
+  ]);
 
   for (const row of rows) {
     if (row.pending || !isRowActiveInMonth(row, selectedMonth)) {
@@ -500,33 +516,38 @@ export async function computeMonthResults(
       out.set(row.key, none(row));
       continue;
     }
-    if (isFuture) {
+    const factor = daysInMonth > 0 ? dayCountInclusive(w.winStart, w.winEnd) / daysInMonth : 1;
+    // Historický odhad (sezónní z minulých tržeb), prorátováno na aktivní část měsíce.
+    // Slouží budoucím měsícům i jako FALLBACK, když pro zvolený měsíc ještě nejsou
+    // přímá data (lokalita zatím bez tržby/párování v daném okně, ale má historii).
+    const historical = (): FeeMonthResult => {
       const est = estimateLocationNet(wholeSeries.get(row.locationId), selectedMonth, today);
-      if (!est) {
-        out.set(row.key, none(row));
-        continue;
-      }
-      const factor = daysInMonth > 0 ? dayCountInclusive(w.winStart, w.winEnd) / daysInMonth : 1;
-      out.set(row.key, {
-        status: "estimate",
-        amount: (est.net * factor * row.percent) / 100,
-        currency: est.currency || row.currency,
-      });
+      return est
+        ? { status: "estimate", amount: (est.net * factor * row.percent) / 100, currency: est.currency || row.currency }
+        : none(row);
+    };
+
+    if (isFuture) {
+      out.set(row.key, historical());
       continue;
     }
     if (isClosed) {
       const v = rangeNets.get(`${w.winStart}|${w.winEnd}`)?.get(row.locationId);
-      out.set(row.key, !v ? none(row) : { status: "final", amount: (v.net * row.percent) / 100, currency: v.currency || row.currency });
+      out.set(
+        row.key,
+        v
+          ? { status: "final", amount: (v.net * row.percent) / 100, currency: v.currency || row.currency }
+          : historical(),
+      );
       continue;
     }
-    // Probíhající měsíc -> run-rate z uplynulé části aktivního okna.
-    if (w.elapsedEnd < w.winStart) {
-      out.set(row.key, none(row));
-      continue;
-    }
-    const v = rangeNets.get(`${w.winStart}|${w.elapsedEnd}`)?.get(row.locationId);
+    // Probíhající měsíc -> run-rate z uplynulé části aktivního okna; bez dat -> historie.
+    const v =
+      w.elapsedEnd >= w.winStart
+        ? rangeNets.get(`${w.winStart}|${w.elapsedEnd}`)?.get(row.locationId)
+        : undefined;
     if (!v) {
-      out.set(row.key, none(row));
+      out.set(row.key, historical());
       continue;
     }
     const elapsedDays = dayCountInclusive(w.winStart, w.elapsedEnd);
