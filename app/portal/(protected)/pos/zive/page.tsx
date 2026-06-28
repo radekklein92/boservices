@@ -132,7 +132,7 @@ async function LiveContent({ filter }: { filter: PosFilter }) {
               Hybatelé dne
             </h2>
             <span className="text-[11.5px] text-ink-soft">
-              dnes zatím vs tempo včerejška k této hodině ({Math.round(movers.dayFraction * 100)} % dne)
+              dnes zatím vs tempo stejného dne minulý týden k této hodině ({Math.round(movers.dayFraction * 100)} % dne)
             </span>
           </div>
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

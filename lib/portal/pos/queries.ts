@@ -29,6 +29,7 @@ import {
   MAX_DAILY_SHOP_FANOUT,
 } from "./guards";
 import {
+  addDays,
   isAllSelection,
   resolveComparisonRange,
   resolveDateRange,
@@ -518,12 +519,13 @@ export async function getLocationLeaderboardFull(filter: PosFilter): Promise<Loc
   return filter.sameStore && cmp ? rows.filter((r) => r.prevGross != null) : rows;
 }
 
-// --- Hybatelé dne (Živě): nej/nejhorší prodejny DoD "k této hodině" ---
-// Per prodejna: dnešek-zatím vs očekávání podle včerejška přepočteného na frakci
-// dne uplynulou do teď. f = podíl typické denní tržby spadlý do uplynulých hodin
-// (z ~4týdenní hodinové křivky napříč dny - bez konvence dne v týdnu). Pořadí
-// moverů je na f nezávislé (f je konstanta), takže robustní; f jen určuje nulovou
-// linii "náskok/skluz".
+// --- Hybatelé dne (Živě): nej/nejhorší prodejny vs stejný den minulý týden "k této hodině" ---
+// Per prodejna: dnešek-zatím vs očekávání podle STEJNÉHO DNE MINULÉHO TÝDNE (D-7)
+// přepočteného na frakci dne uplynulou do teď. Baseline = stejný den v týdnu, takže
+// srovnání není zkresleno odlišným profilem dne (po vs so). f = podíl typické denní
+// tržby spadlý do uplynulých hodin (z ~4týdenní hodinové křivky napříč dny - bez
+// konvence dne v týdnu). Pořadí moverů je na f nezávislé (f je konstanta), takže
+// robustní; f jen určuje nulovou linii "náskok/skluz".
 function nowPragueHourFrac(): number {
   const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Europe/Prague",
@@ -541,11 +543,13 @@ export async function getLiveMovers(filter: PosFilter, topN = 5): Promise<LiveMo
   const to = filter.currency;
   const rates = await getFxRates();
   const todayRange = resolveDateRange({ ...filter, preset: "dnes" });
-  const ydayRange = resolveDateRange({ ...filter, preset: "vcera" });
+  // Baseline = stejný den minulý týden (D-7), ne včerejšek.
+  const baseDay = addDays(todayRange.from, -7);
+  const baseRange = { from: baseDay, to: baseDay };
 
-  const [todayRows, ydayRows, cells] = await Promise.all([
+  const [todayRows, baseRows, cells] = await Promise.all([
     _shopRev(todayRange.from, todayRange.to),
-    _shopRev(ydayRange.from, ydayRange.to),
+    _shopRev(baseRange.from, baseRange.to),
     getHeatmap({ ...filter, preset: "poslednich-30-dni", compare: false }),
   ]);
 
@@ -570,14 +574,15 @@ export async function getLiveMovers(filter: PosFilter, topN = 5): Promise<LiveMo
     return m;
   };
   const todayByLoc = sumByLoc(convertRows(todayRows, to, rates, SHOP_MONEY));
-  const ydayByLoc = sumByLoc(convertRows(ydayRows, to, rates, SHOP_MONEY));
+  const baseByLoc = sumByLoc(convertRows(baseRows, to, rates, SHOP_MONEY));
 
-  // Báze = prodejny s tržbou včera (mají co srovnávat). Dnešek může být 0 (pokles).
+  // Báze = prodejny s tržbou stejný den minulý týden (mají co srovnávat). Dnešek
+  // může být 0 (pokles).
   const rows: LiveMoverRow[] = [];
-  for (const [key, yFull] of ydayByLoc) {
-    if (yFull <= 0) continue;
+  for (const [key, baseFull] of baseByLoc) {
+    if (baseFull <= 0) continue;
     const todaySoFar = todayByLoc.get(key) ?? 0;
-    const expectedByNow = yFull * f;
+    const expectedByNow = baseFull * f;
     const isPseudo = key.startsWith("shop:");
     const name = isPseudo ? shopName.get(key.slice(5)) ?? key : locName.get(key) ?? key;
     rows.push({
@@ -586,7 +591,7 @@ export async function getLiveMovers(filter: PosFilter, topN = 5): Promise<LiveMo
       concept: conceptOfLocationKey(key, index),
       currency: to,
       todaySoFar,
-      yesterdayFull: yFull,
+      baselineFull: baseFull,
       expectedByNow,
       deltaAbs: todaySoFar - expectedByNow,
       deltaPct: expectedByNow > 0 ? todaySoFar / expectedByNow - 1 : null,
