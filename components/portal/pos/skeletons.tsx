@@ -9,7 +9,7 @@ function Line({ className = "" }: { className?: string }) {
   return <div className={`h-3 animate-pulse rounded-full bg-edge-warm ${className}`} aria-hidden="true" />;
 }
 
-export function FilterBarSkeleton() {
+export function FilterBarSkeleton({ hidePeriod = false }: { hidePeriod?: boolean } = {}) {
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-edge bg-paper p-3 sm:p-4">
       <div className="flex flex-wrap items-center gap-3">
@@ -18,11 +18,13 @@ export function FilterBarSkeleton() {
         <Block className="ml-auto h-9 w-[120px]" />
         <Block className="h-9 w-[88px]" />
       </div>
-      <div className="flex flex-wrap items-center gap-1.5">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <Block key={i} className="h-8 w-[92px]" />
-        ))}
-      </div>
+      {!hidePeriod && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Block key={i} className="h-8 w-[92px]" />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -46,8 +46,8 @@ export default async function PosLivePage({
       />
       <PosSubNav />
 
-      <Suspense fallback={<FilterBarSkeleton />}>
-        <PosFilterBarLoader filter={filter} />
+      <Suspense fallback={<FilterBarSkeleton hidePeriod />}>
+        <PosFilterBarLoader filter={filter} hidePeriod />
       </Suspense>
       {!isPosApiConfigured() ? (
         <Notice title="POS data nejsou nakonfigurovaná" body="Nastavte POS_API_BASE a POS_API_KEY (Vercel)." />

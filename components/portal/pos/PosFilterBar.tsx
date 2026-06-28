@@ -48,7 +48,16 @@ function isoDaysAgo(n: number): string {
 const TOGGLE_BASE =
   "inline-flex h-9 shrink-0 items-center rounded-full border px-3.5 text-[12.5px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2 focus-visible:ring-offset-paper disabled:opacity-50";
 
-export function PosFilterBar({ concepts, unpaired, currencies, views, me }: FilterBarData) {
+// hidePeriod: skryje blok období (presety/Vlastní), srovnávací popisek i "Stejné
+// prodejny" - pro stránku Živě, kde je období vždy "dnes" (filtr by jen mátl).
+export function PosFilterBar({
+  concepts,
+  unpaired,
+  currencies,
+  views,
+  me,
+  hidePeriod = false,
+}: FilterBarData & { hidePeriod?: boolean }) {
   const sp = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -129,67 +138,73 @@ export function PosFilterBar({ concepts, unpaired, currencies, views, me }: Filt
 
         {/* Filtr ŽEBŘÍČKU "Stejné prodejny" (like-for-like): skryje prodejny bez
             srovnatelného základu. Na deltu KPI nemá vliv - ta je vždy like-for-like. */}
-        <button
-          type="button"
-          onClick={() => update({ sameStore: !filter.sameStore })}
-          aria-pressed={filter.sameStore}
-          title="Skrýt v žebříčku prodejny bez tržby v obou obdobích (srovnatelná báze). Na deltu KPI nemá vliv."
-          className={`${TOGGLE_BASE} ${
-            filter.sameStore
-              ? "border-ink-base bg-ink-base text-paper"
-              : "border-edge bg-paper text-ink-deep hover:border-ink-soft"
-          }`}
-        >
-          Stejné prodejny
-        </button>
+        {!hidePeriod && (
+          <button
+            type="button"
+            onClick={() => update({ sameStore: !filter.sameStore })}
+            aria-pressed={filter.sameStore}
+            title="Skrýt v žebříčku prodejny bez tržby v obou obdobích (srovnatelná báze). Na deltu KPI nemá vliv."
+            className={`${TOGGLE_BASE} ${
+              filter.sameStore
+                ? "border-ink-base bg-ink-base text-paper"
+                : "border-edge bg-paper text-ink-deep hover:border-ink-soft"
+            }`}
+          >
+            Stejné prodejny
+          </button>
+        )}
         <PosViewsMenu views={views} me={me} currentFilter={currentFilter} />
       </div>
 
-      {/* Řádek 2: období + srovnání (label) + měna + DPH */}
+      {/* Řádek 2: období + srovnání (label) + měna + DPH (na Živě jen měna + DPH) */}
       <div className="flex flex-wrap items-center gap-1.5">
-        {PRESETS.map((p) => (
-          <FilterChip
-            key={p}
-            active={filter.preset === p}
-            onClick={() => update({ preset: p })}
-            label={DATE_PRESET_LABEL[p]}
-          />
-        ))}
-        <FilterChip
-          active={filter.preset === "vlastni"}
-          onClick={() => update({ preset: "vlastni", from: filter.from ?? isoDaysAgo(29), to: filter.to ?? isoToday() })}
-          label="Vlastní"
-        />
-        {filter.preset === "vlastni" && (
-          <span className="inline-flex items-center gap-1.5">
-            <input
-              type="date"
-              value={draftFrom}
-              max={draftTo || undefined}
-              onChange={(e) => {
-                setDraftFrom(e.target.value);
-                commitDates(e.target.value, draftTo);
-              }}
-              className="h-9 rounded-full border border-edge bg-paper px-3 text-[12.5px] tabular-nums text-ink-base outline-none transition-colors focus-visible:border-ink-base focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2 focus-visible:ring-offset-paper"
+        {!hidePeriod && (
+          <>
+            {PRESETS.map((p) => (
+              <FilterChip
+                key={p}
+                active={filter.preset === p}
+                onClick={() => update({ preset: p })}
+                label={DATE_PRESET_LABEL[p]}
+              />
+            ))}
+            <FilterChip
+              active={filter.preset === "vlastni"}
+              onClick={() => update({ preset: "vlastni", from: filter.from ?? isoDaysAgo(29), to: filter.to ?? isoToday() })}
+              label="Vlastní"
             />
-            <span className="text-ink-soft" aria-hidden="true">-</span>
-            <input
-              type="date"
-              value={draftTo}
-              min={draftFrom || undefined}
-              onChange={(e) => {
-                setDraftTo(e.target.value);
-                commitDates(draftFrom, e.target.value);
-              }}
-              className="h-9 rounded-full border border-edge bg-paper px-3 text-[12.5px] tabular-nums text-ink-base outline-none transition-colors focus-visible:border-ink-base focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2 focus-visible:ring-offset-paper"
-            />
-          </span>
+            {filter.preset === "vlastni" && (
+              <span className="inline-flex items-center gap-1.5">
+                <input
+                  type="date"
+                  value={draftFrom}
+                  max={draftTo || undefined}
+                  onChange={(e) => {
+                    setDraftFrom(e.target.value);
+                    commitDates(e.target.value, draftTo);
+                  }}
+                  className="h-9 rounded-full border border-edge bg-paper px-3 text-[12.5px] tabular-nums text-ink-base outline-none transition-colors focus-visible:border-ink-base focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2 focus-visible:ring-offset-paper"
+                />
+                <span className="text-ink-soft" aria-hidden="true">-</span>
+                <input
+                  type="date"
+                  value={draftTo}
+                  min={draftFrom || undefined}
+                  onChange={(e) => {
+                    setDraftTo(e.target.value);
+                    commitDates(draftFrom, e.target.value);
+                  }}
+                  className="h-9 rounded-full border border-edge bg-paper px-3 text-[12.5px] tabular-nums text-ink-base outline-none transition-colors focus-visible:border-ink-base focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2 focus-visible:ring-offset-paper"
+                />
+              </span>
+            )}
+            <span className="mx-1 hidden h-5 w-px bg-edge sm:block" aria-hidden="true" />
+            {/* Srovnání s předchozím obdobím je vždy zapnuté - jen ukážeme baseline. */}
+            <span className="hidden text-[11px] text-ink-soft sm:inline">
+              vs {comparisonLabel(filter).toLowerCase()}
+            </span>
+          </>
         )}
-        <span className="mx-1 hidden h-5 w-px bg-edge sm:block" aria-hidden="true" />
-        {/* Srovnání s předchozím obdobím je vždy zapnuté - jen ukážeme baseline. */}
-        <span className="hidden text-[11px] text-ink-soft sm:inline">
-          vs {comparisonLabel(filter).toLowerCase()}
-        </span>
 
         <div className="ml-auto flex flex-wrap items-center gap-1.5">
           {/* Zobrazovací měna - vše se do ní přepočítá přes FX (ČNB kurz). Segmented
