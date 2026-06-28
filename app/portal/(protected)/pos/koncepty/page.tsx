@@ -42,7 +42,7 @@ export default async function PosConceptsPage({
       />
 
       <Suspense fallback={<FilterBarSkeleton />}>
-        <PosFilterBarLoader />
+        <PosFilterBarLoader filter={filter} />
       </Suspense>
 
       <PosSubNav />
@@ -70,6 +70,7 @@ async function ConceptsLeaderboard({ filter }: { filter: PosFilter }) {
   }
 
   const useNet = !filter.vatInclusive;
+  const cur = rows[0]?.currency ?? filter.currency;
   const leaderRows: LeaderRow[] = rows.map((r) => {
     // Proklik na koncept = zúžit výběr na tento koncept a přejít na jeho prodejny.
     const scoped = serializePosFilter({
@@ -92,9 +93,9 @@ async function ConceptsLeaderboard({ filter }: { filter: PosFilter }) {
   return (
     <section className="flex flex-col gap-3">
       <h2 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink-mid">
-        Koncepty ({leaderRows.length}) · {useNet ? "bez DPH" : "s DPH"} · {filter.currency}
+        Koncepty ({leaderRows.length}) · {useNet ? "bez DPH" : "s DPH"} · {cur}
       </h2>
-      <PosLeaderboard rows={leaderRows} currency={filter.currency} valueLabel={useNet ? "Tržby bez DPH" : "Tržby s DPH"} />
+      <PosLeaderboard rows={leaderRows} currency={cur} valueLabel={useNet ? "Tržby bez DPH" : "Tržby s DPH"} />
     </section>
   );
 }

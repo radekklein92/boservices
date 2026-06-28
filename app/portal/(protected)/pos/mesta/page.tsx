@@ -41,7 +41,7 @@ export default async function PosCitiesPage({
       />
 
       <Suspense fallback={<FilterBarSkeleton />}>
-        <PosFilterBarLoader />
+        <PosFilterBarLoader filter={filter} />
       </Suspense>
 
       <PosSubNav />
@@ -69,6 +69,7 @@ async function CitiesLeaderboard({ filter }: { filter: PosFilter }) {
   }
 
   const useNet = !filter.vatInclusive;
+  const cur = rows[0]?.currency ?? filter.currency;
   const leaderRows: LeaderRow[] = rows.map((r) => ({
     id: r.city,
     label: r.city,
@@ -82,9 +83,9 @@ async function CitiesLeaderboard({ filter }: { filter: PosFilter }) {
   return (
     <section className="flex flex-col gap-3">
       <h2 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink-mid">
-        Města ({leaderRows.length}) · {useNet ? "bez DPH" : "s DPH"} · {filter.currency}
+        Města ({leaderRows.length}) · {useNet ? "bez DPH" : "s DPH"} · {cur}
       </h2>
-      <PosLeaderboard rows={leaderRows} currency={filter.currency} valueLabel={useNet ? "Tržby bez DPH" : "Tržby s DPH"} />
+      <PosLeaderboard rows={leaderRows} currency={cur} valueLabel={useNet ? "Tržby bez DPH" : "Tržby s DPH"} />
       <p className="text-[11px] text-ink-soft">
         Město se bere z párování pokladen. Pokladny bez napárovaného města jsou v „Neuvedeno" - doplňte je v Administraci → Párování pokladen.
       </p>

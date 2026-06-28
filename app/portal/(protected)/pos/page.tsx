@@ -12,7 +12,14 @@ import {
   serializePosFilter,
   type PosFilter,
 } from "@/lib/portal/pos/filters";
-import { getDailyTrend, getHourlyTrend, getKpiSummary, getLocationLeaderboardFull, getPeriodTotals } from "@/lib/portal/pos/queries";
+import {
+  getDailyTrend,
+  getHourlyTrend,
+  getKpiSummary,
+  getLocationLeaderboardFull,
+  getPeriodTotals,
+  resolveDisplayCurrency,
+} from "@/lib/portal/pos/queries";
 import { getDefaultView } from "@/lib/portal/pos/views-db";
 import { isPosApiConfigured } from "@/lib/portal/pos/api";
 import type { DayPoint, HourPoint, LocationRevenueRowWithPrev, SummaryRow } from "@/lib/portal/pos/types";
@@ -69,7 +76,6 @@ export default async function PosOverviewPage({
   }
 
   const filter = parsePosFilter(searchParamsToUsp(spObj));
-  const cur = filter.currency;
   const useNet = !filter.vatInclusive;
   const qs = serializePosFilter(filter).toString();
 
@@ -87,7 +93,7 @@ export default async function PosOverviewPage({
       />
 
       <Suspense fallback={<FilterBarSkeleton />}>
-        <PosFilterBarLoader />
+        <PosFilterBarLoader filter={filter} />
       </Suspense>
 
       <PosSubNav />
@@ -100,7 +106,7 @@ export default async function PosOverviewPage({
       ) : (
         <div className="flex flex-col gap-6">
           <Suspense fallback={<KpiStripSkeleton cards={4} />}>
-            <KpiSection filter={filter} cur={cur} useNet={useNet} />
+            <KpiSection filter={filter} useNet={useNet} />
           </Suspense>
 
           <div className="grid gap-5 lg:grid-cols-3">
@@ -113,7 +119,7 @@ export default async function PosOverviewPage({
               </Suspense>
             </section>
             <Suspense fallback={<PanelSkeleton />}>
-              <PeriodSection filter={filter} cur={cur} useNet={useNet} />
+              <PeriodSection filter={filter} useNet={useNet} />
             </Suspense>
           </div>
 
@@ -128,14 +134,15 @@ export default async function PosOverviewPage({
 
 // --- 4 KPI: Tržby (net|gross dle DPH), Účtenky, Průměrný ticket, Refundace ---
 
-async function KpiSection({ filter, cur, useNet }: { filter: PosFilter; cur: string; useNet: boolean }) {
+async function KpiSection({ filter, useNet }: { filter: PosFilter; useNet: boolean }) {
   // Denní zobrazení: férové srovnání "do teď" z hodinových dat (ne celý den vs část dne).
-  if (filter.preset === "dnes") return <KpiSectionDaily filter={filter} cur={cur} useNet={useNet} />;
+  if (filter.preset === "dnes") return <KpiSectionDaily filter={filter} useNet={useNet} />;
 
   let kpi: Awaited<ReturnType<typeof getKpiSummary>>;
   let trend: Awaited<ReturnType<typeof getDailyTrend>>;
+  let cur: string;
   try {
-    [kpi, trend] = await Promise.all([getKpiSummary(filter), getDailyTrend(filter)]);
+    [kpi, trend, cur] = await Promise.all([getKpiSummary(filter), getDailyTrend(filter), resolveDisplayCurrency(filter)]);
   } catch {
     return <WidgetError />;
   }
@@ -202,11 +209,12 @@ async function KpiSection({ filter, cur, useNet }: { filter: PosFilter; cur: str
 }
 
 // Denní KPI: vše z hodinových dat, srovnání jen do aktuální hodiny (férová frakce).
-async function KpiSectionDaily({ filter, cur, useNet }: { filter: PosFilter; cur: string; useNet: boolean }) {
+async function KpiSectionDaily({ filter, useNet }: { filter: PosFilter; useNet: boolean }) {
   let hourly: Awaited<ReturnType<typeof getHourlyTrend>>;
   let kpi: Awaited<ReturnType<typeof getKpiSummary>>;
+  let cur: string;
   try {
-    [hourly, kpi] = await Promise.all([getHourlyTrend(filter), getKpiSummary(filter)]);
+    [hourly, kpi, cur] = await Promise.all([getHourlyTrend(filter), getKpiSummary(filter), resolveDisplayCurrency(filter)]);
   } catch {
     return <WidgetError />;
   }
@@ -278,8 +286,9 @@ async function TrendSection({ filter, useNet }: { filter: PosFilter; useNet: boo
   if (filter.preset === "dnes") return <TrendSectionDaily filter={filter} useNet={useNet} />;
 
   let trend: Awaited<ReturnType<typeof getDailyTrend>>;
+  let cur: string;
   try {
-    trend = await getDailyTrend(filter);
+    [trend, cur] = await Promise.all([getDailyTrend(filter), resolveDisplayCurrency(filter)]);
   } catch {
     return <WidgetError />;
   }
@@ -304,7 +313,7 @@ async function TrendSection({ filter, useNet }: { filter: PosFilter; useNet: boo
     <PosLineChart
       current={current}
       comparison={comparison}
-      currency={filter.currency}
+      currency={cur}
       comparisonLabel={COMPARISON_LABEL[filter.comparison]}
       height={260}
     />
@@ -314,8 +323,9 @@ async function TrendSection({ filter, useNet }: { filter: PosFilter; useNet: boo
 // Hodinový graf pro denní zobrazení: dnešní hodiny + srovnávací den (stejné hodiny).
 async function TrendSectionDaily({ filter, useNet }: { filter: PosFilter; useNet: boolean }) {
   let hourly: Awaited<ReturnType<typeof getHourlyTrend>>;
+  let cur: string;
   try {
-    hourly = await getHourlyTrend(filter);
+    [hourly, cur] = await Promise.all([getHourlyTrend(filter), resolveDisplayCurrency(filter)]);
   } catch {
     return <WidgetError />;
   }
@@ -334,17 +344,18 @@ async function TrendSectionDaily({ filter, useNet }: { filter: PosFilter; useNet
     <PosLineChart
       current={current}
       comparison={comparison}
-      currency={filter.currency}
+      currency={cur}
       comparisonLabel={COMPARISON_LABEL[filter.comparison]}
       height={260}
     />
   );
 }
 
-async function PeriodSection({ filter, cur, useNet }: { filter: PosFilter; cur: string; useNet: boolean }) {
+async function PeriodSection({ filter, useNet }: { filter: PosFilter; useNet: boolean }) {
   let periods: Awaited<ReturnType<typeof getPeriodTotals>>;
+  let cur: string;
   try {
-    periods = await getPeriodTotals(filter);
+    [periods, cur] = await Promise.all([getPeriodTotals(filter), resolveDisplayCurrency(filter)]);
   } catch {
     return (
       <section className="flex flex-col gap-3">
@@ -394,7 +405,9 @@ async function HighlightsSection({ filter, useNet, qs }: { filter: PosFilter; us
   } catch {
     return <WidgetError />;
   }
-  const cur = filter.currency;
+  // Žebříček nese efektivní měnu na řádcích (viz queries.ts) - vezmeme ji, ať
+  // labely sedí s daty i u cizoměnového výběru.
+  const cur = leaderboard[0]?.currency ?? filter.currency;
   const rows: HiRow[] = leaderboard.map((r) => ({
     id: r.locationId,
     name: r.name,

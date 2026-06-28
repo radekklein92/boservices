@@ -4,7 +4,7 @@ import { getSession } from "@/lib/portal/get-session";
 import { canSeePOS } from "@/lib/portal/auth-guard";
 import { isPosApiConfigured } from "@/lib/portal/pos/api";
 import { getShopPairsByLocation } from "@/lib/portal/pos/pairing-db";
-import { getKpiSummary } from "@/lib/portal/pos/queries";
+import { getKpiSummary, resolveDisplayCurrency } from "@/lib/portal/pos/queries";
 import { DEFAULT_POS_FILTER, serializePosFilter, type PosFilter } from "@/lib/portal/pos/filters";
 import type { KpiSummary } from "@/lib/portal/pos/types";
 import { formatPosMoney, formatPosNumber } from "./pos-shared";
@@ -28,13 +28,13 @@ export async function PosLocationPanel({ locationId }: { locationId: string }) {
   };
 
   let data: KpiSummary;
+  let cur: string;
   try {
-    data = await getKpiSummary(filter);
+    [data, cur] = await Promise.all([getKpiSummary(filter), resolveDisplayCurrency(filter)]);
   } catch {
     return null;
   }
 
-  const cur = filter.currency;
   const c = data.current.find((r) => r.currency === cur) ?? null;
   const p = data.comparison?.find((r) => r.currency === cur) ?? null;
   if (!c) return null;
