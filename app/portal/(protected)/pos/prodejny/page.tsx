@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/portal/shell/PageHeader";
 import { PosSubNav } from "@/components/portal/pos/PosSubNav";
 import { CONCEPT_LABEL } from "@/components/portal/locations/locations-shared";
 import { PosLeaderboard, type LeaderRow } from "@/components/portal/pos/PosLeaderboard";
-import { ClosedStoresButton } from "@/components/portal/pos/ClosedStoresPanel";
+import { ClosedStoresLink } from "@/components/portal/pos/ClosedStoresPanel";
 import { PosFilterBarLoader } from "@/components/portal/pos/PosFilterBarLoader";
 import { FilterBarSkeleton, LeaderboardSkeleton } from "@/components/portal/pos/skeletons";
 
@@ -51,14 +51,9 @@ export default async function PosLocationsPage({
       {!isPosApiConfigured() ? (
         <Notice title="POS data nejsou nakonfigurovaná" body="Nastavte POS_API_BASE a POS_API_KEY v prostředí (Vercel)." />
       ) : (
-        <div className="flex flex-col gap-4">
-          <Suspense fallback={null}>
-            <ClosedStoresBar filter={filter} />
-          </Suspense>
-          <Suspense fallback={<LeaderboardSkeleton rows={10} />}>
-            <LocationsLeaderboard filter={filter} />
-          </Suspense>
-        </div>
+        <Suspense fallback={<LeaderboardSkeleton rows={10} />}>
+          <LocationsLeaderboard filter={filter} />
+        </Suspense>
       )}
     </>
   );
@@ -66,8 +61,14 @@ export default async function PosLocationsPage({
 
 async function LocationsLeaderboard({ filter }: { filter: PosFilter }) {
   let rows: Awaited<ReturnType<typeof getLocationLeaderboardFull>>;
+  // Report neotevřených prodejen běží paralelně se žebříčkem; jeho pád (catch ->
+  // null) jen schová odkaz, žebříček zůstane.
+  let closed: Awaited<ReturnType<typeof getClosedStores>> | null;
   try {
-    rows = await getLocationLeaderboardFull(filter);
+    [rows, closed] = await Promise.all([
+      getLocationLeaderboardFull(filter),
+      getClosedStores(filter).catch(() => null),
+    ]);
   } catch {
     return <Notice title="Data dočasně nedostupná" body="Nepodařilo se načíst žebříček z API Data Warehouse." />;
   }
@@ -97,27 +98,14 @@ async function LocationsLeaderboard({ filter }: { filter: PosFilter }) {
 
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink-mid">
-        Prodejny ({leaderRows.length}) · {useNet ? "bez DPH" : "s DPH"} · {cur}
-      </h2>
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <h2 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink-mid">
+          Prodejny ({leaderRows.length}) · {useNet ? "bez DPH" : "s DPH"} · {cur}
+        </h2>
+        {closed && <ClosedStoresLink report={closed} />}
+      </div>
       <PosLeaderboard rows={leaderRows} currency={cur} valueLabel={useNet ? "Tržby bez DPH" : "Tržby s DPH"} />
     </section>
-  );
-}
-
-// Tlačítko "Neotevřené prodejny" pod filtrem - report výpadků pro aktuální výběr.
-// Vlastní Suspense (neblokuje žebříček); při chybě se prostě nezobrazí.
-async function ClosedStoresBar({ filter }: { filter: PosFilter }) {
-  let report: Awaited<ReturnType<typeof getClosedStores>>;
-  try {
-    report = await getClosedStores(filter);
-  } catch {
-    return null;
-  }
-  return (
-    <div className="flex">
-      <ClosedStoresButton report={report} />
-    </div>
   );
 }
 

@@ -57,6 +57,17 @@ export function KpiStripSkeleton({ cards = 4 }: { cards?: number }) {
   );
 }
 
+// Jedna KPI karta - pro per-kartu streaming (4. dlaždice na Živě dotéká zvlášť).
+export function KpiCardSkeleton() {
+  return (
+    <div className="flex flex-col gap-3 rounded-2xl border border-edge bg-paper p-5">
+      <Line className="w-20" />
+      <Block className="h-7 w-28" />
+      <Block className="mt-2 h-7 w-full opacity-50" />
+    </div>
+  );
+}
+
 export function BarsRowSkeleton() {
   return (
     <div className="grid gap-5 lg:grid-cols-3">

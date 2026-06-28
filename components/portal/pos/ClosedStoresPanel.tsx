@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { DoorClosed, X } from "lucide-react";
+import { ArrowUpRight, X } from "lucide-react";
 import type { ClosedStoreRow, ClosedStoresReport } from "@/lib/portal/pos/types";
 import { CONCEPT_LABEL } from "@/components/portal/locations/locations-shared";
 import { formatPosMoney, formatPosMoneyCompact } from "@/components/portal/pos/pos-shared";
@@ -68,9 +68,9 @@ export function ClosedStoresKpiCard({ report }: { report: ClosedStoresReport }) 
   );
 }
 
-// Decentní tlačítko pod filtrem na stránce Prodejny. Signál naléhavosti = tečka +
-// počet; nepřekřičí žebříček.
-export function ClosedStoresButton({ report }: { report: ClosedStoresReport }) {
+// Odkaz se šipkou pro pravý horní roh hlavičky (stránka Prodejny) - stejný vzor
+// jako "Celý žebříček" jinde v Portálu. Tečka = jemný signál, že něco je k řešení.
+export function ClosedStoresLink({ report }: { report: ClosedStoresReport }) {
   const [open, setOpen] = useState(false);
   const has = report.count > 0;
 
@@ -80,17 +80,11 @@ export function ClosedStoresButton({ report }: { report: ClosedStoresReport }) {
         type="button"
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
-        className="inline-flex items-center gap-2 rounded-full border border-edge bg-paper px-3.5 py-2 text-[12.5px] font-medium text-ink-base transition-colors hover:border-ink-soft hover:bg-edge-warm/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2 focus-visible:ring-offset-paper"
+        className="inline-flex items-center gap-1.5 rounded-full text-[12px] font-medium text-ink-mid transition-colors hover:text-ink-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2 focus-visible:ring-offset-paper"
       >
-        <DoorClosed className="h-4 w-4 text-ink-mid" strokeWidth={1.75} aria-hidden="true" />
-        Neotevřené prodejny
-        <span
-          className={`inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold tabular-nums ${
-            has ? "bg-rose-500 text-paper" : "bg-edge text-ink-mid"
-          }`}
-        >
-          {report.count}
-        </span>
+        {has && <span className="h-2 w-2 rounded-full bg-rose-500" aria-hidden="true" />}
+        Neotevřené prodejny ({report.count})
+        <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
       </button>
       {open && <ClosedStoresModal report={report} onClose={() => setOpen(false)} />}
     </>
