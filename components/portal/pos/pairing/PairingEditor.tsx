@@ -2,14 +2,35 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, ChevronDown, EyeOff, RotateCcw, Search, Sparkles, X } from "lucide-react";
+import { Check, ChevronDown, Copy, EyeOff, RotateCcw, Search, Sparkles, X } from "lucide-react";
 
-type Shop = { id: string; name: string; brandId: string; brandName: string; city: string | null };
+type Shop = {
+  id: string;
+  name: string;
+  brandId: string;
+  brandName: string;
+  code: string | null;
+  city: string | null;
+  country: string | null;
+  currency: string;
+  timezone: string;
+  isActive: boolean;
+  openedOn: string | null;
+  closedOn: string | null;
+};
 type Loc = { id: string; name: string; code: string | null };
 type PairState = { locationId: string | null; city: string };
 type StatusFilter = "all" | "unpaired" | "paired" | "ignored";
 
 const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+
+// YYYY-MM-DD -> D. M. YYYY (cs). Vrací prázdno, když datum chybí/nesedí.
+function fmtDate(d: string | null): string {
+  if (!d) return "";
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d);
+  if (!m) return d;
+  return `${Number(m[3])}. ${Number(m[2])}. ${m[1]}`;
+}
 
 // Shop-primary párování: seznam POKLADEN (DW shops), ke každé se vybírá PRODEJNA
 // (lokalita portálu). U nenapárovaných je našeptávač rovnou v řádku (stačí psát),
@@ -62,7 +83,7 @@ export function PairingEditor({
         if (status === "unpaired" && isPaired) return false;
       }
       if (!q) return true;
-      return norm(`${s.name} ${s.brandName} ${s.city ?? ""}`).includes(q);
+      return norm(`${s.name} ${s.brandName} ${s.code ?? ""} ${s.city ?? ""} ${s.currency} ${s.country ?? ""}`).includes(q);
     });
   }, [shops, pairs, ignored, search, status]);
 
@@ -157,13 +178,31 @@ export function PairingEditor({
             <div key={s.id} className="border-b border-edge/60 last:border-0">
               <div className="flex flex-wrap items-center gap-3 px-4 py-3 text-[13px]">
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     <span className={`truncate font-medium ${isIgnored ? "text-ink-mid line-through" : "text-ink-base"}`}>
                       {s.name}
                     </span>
+                    {s.code && (
+                      <span
+                        title="Číslo cloudu / kód pokladny"
+                        className="shrink-0 rounded-md border border-edge bg-paper-warm px-1.5 py-0.5 font-mono text-[11px] font-semibold text-ink-deep"
+                      >
+                        {s.code}
+                      </span>
+                    )}
                     <span className="shrink-0 rounded-md bg-edge-warm px-1.5 py-0.5 text-[10.5px] font-medium text-ink-mid">
                       {s.brandName}
                     </span>
+                    {!s.isActive && (
+                      <span className="shrink-0 rounded-md bg-amber-50 px-1.5 py-0.5 text-[10.5px] font-medium text-amber-700">
+                        Neaktivní
+                      </span>
+                    )}
+                    {s.closedOn && (
+                      <span className="shrink-0 rounded-md bg-rose-50 px-1.5 py-0.5 text-[10.5px] font-medium text-rose-600">
+                        Zavřeno {fmtDate(s.closedOn)}
+                      </span>
+                    )}
                   </div>
                   <div className="mt-0.5 text-[12px] text-ink-mid">
                     {isIgnored ? (
@@ -175,6 +214,7 @@ export function PairingEditor({
                     )}
                     {!isIgnored && isPaired && cur?.city ? ` · ${cur.city}` : ""}
                   </div>
+                  <ShopMeta shop={s} />
                 </div>
 
                 {isIgnored ? (
@@ -614,6 +654,56 @@ function ProdejnaCombobox({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// Technická metadata pokladny z DW (vše, co o "cloudu" máme): měna, země, časové
+// pásmo, datum otevření a kopírovatelné DW ID. Číslo cloudu/kód a stav jsou už
+// v hlavičce řádku. Zobrazuje se jen to, co reálně máme (prázdná pole se vynechají).
+function ShopMeta({ shop }: { shop: Shop }) {
+  const [copied, setCopied] = useState(false);
+  const parts: { label: string; value: string }[] = [
+    { label: "Měna", value: shop.currency },
+    { label: "Země", value: shop.country ?? "" },
+    { label: "Otevřeno", value: fmtDate(shop.openedOn) },
+    { label: "Časové pásmo", value: shop.timezone },
+  ].filter((p) => p.value);
+
+  async function copyId() {
+    try {
+      await navigator.clipboard.writeText(shop.id);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // schránka nedostupná - ticho
+    }
+  }
+
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-ink-soft">
+      {parts.map((p, i) => (
+        <span key={p.label} className="whitespace-nowrap">
+          {i > 0 && <span className="mr-2 text-edge">·</span>}
+          <span className="text-ink-mid">{p.label}</span> {p.value}
+        </span>
+      ))}
+      <button
+        type="button"
+        onClick={copyId}
+        title={`Kopírovat ID pokladny (${shop.id})`}
+        aria-label="Kopírovat ID pokladny"
+        className="inline-flex items-center gap-1 rounded font-mono text-[11px] text-ink-soft transition-colors hover:text-ink-base"
+      >
+        <span className="text-edge">·</span>
+        <span className="text-ink-mid">ID</span>
+        <span>{shop.id.slice(0, 8)}…</span>
+        {copied ? (
+          <Check className="h-3 w-3 text-emerald-700" strokeWidth={2} aria-hidden="true" />
+        ) : (
+          <Copy className="h-3 w-3" strokeWidth={1.75} aria-hidden="true" />
+        )}
+      </button>
     </div>
   );
 }
