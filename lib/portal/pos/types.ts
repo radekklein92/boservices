@@ -196,17 +196,18 @@ export interface LocationRevenueRowWithPrev extends LocationRevenueRow {
   prevReceipts: number | null;
 }
 
-// Hybatel dne (Živě): prodejna srovnaná den-na-den "k této hodině". todaySoFar =
-// dnešní tržba zatím, expectedByNow = včerejší CELÁ tržba × frakce dne uplynulá do
-// teď (z typické hodinové křivky). delta(Pct/Abs) = náskok/skluz vůči tomuto tempu.
+// Hybatel dne (Živě): prodejna srovnaná se STEJNÝM DNEM MINULÉHO TÝDNE "k této
+// hodině". todaySoFar = dnešní tržba zatím, expectedByNow = CELÁ tržba téhož dne
+// minulý týden × frakce dne uplynulá do teď (z typické hodinové křivky).
+// delta(Pct/Abs) = náskok/skluz vůči tomuto tempu.
 export interface LiveMoverRow {
   locationId: string;
   name: string;
   concept: LocationConcept;
   currency: string;
   todaySoFar: number; // dnešní tržba (gross) zatím
-  yesterdayFull: number; // včerejší tržba (gross) za celý den
-  expectedByNow: number; // očekávaná tržba k aktuální hodině (yesterdayFull × f)
+  baselineFull: number; // tržba (gross) za celý stejný den minulý týden
+  expectedByNow: number; // očekávaná tržba k aktuální hodině (baselineFull × f)
   deltaAbs: number; // todaySoFar - expectedByNow (řazení)
   deltaPct: number | null; // null když expectedByNow == 0
 }

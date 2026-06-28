@@ -106,7 +106,7 @@ function ymd(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-function addDays(s: string, n: number): string {
+export function addDays(s: string, n: number): string {
   const d = parseYmd(s);
   d.setUTCDate(d.getUTCDate() + n);
   return ymd(d);
