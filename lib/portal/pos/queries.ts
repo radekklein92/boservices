@@ -546,7 +546,7 @@ export async function getLiveMovers(filter: PosFilter, topN = 5): Promise<LiveMo
   const [todayRows, ydayRows, cells] = await Promise.all([
     _shopRev(todayRange.from, todayRange.to),
     _shopRev(ydayRange.from, ydayRange.to),
-    getHeatmap({ ...filter, preset: "poslednich-30-dni", comparison: "zadne" }),
+    getHeatmap({ ...filter, preset: "poslednich-30-dni", compare: false }),
   ]);
 
   // f váženě: každá typická hodina × kolik z ní už uplynulo.
