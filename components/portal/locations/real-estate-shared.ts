@@ -80,6 +80,40 @@ export function isRedBucket(
   return isRedFlagged(r) && reconcile(r.leaseCurrent, r.leaseTarget) === "needs";
 }
 
+// ── „BOS prodejna" (sdílená odvozená proměnná napříč portálem) ───────────────
+// Lokalita patří do BOS sítě, když má podepsanou FRANŠÍZU (aspoň klientem; stejný
+// zdroj jako badge „franšíza" — listLocationFranchiseContracts) NEBO je v NEWCO
+// tabulce, a ZÁROVEŇ není označená ČERVENĚ. Výjimka: červené ručně určené k řešení
+// (solveDespiteRed) se z BOS NEVYLUČUJÍ — bereme je jako rozpracované do BOS.
+// Pozor: NEZAMĚŇOVAT s nájmovým cílem „na BOS" (prepis_na_ceip) — to je jiný pojem.
+// Single source of truth: počítá se server-side (kde jsou všechna data) a do UI
+// jdou jen hotové booleany; vstupy se na každé ploše berou ze stejných zdrojů.
+export function isBosStore(
+  r: Pick<
+    RealEstateRow,
+    "franchiseContractId" | "hasNewco" | "newco" | "manualRed" | "solveDespiteRed"
+  >,
+): boolean {
+  const inNetwork = Boolean(r.franchiseContractId) || r.hasNewco;
+  // Červená vylučuje z BOS — vyjma ručně označených „řešit i přes červenou".
+  const redExcludes = isRedFlagged(r) && !r.solveDespiteRed;
+  return inNetwork && !redExcludes;
+}
+
+// Krátké vysvětlení výsledku isBosStore pro UI (proč Ano/Ne). Pořadí důvodů musí
+// odpovídat isBosStore: nejdřív vylučující červená, pak důvody zařazení.
+export function bosStoreReason(
+  r: Pick<
+    RealEstateRow,
+    "franchiseContractId" | "hasNewco" | "newco" | "manualRed" | "solveDespiteRed"
+  >,
+): string {
+  if (isRedFlagged(r) && !r.solveDespiteRed) return "označená červeně";
+  if (r.franchiseContractId) return "podepsaná franšíza";
+  if (r.hasNewco) return "v NewCo tabulce";
+  return "mimo franšízu i NewCo";
+}
+
 // Globální počty tří kategorií — přesně jako chipy nad tabulkou (bez textového
 // ani flag filtru). Invariant (shodný s reconCounts/redCount v tabulce):
 // - Nevyřešená červená → `red`. Když má „stejně řešit" (solveDespiteRed),

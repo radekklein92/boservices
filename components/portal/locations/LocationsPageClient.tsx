@@ -20,6 +20,7 @@ export function LocationsPageClient({
   syncMeta,
   withContractIds,
   franchiseByLocation,
+  bosLocationIds,
 }: {
   locations: MirroredLocation[];
   syncMeta: LocationsSyncMeta | null;
@@ -27,6 +28,8 @@ export function LocationsPageClient({
   withContractIds: string[];
   // Mapa locationId -> id podepsané franšízingové smlouvy (pro badge + filtr).
   franchiseByLocation: Record<string, string>;
+  // Id lokalit, které jsou „BOS prodejna" (odvozeno serverem) - pro filtr + badge.
+  bosLocationIds: string[];
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -98,6 +101,7 @@ export function LocationsPageClient({
         locations={locations}
         withContractIds={withContractIds}
         franchiseByLocation={franchiseByLocation}
+        bosLocationIds={bosLocationIds}
       />
 
       {importOpen && (

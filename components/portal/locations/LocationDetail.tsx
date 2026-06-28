@@ -13,6 +13,7 @@ import {
   ExternalLink,
   AlertTriangle,
   ArrowUpRight,
+  Building2,
 } from "lucide-react";
 import type { LocationView } from "@/lib/portal/locations-db";
 import type { ContractStatus } from "@/lib/portal/contracts-db";
@@ -70,6 +71,8 @@ export function LocationDetail({
   contracts,
   flags,
   posPanel,
+  isBos,
+  bosReason,
 }: {
   location: LocationView;
   contracts: LocationContractRow[];
@@ -78,6 +81,10 @@ export function LocationDetail({
   // Panel Tržeb (server komponenta předaná z page.tsx). Vykreslí se hned pod
   // hlavičkou; je-li null (bez přístupu/bez napárované pokladny), nic se nepřidá.
   posPanel?: ReactNode;
+  // „BOS prodejna" — sdílená odvozená proměnná (isBosStore). Počítá ji server
+  // (page.tsx) ze stejných zdrojů jako jinde; tady jen zobrazujeme.
+  isBos: boolean;
+  bosReason: string;
 }) {
   const l = location;
   const recon = RECON_META[reconcile(l.lease_current_status, l.lease_target_status)];
@@ -105,6 +112,17 @@ export function LocationDetail({
           {l.transition_status && (
             <span className={`${CHIP_BASE} ${TRANSITION_STATUS_STYLE[l.transition_status]}`}>
               {TRANSITION_STATUS_LABEL[l.transition_status]}
+            </span>
+          )}
+          {/* „BOS prodejna" (odvozeno): pozitivní chip jen když JE BOS; stav Ano/Ne
+              je vždy i v sekci „Provoz a stav" níže. */}
+          {isBos && (
+            <span
+              className={`${CHIP_BASE} border-emerald-300 bg-emerald-50 text-emerald-700`}
+              title="Lokalita patří do BOS sítě (franšíza nebo NewCo, není červeně)"
+            >
+              <Building2 className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+              BOS prodejna
             </span>
           )}
           {/* Flagy z RE tabulky (read-only). Editují se v Real Estate tabulce. */}
@@ -188,6 +206,29 @@ export function LocationDetail({
         </Section>
 
         <Section title="Provoz a stav">
+          <Row
+            label="BOS prodejna"
+            value={
+              <span
+                className="inline-flex items-center gap-2"
+                title={`Patří do BOS sítě: má franšízu podepsanou klientem nebo je v NewCo tabulce, a není označená červeně (kromě „řešit i přes červenou“). Nejde o nájemní cíl „na BOS“.`}
+              >
+                <Chip
+                  tone={
+                    isBos
+                      ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+                      : "border-edge bg-edge-warm text-ink-mid"
+                  }
+                >
+                  {isBos && (
+                    <Building2 className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+                  )}
+                  {isBos ? "Ano" : "Ne"}
+                </Chip>
+                <span className="text-[11.5px] text-ink-soft">{bosReason}</span>
+              </span>
+            }
+          />
           <Row
             label="Fyzický stav"
             value={l.location_status ? LOCATION_STATUS_LABEL[l.location_status] : null}
