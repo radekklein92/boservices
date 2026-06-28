@@ -28,6 +28,11 @@ html {
   background: var(--color-paper);
   color: var(--color-ink-base);
   scroll-behavior: smooth;
+  /* Rezervuj místo pro svislý scrollbar vždycky (i když zrovna není potřeba).
+     Projekt používá classic webkit scrollbar (10px, zabírá šířku), takže když
+     po načtení obsahu scrollbar naskočí, jinak se zúží viewport a fixed prvky
+     (feedback bublina vpravo dole) i obsah „uskočí" doleva. stable to drží. */
+  scrollbar-gutter: stable;
 }
 
 body {
