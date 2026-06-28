@@ -94,7 +94,7 @@ export function PosFilterBar({ concepts, unpaired, currencies, views, me }: Filt
 
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-edge bg-paper p-3 sm:p-4">
-      {/* Řádek 1: výběr prodejen + uložené pohledy */}
+      {/* Řádek 1: výběr prodejen + filtr "Stejné prodejny" + uložené pohledy */}
       <div className="flex flex-wrap items-center gap-2">
         <PosStorePicker concepts={concepts} selection={sel} onChange={setSelection} />
 
@@ -127,10 +127,25 @@ export function PosFilterBar({ concepts, unpaired, currencies, views, me }: Filt
           <span className="flex-1 text-[12.5px] text-ink-soft">Celá síť</span>
         )}
 
+        {/* Filtr ŽEBŘÍČKU "Stejné prodejny" (like-for-like): skryje prodejny bez
+            srovnatelného základu. Na deltu KPI nemá vliv - ta je vždy like-for-like. */}
+        <button
+          type="button"
+          onClick={() => update({ sameStore: !filter.sameStore })}
+          aria-pressed={filter.sameStore}
+          title="Skrýt v žebříčku prodejny bez tržby v obou obdobích (srovnatelná báze). Na deltu KPI nemá vliv."
+          className={`${TOGGLE_BASE} ${
+            filter.sameStore
+              ? "border-ink-base bg-ink-base text-paper"
+              : "border-edge bg-paper text-ink-deep hover:border-ink-soft"
+          }`}
+        >
+          Stejné prodejny
+        </button>
         <PosViewsMenu views={views} me={me} currentFilter={currentFilter} />
       </div>
 
-      {/* Řádek 2: období + srovnání + měna + DPH */}
+      {/* Řádek 2: období + srovnání (label) + měna + DPH */}
       <div className="flex flex-wrap items-center gap-1.5">
         {PRESETS.map((p) => (
           <FilterChip
@@ -175,21 +190,6 @@ export function PosFilterBar({ concepts, unpaired, currencies, views, me }: Filt
         <span className="hidden text-[11px] text-ink-soft sm:inline">
           vs {comparisonLabel(filter).toLowerCase()}
         </span>
-        {/* Volitelný filtr ŽEBŘÍČKU: skryje prodejny bez srovnatelného základu. Na deltu
-            KPI nemá vliv - ta je vždy like-for-like. */}
-        <button
-          type="button"
-          onClick={() => update({ sameStore: !filter.sameStore })}
-          aria-pressed={filter.sameStore}
-          title="Skrýt v žebříčku prodejny bez tržby v obou obdobích (srovnatelná báze). Na deltu KPI nemá vliv."
-          className={`${TOGGLE_BASE} ${
-            filter.sameStore
-              ? "border-ink-base bg-ink-base text-paper"
-              : "border-edge bg-paper text-ink-deep hover:border-ink-soft"
-          }`}
-        >
-          Stejné prodejny
-        </button>
 
         <div className="ml-auto flex flex-wrap items-center gap-1.5">
           {/* Zobrazovací měna - vše se do ní přepočítá přes FX (ČNB kurz). Segmented
