@@ -118,20 +118,16 @@ async function scopeContext(filter: PosFilter): Promise<ScopeContext> {
   return { shops, index, locations, resolved };
 }
 
-// shop_ids v DW je za přepínačem: než se nasadí rozšířené API, NEposíláme shop_ids
-// (DW by je ignorovalo a vrátilo data celé sítě = špatně) -> raději degradace.
-const DW_SHOP_IDS = process.env.POS_DW_SHOP_IDS === "1";
-
-// Parametry pro single-endpointy (produkty/účtenky/analytics), které umí jen jeden
-// brand_id/shop_id. Mapování výběru:
-//   vše               -> {} (bez filtru, přesné)
-//   1 pokladna        -> shop_id (přesné)
-//   1 celá značka     -> brand_id (přesné i bez DW shop_ids)
-//   víc pokladen      -> shop_ids (jen když DW umí), jinak __degraded
+// Parametry pro single-endpointy (produkty/účtenky/analytics). DW umí shop_ids
+// (CSV, WHERE shop_id = ANY; nasazeno - rontoday/bo-service PR #28). Mapování:
+//   vše               -> {} (bez filtru)
+//   1 pokladna        -> shop_id
+//   1 celá značka     -> brand_id (kratší dotaz než výčet pokladen)
+//   víc pokladen      -> shop_ids (CSV)
 //   prázdný výběr     -> __empty
 function scopeApiParams(
   resolved: ResolvedSelection,
-): { brand_id?: string; shop_id?: string; shop_ids?: string; __empty?: boolean; __degraded?: boolean } {
+): { brand_id?: string; shop_id?: string; shop_ids?: string; __empty?: boolean } {
   if (resolved.isAll) return {};
   const ids = [...resolved.shopIds];
   if (ids.length === 0) return { __empty: true };
@@ -139,8 +135,7 @@ function scopeApiParams(
   if (resolved.brandsPresent.length === 1 && resolved.coversWholeBrands.includes(resolved.brandsPresent[0])) {
     return { brand_id: resolved.brandsPresent[0] };
   }
-  if (DW_SHOP_IDS) return { shop_ids: ids.join(",") };
-  return { __degraded: true };
+  return { shop_ids: ids.join(",") };
 }
 
 // --- KPI souhrn ---
@@ -542,7 +537,7 @@ export async function getTopProducts(
 ): Promise<ProductSalesRow[]> {
   const { resolved } = await scopeContext(filter);
   const sp = scopeApiParams(resolved);
-  if (sp.__empty || sp.__degraded) return [];
+  if (sp.__empty) return [];
   const range = aggWindow(filter);
   return (await _products(range.from, range.to, filter.currency, sort, clampLimit(limit), sp.brand_id, sp.shop_id, sp.shop_ids)).data;
 }
@@ -562,7 +557,7 @@ export async function getReceiptsPage(
 ): Promise<Paged<ReceiptListRow>> {
   const { resolved } = await scopeContext(filter);
   const sp = scopeApiParams(resolved);
-  if (sp.__empty || sp.__degraded) return { data: [], meta: { page: 0, limit: opts.limit ?? 50, total: 0 } };
+  if (sp.__empty) return { data: [], meta: { page: 0, limit: opts.limit ?? 50, total: 0 } };
   const range = rawWindow(filter);
   return _receipts(
     range.from,
@@ -591,7 +586,7 @@ const _heatmap = posQuery(
 export async function getHeatmap(filter: PosFilter): Promise<HeatmapCell[]> {
   const { resolved } = await scopeContext(filter);
   const sp = scopeApiParams(resolved);
-  if (sp.__empty || sp.__degraded) return [];
+  if (sp.__empty) return [];
   const range = rawWindow(filter);
   return (await _heatmap(range.from, range.to, filter.currency, sp.brand_id, sp.shop_id, sp.shop_ids)).data;
 }
@@ -604,7 +599,7 @@ const _daypart = posQuery(
 export async function getDaypart(filter: PosFilter): Promise<DaypartRow[]> {
   const { resolved } = await scopeContext(filter);
   const sp = scopeApiParams(resolved);
-  if (sp.__empty || sp.__degraded) return [];
+  if (sp.__empty) return [];
   const range = rawWindow(filter);
   return (await _daypart(range.from, range.to, filter.currency, sp.brand_id, sp.shop_id, sp.shop_ids)).data;
 }
@@ -617,7 +612,7 @@ const _paymentMix = posQuery(
 export async function getPaymentMix(filter: PosFilter): Promise<PaymentMixRow[]> {
   const { resolved } = await scopeContext(filter);
   const sp = scopeApiParams(resolved);
-  if (sp.__empty || sp.__degraded) return [];
+  if (sp.__empty) return [];
   const range = aggWindow(filter);
   return (await _paymentMix(range.from, range.to, filter.currency, sp.brand_id, sp.shop_id, sp.shop_ids)).data;
 }
@@ -630,7 +625,7 @@ const _vatSplit = posQuery(
 export async function getVatSplit(filter: PosFilter): Promise<VatSplitRow[]> {
   const { resolved } = await scopeContext(filter);
   const sp = scopeApiParams(resolved);
-  if (sp.__empty || sp.__degraded) return [];
+  if (sp.__empty) return [];
   const range = aggWindow(filter);
   return (await _vatSplit(range.from, range.to, filter.currency, sp.brand_id, sp.shop_id, sp.shop_ids)).data;
 }
@@ -643,6 +638,6 @@ const _today = posQuery(
 export async function getToday(filter: PosFilter): Promise<TodayRow[]> {
   const { resolved } = await scopeContext(filter);
   const sp = scopeApiParams(resolved);
-  if (sp.__empty || sp.__degraded) return [];
+  if (sp.__empty) return [];
   return (await _today(filter.currency, sp.brand_id, sp.shop_id, sp.shop_ids)).data;
 }
