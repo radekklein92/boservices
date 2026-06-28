@@ -68,7 +68,7 @@ export default async function DesignSystemPage() {
               <a
                 href={PDF_PATH}
                 download={PDF_FILENAME}
-                className="inline-flex h-11 items-center gap-2 rounded-full bg-ink-base px-5 text-[13.5px] font-semibold text-paper transition-transform active:translate-y-px"
+                className="inline-flex h-11 items-center gap-2 rounded-full bg-ink-base px-5 text-[13px] font-semibold text-paper transition-transform active:translate-y-px"
               >
                 <Download className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
                 Stáhnout PDF

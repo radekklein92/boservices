@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { X, AlertTriangle, ShieldCheck, Send } from "lucide-react";
-import { BTN_PRIMARY } from "@/components/portal/ui/buttons";
+import { BTN_PRIMARY_MODAL } from "@/components/portal/ui/buttons";
 
 // Potvrzovací modal před odesláním/schválením smlouvy z konceptu u typů, které
 // nemají vlastní kontrolní seznam. Upozorní, že odesílatel přebírá odpovědnost
@@ -91,7 +91,7 @@ export function ResponsibilityModal({
             type="button"
             onClick={onConfirm}
             disabled={pending}
-            className={BTN_PRIMARY}
+            className={BTN_PRIMARY_MODAL}
           >
             {isSubmit ? (
               <Send className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />

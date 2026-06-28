@@ -37,7 +37,7 @@ export async function EntityTasks({
   });
 
   return (
-    <section className="rounded-2xl border border-edge bg-paper px-6 py-6 md:px-8 md:py-7">
+    <section className="rounded-2xl border border-edge bg-paper p-6 md:p-7">
       <div className="mb-4 flex items-center justify-between gap-4">
         <div className="inline-flex items-center gap-2 text-[10.5px] font-medium uppercase tracking-[0.22em] text-ink-mid">
           <ListChecks className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />

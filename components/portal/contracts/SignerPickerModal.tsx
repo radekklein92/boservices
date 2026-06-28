@@ -250,7 +250,7 @@ export function SignerPickerModal({
           <button
             type="button"
             onClick={onClose}
-            className="h-11 rounded-full px-5 text-[13.5px] font-medium text-ink-mid transition-colors hover:text-ink-base"
+            className="h-10 rounded-full px-5 text-[13px] font-medium text-ink-mid transition-colors hover:text-ink-base"
           >
             Zrušit
           </button>
@@ -258,7 +258,7 @@ export function SignerPickerModal({
             type="button"
             disabled={!selected || pending}
             onClick={confirm}
-            className="inline-flex h-11 items-center gap-2 rounded-full bg-ink-base px-6 text-[13.5px] font-semibold text-paper transition-transform active:translate-y-px disabled:opacity-60"
+            className="inline-flex h-10 items-center gap-2 rounded-full bg-ink-base px-5 text-[13px] font-semibold text-paper transition-transform active:translate-y-px disabled:opacity-60"
           >
             {pending
               ? "Přiřazuji…"

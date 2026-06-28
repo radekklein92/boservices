@@ -11,8 +11,8 @@ import { AlertTriangle, CheckCircle2 } from "lucide-react";
 //   - rounded-full, gap-2, font-semibold, text-[13px]
 //   - px-5 (= ostatní header pillsy)
 //
-// Barvy jsou jediný odchyl od monochromu portálu - záměrně, aby byl stav
-// patrný na první pohled (zelená OK / červená warning).
+// Tonální stav (Chip jazyk portálu): jemné pozadí -50 + barevný text -700,
+// zelená OK / červená warning. Sjednoceno s ostatními stavovými štítky.
 export function TemplateMatchBadge({
   hasChanges,
   onOpenDiff,
@@ -23,7 +23,7 @@ export function TemplateMatchBadge({
   if (!hasChanges) {
     return (
       <span
-        className="inline-flex h-10 items-center gap-2 rounded-full border border-emerald-600 bg-emerald-600 px-5 text-[13px] font-semibold text-paper"
+        className="inline-flex h-10 items-center gap-2 rounded-full border border-emerald-300 bg-emerald-50 px-5 text-[13px] font-semibold text-emerald-700"
         aria-label="Smlouva souhlasí se šablonou"
       >
         <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
@@ -35,14 +35,14 @@ export function TemplateMatchBadge({
     <button
       type="button"
       onClick={onOpenDiff}
-      className="group inline-flex h-10 items-center gap-2 rounded-full border border-red-600 bg-red-600 px-5 text-[13px] font-semibold text-paper shadow-[0_1px_2px_rgba(220,38,38,0.18)] transition-transform active:translate-y-px"
+      className="group inline-flex h-10 items-center gap-2 rounded-full border border-rose-400 bg-rose-50 px-5 text-[13px] font-semibold text-rose-700 transition-all hover:border-rose-500 hover:bg-rose-100 active:translate-y-px"
       aria-label="Zobrazit změny proti šabloně"
     >
       <AlertTriangle className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
       Pozor, změny
       <span
         aria-hidden="true"
-        className="ml-1 text-paper/70 transition-transform group-hover:translate-x-0.5"
+        className="ml-1 text-rose-700 transition-transform group-hover:translate-x-0.5"
       >
         →
       </span>

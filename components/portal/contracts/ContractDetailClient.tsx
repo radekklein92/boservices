@@ -899,7 +899,7 @@ export function ContractDetailClient({
                   className={[
                     "grid h-10 w-10 place-items-center rounded-full border transition-colors",
                     editLockedForMe
-                      ? "border-amber-400 bg-amber-50 text-amber-600"
+                      ? "border-amber-300 bg-amber-50 text-amber-700"
                       : "border-ink-base bg-ink-base text-paper",
                     canManageLock ? "hover:opacity-90" : "cursor-default",
                   ].join(" ")}

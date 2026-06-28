@@ -95,7 +95,7 @@ export function CommissionsExportClient() {
       </button>
 
       {open && (
-        <div className="mt-4 rounded-[24px] border border-edge bg-paper p-5 md:p-7">
+        <div className="mt-4 rounded-3xl border border-edge bg-paper p-6 md:p-7">
           <div className="flex flex-col gap-5">
             {/* Filtr stavu */}
             <div className="flex flex-col gap-2">
@@ -164,7 +164,7 @@ export function CommissionsExportClient() {
                 type="button"
                 onClick={download}
                 disabled={busy}
-                className="inline-flex h-10 items-center gap-2 rounded-full bg-ink-base px-5 text-[13px] font-semibold text-paper transition-opacity hover:opacity-90 disabled:opacity-50"
+                className="inline-flex h-10 items-center gap-2 rounded-full bg-ink-base px-5 text-[13px] font-semibold text-paper transition-transform active:translate-y-px disabled:opacity-50"
               >
                 {busy ? (
                   <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.5} aria-hidden="true" />

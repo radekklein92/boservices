@@ -329,7 +329,7 @@ function FestiveSprinkles() {
 
 function ReTrendCard({ points }: { points: ReTrendPoint[] }) {
   return (
-    <section className="rounded-[24px] border border-edge bg-paper p-6 sm:p-7">
+    <section className="rounded-3xl border border-edge bg-paper p-6 sm:p-7">
       <div className="mb-6 flex items-center justify-between gap-3">
         <div className="text-[10.5px] font-medium uppercase tracking-[0.22em] text-ink-mid">
           <span
@@ -702,7 +702,7 @@ function SecondaryStat({
   return (
     <Link
       href={href}
-      className="group relative overflow-hidden rounded-[24px] border border-edge bg-paper p-7 transition-colors hover:border-ink-soft"
+      className="group relative overflow-hidden rounded-3xl border border-edge bg-paper p-7 transition-colors hover:border-ink-soft"
     >
       <Icon
         className="absolute -bottom-4 -right-4 h-32 w-32 text-ink-base/[0.04]"

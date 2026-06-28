@@ -125,7 +125,7 @@ export function ClientsTable({
 
   if (clients.length === 0) {
     return (
-      <div className="rounded-[24px] border border-dashed border-edge bg-paper p-12 text-center">
+      <div className="rounded-3xl border border-dashed border-edge bg-paper p-12 text-center">
         <h3 className="text-[1.05rem] font-bold tracking-[-0.02em] text-ink-base">
           Zatím žádní klienti.
         </h3>
@@ -136,7 +136,7 @@ export function ClientsTable({
           <button
             type="button"
             onClick={onAddClick}
-            className="mt-6 inline-flex h-11 items-center gap-2 rounded-full bg-ink-base px-5 text-[13.5px] font-semibold text-paper transition-transform active:translate-y-px"
+            className="mt-6 inline-flex h-11 items-center gap-2 rounded-full bg-ink-base px-5 text-[13px] font-semibold text-paper transition-transform active:translate-y-px"
           >
             <Plus className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
             Přidat klienta
@@ -185,7 +185,7 @@ export function ClientsTable({
         </div>
       )}
 
-      <div className="overflow-hidden rounded-[24px] border border-edge bg-paper">
+      <div className="overflow-hidden rounded-3xl border border-edge bg-paper">
         <ul className="divide-y divide-edge">
           {filtered.map((c) => (
             <li

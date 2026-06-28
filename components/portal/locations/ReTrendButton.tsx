@@ -77,7 +77,7 @@ function ReTrendModal({ onClose }: { onClose: () => void }) {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="relative w-full max-w-[920px] rounded-[24px] border border-edge bg-paper p-6 shadow-[0_18px_42px_-18px_rgba(14,14,14,0.35)] sm:p-7">
+      <div className="relative w-full max-w-[920px] rounded-3xl border border-edge bg-paper p-6 shadow-[0_18px_42px_-18px_rgba(14,14,14,0.35)] sm:p-7">
         <div className="flex items-start justify-between gap-4">
           <div className="flex flex-col gap-1.5">
             <div className="text-[10.5px] font-medium uppercase tracking-[0.22em] text-ink-mid">

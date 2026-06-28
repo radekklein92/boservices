@@ -206,7 +206,7 @@ function Card({
             <span
               className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
                 dl.overdue
-                  ? "bg-rose-50 text-rose-600"
+                  ? "bg-rose-50 text-rose-700"
                   : dl.soon
                     ? "bg-amber-50 text-amber-700"
                     : "bg-edge-warm text-ink-mid"

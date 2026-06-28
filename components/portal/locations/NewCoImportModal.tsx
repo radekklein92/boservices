@@ -14,7 +14,7 @@ import {
   type NewCoFieldKey,
   type XlsxColumn,
 } from "@/lib/portal/newco-fields";
-import { BTN_PRIMARY } from "@/components/portal/ui/buttons";
+import { BTN_PRIMARY_MODAL } from "@/components/portal/ui/buttons";
 
 type ParseData = {
   sheetName: string;
@@ -246,7 +246,7 @@ export function NewCoImportModal({
                 type="button"
                 onClick={doImport}
                 disabled={pending}
-                className={BTN_PRIMARY}
+                className={BTN_PRIMARY_MODAL}
               >
                 <Upload className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
                 {pending ? "Importuji…" : "Importovat"}
@@ -288,7 +288,7 @@ export function NewCoImportModal({
               </div>
             )}
             <div className="flex items-center justify-end border-t border-edge pt-4">
-              <button type="button" onClick={onClose} className={BTN_PRIMARY}>
+              <button type="button" onClick={onClose} className={BTN_PRIMARY_MODAL}>
                 Hotovo
               </button>
             </div>

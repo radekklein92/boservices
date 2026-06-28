@@ -13,13 +13,15 @@ import {
   type PosFilter,
   type PosSelection,
 } from "@/lib/portal/pos/filters";
+import { FilterChip } from "@/components/portal/ui/FilterChip";
 import type { FilterBarData } from "./pos-filter-shared";
 import { PosStorePicker } from "./PosStorePicker";
 import { PosViewsMenu } from "./PosViewsMenu";
 
 // Sdílený filtr POS. Stav drží URL (searchParams) - persistuje napříč obrazovkami,
 // je sdílitelný a server (RSC) čte týž searchParams. Výběr je multi-select
-// (koncepty + prodejny), s uložitelnými pohledy.
+// (koncepty + prodejny), s uložitelnými pohledy. Datové presety + měna jedou přes
+// sdílenou FilterChip (konzistence s portálem + a11y focus-visible).
 
 const PRESETS: PosDatePreset[] = [
   "dnes",
@@ -32,6 +34,10 @@ const PRESETS: PosDatePreset[] = [
   "tento-rok",
 ];
 const COMPARISONS: PosComparison[] = ["predchozi-obdobi", "predchozi-rok", "zadne"];
+
+// Pilulkové tlačítko sladěné s FilterChip (h-9, rounded-full, a11y ring).
+const TOGGLE_BASE =
+  "inline-flex h-9 shrink-0 items-center rounded-full border px-3.5 text-[12.5px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2 focus-visible:ring-offset-paper disabled:opacity-50";
 
 export function PosFilterBar({ concepts, unpaired, currencies, views, me }: FilterBarData) {
   const sp = useSearchParams();
@@ -65,12 +71,7 @@ export function PosFilterBar({ concepts, unpaired, currencies, views, me }: Filt
     <div className="flex flex-col gap-3 rounded-2xl border border-edge bg-paper p-3 sm:p-4">
       {/* Řádek 1: výběr prodejen + uložené pohledy */}
       <div className="flex flex-wrap items-center gap-2">
-        <PosStorePicker
-          concepts={concepts}
-          unpaired={unpaired}
-          selection={sel}
-          onChange={setSelection}
-        />
+        <PosStorePicker concepts={concepts} unpaired={unpaired} selection={sel} onChange={setSelection} />
 
         {hasSelection ? (
           <div className="flex flex-1 flex-wrap items-center gap-1.5">
@@ -79,24 +80,20 @@ export function PosFilterBar({ concepts, unpaired, currencies, views, me }: Filt
                 key={`c-${c}`}
                 label={labelByConcept.get(c) ?? c}
                 accent
-                onRemove={() =>
-                  update({ selection: { ...sel, concepts: sel.concepts.filter((x) => x !== c) } })
-                }
+                onRemove={() => update({ selection: { ...sel, concepts: sel.concepts.filter((x) => x !== c) } })}
               />
             ))}
             {sel.locations.map((id) => (
               <Chip
                 key={`l-${id}`}
                 label={nameById.get(id) ?? id}
-                onRemove={() =>
-                  update({ selection: { ...sel, locations: sel.locations.filter((x) => x !== id) } })
-                }
+                onRemove={() => update({ selection: { ...sel, locations: sel.locations.filter((x) => x !== id) } })}
               />
             ))}
             <button
               type="button"
               onClick={() => setSelection({ concepts: [], locations: [] })}
-              className="ml-0.5 text-[12px] font-medium text-ink-mid transition-colors hover:text-ink-base"
+              className="ml-0.5 rounded-full px-1.5 text-[12px] font-medium text-ink-mid transition-colors hover:text-ink-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2 focus-visible:ring-offset-paper"
             >
               Vyčistit
             </button>
@@ -111,9 +108,12 @@ export function PosFilterBar({ concepts, unpaired, currencies, views, me }: Filt
       {/* Řádek 2: období + srovnání + měna + DPH */}
       <div className="flex flex-wrap items-center gap-1.5">
         {PRESETS.map((p) => (
-          <Pill key={p} active={filter.preset === p} onClick={() => update({ preset: p })}>
-            {DATE_PRESET_LABEL[p]}
-          </Pill>
+          <FilterChip
+            key={p}
+            active={filter.preset === p}
+            onClick={() => update({ preset: p })}
+            label={DATE_PRESET_LABEL[p]}
+          />
         ))}
         <span className="mx-1 hidden h-5 w-px bg-edge sm:block" aria-hidden="true" />
         <Select
@@ -128,26 +128,26 @@ export function PosFilterBar({ concepts, unpaired, currencies, views, me }: Filt
           onClick={() => update({ sameStore: !filter.sameStore })}
           aria-pressed={filter.sameStore}
           title="Jen prodejny s tržbou v obou obdobích (srovnatelná báze)"
-          className={`h-8 shrink-0 rounded-full border px-3 text-[12px] font-semibold transition-colors disabled:opacity-40 ${
+          className={`${TOGGLE_BASE} ${
             filter.sameStore && filter.comparison !== "zadne"
               ? "border-ink-base bg-ink-base text-paper"
-              : "border-edge text-ink-deep hover:border-ink-soft"
+              : "border-edge bg-paper text-ink-deep hover:border-ink-soft"
           }`}
         >
           Stejné prodejny
         </button>
 
-        <div className="ml-auto flex items-center gap-2">
-          <Segment
-            options={currencies.map((c) => ({ value: c, label: c }))}
-            value={filter.currency}
-            onChange={(v) => update({ currency: v })}
-          />
+        <div className="ml-auto flex flex-wrap items-center gap-1.5">
+          {currencies.map((c) => (
+            <FilterChip key={c} active={filter.currency === c} onClick={() => update({ currency: c })} label={c} />
+          ))}
+          <span className="mx-1 hidden h-5 w-px bg-edge sm:block" aria-hidden="true" />
           <button
             type="button"
             onClick={() => update({ vatInclusive: !filter.vatInclusive })}
+            aria-pressed={filter.vatInclusive}
             title="Přepnout zobrazení s/bez DPH"
-            className="h-8 shrink-0 rounded-full border border-edge px-3 text-[12px] font-semibold text-ink-deep transition-colors hover:border-ink-soft"
+            className={`${TOGGLE_BASE} border-edge bg-paper text-ink-deep hover:border-ink-soft`}
           >
             {filter.vatInclusive ? "s DPH" : "bez DPH"}
           </button>
@@ -157,15 +157,7 @@ export function PosFilterBar({ concepts, unpaired, currencies, views, me }: Filt
   );
 }
 
-function Chip({
-  label,
-  accent = false,
-  onRemove,
-}: {
-  label: string;
-  accent?: boolean;
-  onRemove: () => void;
-}) {
+function Chip({ label, accent = false, onRemove }: { label: string; accent?: boolean; onRemove: () => void }) {
   return (
     <span
       className={[
@@ -178,62 +170,11 @@ function Chip({
         type="button"
         onClick={onRemove}
         aria-label={`Odebrat ${label}`}
-        className="grid h-5 w-5 place-items-center rounded-full text-ink-mid transition-colors hover:bg-ink-base hover:text-paper"
+        className="grid h-5 w-5 place-items-center rounded-full text-ink-mid transition-colors hover:bg-ink-base hover:text-paper focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-base"
       >
         <X className="h-3 w-3" strokeWidth={2.25} aria-hidden="true" />
       </button>
     </span>
-  );
-}
-
-function Pill({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={`h-8 rounded-full px-3 text-[12.5px] font-medium transition-colors ${
-        active ? "bg-ink-base text-paper" : "text-ink-deep hover:bg-edge-warm"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
-
-function Segment({
-  options,
-  value,
-  onChange,
-}: {
-  options: { value: string; label: string }[];
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <div className="inline-flex rounded-full border border-edge p-0.5">
-      {options.map((o) => (
-        <button
-          key={o.value}
-          type="button"
-          onClick={() => onChange(o.value)}
-          aria-pressed={value === o.value}
-          className={`h-7 rounded-full px-2.5 text-[12px] font-semibold tabular-nums transition-colors ${
-            value === o.value ? "bg-ink-base text-paper" : "text-ink-mid hover:text-ink-base"
-          }`}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
   );
 }
 
@@ -254,7 +195,7 @@ function Select({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-8 max-w-[200px] rounded-full border border-edge bg-paper px-3 text-[12.5px] text-ink-base outline-none transition-colors focus:border-ink-base"
+        className="h-9 max-w-[200px] rounded-full border border-edge bg-paper px-3 text-[12.5px] text-ink-base outline-none transition-colors focus-visible:border-ink-base focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2 focus-visible:ring-offset-paper"
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>

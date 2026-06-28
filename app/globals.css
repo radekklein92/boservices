@@ -87,6 +87,19 @@ body {
   }
 }
 
+/* Skrytý scrollbar (obsah zůstává scrollovatelný) — stejné oddělení jako výše:
+   webkit pro Chrome/Safari/Edge, scrollbar-width jen pro Firefox přes @supports.
+   .no-scrollbar má vyšší specificitu než globální `*`/`::-webkit-scrollbar`, takže vyhraje. */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;

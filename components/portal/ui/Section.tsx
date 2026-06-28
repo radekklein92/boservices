@@ -22,6 +22,9 @@ export function Section({
       {(title || action) && (
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
+            {/* Kanon nadpisu karetní sekce: 13px bold uppercase 0.12em ink-base.
+                (Inline labely datových bloků - např. POS - jsou lehčí varianta:
+                12px semibold 0.14em ink-mid.) */}
             {title && (
               <h2 className="text-[13px] font-bold uppercase tracking-[0.12em] text-ink-base">
                 {title}
