@@ -40,11 +40,11 @@ export default async function PosCitiesPage({
         lede="Tržby po městech (z párování pokladen) v rámci výběru a období."
       />
 
+      <PosSubNav />
+
       <Suspense fallback={<FilterBarSkeleton />}>
         <PosFilterBarLoader />
       </Suspense>
-
-      <PosSubNav />
 
       {!isPosApiConfigured() ? (
         <Notice title="POS data nejsou nakonfigurovaná" body="Nastavte POS_API_BASE a POS_API_KEY v prostředí (Vercel)." />

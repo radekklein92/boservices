@@ -86,11 +86,11 @@ export default async function PosOverviewPage({
         }
       />
 
+      <PosSubNav />
+
       <Suspense fallback={<FilterBarSkeleton />}>
         <PosFilterBarLoader />
       </Suspense>
-
-      <PosSubNav />
 
       {!isPosApiConfigured() ? (
         <Notice
@@ -130,7 +130,7 @@ export default async function PosOverviewPage({
 
 async function KpiSection({ filter, cur, useNet }: { filter: PosFilter; cur: string; useNet: boolean }) {
   // Denní zobrazení: férové srovnání "do teď" z hodinových dat (ne celý den vs část dne).
-  if (filter.preset === "dnes") return <KpiSectionDaily filter={filter} cur={cur} useNet={useNet} />;
+  if (filter.preset === "dnes") return <KpiSectionDaily filter={filter} cur={cur} />;
 
   let kpi: Awaited<ReturnType<typeof getKpiSummary>>;
   let trend: Awaited<ReturnType<typeof getDailyTrend>>;
@@ -201,75 +201,38 @@ async function KpiSection({ filter, cur, useNet }: { filter: PosFilter; cur: str
   );
 }
 
-// Denní KPI: vše z hodinových dat, srovnání jen do aktuální hodiny (férová frakce).
-async function KpiSectionDaily({ filter, cur, useNet }: { filter: PosFilter; cur: string; useNet: boolean }) {
-  let hourly: Awaited<ReturnType<typeof getHourlyTrend>>;
+// Denní KPI ("Dnes"): rychle ze summary (MV), bez delty - srovnání celého dne vs
+// část dne by bylo zavádějící (falešná červená); férové hodinové srovnání se vrátí
+// po optimalizaci DW (hodinová data přes celou síť jsou zatím pomalá).
+async function KpiSectionDaily({ filter, cur }: { filter: PosFilter; cur: string }) {
+  const useNet = !filter.vatInclusive;
   let kpi: Awaited<ReturnType<typeof getKpiSummary>>;
   try {
-    [hourly, kpi] = await Promise.all([getHourlyTrend(filter), getKpiSummary(filter)]);
+    kpi = await getKpiSummary(filter);
   } catch {
     return <WidgetError />;
   }
-  if (hourly.current.length === 0) {
+  const c = pickRow(kpi.current, cur);
+  if (!c) {
     return (
-      <Notice
-        title={`Pro ${cur} dnes zatím nejsou data`}
-        body="Zkuste jiný výběr prodejen nebo měnu ve filtru nahoře."
-      />
+      <Notice title={`Pro ${cur} dnes zatím nejsou data`} body="Zkuste jiný výběr prodejen nebo měnu ve filtru nahoře." />
     );
   }
-  const sum = (pts: HourPoint[], pred: (h: HourPoint) => boolean = () => true) =>
-    pts.reduce(
-      (a, h) => (pred(h) ? { gross: a.gross + h.gross, net: a.net + h.net, receipts: a.receipts + h.receipts } : a),
-      { gross: 0, net: 0, receipts: 0 },
-    );
-  const curT = sum(hourly.current);
-  const cmpT = hourly.comparison ? sum(hourly.comparison, (h) => h.hour <= hourly.nowHour) : null;
-  const revenue = useNet ? curT.net : curT.gross;
-  const prevRevenue = cmpT ? (useNet ? cmpT.net : cmpT.gross) : null;
-  const curAtv = curT.receipts > 0 ? curT.gross / curT.receipts : null;
-  const cmpAtv = cmpT && cmpT.receipts > 0 ? cmpT.gross / cmpT.receipts : null;
-  const refund = pickRow(kpi.current, cur)?.refund_rate ?? null;
-  const spark = hourly.current.map((h) => (useNet ? h.net : h.gross));
-  const sparkRec = hourly.current.map((h) => h.receipts);
-  const sparkAtv = hourly.current.map((h) => (h.receipts > 0 ? h.gross / h.receipts : 0));
-
+  const revenue = useNet ? c.net : c.gross;
   return (
     <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
       <PosKpiCard
-        label={`Tržby (${useNet ? "bez DPH" : "s DPH"})`}
+        label={`Tržby dnes (${useNet ? "bez DPH" : "s DPH"})`}
         value={formatPosMoneyCompact(revenue, cur)}
         valueTitle={formatPosMoney(revenue, cur)}
-        current={revenue}
-        previous={prevRevenue}
-        absolute={prevRevenue != null ? signedMoneyCompact(revenue - prevRevenue, cur) : undefined}
-        spark={spark}
         emphasis
       />
-      <PosKpiCard
-        label="Účtenky"
-        value={formatPosNumber(curT.receipts)}
-        current={curT.receipts}
-        previous={cmpT?.receipts ?? null}
-        absolute={cmpT ? signedNumber(curT.receipts - cmpT.receipts) : undefined}
-        spark={sparkRec}
-      />
+      <PosKpiCard label="Účtenky" value={formatPosNumber(c.receipts)} />
       <PosKpiCard
         label="Průměrný ticket"
-        value={curAtv != null ? formatPosMoney(curAtv, cur) : "—"}
-        current={curAtv ?? undefined}
-        previous={cmpAtv}
-        absolute={curAtv != null && cmpAtv != null ? signedMoneyCompact(curAtv - cmpAtv, cur) : undefined}
-        spark={sparkAtv}
+        value={c.avg_ticket != null ? formatPosMoney(c.avg_ticket, cur) : "—"}
       />
-      <PosKpiCard
-        label="Refundace"
-        value={refund != null ? formatPct(refund) : "—"}
-        current={refund ?? undefined}
-        previous={null}
-        goodDir="down"
-        deltaMode="pp"
-      />
+      <PosKpiCard label="Refundace" value={c.refund_rate != null ? formatPct(c.refund_rate) : "—"} />
     </div>
   );
 }

@@ -8,7 +8,7 @@ import { isPosApiConfigured } from "@/lib/portal/pos/api";
 import { CONCEPT_LABEL } from "@/components/portal/locations/locations-shared";
 import type { LocationConcept } from "@/lib/portal/locations-db";
 import { PosFilterBar } from "./PosFilterBar";
-import type { ConceptGroup, StoreOption, ViewLite } from "./pos-filter-shared";
+import type { CityOption, ConceptGroup, StoreOption, ViewLite } from "./pos-filter-shared";
 
 // Pořadí konceptů ve filtru (zrcadlí LocationConcept enum).
 const CONCEPT_ORDER: LocationConcept[] = [
@@ -24,6 +24,7 @@ export async function PosFilterBarLoader() {
   const me = { email, isAdmin: isAdminRole(session?.user?.role) };
 
   let concepts: ConceptGroup[] = [];
+  let cities: CityOption[] = [];
   let unpaired: StoreOption[] = [];
   let views = { own: [] as ViewLite[], shared: [] as ViewLite[], defaultId: null as string | null };
 
@@ -51,6 +52,25 @@ export async function PosFilterBarLoader() {
         locations: (byConcept.get(c) ?? []).sort((a, b) => a.name.localeCompare(b.name, "cs")),
       }));
 
+      // Města: pro každou prodejnu vezmi město z její první pokladny; počítej prodejny.
+      const cityCount = new Map<string, number>();
+      for (const [locId, shopIds] of index.shopsByLocation) {
+        if (!locById.has(locId)) continue;
+        let city = "";
+        for (const sid of shopIds) {
+          const c = index.cityByShop.get(sid);
+          if (c) {
+            city = c;
+            break;
+          }
+        }
+        if (!city) continue;
+        cityCount.set(city, (cityCount.get(city) ?? 0) + 1);
+      }
+      cities = [...cityCount.entries()]
+        .map(([city, count]) => ({ city, count }))
+        .sort((a, b) => a.city.localeCompare(b.city, "cs"));
+
       const paired = new Set(index.locationByShop.keys());
       unpaired = shops
         .filter((s) => !paired.has(s.id))
@@ -67,6 +87,7 @@ export async function PosFilterBarLoader() {
   return (
     <PosFilterBar
       concepts={concepts}
+      cities={cities}
       unpaired={unpaired}
       currencies={["CZK", "EUR", "PLN"]}
       views={views}

@@ -15,6 +15,11 @@ export interface ConceptGroup {
   locations: StoreOption[];
 }
 
+export interface CityOption {
+  city: string;
+  count: number; // počet prodejen ve městě
+}
+
 export interface ViewLite {
   id: string;
   name: string;
@@ -36,6 +41,7 @@ export interface MeInfo {
 
 export interface FilterBarData {
   concepts: ConceptGroup[];
+  cities: CityOption[];
   unpaired: StoreOption[]; // nenapárované pokladny (token "shop:{id}")
   currencies: string[];
   views: ViewsData;
