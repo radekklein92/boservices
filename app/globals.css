@@ -28,11 +28,13 @@ html {
   background: var(--color-paper);
   color: var(--color-ink-base);
   scroll-behavior: smooth;
-  /* Rezervuj místo pro svislý scrollbar vždycky (i když zrovna není potřeba).
-     Projekt používá classic webkit scrollbar (10px, zabírá šířku), takže když
-     po načtení obsahu scrollbar naskočí, jinak se zúží viewport a fixed prvky
-     (feedback bublina vpravo dole) i obsah „uskočí" doleva. stable to drží. */
-  scrollbar-gutter: stable;
+  /* Vždy zapnutý svislý scrollbar, ať se obsah ani fixed prvky (feedback bublina
+     vpravo dole) neposunou, když po načtení delšího obsahu scrollbar naskočí.
+     Projekt má classic webkit scrollbar (10px, zabírá šířku) a <html> má
+     overflow:visible - na tom scrollbar-gutter:stable místo NErezervuje (změřeno
+     v headed Chrome), proto overflow-y:scroll: drží scrollbar (track je
+     transparentní, palec jen když je co scrollovat) trvale = žádný posun. */
+  overflow-y: scroll;
 }
 
 body {
