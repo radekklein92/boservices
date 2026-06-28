@@ -225,7 +225,7 @@ export function LocationsTable({
           Icon={Building2}
           label="BOS prodejna"
           count={bosCounts.has}
-          title="BOS síť: podepsaná franšíza nebo NewCo, a není červeně (kromě „řešit i přes červenou“)"
+          title="BOS síť: podepsaná franšíza, nebo NewCo bez červené (kromě „řešit i přes červenou“)"
         />
         <FilterChip
           active={bosFilter === "missing"}
@@ -312,7 +312,7 @@ export function LocationsTable({
                 {bosSet.has(l.id) && (
                   <span
                     className={`${CHIP_BASE} border-emerald-300 bg-emerald-50 text-emerald-700`}
-                    title="BOS prodejna (franšíza nebo NewCo, není červeně)"
+                    title="BOS prodejna: podepsaná franšíza, nebo NewCo bez červené"
                   >
                     <Building2 className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
                     BOS

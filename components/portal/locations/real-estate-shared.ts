@@ -81,10 +81,12 @@ export function isRedBucket(
 }
 
 // ── „BOS prodejna" (sdílená odvozená proměnná napříč portálem) ───────────────
-// Lokalita patří do BOS sítě, když má podepsanou FRANŠÍZU (aspoň klientem; stejný
-// zdroj jako badge „franšíza" — listLocationFranchiseContracts) NEBO je v NEWCO
-// tabulce, a ZÁROVEŇ není označená ČERVENĚ. Výjimka: červené ručně určené k řešení
-// (solveDespiteRed) se z BOS NEVYLUČUJÍ — bereme je jako rozpracované do BOS.
+// Lokalita patří do BOS sítě, když:
+//  - má podepsanou FRANŠÍZU (aspoň klientem; stejný zdroj jako badge „franšíza" —
+//    listLocationFranchiseContracts) → BOS VŽDY; podepsaná franšíza PŘEBÍJÍ červenou.
+//  - NEBO je v NEWCO tabulce a NENÍ označená ČERVENĚ (vyjma ručně určených „řešit
+//    i přes červenou" / solveDespiteRed). Červená tedy rozhoduje JEN u prodejen,
+//    které jsou pouze v NewCo (bez franšízy).
 // Pozor: NEZAMĚŇOVAT s nájmovým cílem „na BOS" (prepis_na_ceip) — to je jiný pojem.
 // Single source of truth: počítá se server-side (kde jsou všechna data) a do UI
 // jdou jen hotové booleany; vstupy se na každé ploše berou ze stejných zdrojů.
@@ -94,24 +96,25 @@ export function isBosStore(
     "franchiseContractId" | "hasNewco" | "newco" | "manualRed" | "solveDespiteRed"
   >,
 ): boolean {
-  const inNetwork = Boolean(r.franchiseContractId) || r.hasNewco;
-  // Červená vylučuje z BOS — vyjma ručně označených „řešit i přes červenou".
-  const redExcludes = isRedFlagged(r) && !r.solveDespiteRed;
-  return inNetwork && !redExcludes;
+  // Podepsaná franšíza = BOS vždy (přebíjí červenou).
+  if (r.franchiseContractId) return true;
+  // Jinak jen NewCo lokalita, která není červeně (vyjma „řešit i přes červenou").
+  if (!r.hasNewco) return false;
+  return !(isRedFlagged(r) && !r.solveDespiteRed);
 }
 
-// Krátké vysvětlení výsledku isBosStore pro UI (proč Ano/Ne). Pořadí důvodů musí
-// odpovídat isBosStore: nejdřív vylučující červená, pak důvody zařazení.
+// Krátké vysvětlení výsledku isBosStore pro UI (proč Ano/Ne). Pořadí odpovídá
+// isBosStore: franšíza přebíjí vše, pak NewCo (kde teprve rozhoduje červená).
 export function bosStoreReason(
   r: Pick<
     RealEstateRow,
     "franchiseContractId" | "hasNewco" | "newco" | "manualRed" | "solveDespiteRed"
   >,
 ): string {
-  if (isRedFlagged(r) && !r.solveDespiteRed) return "označená červeně";
   if (r.franchiseContractId) return "podepsaná franšíza";
-  if (r.hasNewco) return "v NewCo tabulce";
-  return "mimo franšízu i NewCo";
+  if (!r.hasNewco) return "mimo franšízu i NewCo";
+  if (isRedFlagged(r) && !r.solveDespiteRed) return "označená červeně";
+  return "v NewCo tabulce";
 }
 
 // Globální počty tří kategorií — přesně jako chipy nad tabulkou (bez textového

@@ -119,7 +119,7 @@ export function LocationDetail({
           {isBos && (
             <span
               className={`${CHIP_BASE} border-emerald-300 bg-emerald-50 text-emerald-700`}
-              title="Lokalita patří do BOS sítě (franšíza nebo NewCo, není červeně)"
+              title="Patří do BOS sítě: podepsaná franšíza, nebo NewCo bez červené"
             >
               <Building2 className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
               BOS prodejna
@@ -211,7 +211,7 @@ export function LocationDetail({
             value={
               <span
                 className="inline-flex items-center gap-2"
-                title={`Patří do BOS sítě: má franšízu podepsanou klientem nebo je v NewCo tabulce, a není označená červeně (kromě „řešit i přes červenou“). Nejde o nájemní cíl „na BOS“.`}
+                title={`Patří do BOS sítě: podepsaná franšíza (přebíjí vše), nebo je v NewCo a není označená červeně (kromě „řešit i přes červenou“). Jiný pojem než nájemní cíl „na BOS“.`}
               >
                 <Chip
                   tone={
