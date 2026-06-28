@@ -4,10 +4,11 @@ import { DEFAULT_POS_FILTER } from "@/lib/portal/pos/filters";
 import {
   getAllShops,
   getBrands,
+  getConceptLeaderboardFull,
   getDailyTrend,
   getKpiSummary,
+  getLocationLeaderboardFull,
   getPeriodTotals,
-  getShopLeaderboardFull,
 } from "@/lib/portal/pos/queries";
 
 // Předehřátí POS cache (vercel.json cron). POS dotazy jsou cachované s klíčem
@@ -42,7 +43,8 @@ export async function GET(req: Request) {
     kpi: getKpiSummary(f),
     trend: getDailyTrend(f),
     periods: getPeriodTotals(f),
-    leaderboard: getShopLeaderboardFull(f),
+    prodejny: getLocationLeaderboardFull(f),
+    koncepty: getConceptLeaderboardFull(f),
   };
   const settled = await Promise.allSettled(Object.values(tasks));
   const keys = Object.keys(tasks);

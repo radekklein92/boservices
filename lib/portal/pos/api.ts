@@ -96,6 +96,9 @@ type RevenueParams = {
   currency?: string;
   brand_id?: string;
   shop_id?: string;
+  // CSV dwShopId pro multi-select (WHERE shop_id = ANY). Doplněno do DW; když
+  // chybí, endpoint se chová jako bez filtru. Viz queries.ts scopeApiParams.
+  shop_ids?: string;
 };
 type PageParams = { page?: number; limit?: number };
 
@@ -131,5 +134,6 @@ export const getRevenueByShop = (p: RevenueParams & PageParams) =>
   apiGet<Paged<ShopRevenueRow>>("/revenue/by-shop", p);
 export const getRevenueByBrand = (p: RevenueParams) =>
   apiGet<Listed<BrandRevenueRow>>("/revenue/by-brand", p);
-export const getToday = (p: { currency?: string; brand_id?: string; shop_id?: string } = {}) =>
-  apiGet<Listed<TodayRow>>("/analytics/today", p);
+export const getToday = (
+  p: { currency?: string; brand_id?: string; shop_id?: string; shop_ids?: string } = {},
+) => apiGet<Listed<TodayRow>>("/analytics/today", p);

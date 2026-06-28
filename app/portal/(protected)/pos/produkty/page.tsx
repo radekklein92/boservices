@@ -1,14 +1,18 @@
 import { Suspense } from "react";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { canSeePOS } from "@/lib/portal/auth-guard";
 import { getSession } from "@/lib/portal/get-session";
-import { posFilterFromSearchParams, type PosFilter } from "@/lib/portal/pos/filters";
+import { posFilterFromSearchParams, serializePosFilter, type PosFilter } from "@/lib/portal/pos/filters";
 import { getTopProducts } from "@/lib/portal/pos/queries";
 import { isPosApiConfigured } from "@/lib/portal/pos/api";
+import { PageHeader } from "@/components/portal/shell/PageHeader";
+import { PosFilterBarLoader } from "@/components/portal/pos/PosFilterBarLoader";
 import { formatPosMoney, formatPosNumber } from "@/components/portal/pos/pos-shared";
-import { LeaderboardSkeleton } from "@/components/portal/pos/skeletons";
+import { FilterBarSkeleton, LeaderboardSkeleton } from "@/components/portal/pos/skeletons";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Pokladna - Produkty" };
+export const metadata = { title: "Tржby - Produkty" };
 
 export default async function PosProductsPage({
   searchParams,
@@ -18,13 +22,33 @@ export default async function PosProductsPage({
   const session = await getSession();
   if (!canSeePOS(session?.user?.role)) return null;
   const filter = posFilterFromSearchParams(await searchParams);
-  if (!isPosApiConfigured()) {
-    return <Notice title="POS data nejsou nakonfigurovaná" body="Nastavte POS_API_BASE a POS_API_KEY v prostředí (Vercel)." />;
-  }
+  const backQs = serializePosFilter(filter).toString();
   return (
-    <Suspense fallback={<LeaderboardSkeleton rows={10} />}>
-      <ProductsTable filter={filter} />
-    </Suspense>
+    <>
+      <PageHeader
+        eyebrow={
+          <Link
+            href={`/portal/pos${backQs ? `?${backQs}` : ""}`}
+            className="inline-flex items-center gap-1.5 transition-colors hover:text-ink-base"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+            Tржby
+          </Link>
+        }
+        title="Produkty"
+        lede="Nejprodávanější položky v rámci výběru a období."
+      />
+      <Suspense fallback={<FilterBarSkeleton />}>
+        <PosFilterBarLoader />
+      </Suspense>
+      {!isPosApiConfigured() ? (
+        <Notice title="POS data nejsou nakonfigurovaná" body="Nastavte POS_API_BASE a POS_API_KEY v prostředí (Vercel)." />
+      ) : (
+        <Suspense fallback={<LeaderboardSkeleton rows={10} />}>
+          <ProductsTable filter={filter} />
+        </Suspense>
+      )}
+    </>
   );
 }
 

@@ -62,12 +62,12 @@ test("resolveComparisonRange - zadne = null", () => {
   assert.equal(resolveComparisonRange({ ...DEFAULT_POS_FILTER, comparison: "zadne" }, range), null);
 });
 
-test("parse/serialize round-trip", () => {
+test("parse/serialize round-trip - multi-select výběr", () => {
   const f: PosFilter = {
-    scope: { kind: "shop", shopId: "abc-123" },
+    selection: { concepts: ["KoP", "BB"], locations: ["loc-1", "shop:abc-123"] },
     preset: "minuly-mesic",
     comparison: "predchozi-rok",
-    sameStore: false,
+    sameStore: true,
     currency: "EUR",
     vatInclusive: false,
   };
@@ -75,7 +75,14 @@ test("parse/serialize round-trip", () => {
   assert.deepEqual(parsed, { ...f, from: undefined, to: undefined });
 });
 
-test("parsePosFilter - prázdné = default", () => {
+test("serializePosFilter - prázdný výběr ('vše') se neserializuje", () => {
+  const sp = serializePosFilter(DEFAULT_POS_FILTER);
+  assert.equal(sp.has("c"), false);
+  assert.equal(sp.has("l"), false);
+  assert.equal(sp.toString(), "");
+});
+
+test("parsePosFilter - prázdné = default (vše)", () => {
   // parse vrací from/to jako undefined klíče (sémanticky = default bez nich)
   assert.deepEqual(parsePosFilter(new URLSearchParams("")), {
     ...DEFAULT_POS_FILTER,
@@ -84,8 +91,39 @@ test("parsePosFilter - prázdné = default", () => {
   });
 });
 
-test("parsePosFilter - značka scope", () => {
-  const parsed = parsePosFilter(new URLSearchParams("scope=brand:xyz&cur=PLN"));
-  assert.deepEqual(parsed.scope, { kind: "brand", brandId: "xyz" });
+test("decodeConcepts - zahodí neznámé kódy a duplicity", () => {
+  const parsed = parsePosFilter(new URLSearchParams("c=KoP,NEEXISTUJE,KoP,OXO"));
+  assert.deepEqual(parsed.selection.concepts, ["KoP", "OXO"]);
+});
+
+test("parsePosFilter - jen koncepty", () => {
+  const parsed = parsePosFilter(new URLSearchParams("c=TK&cur=PLN"));
+  assert.deepEqual(parsed.selection, { concepts: ["TK"], locations: [] });
   assert.equal(parsed.currency, "PLN");
+});
+
+test("zpětná kompat - legacy ?scope=brand: -> token v locations", () => {
+  const parsed = parsePosFilter(new URLSearchParams("scope=brand:xyz&cur=PLN"));
+  assert.deepEqual(parsed.selection, { concepts: [], locations: ["brand:xyz"] });
+  assert.equal(parsed.currency, "PLN");
+});
+
+test("zpětná kompat - legacy ?scope=shop: a city:", () => {
+  assert.deepEqual(parsePosFilter(new URLSearchParams("scope=shop:s-1")).selection, {
+    concepts: [],
+    locations: ["shop:s-1"],
+  });
+  assert.deepEqual(parsePosFilter(new URLSearchParams("scope=city:Praha")).selection, {
+    concepts: [],
+    locations: ["city:Praha"],
+  });
+  assert.deepEqual(parsePosFilter(new URLSearchParams("scope=all")).selection, {
+    concepts: [],
+    locations: [],
+  });
+});
+
+test("nový výběr přebíjí legacy scope", () => {
+  const parsed = parsePosFilter(new URLSearchParams("c=KoP&scope=brand:xyz"));
+  assert.deepEqual(parsed.selection, { concepts: ["KoP"], locations: [] });
 });

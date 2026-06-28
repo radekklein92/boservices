@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { canSeePOS } from "@/lib/portal/auth-guard";
 import { getSession } from "@/lib/portal/get-session";
+import { PageHeader } from "@/components/portal/shell/PageHeader";
 import { COMPARISON_LABEL, parsePosFilter, serializePosFilter, type PosFilter } from "@/lib/portal/pos/filters";
 import {
   getAllShops,
@@ -14,29 +15,27 @@ import {
   getTopProducts,
   getVatSplit,
 } from "@/lib/portal/pos/queries";
+import { cachedListLocations } from "@/lib/portal/cached-db";
 import { isPosApiConfigured } from "@/lib/portal/pos/api";
 import type { Daypart, DayPoint, SummaryRow } from "@/lib/portal/pos/types";
 import { PosKpiCard } from "@/components/portal/pos/PosKpiCard";
 import { PosLineChart } from "@/components/portal/pos/PosLineChart";
 import { PosHeatmap } from "@/components/portal/pos/PosHeatmap";
 import { PosBars, type BarRow } from "@/components/portal/pos/PosBars";
-import {
-  BarsRowSkeleton,
-  ChartSkeleton,
-  KpiStripSkeleton,
-} from "@/components/portal/pos/skeletons";
+import { BarsRowSkeleton, ChartSkeleton, KpiStripSkeleton } from "@/components/portal/pos/skeletons";
 import {
   DAYPART_LABEL,
   formatPosMoney,
   formatPosMoneyCompact,
   formatPosNumber,
+  formatPct,
   normalizeVatRate,
   signedMoneyCompact,
   signedNumber,
 } from "@/components/portal/pos/pos-shared";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Pokladna - Detail provozovny" };
+export const metadata = { title: "Tržby - Detail prodejny" };
 
 const DP_ORDER: Daypart[] = ["rano", "dopoledne", "poledne", "odpoledne", "vecer", "noc"];
 
@@ -44,7 +43,6 @@ function fmtDayLabel(date: string): string {
   const [, m, d] = date.split("-");
   return `${Number(d)}.${Number(m)}.`;
 }
-
 function searchParamsToUsp(sp: Record<string, string | string[] | undefined>): URLSearchParams {
   const usp = new URLSearchParams();
   for (const [k, v] of Object.entries(sp)) {
@@ -53,126 +51,115 @@ function searchParamsToUsp(sp: Record<string, string | string[] | undefined>): U
   }
   return usp;
 }
-
 function pickRow(rows: SummaryRow[] | null, currency: string): SummaryRow | null {
   return rows?.find((r) => r.currency === currency) ?? null;
 }
 
-// Detail provozovny - sekce streamují nezávisle pod <Suspense>. Klíčové: heatmapa
-// (DW endpoint ~3,7 s) má vlastní boundary, takže neblokuje hlavičku/KPI/graf,
-// které dostreamují do ~1 s.
-export default async function PosShopDetailPage({
+// Detail prodejny = výběr zúžený na jednu lokalitu (rollup jejích pokladen).
+// Sekce streamují nezávisle pod <Suspense>; heatmapa (drahý DW scan) má vlastní
+// boundary, takže neblokuje KPI/graf.
+export default async function PosLocationDetailPage({
   params,
   searchParams,
 }: {
-  params: Promise<{ shopId: string }>;
+  params: Promise<{ locationId: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const session = await getSession();
   if (!canSeePOS(session?.user?.role)) return null;
-  const { shopId } = await params;
+  const { locationId: raw } = await params;
+  const locationId = decodeURIComponent(raw);
   const baseFilter = parsePosFilter(searchParamsToUsp(await searchParams));
-  const filter: PosFilter = { ...baseFilter, scope: { kind: "shop", shopId } };
+  const filter: PosFilter = { ...baseFilter, selection: { concepts: [], locations: [locationId] } };
   const cur = filter.currency;
   const useNet = !filter.vatInclusive;
   const backQs = serializePosFilter(baseFilter).toString();
-  const backHref = `/portal/pos/provozovny${backQs ? `?${backQs}` : ""}`;
+  const backHref = `/portal/pos/prodejny${backQs ? `?${backQs}` : ""}`;
 
-  if (!isPosApiConfigured()) {
-    return (
-      <div className="flex flex-col gap-4">
-        <BackLink href={backHref} />
-        <Notice title="POS data nejsou nakonfigurovaná" body="Nastavte POS_API_BASE a POS_API_KEY (Vercel)." />
-      </div>
-    );
+  // Název prodejny (cheap, cachované číselníky).
+  let name = "Prodejna";
+  try {
+    if (locationId.startsWith("shop:")) {
+      const shops = await getAllShops();
+      name = shops.find((s) => s.id === locationId.slice(5))?.name ?? "Pokladna";
+    } else {
+      const locs = await cachedListLocations();
+      name = locs.find((l) => l.id === locationId)?.name ?? "Prodejna";
+    }
+  } catch {
+    /* fallback name */
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <BackLink href={backHref} />
-
-      <Suspense
-        fallback={
-          <div className="flex flex-col gap-6">
-            <div className="h-7 w-56 animate-pulse rounded-lg bg-edge-warm" />
-            <KpiStripSkeleton />
-            <ChartSkeleton height={240} />
-          </div>
+    <>
+      <PageHeader
+        eyebrow={
+          <Link href={backHref} className="inline-flex items-center gap-1.5 transition-colors hover:text-ink-base">
+            <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+            Prodejny
+          </Link>
         }
-      >
-        <DetailHeader shopId={shopId} filter={filter} cur={cur} useNet={useNet} />
-      </Suspense>
+        title={name}
+      />
 
-      <section className="flex flex-col gap-3">
-        <H2>Hodina x den</H2>
-        <Suspense fallback={<ChartSkeleton height={300} />}>
-          <HeatmapSection filter={filter} cur={cur} />
-        </Suspense>
-      </section>
+      {!isPosApiConfigured() ? (
+        <Notice title="POS data nejsou nakonfigurovaná" body="Nastavte POS_API_BASE a POS_API_KEY (Vercel)." />
+      ) : (
+        <div className="flex flex-col gap-6">
+          <Suspense fallback={<div className="flex flex-col gap-6"><KpiStripSkeleton /><ChartSkeleton height={240} /></div>}>
+            <DetailHeader filter={filter} cur={cur} useNet={useNet} />
+          </Suspense>
 
-      <Suspense fallback={<BarsRowSkeleton />}>
-        <BreakdownSection filter={filter} cur={cur} useNet={useNet} />
-      </Suspense>
+          <section className="flex flex-col gap-3">
+            <H2>Hodina x den</H2>
+            <Suspense fallback={<ChartSkeleton height={300} />}>
+              <HeatmapSection filter={filter} cur={cur} />
+            </Suspense>
+          </section>
 
-      <Suspense fallback={<ChartSkeleton height={200} />}>
-        <ProductsSection filter={filter} cur={cur} useNet={useNet} />
-      </Suspense>
-    </div>
+          <Suspense fallback={<BarsRowSkeleton />}>
+            <BreakdownSection filter={filter} cur={cur} useNet={useNet} />
+          </Suspense>
+
+          <Suspense fallback={<ChartSkeleton height={200} />}>
+            <ProductsSection filter={filter} cur={cur} useNet={useNet} />
+          </Suspense>
+        </div>
+      )}
+    </>
   );
 }
 
-async function DetailHeader({
-  shopId,
-  filter,
-  cur,
-  useNet,
-}: {
-  shopId: string;
-  filter: PosFilter;
-  cur: string;
-  useNet: boolean;
-}) {
+async function DetailHeader({ filter, cur, useNet }: { filter: PosFilter; cur: string; useNet: boolean }) {
   let kpi: Awaited<ReturnType<typeof getKpiSummary>>;
   let trend: Awaited<ReturnType<typeof getDailyTrend>>;
-  let shopsRaw: Awaited<ReturnType<typeof getAllShops>>;
   try {
-    [kpi, trend, shopsRaw] = await Promise.all([getKpiSummary(filter), getDailyTrend(filter), getAllShops()]);
+    [kpi, trend] = await Promise.all([getKpiSummary(filter), getDailyTrend(filter)]);
   } catch {
-    return <Notice title="Data dočasně nedostupná" body="Nepodařilo se načíst data provozovny." />;
+    return <Notice title="Data dočasně nedostupná" body="Nepodařilo se načíst data prodejny." />;
   }
-  const shopName = shopsRaw.find((s) => s.id === shopId)?.name ?? "Provozovna";
   const c = pickRow(kpi.current, cur);
   const p = pickRow(kpi.comparison, cur);
   const days = trend.current;
-  const sparkNet = days.map((d) => d.net);
-  const sparkGross = days.map((d) => d.gross);
+  const sparkRevenue = days.map((d) => (useNet ? d.net : d.gross));
   const sparkReceipts = days.map((d) => d.receipts);
   const sparkAtv = days.map((d) => (d.receipts > 0 ? d.gross / d.receipts : 0));
+  const revenue = c ? (useNet ? c.net : c.gross) : 0;
+  const prevRevenue = useNet ? p?.net : p?.gross;
 
   return (
     <div className="flex flex-col gap-6">
-      <h2 className="text-[1.5rem] font-extrabold leading-tight tracking-[-0.025em] text-ink-base">{shopName}</h2>
-
       {c ? (
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <PosKpiCard
-            label="Čisté tržby"
-            value={formatPosMoneyCompact(c.net, cur)}
-            valueTitle={formatPosMoney(c.net, cur)}
-            current={c.net}
-            previous={p?.net ?? null}
-            absolute={p ? signedMoneyCompact(c.net - p.net, cur) : undefined}
-            spark={sparkNet}
+            label={`Tржby (${useNet ? "bez DPH" : "s DPH"})`}
+            value={formatPosMoneyCompact(revenue, cur)}
+            valueTitle={formatPosMoney(revenue, cur)}
+            current={revenue}
+            previous={prevRevenue ?? null}
+            absolute={prevRevenue != null ? signedMoneyCompact(revenue - prevRevenue, cur) : undefined}
+            spark={sparkRevenue}
             emphasis
-          />
-          <PosKpiCard
-            label="Hrubé tržby"
-            value={formatPosMoneyCompact(c.gross, cur)}
-            valueTitle={formatPosMoney(c.gross, cur)}
-            current={c.gross}
-            previous={p?.gross ?? null}
-            absolute={p ? signedMoneyCompact(c.gross - p.gross, cur) : undefined}
-            spark={sparkGross}
           />
           <PosKpiCard
             label="Účtenky"
@@ -183,19 +170,27 @@ async function DetailHeader({
             spark={sparkReceipts}
           />
           <PosKpiCard
-            label="Průměrná útrata"
+            label="Průměrný ticket"
             value={c.avg_ticket != null ? formatPosMoney(c.avg_ticket, cur) : "—"}
             current={c.avg_ticket ?? undefined}
             previous={p?.avg_ticket ?? null}
             spark={sparkAtv}
           />
+          <PosKpiCard
+            label="Refundace"
+            value={c.refund_rate != null ? formatPct(c.refund_rate) : "—"}
+            current={c.refund_rate ?? undefined}
+            previous={p?.refund_rate ?? null}
+            goodDir="down"
+            deltaMode="pp"
+          />
         </div>
       ) : (
-        <Notice title={`Pro ${cur} nejsou v tomto období data`} body="Zkuste jiné období nebo měnu ve filtru nahoře." />
+        <Notice title={`Pro ${cur} nejsou v tomto období data`} body="Zkuste jinou měnu nebo se vraťte na žebříček." />
       )}
 
       <section className="flex flex-col gap-3">
-        <H2>Vývoj tržeb ({useNet ? "čisté" : "s DPH"})</H2>
+        <H2>Vývoj tržeb ({useNet ? "bez DPH" : "s DPH"})</H2>
         <Trend trend={trend} filter={filter} useNet={useNet} />
       </section>
     </div>
@@ -348,7 +343,6 @@ function Trend({
 function H2({ children }: { children: React.ReactNode }) {
   return <h2 className="text-[12px] font-semibold uppercase tracking-[0.14em] text-ink-mid">{children}</h2>;
 }
-
 function WidgetError() {
   return (
     <div className="rounded-2xl border border-edge bg-paper px-4 py-6 text-center text-[13px] text-ink-mid">
@@ -356,19 +350,6 @@ function WidgetError() {
     </div>
   );
 }
-
-function BackLink({ href }: { href: string }) {
-  return (
-    <Link
-      href={href}
-      className="inline-flex w-fit items-center gap-1.5 text-[12.5px] font-medium text-ink-mid transition-colors hover:text-ink-base"
-    >
-      <ArrowLeft className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
-      Zpět na provozovny
-    </Link>
-  );
-}
-
 function Notice({ title, body }: { title: string; body: string }) {
   return (
     <div className="rounded-2xl border border-edge bg-paper p-6">

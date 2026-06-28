@@ -1,27 +1,27 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { ArrowRight, Info } from "lucide-react";
+import { redirect } from "next/navigation";
+import { Activity, ArrowUpRight, Info, Layers, MapPin, Package, Receipt, Store } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { canSeePOS } from "@/lib/portal/auth-guard";
 import { getSession } from "@/lib/portal/get-session";
-import { COMPARISON_LABEL, parsePosFilter, serializePosFilter, type PosFilter } from "@/lib/portal/pos/filters";
+import { PageHeader } from "@/components/portal/shell/PageHeader";
 import {
-  getAllShops,
-  getDailyTrend,
-  getKpiSummary,
-  getPeriodTotals,
-  getShopLeaderboardFull,
-} from "@/lib/portal/pos/queries";
+  COMPARISON_LABEL,
+  parsePosFilter,
+  serializePosFilter,
+  type PosFilter,
+} from "@/lib/portal/pos/filters";
+import { getDailyTrend, getKpiSummary, getLocationLeaderboardFull, getPeriodTotals } from "@/lib/portal/pos/queries";
+import { getDefaultView } from "@/lib/portal/pos/views-db";
 import { isPosApiConfigured } from "@/lib/portal/pos/api";
-import type { DayPoint, ShopRevenueRowWithPrev, SummaryRow } from "@/lib/portal/pos/types";
+import type { DayPoint, LocationRevenueRowWithPrev, SummaryRow } from "@/lib/portal/pos/types";
 import { PosKpiCard } from "@/components/portal/pos/PosKpiCard";
 import { PosLineChart } from "@/components/portal/pos/PosLineChart";
 import { PosDeltaBadge } from "@/components/portal/pos/PosDeltaBadge";
-import {
-  ChartSkeleton,
-  KpiGridSkeleton,
-  LeaderboardSkeleton,
-  PanelSkeleton,
-} from "@/components/portal/pos/skeletons";
+import { PosSyncBadge } from "@/components/portal/pos/PosSyncBadge";
+import { PosFilterBarLoader } from "@/components/portal/pos/PosFilterBarLoader";
+import { ChartSkeleton, FilterBarSkeleton, KpiStripSkeleton, LeaderboardSkeleton, PanelSkeleton } from "@/components/portal/pos/skeletons";
 import {
   formatPosMoney,
   formatPosMoneyCompact,
@@ -32,7 +32,7 @@ import {
 } from "@/components/portal/pos/pos-shared";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Pokladna - Přehled" };
+export const metadata = { title: "Tržby - Přehled" };
 
 function fmtDayLabel(date: string): string {
   const [, m, d] = date.split("-");
@@ -52,9 +52,6 @@ function pickRow(rows: SummaryRow[] | null, currency: string): SummaryRow | null
   return rows?.find((r) => r.currency === currency) ?? null;
 }
 
-// Stránka NEawaituje data - jen session + filtr (levné). Každý widget je vlastní
-// async server komponenta pod <Suspense> -> shell + skeletony paintnou hned a
-// widgety dostreamují nezávisle (žádný blokující Promise.all přes všechno).
 export default async function PosOverviewPage({
   searchParams,
 }: {
@@ -62,59 +59,89 @@ export default async function PosOverviewPage({
 }) {
   const session = await getSession();
   if (!canSeePOS(session?.user?.role)) return null;
-  const filter = parsePosFilter(searchParamsToUsp(await searchParams));
-  const cur = filter.currency;
-  const useNet = !filter.vatInclusive;
+  const spObj = await searchParams;
 
-  if (!isPosApiConfigured()) {
-    return (
-      <Notice
-        title="POS data nejsou nakonfigurovaná"
-        body="Nastavte POS_API_BASE a POS_API_KEY v prostředí (Vercel) - dashboard pak začne číst z API Data Warehouse."
-      />
-    );
+  // Výchozí pohled se aplikuje JEN na úplně prázdný vstup (URL je king). Po
+  // redirectu už searchParams nejsou prázdné -> žádná smyčka.
+  if (Object.keys(spObj).length === 0 && session?.user?.email) {
+    const def = await getDefaultView(session.user.email);
+    if (def?.filter) redirect(`/portal/pos?${def.filter}`);
   }
 
+  const filter = parsePosFilter(searchParamsToUsp(spObj));
+  const cur = filter.currency;
+  const useNet = !filter.vatInclusive;
+  const qs = serializePosFilter(filter).toString();
+  const sub = (path: string) => `/portal/pos/${path}${qs ? `?${qs}` : ""}`;
+
   return (
-    <div className="flex flex-col gap-6">
-      {filter.comparison === "predchozi-rok" && (
-        <div className="flex items-start gap-2.5 rounded-xl border border-edge bg-edge-warm px-4 py-2.5 text-[12.5px] text-ink-deep">
-          <Info className="mt-0.5 h-4 w-4 shrink-0 text-ink-mid" strokeWidth={1.75} aria-hidden="true" />
-          <span>
-            Srovnání s předchozím rokem je orientační - síť byla loni výrazně menší (souvislá data od ledna 2026),
-            takže delty odrážejí hlavně růst počtu poboček, ne výkon. Pro srovnání výkonu použijte „Předchozí období".
-          </span>
+    <>
+      <PageHeader
+        eyebrow="Provoz"
+        title="Tржby"
+        lede="Pokladní přehled napříč prodejnami a koncepty - tržby, účtenky a žebříčky."
+        actions={
+          <Suspense fallback={null}>
+            <PosSyncBadge />
+          </Suspense>
+        }
+      />
+
+      <Suspense fallback={<FilterBarSkeleton />}>
+        <PosFilterBarLoader />
+      </Suspense>
+
+      {!isPosApiConfigured() ? (
+        <Notice
+          title="POS data nejsou nakonfigurovaná"
+          body="Nastavte POS_API_BASE a POS_API_KEY v prostředí (Vercel) - dashboard pak začne číst z API Data Warehouse."
+        />
+      ) : (
+        <div className="flex flex-col gap-6">
+          {filter.comparison === "predchozi-rok" && (
+            <div className="flex items-start gap-2.5 rounded-xl border border-edge bg-edge-warm px-4 py-2.5 text-[12.5px] text-ink-deep">
+              <Info className="mt-0.5 h-4 w-4 shrink-0 text-ink-mid" strokeWidth={1.75} aria-hidden="true" />
+              <span>
+                Srovnání s předchozím rokem je orientační - síť byla loni výrazně menší (souvislá data od ledna 2026),
+                takže delty odrážejí hlavně růst počtu prodejen, ne výkon. Pro srovnání výkonu použijte „Předchozí období".
+              </span>
+            </div>
+          )}
+
+          <Suspense fallback={<KpiStripSkeleton cards={4} />}>
+            <KpiSection filter={filter} cur={cur} useNet={useNet} />
+          </Suspense>
+
+          <div className="grid gap-5 lg:grid-cols-3">
+            <section className="flex flex-col gap-3 lg:col-span-2">
+              <h2 className="text-[12px] font-semibold uppercase tracking-[0.14em] text-ink-mid">
+                Vývoj tržeb ({useNet ? "bez DPH" : "s DPH"})
+              </h2>
+              <Suspense fallback={<ChartSkeleton />}>
+                <TrendSection filter={filter} useNet={useNet} />
+              </Suspense>
+            </section>
+            <Suspense fallback={<PanelSkeleton />}>
+              <PeriodSection filter={filter} cur={cur} useNet={useNet} />
+            </Suspense>
+          </div>
+
+          <Suspense fallback={<LeaderboardSkeleton />}>
+            <HighlightsSection filter={filter} useNet={useNet} qs={qs} />
+          </Suspense>
+
+          <Suspense fallback={null}>
+            <TilesSection filter={filter} sub={sub} />
+          </Suspense>
         </div>
       )}
-
-      <Suspense fallback={<KpiGridSkeleton />}>
-        <KpiSection filter={filter} cur={cur} />
-      </Suspense>
-
-      <div className="grid gap-5 lg:grid-cols-3">
-        <section className="flex flex-col gap-3 lg:col-span-2">
-          <h2 className="text-[12px] font-semibold uppercase tracking-[0.14em] text-ink-mid">
-            Vývoj tržeb ({useNet ? "čisté" : "s DPH"})
-          </h2>
-          <Suspense fallback={<ChartSkeleton />}>
-            <TrendSection filter={filter} useNet={useNet} />
-          </Suspense>
-        </section>
-        <Suspense fallback={<PanelSkeleton />}>
-          <PeriodSection filter={filter} cur={cur} useNet={useNet} />
-        </Suspense>
-      </div>
-
-      <Suspense fallback={<LeaderboardSkeleton />}>
-        <HighlightsSection filter={filter} useNet={useNet} />
-      </Suspense>
-    </div>
+    </>
   );
 }
 
-// --- Widget sekce (každá fetchne svůj slice; chyba/prázdno degraduje lokálně) ---
+// --- 4 KPI: Tržby (net|gross dle DPH), Účtenky, Průměrný ticket, Refundace ---
 
-async function KpiSection({ filter, cur }: { filter: PosFilter; cur: string }) {
+async function KpiSection({ filter, cur, useNet }: { filter: PosFilter; cur: string; useNet: boolean }) {
   let kpi: Awaited<ReturnType<typeof getKpiSummary>>;
   let trend: Awaited<ReturnType<typeof getDailyTrend>>;
   try {
@@ -128,37 +155,28 @@ async function KpiSection({ filter, cur }: { filter: PosFilter; cur: string }) {
     return (
       <Notice
         title={`Pro ${cur} nejsou v tomto období data`}
-        body="Zkuste jiné období, značku nebo měnu ve filtru nahoře."
+        body="Zkuste jiné období, výběr prodejen nebo měnu ve filtru nahoře."
       />
     );
   }
   const days = trend.current;
-  const sparkNet = days.map((d) => d.net);
-  const sparkGross = days.map((d) => d.gross);
+  const sparkRevenue = days.map((d) => (useNet ? d.net : d.gross));
   const sparkReceipts = days.map((d) => d.receipts);
-  const sparkVat = days.map((d) => Math.max(0, d.gross - d.net));
   const sparkAtv = days.map((d) => (d.receipts > 0 ? d.gross / d.receipts : 0));
+  const revenue = useNet ? c.net : c.gross;
+  const prevRevenue = useNet ? p?.net : p?.gross;
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
       <PosKpiCard
-        label="Čisté tržby"
-        value={formatPosMoneyCompact(c.net, cur)}
-        valueTitle={formatPosMoney(c.net, cur)}
-        current={c.net}
-        previous={p?.net ?? null}
-        absolute={p ? signedMoneyCompact(c.net - p.net, cur) : undefined}
-        spark={sparkNet}
+        label={`Tржby (${useNet ? "bez DPH" : "s DPH"})`}
+        value={formatPosMoneyCompact(revenue, cur)}
+        valueTitle={formatPosMoney(revenue, cur)}
+        current={revenue}
+        previous={prevRevenue ?? null}
+        absolute={prevRevenue != null ? signedMoneyCompact(revenue - prevRevenue, cur) : undefined}
+        spark={sparkRevenue}
         emphasis
-      />
-      <PosKpiCard
-        label="Hrubé tržby"
-        value={formatPosMoneyCompact(c.gross, cur)}
-        valueTitle={formatPosMoney(c.gross, cur)}
-        current={c.gross}
-        previous={p?.gross ?? null}
-        absolute={p ? signedMoneyCompact(c.gross - p.gross, cur) : undefined}
-        spark={sparkGross}
       />
       <PosKpiCard
         label="Účtenky"
@@ -169,29 +187,25 @@ async function KpiSection({ filter, cur }: { filter: PosFilter; cur: string }) {
         spark={sparkReceipts}
       />
       <PosKpiCard
-        label="Průměrná útrata"
+        label="Průměrný ticket"
         value={c.avg_ticket != null ? formatPosMoney(c.avg_ticket, cur) : "—"}
         current={c.avg_ticket ?? undefined}
         previous={p?.avg_ticket ?? null}
-        absolute={c.avg_ticket != null && p?.avg_ticket != null ? signedMoneyCompact(c.avg_ticket - p.avg_ticket, cur) : undefined}
+        absolute={
+          c.avg_ticket != null && p?.avg_ticket != null
+            ? signedMoneyCompact(c.avg_ticket - p.avg_ticket, cur)
+            : undefined
+        }
         spark={sparkAtv}
       />
       <PosKpiCard
         label="Refundace"
         value={c.refund_rate != null ? formatPct(c.refund_rate) : "—"}
+        valueTitle={c.refund_rate == null ? "Pro tento výběr zatím neevidováno" : undefined}
         current={c.refund_rate ?? undefined}
         previous={p?.refund_rate ?? null}
         goodDir="down"
         deltaMode="pp"
-      />
-      <PosKpiCard
-        label="DPH"
-        value={formatPosMoneyCompact(c.vat, cur)}
-        valueTitle={formatPosMoney(c.vat, cur)}
-        current={c.vat}
-        previous={p?.vat ?? null}
-        absolute={p ? signedMoneyCompact(c.vat - p.vat, cur) : undefined}
-        spark={sparkVat}
       />
     </div>
   );
@@ -203,6 +217,13 @@ async function TrendSection({ filter, useNet }: { filter: PosFilter; useNet: boo
     trend = await getDailyTrend(filter);
   } catch {
     return <WidgetError />;
+  }
+  if (trend.degraded) {
+    return (
+      <div className="grid h-[200px] place-items-center rounded-2xl border border-edge bg-paper px-6 text-center text-[13px] text-ink-mid">
+        Graf trendu není pro tak velký ruční výběr prodejen k dispozici. Vyberte koncept nebo méně prodejen.
+      </div>
+    );
   }
   if (trend.current.length === 0) {
     return (
@@ -271,24 +292,20 @@ async function PeriodSection({ filter, cur, useNet }: { filter: PosFilter; cur: 
 
 type HiRow = { id: string; name: string; value: number; prev: number | null };
 
-async function HighlightsSection({ filter, useNet }: { filter: PosFilter; useNet: boolean }) {
-  let leaderboard: ShopRevenueRowWithPrev[];
-  let shopsRaw: Awaited<ReturnType<typeof getAllShops>>;
+async function HighlightsSection({ filter, useNet, qs }: { filter: PosFilter; useNet: boolean; qs: string }) {
+  let leaderboard: LocationRevenueRowWithPrev[];
   try {
-    [leaderboard, shopsRaw] = await Promise.all([getShopLeaderboardFull(filter), getAllShops()]);
+    leaderboard = await getLocationLeaderboardFull(filter);
   } catch {
     return <WidgetError />;
   }
-  const shopName = new Map(shopsRaw.map((s) => [s.id, s.name]));
   const cur = filter.currency;
-  const rows: HiRow[] = leaderboard
-    .filter((r) => shopName.has(r.shop_id))
-    .map((r) => ({
-      id: r.shop_id,
-      name: shopName.get(r.shop_id) as string,
-      value: useNet ? r.net : r.gross,
-      prev: useNet ? r.prevNet : r.prevGross,
-    }));
+  const rows: HiRow[] = leaderboard.map((r) => ({
+    id: r.locationId,
+    name: r.name,
+    value: useNet ? r.net : r.gross,
+    prev: useNet ? r.prevNet : r.prevGross,
+  }));
   if (rows.length === 0) return null;
 
   const top = [...rows].sort((a, b) => b.value - a.value).slice(0, 5);
@@ -297,12 +314,11 @@ async function HighlightsSection({ filter, useNet }: { filter: PosFilter; useNet
     .sort((a, b) => (a.value - (a.prev as number)) / (a.prev as number) - (b.value - (b.prev as number)) / (b.prev as number))
     .slice(0, 5);
 
-  const qs = serializePosFilter(filter).toString();
-  const allHref = `/portal/pos/provozovny${qs ? `?${qs}` : ""}`;
+  const allHref = `/portal/pos/prodejny${qs ? `?${qs}` : ""}`;
 
   return (
     <div className={`grid gap-5 ${decliners.length > 0 ? "lg:grid-cols-2" : ""}`}>
-      <HiPanel title="Nejlepší provozovny" href={allHref} rows={top} cur={cur} />
+      <HiPanel title="Nejlepší prodejny" href={allHref} rows={top} cur={cur} />
       {decliners.length > 0 && (
         <HiPanel title={`Pokles vs ${COMPARISON_LABEL[filter.comparison].toLowerCase()}`} rows={decliners} cur={cur} />
       )}
@@ -310,17 +326,7 @@ async function HighlightsSection({ filter, useNet }: { filter: PosFilter; useNet
   );
 }
 
-function HiPanel({
-  title,
-  href,
-  rows,
-  cur,
-}: {
-  title: string;
-  href?: string;
-  rows: HiRow[];
-  cur: string;
-}) {
+function HiPanel({ title, href, rows, cur }: { title: string; href?: string; rows: HiRow[]; cur: string }) {
   return (
     <section className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
@@ -331,16 +337,13 @@ function HiPanel({
             className="inline-flex items-center gap-1 text-[12px] font-medium text-ink-mid transition-colors hover:text-ink-base"
           >
             Celý žebříček
-            <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+            <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
           </Link>
         )}
       </div>
       <div className="overflow-hidden rounded-2xl border border-edge bg-paper">
         {rows.map((r) => (
-          <div
-            key={r.id}
-            className="flex items-center gap-3 border-b border-edge/60 px-4 py-2.5 text-[13px] last:border-0"
-          >
+          <div key={r.id} className="flex items-center gap-3 border-b border-edge/60 px-4 py-2.5 text-[13px] last:border-0">
             <span className="min-w-0 flex-1 truncate text-ink-base">{r.name}</span>
             <span className="shrink-0 tabular-nums text-ink-deep">{formatPosMoneyCompact(r.value, cur)}</span>
             <PosDeltaBadge current={r.value} previous={r.prev} className="w-[64px] shrink-0 justify-end text-[11px]" />
@@ -348,6 +351,77 @@ function HiPanel({
         ))}
       </div>
     </section>
+  );
+}
+
+// --- Rozcestník dlaždic na podsekce ---
+
+async function TilesSection({ filter, sub }: { filter: PosFilter; sub: (p: string) => string }) {
+  let leaderboard: LocationRevenueRowWithPrev[] = [];
+  try {
+    leaderboard = await getLocationLeaderboardFull(filter);
+  } catch {
+    leaderboard = [];
+  }
+  const prodejny = leaderboard.length;
+  const koncepty = new Set(leaderboard.map((r) => r.concept)).size;
+
+  return (
+    <section className="flex flex-col gap-3">
+      <h2 className="text-[12px] font-semibold uppercase tracking-[0.14em] text-ink-mid">Procházet</h2>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Tile Icon={Store} label="Prodejny" value={prodejny} caption="Žebříček prodejen" href={sub("prodejny")} />
+        <Tile Icon={Layers} label="Koncepty" value={koncepty} caption="Tržby podle konceptů" href={sub("koncepty")} />
+        <Tile Icon={MapPin} label="Města" caption="Tržby podle měst" href={sub("mesta")} />
+        <Tile Icon={Package} label="Produkty" caption="Nejprodávanější položky" href={sub("produkty")} />
+        <Tile Icon={Receipt} label="Účtenky" caption="Jednotlivé doklady" href={sub("uctenky")} />
+        <Tile Icon={Activity} label="Živě" caption="Dnešní průběžné tržby" href={sub("zive")} />
+      </div>
+    </section>
+  );
+}
+
+function Tile({
+  Icon,
+  label,
+  value,
+  caption,
+  href,
+}: {
+  Icon: LucideIcon;
+  label: string;
+  value?: number;
+  caption: string;
+  href: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group relative overflow-hidden rounded-[20px] border border-edge bg-paper p-5 transition-colors hover:border-ink-soft"
+    >
+      <Icon className="absolute -bottom-3 -right-3 h-24 w-24 text-ink-base/[0.04]" strokeWidth={1} aria-hidden="true" />
+      <div className="relative flex flex-col gap-1">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-[10.5px] font-medium uppercase tracking-[0.18em] text-ink-mid">
+            <Icon className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+            {label}
+          </div>
+          <ArrowUpRight
+            className="h-4 w-4 text-ink-mid transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+            strokeWidth={1.5}
+            aria-hidden="true"
+          />
+        </div>
+        {value !== undefined ? (
+          <div className="mt-1 font-extrabold leading-none tracking-[-0.04em] text-ink-base text-[clamp(1.6rem,3vw,2rem)] tabular-nums">
+            {value.toLocaleString("cs-CZ")}
+          </div>
+        ) : (
+          <div className="mt-1 h-[2rem]" aria-hidden="true" />
+        )}
+        <div className="text-[12.5px] text-ink-mid">{caption}</div>
+      </div>
+    </Link>
   );
 }
 

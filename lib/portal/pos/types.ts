@@ -3,6 +3,8 @@
 // Peníze jsou v nativních jednotkách měny, gross = vč. DPH, net = gross - vat.
 // FX se NIKDY nepřepočítává; každý řádek nese vlastní currency.
 
+import type { LocationConcept } from "@/lib/portal/locations-db";
+
 export interface PageMeta {
   page: number;
   limit: number;
@@ -155,6 +157,58 @@ export interface BrandRevenueRowWithPrev extends BrandRevenueRow {
   prevReceipts: number | null;
 }
 
+// Rollup pokladen (dim_shop) na PRODEJNU (portálová lokalita). locationId je buď
+// reálné MirroredLocation.id, nebo pseudo "shop:{dwShopId}" pro nenapárovanou
+// pokladnu (aby se neztratily tržby). Počítá portál v queries.ts.
+export interface LocationRevenueRow {
+  locationId: string;
+  name: string;
+  concept: LocationConcept;
+  currency: string;
+  gross: number;
+  net: number;
+  vat: number;
+  receipts: number;
+  shopCount: number; // počet pokladen v prodejně (ve výběru)
+}
+
+export interface LocationRevenueRowWithPrev extends LocationRevenueRow {
+  prevGross: number | null;
+  prevNet: number | null;
+  prevReceipts: number | null;
+}
+
+// Rollup na KONCEPT (skupina prodejen). Nahrazuje žebříček značek.
+export interface ConceptRevenueRow {
+  concept: LocationConcept;
+  currency: string;
+  gross: number;
+  net: number;
+  vat: number;
+  receipts: number;
+  locationCount: number; // počet prodejen konceptu (ve výběru)
+}
+
+export interface ConceptRevenueRowWithPrev extends ConceptRevenueRow {
+  prevGross: number | null;
+  prevNet: number | null;
+  prevReceipts: number | null;
+}
+
+// Rollup na MĚSTO (z párování pokladen). "Neuvedeno" = pokladna bez napárovaného města.
+export interface CityRevenueRowWithPrev {
+  city: string;
+  currency: string;
+  gross: number;
+  net: number;
+  vat: number;
+  receipts: number;
+  locationCount: number;
+  prevGross: number | null;
+  prevNet: number | null;
+  prevReceipts: number | null;
+}
+
 // --- Kontrakt nových endpointů doplněných do DW (apps/api). Portál a DW je sdílejí. ---
 
 // /v1/analytics/heatmap - hodina (0-23) x den v týdnu (0=Ne..6=So), shop-local.
@@ -204,6 +258,7 @@ export interface ShopRevenueRow {
   net: number;
   vat: number;
   receipts: number;
+  refunds?: number; // částka vrácená v období; doplněno do DW -> rozsvítí KPI Refundace pro výběr
 }
 
 export interface BrandRevenueRow {
