@@ -47,7 +47,7 @@ export function RevenueWeekCard({ data }: { data: BosDashboardRevenue }) {
       <div className="mb-5 flex flex-wrap items-center gap-x-7 gap-y-2 text-[13px]">
         <span className="inline-flex items-center gap-2">
           <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" aria-hidden="true" />
-          <span className="text-ink-mid">Tento týden</span>
+          <span className="text-ink-mid">Posledních 7 dní</span>
           <span className="font-bold tabular-nums text-ink-base">
             {formatPosMoney(data.headlineGross, data.currency)}
           </span>
@@ -62,7 +62,7 @@ export function RevenueWeekCard({ data }: { data: BosDashboardRevenue }) {
         </span>
         <span className="inline-flex items-center gap-2">
           <span className="h-2.5 w-2.5 rounded-full bg-ink-soft" aria-hidden="true" />
-          <span className="text-ink-mid">Minulý týden</span>
+          <span className="text-ink-mid">Předchozích 7 dní</span>
           <span className="font-bold tabular-nums text-ink-deep">
             {formatPosMoney(prevTotal, data.currency)}
           </span>
@@ -79,8 +79,8 @@ export function RevenueWeekCard({ data }: { data: BosDashboardRevenue }) {
       />
 
       <p className="mt-3 text-[11px] leading-relaxed text-ink-soft">
-        Jen BOS prodejny · s DPH · zelená/červená dle dne vs minulý týden (dnešek
-        k ekvivalentní části dne) · změna je like-for-like.
+        Jen BOS prodejny · s DPH · zelená/červená dle dne vs předchozích 7 dní
+        (dnešek k ekvivalentní části dne) · změna je like-for-like.
       </p>
     </section>
   );
