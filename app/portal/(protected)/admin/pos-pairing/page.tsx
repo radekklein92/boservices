@@ -67,15 +67,16 @@ export default async function PairingPage() {
   }
 
   const brandName = new Map(brandsRaw.map((b) => [b.id, b.name]));
-  // Pozn.: protahujeme VŠECHNA pole z DW (ApiShop) až do řádku, aby šlo pokladnu
+  // Pozn.: protahujeme pole z DW (ApiShop) až do řádku, aby šlo pokladnu
   // jednoznačně identifikovat - název "zelená pokladna" sám o sobě nestačí.
+  // Hlavní identifikátor je číslo cloudu (cloud_id).
   const shops = shopsRaw
     .map((s) => ({
       id: s.id,
       name: s.name,
       brandId: s.brand_id,
       brandName: brandName.get(s.brand_id) ?? s.brand_id,
-      code: s.code,
+      cloudId: s.cloud_id,
       city: s.city,
       country: s.country,
       currency: s.currency_code,
