@@ -69,14 +69,14 @@ export default async function PosReportsPage({
       <section className="flex flex-col gap-3">
         <h2 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink-mid">Slovníček pojmů</h2>
         <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Term term="Tržby s DPH (hrubé)" desc="Tržby včetně DPH, bez refundací." />
-          <Term term="Tržby bez DPH (čisté)" desc="Tržby s DPH minus DPH (net = gross - vat), bez refundací." />
+          <Term term="Tržby s DPH (hrubé)" desc="Tržby včetně DPH, po odečtení refundací (netto)." />
+          <Term term="Tržby bez DPH (čisté)" desc="Tržby s DPH minus DPH (net = gross - vat); rovněž po odečtení refundací." />
           <Term term="Průměrný ticket (ATV)" desc="Tržby dělené počtem účtenek." />
           <Term term="Transakce = účtenky" desc="Počítáme účtenky, ne hosty (počet hostů zdroj neposkytuje)." />
           <Term term="Prodejna vs pokladna" desc="Prodejna = portálová lokalita; jedna prodejna může mít více pokladen (dim_shop). Vše sčítáme na prodejny." />
           <Term term="Koncept" desc="Skupina prodejen (TK, KoP, BB…) podle konceptu lokality." />
           <Term term="DPH 12 % vs 21 %" desc="Jídlo zpravidla 12 %, nápoje vč. čepovaného piva 21 % (od 1/2024)." />
-          <Term term="Refundace" desc="Doklady označené jako vratka; nižší míra je lepší." />
+          <Term term="Refundace" desc="Podíl vratek na tržbě (záporné číslo); vratky jsou už odečtené z tržeb výše. Blíž k nule je lepší." />
           <Term term="Předchozí rok" desc="Srovnání posunuté o 52 týdnů (zarovnané dny v týdnu)." />
           <Term term="Měny" desc="Segmentováno per měna (CZK/EUR/PLN…), bez přepočtu kurzem." />
         </dl>

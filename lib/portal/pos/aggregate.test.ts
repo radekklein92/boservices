@@ -9,12 +9,14 @@ function row(shop_id: string, gross: number, extra: Partial<ShopRevenueRow> = {}
 const idKey = (id: string) => id; // 1 pokladna = 1 prodejna
 
 test("rollupSummary - součet + avg_ticket + refund_rate", () => {
-  const rows = [row("A", 100, { receipts: 4, refunds: 10 }), row("B", 60, { receipts: 2, refunds: 0 })];
+  // refunds jsou ZÁPORNÉ a gross je už NETTO po refundacích (API kontrakt od
+  // 28.6.2026) -> refund_rate = součet(refunds) / součet(gross) (jako /revenue/summary).
+  const rows = [row("A", 100, { receipts: 4, refunds: -10 }), row("B", 60, { receipts: 2, refunds: 0 })];
   const s = rollupSummary(rows, new Set(["A", "B"]), "CZK");
   assert.equal(s.gross, 160);
   assert.equal(s.receipts, 6);
   assert.equal(s.avg_ticket, 160 / 6);
-  assert.equal(s.refund_rate, 10 / (160 + 10)); // jen A mělo refundaci
+  assert.equal(s.refund_rate, -10 / 160); // jen A mělo refundaci
 });
 
 test("rollupSummary - refund_rate null, když žádná pokladna nehlásí refunds", () => {
@@ -52,10 +54,10 @@ test("computeLfl - granularita PRODEJNY: obě pokladny lokality, i když jedna n
 });
 
 test("computeLfl - refundace se sčítají jen z průniku", () => {
-  const cur = [row("A", 100, { refunds: 10 }), row("C", 50, { refunds: 5 })];
-  const prev = [row("A", 80, { refunds: 8 })];
+  const cur = [row("A", 100, { refunds: -10 }), row("C", 50, { refunds: -5 })];
+  const prev = [row("A", 80, { refunds: -8 })];
   const { lflCurrent } = computeLfl(cur, prev, new Set(["A", "C"]), idKey, "CZK");
-  assert.equal(lflCurrent?.refund_rate, 10 / (100 + 10)); // C (mimo LFL) se nezapočítá
+  assert.equal(lflCurrent?.refund_rate, -10 / 100); // C (mimo LFL) se nezapočítá
 });
 
 test("computeLfl - pokladny mimo scope se ignorují", () => {

@@ -31,7 +31,9 @@ export function rollupSummary(rows: ShopRevenueRow[], shopIds: Set<string>, curr
     vat,
     receipts,
     avg_ticket: receipts > 0 ? gross / receipts : null,
-    refund_rate: hasRefunds && gross + refunds > 0 ? refunds / (gross + refunds) : null,
+    // gross je už NETTO po refundacích (API kontrakt od 28.6.2026), refunds jsou
+    // záporné -> míra = refunds / gross (shodné s /revenue/summary refund_rate).
+    refund_rate: hasRefunds && gross > 0 ? refunds / gross : null,
   };
 }
 
