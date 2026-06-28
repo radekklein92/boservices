@@ -3,14 +3,12 @@ import {
   ArrowUpRight,
   Check,
   Coins,
-  FileSignature,
   LineChart,
   PartyPopper,
   Sparkle,
   Star,
-  type LucideIcon,
 } from "lucide-react";
-import { isAdminRole } from "@/lib/portal/auth-guard";
+import { canSeePOS, isAdminRole } from "@/lib/portal/auth-guard";
 import { getSession } from "@/lib/portal/get-session";
 import {
   cachedGetClaimsOverlay,
@@ -32,6 +30,10 @@ import { AssignedClaimsPanel } from "@/components/portal/dashboard/AssignedClaim
 import { SalespersonCard } from "@/components/portal/commissions/SalespersonCard";
 import { buildReTrendPoints, type ReTrendPoint } from "@/lib/portal/re-snapshots-db";
 import { ReTrendPanel } from "@/components/portal/locations/ReTrendChart";
+import { RevenueWeekCard } from "@/components/portal/dashboard/RevenueWeekCard";
+import { RevenueKpiCard } from "@/components/portal/dashboard/RevenueKpiCard";
+import { getBosDashboardRevenue } from "@/lib/portal/pos/queries";
+import { isPosApiConfigured } from "@/lib/portal/pos/api";
 
 // Dashboard - jediný story: postup k cíli 100 franšízových lokalit.
 //
@@ -81,23 +83,24 @@ export default async function PortalDashboardPage({
 }: {
   searchParams: Promise<{ celebrate?: string }>;
 }) {
-  const [session, contracts, overlay, clamoraClaims, trendPoints, sp] =
+  const session = await getSession();
+  const isAdmin = isAdminRole(session?.user?.role);
+  // Graf a KPI tržeb vidí jen role s přístupem do POS (superadmin/admin/manager).
+  const showRevenue = canSeePOS(session?.user?.role) && isPosApiConfigured();
+
+  const [contracts, overlay, clamoraClaims, trendPoints, revenue, sp] =
     await Promise.all([
-      getSession(),
       cachedListContracts(),
       cachedGetClaimsOverlay(),
       cachedGetClamoraClaims(),
       buildReTrendPoints(new Date()),
+      showRevenue ? getBosDashboardRevenue().catch(() => null) : Promise.resolve(null),
       searchParams,
     ]);
-  const isAdmin = isAdminRole(session?.user?.role);
   // Provize vidí admini + sami obchodníci (Toman/Ebermann dle e-mailu).
   const canSeeCommissions =
     isAdmin || isSalespersonEmail(session?.user?.email);
 
-  const signedByClientCount = contracts.filter(
-    (c) => !!clientSignedAtEffective(c) && !c.cancelledAt,
-  ).length;
   const franchiseLocationsCount = contracts.filter(
     (c) => c.type === "franchise" && !!clientSignedAtEffective(c) && !c.cancelledAt,
   ).length;
@@ -137,6 +140,19 @@ export default async function PortalDashboardPage({
   // Provizní výsledky obchodníků (franšízy + postoupení u 3 klíčových firem).
   const commissionsView = buildCommissionsView(contracts, overlay);
 
+  // Postoupené pohledávky - stejná dlaždice ať je vedle Tržeb (2 sloupce), nebo
+  // sama na plnou šířku (uživatel bez POS práv).
+  const claimsPanel = (
+    <AssignedClaimsPanel
+      view={claimsView}
+      keyTotal={keyCompaniesTotal}
+      overlay={overlay}
+      contractClaims={contractClaims}
+      companyOptions={companyOptions}
+      isAdmin={isAdmin}
+    />
+  );
+
   return (
     <div className="relative isolate flex flex-col gap-8">
       {celebrate != null && (
@@ -165,32 +181,19 @@ export default async function PortalDashboardPage({
       {/* Vývoj Real Estate v čase - týdenní trend tří kategorií. */}
       <ReTrendCard points={trendPoints} />
 
-      {/* Sekundární stat: podepsané smlouvy celkem. */}
-      <section className="grid grid-cols-1 gap-5 md:grid-cols-2">
-        <SecondaryStat
-          eyebrow="Podepsané smlouvy"
-          value={signedByClientCount}
-          caption={
-            signedByClientCount === 0
-              ? "ještě žádná podepsaná smlouva"
-              : signedByClientCount === 1
-                ? "smlouva, kterou klient podepsal"
-                : signedByClientCount < 5
-                  ? "smlouvy, které klient podepsal"
-                  : "smluv, které klient podepsal"
-          }
-          Icon={FileSignature}
-          href="/portal/contracts"
-        />
-        <AssignedClaimsPanel
-          view={claimsView}
-          keyTotal={keyCompaniesTotal}
-          overlay={overlay}
-          contractClaims={contractClaims}
-          companyOptions={companyOptions}
-          isAdmin={isAdmin}
-        />
-      </section>
+      {/* Týdenní tržby (jen BOS prodejny) - graf pod RE kartou, jen pro POS role. */}
+      {revenue && <RevenueWeekCard data={revenue} />}
+
+      {/* Tržby (jen BOS prodejny) místo "Podepsané smlouvy" - jen pro POS role;
+          ostatní vidí jen Postoupené pohledávky na plnou šířku. */}
+      {showRevenue ? (
+        <section className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <RevenueKpiCard data={revenue} />
+          {claimsPanel}
+        </section>
+      ) : (
+        claimsPanel
+      )}
 
       {/* Provizní výsledky obchodníků - jen admini + obchodníci (Toman/Ebermann). */}
       {canSeeCommissions && (
@@ -679,53 +682,6 @@ function MilestoneDot({
         />
       )}
     </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// SECONDARY STAT karta + NextMilestonePanel
-// ─────────────────────────────────────────────────────────────────────
-
-function SecondaryStat({
-  eyebrow,
-  value,
-  caption,
-  Icon,
-  href,
-}: {
-  eyebrow: string;
-  value: number;
-  caption: string;
-  Icon: LucideIcon;
-  href: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="group relative overflow-hidden rounded-3xl border border-edge bg-paper p-7 transition-colors hover:border-ink-soft"
-    >
-      <Icon
-        className="absolute -bottom-4 -right-4 h-32 w-32 text-ink-base/[0.04]"
-        strokeWidth={1}
-        aria-hidden="true"
-      />
-      <div className="relative">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-[10.5px] font-medium uppercase tracking-[0.22em] text-ink-mid">
-            <Icon className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
-            {eyebrow}
-          </div>
-          <ArrowUpRight
-            className="h-4 w-4 text-ink-mid transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
-            strokeWidth={1.5}
-          />
-        </div>
-        <div className="mt-5 font-extrabold leading-none tracking-[-0.045em] text-ink-base text-[clamp(2.5rem,6vw,3.5rem)]">
-          {value.toLocaleString("cs-CZ")}
-        </div>
-        <div className="mt-2.5 text-[13px] text-ink-mid">{caption}</div>
-      </div>
-    </Link>
   );
 }
 

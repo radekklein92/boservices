@@ -3,6 +3,7 @@ import { isPosApiConfigured } from "@/lib/portal/pos/api";
 import { DEFAULT_POS_FILTER, type PosFilter } from "@/lib/portal/pos/filters";
 import {
   getAllShops,
+  getBosDashboardRevenue,
   getBrands,
   getConceptLeaderboardFull,
   getDailyTrend,
@@ -62,6 +63,9 @@ export async function GET(req: Request) {
     periods: getPeriodTotals(f),
     prodejny: getLocationLeaderboardFull(f),
     koncepty: getConceptLeaderboardFull(f),
+    // Dashboard /portal: týdenní tržby jen za BOS prodejny (graf + KPI). Drží
+    // teplý 1 cache-hit, aby dashboard nečekal na ~14 by-shop dotazů.
+    bosDashboard: getBosDashboardRevenue(),
     // Účtenky (drahý raw DW dotaz) se dosud nepředehřívaly -> seznam byl po každém
     // syncu studený. Warmíme default ("tento týden") i "dnes" (častý, časově citlivý).
     receipts: warmReceipts(f),
