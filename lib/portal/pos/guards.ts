@@ -8,9 +8,6 @@ export const MAX_WINDOW_DAYS = 396;
 export const MAX_RAW_WINDOW_DAYS = 90;
 export const MAX_LIMIT = 200;
 export const DEFAULT_LIMIT = 50;
-// Denní trend pro částečný výběr prodejen (ne celé značky) bez DW shop_ids: fanout
-// po pokladnách. Nad tento strop se graf degraduje (KPI/žebříčky zůstávají přesné).
-export const MAX_DAILY_SHOP_FANOUT = 12;
 
 export function clampLimit(n: number | undefined, fallback = DEFAULT_LIMIT): number {
   if (!Number.isFinite(n as number)) return fallback;

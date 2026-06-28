@@ -310,13 +310,6 @@ async function TrendSection({ filter, useNet }: { filter: PosFilter; useNet: boo
   } catch {
     return <WidgetError />;
   }
-  if (trend.degraded) {
-    return (
-      <div className="grid h-[200px] place-items-center rounded-2xl border border-edge bg-paper px-6 text-center text-[13px] text-ink-mid">
-        Graf trendu není pro tak velký ruční výběr prodejen k dispozici. Vyberte koncept nebo méně prodejen.
-      </div>
-    );
-  }
   if (trend.current.length === 0) {
     return (
       <div className="grid h-[200px] place-items-center rounded-2xl border border-edge bg-paper text-[13px] text-ink-mid">

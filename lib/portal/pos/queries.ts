@@ -25,7 +25,6 @@ import {
   clampLimit,
   clampPage,
   MAX_RAW_WINDOW_DAYS,
-  MAX_DAILY_SHOP_FANOUT,
 } from "./guards";
 import {
   addDays,
@@ -309,25 +308,33 @@ export async function getPeriodTotals(
 }
 
 // --- Denní trend (/v1/revenue/daily) ---
-// by-shop nemá denní rozpad a daily neumí množinu shop_id. Plán dle výběru:
-//   all              -> brand-grain (jeden dotaz, všechny značky)
-//   celé značky      -> brand-grain per dotčená značka
-//   málo pokladen    -> fanout po pokladnách (<= strop)
-//   hodně částečných -> degradace (graf prázdný; KPI/žebříčky zůstávají přesné)
+// daily nemá rozpad po pokladnách, ale DW endpoint umí filtrovat množinou shop_ids
+// (agreguje GROUP BY date - rontoday/bo-service PR #37). Plán dle výběru:
+//   all             -> brand-grain (jeden dotaz, všechny značky)
+//   celé značky     -> brand-grain per dotčená značka (menší MV)
+//   částečný výběr  -> jeden dotaz se shop_ids (koncept, města, ruční multi-select)
 
 async function collectDaily(p: {
   date_from: string;
   date_to: string;
   brand_id?: string;
-  shop_id?: string;
+  shop_ids?: string;
 }): Promise<DailyRevenueRow[]> {
   return collectPaged((page) => api.getRevenueDaily({ ...p, page, limit: PAGE_SIZE }));
 }
 
 const _dailyTrend = posQuery(
-  (from: string, to: string, brand_id?: string, shop_id?: string) =>
-    collectDaily({ date_from: from, date_to: to, brand_id, shop_id }),
+  (from: string, to: string, brand_id?: string) =>
+    collectDaily({ date_from: from, date_to: to, brand_id }),
   "daily-trend",
+);
+
+// Částečný výběr: JEDEN dotaz se shop_ids (DW agreguje denní řadu přes množinu
+// pokladen). Škáluje i na celé koncepty - žádný fanout po pokladnách ani degradace.
+const _dailyTrendShops = posQuery(
+  (from: string, to: string, shop_ids: string) =>
+    collectDaily({ date_from: from, date_to: to, shop_ids }),
+  "daily-trend-shops",
 );
 
 function foldDaily(rows: DailyRevenueRow[]): DayPoint[] {
@@ -345,13 +352,12 @@ function foldDaily(rows: DailyRevenueRow[]): DayPoint[] {
 type DailyPlan =
   | { mode: "all" }
   | { mode: "brands"; brands: string[] }
-  | { mode: "shops"; shops: string[] }
-  | { mode: "degraded" };
+  | { mode: "shopIds"; shopIds: string[] };
 
 function dailyPlan(resolved: ResolvedSelection, shops: ApiShop[]): DailyPlan {
   if (resolved.isAll) return { mode: "all" };
   const shopIds = resolved.shopIds;
-  if (shopIds.size === 0) return { mode: "shops", shops: [] };
+  if (shopIds.size === 0) return { mode: "shopIds", shopIds: [] };
   const whole = new Set(resolved.coversWholeBrands);
   const brandByShop = new Map(shops.map((s) => [s.id, s.brand_id]));
   const brandsInSel = new Set<string>();
@@ -362,26 +368,23 @@ function dailyPlan(resolved: ResolvedSelection, shops: ApiShop[]): DailyPlan {
     else allWhole = false;
   }
   if (allWhole && brandsInSel.size > 0) return { mode: "brands", brands: [...brandsInSel] };
-  if (shopIds.size <= MAX_DAILY_SHOP_FANOUT) return { mode: "shops", shops: [...shopIds] };
-  return { mode: "degraded" };
+  return { mode: "shopIds", shopIds: [...shopIds] };
 }
 
 async function dailyRows(plan: DailyPlan, range: DateRange): Promise<DailyRevenueRow[]> {
   if (plan.mode === "all") return _dailyTrend(range.from, range.to);
-  if (plan.mode === "degraded") return [];
   if (plan.mode === "brands") {
     const per = await Promise.all(plan.brands.map((b) => _dailyTrend(range.from, range.to, b)));
     return per.flat();
   }
-  // shops
-  if (plan.shops.length === 0) return [];
-  const per = await Promise.all(plan.shops.map((id) => _dailyTrend(range.from, range.to, undefined, id)));
-  return per.flat();
+  // shopIds - jeden dotaz, DW agreguje přes množinu pokladen (i celé koncepty)
+  if (plan.shopIds.length === 0) return [];
+  return _dailyTrendShops(range.from, range.to, plan.shopIds.join(","));
 }
 
 export async function getDailyTrend(
   filter: PosFilter,
-): Promise<{ current: DayPoint[]; comparison: DayPoint[] | null; degraded: boolean }> {
+): Promise<{ current: DayPoint[]; comparison: DayPoint[] | null }> {
   const { resolved, shops } = await scopeContext(filter);
   const to = filter.currency;
   const rates = await getFxRates();
@@ -395,7 +398,6 @@ export async function getDailyTrend(
   return {
     current: foldDaily(convertRows(curRows, to, rates, DAILY_MONEY)),
     comparison: cmp ? foldDaily(convertRows(prevRows, to, rates, DAILY_MONEY)) : null,
-    degraded: plan.mode === "degraded",
   };
 }
 

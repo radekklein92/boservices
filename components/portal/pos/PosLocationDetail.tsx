@@ -196,7 +196,7 @@ async function DailyBreakdownSection({ filter, cur }: { filter: PosFilter; cur: 
   } catch {
     return <WidgetError />;
   }
-  if (trend.degraded || trend.current.length === 0) {
+  if (trend.current.length === 0) {
     return (
       <div className="grid h-[120px] place-items-center rounded-2xl border border-edge bg-paper text-[13px] text-ink-mid">
         Pro zvolené období nejsou data.
