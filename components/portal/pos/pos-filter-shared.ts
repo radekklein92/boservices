@@ -37,7 +37,8 @@ export interface MeInfo {
 export interface FilterBarData {
   concepts: ConceptGroup[];
   unpaired: StoreOption[]; // nenapárované pokladny (token "shop:{id}")
-  currencies: string[];
+  currencies: string[]; // měny, ve kterých má aktuální výběr data (pro "vše" všechny)
+  activeCurrency: string; // efektivní měna výběru (zvýrazněná v přepínači)
   views: ViewsData;
   me: MeInfo;
 }

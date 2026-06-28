@@ -30,7 +30,7 @@ import {
   type PosFilter,
 } from "./filters";
 import { buildPairingIndex, type PairingIndex } from "./pairing-db";
-import { resolveSelection, conceptOfShop, type ResolvedSelection } from "./selection";
+import { resolveSelection, conceptOfShop, effectiveCurrency, type ResolvedSelection } from "./selection";
 import { cachedListLocations } from "@/lib/portal/cached-db";
 import type { MirroredLocation, LocationConcept } from "@/lib/portal/locations-db";
 import type {
@@ -111,12 +111,26 @@ interface ScopeContext {
   locations: MirroredLocation[];
   index: PairingIndex;
   resolved: ResolvedSelection;
+  // Efektivní měna výběru (viz effectiveCurrency v selection.ts). Všechny dotazy
+  // i zobrazení používají ji místo filter.currency, aby výběr cizoměnové prodejny
+  // (např. polská PLN) neukázal tiché "0 Kč" při defaultu CZK.
+  currency: string;
 }
 
 async function scopeContext(filter: PosFilter): Promise<ScopeContext> {
   const [shops, index, locations] = await Promise.all([getAllShops(), _pairingIndex(), _locations()]);
   const resolved = resolveSelection(filter.selection, index, shops);
-  return { shops, index, locations, resolved };
+  const currency = effectiveCurrency(filter.currency, resolved, shops);
+  return { shops, index, locations, resolved, currency };
+}
+
+// Měna, ve které se výběru reálně zobrazují peníze (labely, formátování). Pro
+// "vše" zůstává zvolená měna (summary umí všechny měny); pro výběr spadne na
+// měnu, ve které pokladny účtují. Sdílí cachované scopeContext -> v rámci
+// requestu prakticky zdarma.
+export async function resolveDisplayCurrency(filter: PosFilter): Promise<string> {
+  if (isAllSelection(filter.selection)) return filter.currency;
+  return (await scopeContext(filter)).currency;
 }
 
 // Parametry pro single-endpointy (produkty/účtenky/analytics). DW umí shop_ids
@@ -192,15 +206,15 @@ export async function getKpiSummary(filter: PosFilter): Promise<KpiSummary> {
     return { current: cur.data, comparison: prev ? prev.data : null };
   }
 
-  const { resolved } = await scopeContext(filter);
+  const { resolved, currency } = await scopeContext(filter);
   if (resolved.shopIds.size === 0) return { current: [], comparison: cmp ? [] : null };
   const [cur, prev] = await Promise.all([
-    _shopRev(range.from, range.to, filter.currency),
-    cmp ? _shopRev(cmp.from, cmp.to, filter.currency) : Promise.resolve<ShopRevenueRow[]>([]),
+    _shopRev(range.from, range.to, currency),
+    cmp ? _shopRev(cmp.from, cmp.to, currency) : Promise.resolve<ShopRevenueRow[]>([]),
   ]);
   return {
-    current: [rollupSummary(cur, resolved.shopIds, filter.currency)],
-    comparison: cmp ? [rollupSummary(prev, resolved.shopIds, filter.currency)] : null,
+    current: [rollupSummary(cur, resolved.shopIds, currency)],
+    comparison: cmp ? [rollupSummary(prev, resolved.shopIds, currency)] : null,
   };
 }
 
@@ -227,12 +241,12 @@ export async function getPeriodTotals(
     );
   }
 
-  const { resolved } = await scopeContext(filter);
+  const { resolved, currency } = await scopeContext(filter);
   return Promise.all(
     PERIOD_PRESETS.map(async (p) => {
       const range = resolveDateRange({ ...filter, preset: p.key });
-      const rows = await _shopRev(range.from, range.to, filter.currency);
-      const s = rollupSummary(rows, resolved.shopIds, filter.currency);
+      const rows = await _shopRev(range.from, range.to, currency);
+      const s = rollupSummary(rows, resolved.shopIds, currency);
       return { key: p.key, label: p.label, net: s.net, gross: s.gross, receipts: s.receipts };
     }),
   );
@@ -313,13 +327,13 @@ async function dailyRows(plan: DailyPlan, range: DateRange, currency: string): P
 export async function getDailyTrend(
   filter: PosFilter,
 ): Promise<{ current: DayPoint[]; comparison: DayPoint[] | null; degraded: boolean }> {
-  const { resolved, shops } = await scopeContext(filter);
+  const { resolved, shops, currency } = await scopeContext(filter);
   const plan = dailyPlan(resolved, shops);
   const range = aggWindow(filter);
   const cmp = resolveComparisonRange(filter, range);
   const [curRows, prevRows] = await Promise.all([
-    dailyRows(plan, range, filter.currency),
-    cmp ? dailyRows(plan, cmp, filter.currency) : Promise.resolve<DailyRevenueRow[]>([]),
+    dailyRows(plan, range, currency),
+    cmp ? dailyRows(plan, cmp, currency) : Promise.resolve<DailyRevenueRow[]>([]),
   ]);
   return {
     current: foldDaily(curRows),
@@ -364,12 +378,12 @@ function conceptOfLocationKey(key: string, index: PairingIndex): LocationConcept
 }
 
 export async function getLocationLeaderboardFull(filter: PosFilter): Promise<LocationRevenueRowWithPrev[]> {
-  const { resolved, index, shops, locations } = await scopeContext(filter);
+  const { resolved, index, shops, locations, currency } = await scopeContext(filter);
   const range = aggWindow(filter);
   const cmp = resolveComparisonRange(filter, range);
   const [cur, prev] = await Promise.all([
-    _shopRev(range.from, range.to, filter.currency),
-    cmp ? _shopRev(cmp.from, cmp.to, filter.currency) : Promise.resolve<ShopRevenueRow[]>([]),
+    _shopRev(range.from, range.to, currency),
+    cmp ? _shopRev(cmp.from, cmp.to, currency) : Promise.resolve<ShopRevenueRow[]>([]),
   ]);
   const locName = new Map(locations.map((l) => [l.id, l.name]));
   const shopName = new Map(shops.map((s) => [s.id, s.name]));
@@ -397,7 +411,7 @@ export async function getLocationLeaderboardFull(filter: PosFilter): Promise<Loc
       locationId: key,
       name,
       concept: conceptOfLocationKey(key, index),
-      currency: filter.currency,
+      currency,
       gross: s.gross,
       net: s.net,
       vat: s.vat,
@@ -416,12 +430,12 @@ export async function getLocationLeaderboardFull(filter: PosFilter): Promise<Loc
 // --- Žebříček KONCEPTŮ (rollup pokladen -> lokalita -> koncept) ---
 
 export async function getConceptLeaderboardFull(filter: PosFilter): Promise<ConceptRevenueRowWithPrev[]> {
-  const { resolved, index } = await scopeContext(filter);
+  const { resolved, index, currency } = await scopeContext(filter);
   const range = aggWindow(filter);
   const cmp = resolveComparisonRange(filter, range);
   const [cur, prev] = await Promise.all([
-    _shopRev(range.from, range.to, filter.currency),
-    cmp ? _shopRev(cmp.from, cmp.to, filter.currency) : Promise.resolve<ShopRevenueRow[]>([]),
+    _shopRev(range.from, range.to, currency),
+    cmp ? _shopRev(cmp.from, cmp.to, currency) : Promise.resolve<ShopRevenueRow[]>([]),
   ]);
 
   const group = (rows: ShopRevenueRow[]) => {
@@ -444,7 +458,7 @@ export async function getConceptLeaderboardFull(filter: PosFilter): Promise<Conc
     const p = prevG.get(concept);
     rows.push({
       concept,
-      currency: filter.currency,
+      currency,
       gross: s.gross,
       net: s.net,
       vat: s.vat,
@@ -461,12 +475,12 @@ export async function getConceptLeaderboardFull(filter: PosFilter): Promise<Conc
 // --- Žebříček MĚST (rollup pokladen -> město z párování) ---
 
 export async function getCityLeaderboardFull(filter: PosFilter): Promise<CityRevenueRowWithPrev[]> {
-  const { resolved, index } = await scopeContext(filter);
+  const { resolved, index, currency } = await scopeContext(filter);
   const range = aggWindow(filter);
   const cmp = resolveComparisonRange(filter, range);
   const [cur, prev] = await Promise.all([
-    _shopRev(range.from, range.to, filter.currency),
-    cmp ? _shopRev(cmp.from, cmp.to, filter.currency) : Promise.resolve<ShopRevenueRow[]>([]),
+    _shopRev(range.from, range.to, currency),
+    cmp ? _shopRev(cmp.from, cmp.to, currency) : Promise.resolve<ShopRevenueRow[]>([]),
   ]);
 
   const group = (rows: ShopRevenueRow[]) => {
@@ -488,7 +502,7 @@ export async function getCityLeaderboardFull(filter: PosFilter): Promise<CityRev
     const p = prevG.get(city);
     rows.push({
       city,
-      currency: filter.currency,
+      currency,
       gross: s.gross,
       net: s.net,
       vat: s.vat,
@@ -536,11 +550,11 @@ export async function getTopProducts(
   sort: "gross" | "qty" = "gross",
   limit = 20,
 ): Promise<ProductSalesRow[]> {
-  const { resolved } = await scopeContext(filter);
+  const { resolved, currency } = await scopeContext(filter);
   const sp = scopeApiParams(resolved);
   if (sp.__empty) return [];
   const range = aggWindow(filter);
-  return (await _products(range.from, range.to, filter.currency, sort, clampLimit(limit), sp.brand_id, sp.shop_id, sp.shop_ids)).data;
+  return (await _products(range.from, range.to, currency, sort, clampLimit(limit), sp.brand_id, sp.shop_id, sp.shop_ids)).data;
 }
 
 // --- Účtenky: list (stránkovaný) + detail (/v1/receipts(+/{id})) ---
@@ -556,7 +570,7 @@ export async function getReceiptsPage(
   page = 0,
   opts: { limit?: number; channel?: string; allCurrencies?: boolean } = {},
 ): Promise<Paged<ReceiptListRow>> {
-  const { resolved } = await scopeContext(filter);
+  const { resolved, currency } = await scopeContext(filter);
   const sp = scopeApiParams(resolved);
   if (sp.__empty) return { data: [], meta: { page: 0, limit: opts.limit ?? 50, total: 0 } };
   const range = rawWindow(filter);
@@ -565,7 +579,7 @@ export async function getReceiptsPage(
     range.to,
     clampPage(page),
     clampLimit(opts.limit ?? 50),
-    opts.allCurrencies ? undefined : filter.currency,
+    opts.allCurrencies ? undefined : currency,
     sp.shop_id,
     sp.shop_ids,
     opts.channel,
@@ -585,11 +599,11 @@ const _heatmap = posQuery(
   "heatmap",
 );
 export async function getHeatmap(filter: PosFilter): Promise<HeatmapCell[]> {
-  const { resolved } = await scopeContext(filter);
+  const { resolved, currency } = await scopeContext(filter);
   const sp = scopeApiParams(resolved);
   if (sp.__empty) return [];
   const range = rawWindow(filter);
-  return (await _heatmap(range.from, range.to, filter.currency, sp.brand_id, sp.shop_id, sp.shop_ids)).data;
+  return (await _heatmap(range.from, range.to, currency, sp.brand_id, sp.shop_id, sp.shop_ids)).data;
 }
 
 // --- Hodinový trend (denní zobrazení "Dnes") ---
@@ -622,15 +636,15 @@ export async function getHourlyTrend(
   filter: PosFilter,
 ): Promise<{ current: HourPoint[]; comparison: HourPoint[] | null; nowHour: number }> {
   const nowHour = nowPragueHour();
-  const { resolved } = await scopeContext(filter);
+  const { resolved, currency } = await scopeContext(filter);
   const sp = scopeApiParams(resolved);
   if (sp.__empty) return { current: [], comparison: null, nowHour };
   const range = rawWindow(filter);
   const cmp = resolveComparisonRange(filter, resolveDateRange(filter));
   const [cur, prev] = await Promise.all([
-    _heatmap(range.from, range.to, filter.currency, sp.brand_id, sp.shop_id, sp.shop_ids),
+    _heatmap(range.from, range.to, currency, sp.brand_id, sp.shop_id, sp.shop_ids),
     cmp
-      ? _heatmap(cmp.from, cmp.to, filter.currency, sp.brand_id, sp.shop_id, sp.shop_ids)
+      ? _heatmap(cmp.from, cmp.to, currency, sp.brand_id, sp.shop_id, sp.shop_ids)
       : Promise.resolve<{ data: HeatmapCell[] }>({ data: [] }),
   ]);
   return { current: foldHourly(cur.data), comparison: cmp ? foldHourly(prev.data) : null, nowHour };
@@ -642,11 +656,11 @@ const _daypart = posQuery(
   "daypart",
 );
 export async function getDaypart(filter: PosFilter): Promise<DaypartRow[]> {
-  const { resolved } = await scopeContext(filter);
+  const { resolved, currency } = await scopeContext(filter);
   const sp = scopeApiParams(resolved);
   if (sp.__empty) return [];
   const range = rawWindow(filter);
-  return (await _daypart(range.from, range.to, filter.currency, sp.brand_id, sp.shop_id, sp.shop_ids)).data;
+  return (await _daypart(range.from, range.to, currency, sp.brand_id, sp.shop_id, sp.shop_ids)).data;
 }
 
 const _paymentMix = posQuery(
@@ -655,11 +669,11 @@ const _paymentMix = posQuery(
   "payment-mix",
 );
 export async function getPaymentMix(filter: PosFilter): Promise<PaymentMixRow[]> {
-  const { resolved } = await scopeContext(filter);
+  const { resolved, currency } = await scopeContext(filter);
   const sp = scopeApiParams(resolved);
   if (sp.__empty) return [];
   const range = aggWindow(filter);
-  return (await _paymentMix(range.from, range.to, filter.currency, sp.brand_id, sp.shop_id, sp.shop_ids)).data;
+  return (await _paymentMix(range.from, range.to, currency, sp.brand_id, sp.shop_id, sp.shop_ids)).data;
 }
 
 const _vatSplit = posQuery(
@@ -668,11 +682,11 @@ const _vatSplit = posQuery(
   "vat-split",
 );
 export async function getVatSplit(filter: PosFilter): Promise<VatSplitRow[]> {
-  const { resolved } = await scopeContext(filter);
+  const { resolved, currency } = await scopeContext(filter);
   const sp = scopeApiParams(resolved);
   if (sp.__empty) return [];
   const range = aggWindow(filter);
-  return (await _vatSplit(range.from, range.to, filter.currency, sp.brand_id, sp.shop_id, sp.shop_ids)).data;
+  return (await _vatSplit(range.from, range.to, currency, sp.brand_id, sp.shop_id, sp.shop_ids)).data;
 }
 
 const _today = posQuery(
@@ -681,8 +695,8 @@ const _today = posQuery(
   "today",
 );
 export async function getToday(filter: PosFilter): Promise<TodayRow[]> {
-  const { resolved } = await scopeContext(filter);
+  const { resolved, currency } = await scopeContext(filter);
   const sp = scopeApiParams(resolved);
   if (sp.__empty) return [];
-  return (await _today(filter.currency, sp.brand_id, sp.shop_id, sp.shop_ids)).data;
+  return (await _today(currency, sp.brand_id, sp.shop_id, sp.shop_ids)).data;
 }

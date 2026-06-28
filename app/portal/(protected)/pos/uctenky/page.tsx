@@ -46,7 +46,7 @@ export default async function PosReceiptsPage({
         lede="Jednotlivé doklady v rámci výběru a období."
       />
       <Suspense fallback={<FilterBarSkeleton />}>
-        <PosFilterBarLoader />
+        <PosFilterBarLoader filter={filter} />
       </Suspense>
 
       <PosSubNav />
@@ -62,7 +62,6 @@ export default async function PosReceiptsPage({
 }
 
 async function ReceiptsList({ filter, rp }: { filter: PosFilter; rp: number }) {
-  const cur = filter.currency;
   const useNet = !filter.vatInclusive;
   let data: Awaited<ReturnType<typeof getReceiptsPage>>;
   try {
@@ -85,6 +84,9 @@ async function ReceiptsList({ filter, rp }: { filter: PosFilter; rp: number }) {
   if (rows.length === 0) {
     return <Notice title="Pro zvolený výběr nejsou účtenky" body="Zkuste jiné období, výběr prodejen nebo měnu ve filtru nahoře." />;
   }
+
+  // Měna z dat (účtenky jdou v efektivní měně výběru, viz queries.ts).
+  const cur = rows[0]?.currency ?? filter.currency;
 
   return (
     <section className="flex flex-col gap-3">

@@ -14,6 +14,7 @@ import {
   getPaymentMix,
   getTopProducts,
   getVatSplit,
+  resolveDisplayCurrency,
 } from "@/lib/portal/pos/queries";
 import { cachedListLocations } from "@/lib/portal/cached-db";
 import { isPosApiConfigured } from "@/lib/portal/pos/api";
@@ -71,13 +72,14 @@ export default async function PosLocationDetailPage({
   const locationId = decodeURIComponent(raw);
   const baseFilter = parsePosFilter(searchParamsToUsp(await searchParams));
   const filter: PosFilter = { ...baseFilter, selection: { concepts: [], locations: [locationId] } };
-  const cur = filter.currency;
   const useNet = !filter.vatInclusive;
   const backQs = serializePosFilter(baseFilter).toString();
   const backHref = `/portal/pos/prodejny${backQs ? `?${backQs}` : ""}`;
 
-  // Název prodejny (cheap, cachované číselníky).
+  // Název prodejny + efektivní měna (cheap, cachované číselníky). Měna padá na
+  // měnu, ve které pokladny prodejny účtují (cizoměnová prodejna -> její měna).
   let name = "Prodejna";
+  let cur = filter.currency;
   try {
     if (locationId.startsWith("shop:")) {
       const shops = await getAllShops();
@@ -86,8 +88,9 @@ export default async function PosLocationDetailPage({
       const locs = await cachedListLocations();
       name = locs.find((l) => l.id === locationId)?.name ?? "Prodejna";
     }
+    cur = await resolveDisplayCurrency(filter);
   } catch {
-    /* fallback name */
+    /* fallback name + měna */
   }
 
   return (
@@ -191,7 +194,7 @@ async function DetailHeader({ filter, cur, useNet }: { filter: PosFilter; cur: s
 
       <section className="flex flex-col gap-3">
         <H2>Vývoj tržeb ({useNet ? "bez DPH" : "s DPH"})</H2>
-        <Trend trend={trend} filter={filter} useNet={useNet} />
+        <Trend trend={trend} cur={cur} filter={filter} useNet={useNet} />
       </section>
     </div>
   );
@@ -312,10 +315,12 @@ async function ProductsSection({ filter, cur, useNet }: { filter: PosFilter; cur
 
 function Trend({
   trend,
+  cur,
   filter,
   useNet,
 }: {
   trend: Awaited<ReturnType<typeof getDailyTrend>>;
+  cur: string;
   filter: PosFilter;
   useNet: boolean;
 }) {
@@ -333,7 +338,7 @@ function Trend({
     <PosLineChart
       current={current}
       comparison={comparison}
-      currency={filter.currency}
+      currency={cur}
       comparisonLabel={COMPARISON_LABEL[filter.comparison]}
       height={240}
     />
