@@ -18,7 +18,7 @@ import "server-only";
 //     doplněno do DW); pro "vše" bez filtru. scopeApiParams to řeší.
 import { cache } from "react";
 import * as api from "./api";
-import { posQuery, posStaticQuery } from "./cache";
+import { posQuery, posStaticQuery, getLastSyncCached } from "./cache";
 import { getFxRates, convertRows, fxFactor, hasRate, type FxRates } from "./fx";
 import {
   clampWindow,
@@ -133,27 +133,6 @@ function sumSummaryRows(rows: SummaryRow[], to: string, rates: FxRates): Summary
       refund_rate: hasRefund && refundBase > 0 ? refundWeighted / refundBase : null,
     },
   ];
-}
-
-// Sečte per-měnové TodayRow do jednoho řádku v cílové měně. Prázdný vstup -> [].
-function sumTodayRows(rows: TodayRow[], to: string, rates: FxRates): TodayRow[] {
-  if (rows.length === 0) return [];
-  let gross = 0;
-  let net = 0;
-  let receipts = 0;
-  let asOf = "";
-  let included = 0;
-  for (const r of rows) {
-    if (!hasRate(r.currency, rates)) continue; // vynech nepřevoditelné (AED apod.)
-    included++;
-    const f = fxFactor(r.currency, to, rates);
-    gross += r.gross * f;
-    net += r.net * f;
-    receipts += r.receipts;
-    if (r.as_of > asOf) asOf = r.as_of;
-  }
-  if (included === 0) return [];
-  return [{ currency: to, gross, net, receipts, as_of: asOf }];
 }
 
 // Sběr stránkovaného endpointu BEZ waterfallu: 1. strana odhalí total, zbytek se
@@ -1078,17 +1057,32 @@ export async function getVatSplit(filter: PosFilter): Promise<VatSplitRow[]> {
   return convertRows(rows, to, rates, VAT_MONEY);
 }
 
-const _today = posQuery(
-  (brand_id?: string, shop_id?: string, shop_ids?: string) =>
-    api.getToday({ brand_id, shop_id, shop_ids }),
-  "today",
-);
+// Dnešní souhrn KPI (Živě). Dřív přes /analytics/today, který byl cold ~15 s (DW
+// endpoint) a držel celou stránku. Počítá se teď z by-shop (dnes) - ~0,5 s, a navíc
+// SDÍLÍ cache _shopRev(dnes) s getLiveMovers, takže je to jen jeden DW dotaz. Stejná
+// čerstvost (oboje zarovnané na sync DW; as_of = čas posledního syncu). Vrací jeden
+// řádek v cílové měně, nebo [] když ve scope dnes nejsou převoditelná data.
 export async function getToday(filter: PosFilter): Promise<TodayRow[]> {
   const { resolved } = await scopeContext(filter);
-  const sp = scopeApiParams(resolved);
-  if (sp.__empty) return [];
+  if (resolved.shopIds.size === 0) return [];
   const to = filter.currency;
   const rates = await getFxRates();
-  const rows = (await _today(sp.brand_id, sp.shop_id, sp.shop_ids)).data;
-  return sumTodayRows(rows, to, rates);
+  const todayRange = resolveDateRange({ ...filter, preset: "dnes" });
+  const [rows, sync] = await Promise.all([
+    _shopRev(todayRange.from, todayRange.to),
+    getLastSyncCached(),
+  ]);
+  let gross = 0;
+  let net = 0;
+  let receipts = 0;
+  let included = 0;
+  for (const r of convertRows(rows, to, rates, SHOP_MONEY)) {
+    if (!resolved.shopIds.has(r.shop_id)) continue;
+    gross += r.gross;
+    net += r.net;
+    receipts += r.receipts;
+    included++;
+  }
+  if (included === 0) return [];
+  return [{ currency: to, gross, net, receipts, as_of: sync?.last_successful_run_at ?? "" }];
 }
