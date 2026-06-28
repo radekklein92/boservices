@@ -2,9 +2,14 @@ import { notFound } from "next/navigation";
 import {
   cachedGetLocation,
   cachedListContracts,
+  cachedListLocationFranchiseContracts,
   cachedListReFlags,
 } from "@/lib/portal/cached-db";
 import { contractDisplayStatus, statusOrder } from "@/lib/portal/contracts-db";
+import {
+  isBosStore,
+  bosStoreReason,
+} from "@/components/portal/locations/real-estate-shared";
 import {
   LocationDetail,
   type LocationContractRow,
@@ -30,12 +35,30 @@ export default async function LocationDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [location, allContracts, flagCatalog] = await Promise.all([
-    cachedGetLocation(id),
-    cachedListContracts(),
-    cachedListReFlags(),
-  ]);
+  const [location, allContracts, flagCatalog, franchiseByLocation] =
+    await Promise.all([
+      cachedGetLocation(id),
+      cachedListContracts(),
+      cachedListReFlags(),
+      // locationId -> id podepsané franšízingové smlouvy (stejný zdroj jako badge
+      // „franšíza" v seznamu) — vstup pro odvozenou „BOS prodejna".
+      cachedListLocationFranchiseContracts(),
+    ]);
   if (!location) notFound();
+
+  // „BOS prodejna" (sdílený predikát): franšíza podepsaná klientem NEBO v NewCo,
+  // a není červeně (vyjma „řešit i přes červenou"). Vstupy ze stejných zdrojů
+  // jako v Real Estate tabulce; do klienta jde jen výsledek.
+  const local = location.local;
+  const bosInput = {
+    franchiseContractId: franchiseByLocation[id] ?? null,
+    hasNewco: Boolean(local?.newco),
+    newco: local?.newco ?? null,
+    manualRed: local?.manualRed ?? null,
+    solveDespiteRed: local?.solveDespiteRed ?? false,
+  };
+  const isBos = isBosStore(bosInput);
+  const bosReason = bosStoreReason(bosInput);
 
   // Přiřazené flagy z RE tabulky (LocationLocal.flagIds) přeložené přes katalog.
   // Pořadí katalogu (stabilní), jen flagy, které pořád existují.
@@ -73,6 +96,8 @@ export default async function LocationDetailPage({
         contracts={contracts}
         flags={flags}
         posPanel={<PosLocationPanel locationId={id} />}
+        isBos={isBos}
+        bosReason={bosReason}
       />
       <EntityTasks kind="location" id={id} />
     </div>

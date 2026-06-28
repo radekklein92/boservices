@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowUpRight, Search, MapPin, FileCheck, FileX, Store } from "lucide-react";
+import { ArrowUpRight, Search, MapPin, FileCheck, FileX, Store, Building2 } from "lucide-react";
 import type { LocationCategory, MirroredLocation } from "@/lib/portal/locations-db";
 import { FilterChip } from "@/components/portal/ui/FilterChip";
 import { BTN_ROW } from "@/components/portal/ui/buttons";
@@ -24,22 +24,27 @@ export function LocationsTable({
   locations,
   withContractIds = [],
   franchiseByLocation = {},
+  bosLocationIds = [],
 }: {
   locations: MirroredLocation[];
   // Id lokalit s nahranou přílohou (nájemní smlouvou).
   withContractIds?: string[];
   // Mapa locationId -> id podepsané franšízingové smlouvy.
   franchiseByLocation?: Record<string, string>;
+  // Id lokalit, které jsou „BOS prodejna" (odvozeno serverem přes isBosStore).
+  bosLocationIds?: string[];
 }) {
   const [query, setQuery] = useState("");
   const [activeCats, setActiveCats] = useState<Set<LocationCategory>>(new Set());
   const [leaseFilter, setLeaseFilter] = useState<LeaseFilter>("all");
   const [franchiseFilter, setFranchiseFilter] = useState<LeaseFilter>("all");
+  const [bosFilter, setBosFilter] = useState<LeaseFilter>("all");
 
   const withContract = useMemo(
     () => new Set(withContractIds),
     [withContractIds],
   );
+  const bosSet = useMemo(() => new Set(bosLocationIds), [bosLocationIds]);
 
   const counts = useMemo(() => {
     const map = new Map<LocationCategory, number>();
@@ -61,6 +66,12 @@ export function LocationsTable({
     return { has, missing: locations.length - has };
   }, [locations, franchiseByLocation]);
 
+  const bosCounts = useMemo(() => {
+    let has = 0;
+    for (const l of locations) if (bosSet.has(l.id)) has++;
+    return { has, missing: locations.length - has };
+  }, [locations, bosSet]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return locations.filter((l) => {
@@ -72,6 +83,9 @@ export function LocationsTable({
       const hasFranchise = Boolean(franchiseByLocation[l.id]);
       if (franchiseFilter === "has" && !hasFranchise) return false;
       if (franchiseFilter === "missing" && hasFranchise) return false;
+      const isBos = bosSet.has(l.id);
+      if (bosFilter === "has" && !isBos) return false;
+      if (bosFilter === "missing" && isBos) return false;
       if (!q) return true;
       const haystack = [
         l.name,
@@ -96,6 +110,8 @@ export function LocationsTable({
     withContract,
     franchiseFilter,
     franchiseByLocation,
+    bosFilter,
+    bosSet,
   ]);
 
   function toggleCat(cat: LocationCategory) {
@@ -201,15 +217,36 @@ export function LocationsTable({
           title="Lokality bez podepsané franšízingové smlouvy"
         />
 
+        <span className="mx-1 h-5 w-px shrink-0 bg-edge" aria-hidden="true" />
+
+        <FilterChip
+          active={bosFilter === "has"}
+          onClick={() => setBosFilter((f) => (f === "has" ? "all" : "has"))}
+          Icon={Building2}
+          label="BOS prodejna"
+          count={bosCounts.has}
+          title="BOS síť: podepsaná franšíza nebo NewCo, a není červeně (kromě „řešit i přes červenou“)"
+        />
+        <FilterChip
+          active={bosFilter === "missing"}
+          onClick={() => setBosFilter((f) => (f === "missing" ? "all" : "missing"))}
+          Icon={Building2}
+          label="Není BOS"
+          count={bosCounts.missing}
+          title="Lokality mimo BOS síť"
+        />
+
         {(activeCats.size > 0 ||
           leaseFilter !== "all" ||
-          franchiseFilter !== "all") && (
+          franchiseFilter !== "all" ||
+          bosFilter !== "all") && (
           <button
             type="button"
             onClick={() => {
               setActiveCats(new Set());
               setLeaseFilter("all");
               setFranchiseFilter("all");
+              setBosFilter("all");
             }}
             className="ml-1 text-[12px] font-medium text-ink-mid underline-offset-2 hover:text-ink-base hover:underline"
           >
@@ -272,6 +309,15 @@ export function LocationsTable({
               )}
 
               <div className="flex flex-wrap items-center gap-1.5">
+                {bosSet.has(l.id) && (
+                  <span
+                    className={`${CHIP_BASE} border-emerald-300 bg-emerald-50 text-emerald-700`}
+                    title="BOS prodejna (franšíza nebo NewCo, není červeně)"
+                  >
+                    <Building2 className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+                    BOS
+                  </span>
+                )}
                 {l.category && (
                   <span className={`${CHIP_BASE} ${CATEGORY_STYLE[l.category]}`}>
                     {CATEGORY_LABEL[l.category]}
