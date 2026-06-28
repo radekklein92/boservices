@@ -758,6 +758,7 @@ export async function getLiveMovers(filter: PosFilter, topN = 5): Promise<LiveMo
 // když dnes zatím není tržba. Strop CLOSED_MAX_GAP "provozních" dní bez tržby; delší
 // = nejspíš trvale zavřená -> do reportu nepatří.
 const CLOSED_MAX_GAP = 7; // > týden provozních dní bez tržby = trvale zavřená (skrýt)
+const CLOSED_MAX_SILENT = 10; // naposledy prodáno před víc dny = trvale zavřená (kalendářní pojistka)
 const CLOSED_WINDOW = 28; // 4 týdny zpět vč. dneška - dost na profil dne v týdnu (3-4 výskyty)
 const CLOSED_NOON = 12; // dnešek se počítá jako výpadek až po této hodině
 
@@ -840,7 +841,8 @@ export async function getClosedStores(filter: PosFilter): Promise<ClosedStoresRe
     }
     if (lastSaleIdx === -1) continue; // žádná tržba v okně -> trvale zavřená/neznámá
     if (gap < 1) continue; // žádný provozní den bez tržby -> v provozu
-    if (gap > CLOSED_MAX_GAP) continue; // delší výpadek než týden -> trvale zavřená
+    if (gap > CLOSED_MAX_GAP) continue; // delší výpadek než týden provozních dní -> trvale zavřená
+    if (lastSaleIdx > CLOSED_MAX_SILENT) continue; // naposledy prodáno dávno (kalendářně) -> trvale zavřená
 
     // Obvyklá denní tržba z DOKONČENÝCH dní s tržbou (dnešek je jen částečný den).
     const complete = arr.slice(1).filter((g) => g > 0);
