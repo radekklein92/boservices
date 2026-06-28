@@ -5,6 +5,8 @@ import type { ReactNode } from "react";
 import {
   AlertTriangle,
   Check,
+  ChevronDown,
+  Clock,
   ExternalLink,
   GitPullRequest,
   Loader2,
@@ -33,6 +35,7 @@ type LiveStatus = {
   prUrl?: string;
   prTitle?: string;
   previewUrl?: string;
+  lastActivity?: { body: string; at: string; author: string };
 } | null;
 
 export type RequestRow = {
@@ -75,6 +78,54 @@ function fmt(iso: string): string {
   } catch {
     return iso;
   }
+}
+
+// "working" déle než tohle bez PR = nejspíš spadlý/uvázlý běh (akce normálně
+// otevře PR do pár minut) -> ukážeme upozornění + odkaz na logy.
+const STALE_MINUTES = 10;
+
+// Lehké očištění GitHub markdownu pro zobrazení (odkazy -> text, obrázky a
+// nadpisové # pryč). Vykresluje se jako prostý text, takže žádné riziko injection.
+function cleanMarkdown(s: string): string {
+  return s
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+// Inline "Průběh od Claude" - poslední komentář z issue, sbalený na pár řádků.
+function Activity({
+  activity,
+}: {
+  activity: { body: string; at: string; author: string };
+}) {
+  const [open, setOpen] = useState(false);
+  const text = cleanMarkdown(activity.body);
+  return (
+    <div className="mt-1 rounded-xl border border-edge bg-edge-warm/40 px-3 py-2">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-1.5 text-[12px] font-medium text-ink-mid transition-colors hover:text-ink-base"
+      >
+        <ChevronDown
+          className={`h-3.5 w-3.5 shrink-0 transition-transform ${open ? "" : "-rotate-90"}`}
+          strokeWidth={1.75}
+        />
+        Průběh od Claude
+        <span className="ml-auto font-normal text-ink-soft">{fmt(activity.at)}</span>
+      </button>
+      <div
+        className={`mt-1.5 whitespace-pre-wrap text-[12.5px] leading-relaxed text-ink-deep ${
+          open ? "" : "line-clamp-3"
+        }`}
+      >
+        {text}
+      </div>
+    </div>
+  );
 }
 
 export function ChangesConsole({
@@ -306,12 +357,23 @@ export function ChangesConsole({
         ) : (
           <div className="flex flex-col divide-y divide-edge">
             {rows.map((r) => {
-              const meta = STATUS_META[r.live?.status ?? "unknown"];
+              const st = r.live?.status ?? "unknown";
+              const ageMin = (Date.now() - Date.parse(r.createdAt)) / 60000;
+              const stale = (st === "working" || st === "unknown") && ageMin > STALE_MINUTES;
+              const meta = stale
+                ? {
+                    label: "Možná uvázlo - zkontrolovat",
+                    tone: "border-amber-300 bg-amber-100 text-amber-800",
+                  }
+                : STATUS_META[st];
               return (
                 <div key={r.issueNumber} className="flex flex-col gap-2 py-3.5">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="text-[14px] font-semibold text-ink-base">{r.title}</span>
-                    <Chip tone={meta.tone}>{meta.label}</Chip>
+                    <Chip tone={meta.tone}>
+                      {stale && <Clock className="h-3 w-3" strokeWidth={2} aria-hidden="true" />}
+                      {meta.label}
+                    </Chip>
                   </div>
                   <p className="line-clamp-2 max-w-[80ch] text-[13px] leading-relaxed text-ink-mid">
                     {r.request}
@@ -351,7 +413,19 @@ export function ChangesConsole({
                         <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
                       </a>
                     )}
+                    {(stale || st === "checks_failed") && repoSlug && (
+                      <a
+                        href={`https://github.com/${repoSlug}/actions/workflows/claude.yml`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-ink-mid hover:text-ink-base"
+                      >
+                        Logy běhu
+                        <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
+                      </a>
+                    )}
                   </div>
+                  {r.live?.lastActivity && <Activity activity={r.live.lastActivity} />}
                 </div>
               );
             })}

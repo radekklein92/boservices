@@ -90,6 +90,9 @@ export interface RequestLiveStatus {
   prUrl?: string;
   prTitle?: string;
   previewUrl?: string;
+  // Poslední komentář na issue (Claude tam píše průběh/souhrn) - pro zobrazení
+  // přímo v Portálu.
+  lastActivity?: { body: string; at: string; author: string };
 }
 
 type TimelineEvent = {
@@ -156,6 +159,23 @@ async function getPreviewUrl(c: { owner: string; repo: string }, sha: string): P
   return withUrl?.environment_url;
 }
 
+// Poslední komentář na issue (Claude tam píše průběh a finální souhrn).
+async function getLatestComment(
+  c: { owner: string; repo: string },
+  issue: number,
+): Promise<{ body: string; at: string; author: string } | undefined> {
+  const comments = await gh<
+    { body: string; created_at: string; user: { login: string } | null }[]
+  >(`/repos/${c.owner}/${c.repo}/issues/${issue}/comments?per_page=100`);
+  if (!comments.length) return undefined;
+  const last = comments[comments.length - 1];
+  return {
+    body: (last.body ?? "").slice(0, 4000),
+    at: last.created_at,
+    author: last.user?.login ?? "",
+  };
+}
+
 const statusCacheKey = (n: number) => `portal:devtools:status:${n}`;
 
 // Živý stav požadavku s krátkou cache v Redisu (šetří GitHub rate limit při
@@ -181,16 +201,17 @@ async function computeRequestStatus(issueNumber: number): Promise<RequestLiveSta
   const c = cfg();
   if (!c) return { status: "unknown" };
   try {
+    const lastActivity = await getLatestComment(c, issueNumber).catch(() => undefined);
     const prNumber = await findLinkedPr(c, issueNumber);
     if (!prNumber) {
       // Bez PR: buď Claude pracuje, nebo issue skončilo zavřené bez výsledku.
       const issue = await gh<{ state: string }>(
         `/repos/${c.owner}/${c.repo}/issues/${issueNumber}`,
       ).catch(() => null);
-      return { status: issue?.state === "closed" ? "closed" : "working" };
+      return { status: issue?.state === "closed" ? "closed" : "working", lastActivity };
     }
     const pull = await getPull(c, prNumber);
-    const base = { prNumber, prUrl: pull.html_url, prTitle: pull.title };
+    const base = { prNumber, prUrl: pull.html_url, prTitle: pull.title, lastActivity };
     if (pull.merged) {
       const previewUrl = await getPreviewUrl(c, pull.head.sha).catch(() => undefined);
       return { ...base, status: "deployed", previewUrl };
