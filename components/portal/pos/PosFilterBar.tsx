@@ -14,6 +14,7 @@ import {
   type PosSelection,
 } from "@/lib/portal/pos/filters";
 import { FilterChip } from "@/components/portal/ui/FilterChip";
+import { Toggle } from "@/components/portal/ui/Toggle";
 import type { FilterBarData } from "./pos-filter-shared";
 import { PosStorePicker } from "./PosStorePicker";
 import { PosViewsMenu } from "./PosViewsMenu";
@@ -176,15 +177,12 @@ export function PosFilterBar({ concepts, unpaired, currencies, views, me }: Filt
             <FilterChip key={c} active={filter.currency === c} onClick={() => update({ currency: c })} label={c} />
           ))}
           <span className="mx-1 hidden h-5 w-px bg-edge sm:block" aria-hidden="true" />
-          <button
-            type="button"
-            onClick={() => update({ vatInclusive: !filter.vatInclusive })}
-            aria-pressed={filter.vatInclusive}
-            title="Přepnout zobrazení s/bez DPH"
-            className={`${TOGGLE_BASE} border-edge bg-paper text-ink-deep hover:border-ink-soft`}
-          >
-            {filter.vatInclusive ? "s DPH" : "bez DPH"}
-          </button>
+          <Toggle
+            checked={filter.vatInclusive}
+            onChange={(next) => update({ vatInclusive: next })}
+            label="Ceny s DPH"
+            title="Přepnout zobrazení s DPH / bez DPH"
+          />
         </div>
       </div>
     </div>
