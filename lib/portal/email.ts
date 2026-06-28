@@ -242,3 +242,48 @@ export async function sendTaskNotificationEmail(opts: {
     text,
   });
 }
+
+// E-mail majiteli po úspěšném produkčním nasazení - "pojistka viditelnosti"
+// Konzole změn (/portal/admin/changes). Volá ji /api/portal/internal/notify-deploy
+// (trigger z GitHub Actions deploy-notify.yml). Příjemci z DEPLOY_NOTIFY_TO.
+export async function sendDeployNotificationEmail(opts: {
+  to: string[];
+  liveUrl?: string;
+  commitMessage?: string;
+  prNumber?: number;
+  prUrl?: string;
+  prTitle?: string;
+  requestedBy?: string;
+}): Promise<void> {
+  const resend = getResend();
+  if (!resend) {
+    console.warn("[portal email] Resend not configured");
+    return;
+  }
+  if (!opts.to.length) return;
+
+  const headline = opts.prTitle || opts.commitMessage || "Nová verze portálu";
+  const live = opts.liveUrl || SITE_URL;
+  const rows: string[] = [];
+  if (opts.requestedBy) {
+    rows.push(
+      `<tr><td style="padding:6px 0;font-size:13px;color:#6F7672;width:130px">Zadal</td><td style="padding:6px 0;font-size:14px;color:#0E0E0E;font-weight:600">${opts.requestedBy}</td></tr>`,
+    );
+  }
+  if (opts.prNumber) {
+    rows.push(
+      `<tr><td style="padding:6px 0;font-size:13px;color:#6F7672">Pull request</td><td style="padding:6px 0;font-size:14px"><a href="${opts.prUrl ?? "#"}" style="color:#0E0E0E;font-weight:600">#${opts.prNumber}</a></td></tr>`,
+    );
+  }
+  const table = rows.length
+    ? `<table style="width:100%;border-collapse:collapse;margin:8px 0 4px">${rows.join("")}</table>`
+    : "";
+  const body = `<p style="font-size:15px;line-height:1.6">Do produkce byla právě nasazena nová verze portálu:</p><h2 style="font-size:19px;font-weight:800;letter-spacing:-.01em;margin:14px 0 4px;line-height:1.25">${headline}</h2>${table}${button(live, "Otevřít portál")}${fallbackLink(live)}`;
+
+  await resend.emails.send({
+    from: FROM,
+    to: opts.to,
+    subject: `Nasazeno do produkce: ${headline}`,
+    html: shell("Nasazeno do produkce.", "BOServices portál", body),
+  });
+}

@@ -1,0 +1,28 @@
+name: Deploy notification
+
+# Po úspěšném PRODUKČNÍM nasazení (Vercel hlásí přes svou GitHub App událost
+# deployment_status - anti-rekurze GITHUB_TOKEN tohle neblokuje) zavolá Portál,
+# který pošle e-mail majiteli (Resend). URL Portálu lze přepsat repo variable
+# PORTAL_URL; default je produkční doména.
+
+on:
+  deployment_status:
+
+jobs:
+  notify:
+    if: >-
+      github.event.deployment_status.state == 'success' &&
+      (github.event.deployment_status.environment == 'Production' ||
+      github.event.deployment_status.environment == 'production')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping portal
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          PORTAL_URL: ${{ vars.PORTAL_URL || 'https://boservices.cz' }}
+        run: |
+          curl -fsSL -X POST "${PORTAL_URL}/api/portal/internal/notify-deploy" \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            -H "Content-Type: application/json" \
+            -d '{"sha":"${{ github.event.deployment.sha }}","url":"${{ github.event.deployment_status.environment_url }}","environment":"${{ github.event.deployment_status.environment }}","state":"${{ github.event.deployment_status.state }}"}' \
+            || echo "notify failed (non-fatal)"

@@ -11,6 +11,7 @@ import {
   Cloud,
   FileText,
   FilePenLine,
+  GitPullRequest,
   HandCoins,
   KeyRound,
   ListChecks,
@@ -77,6 +78,7 @@ const admin: Item[] = [
   { href: "/portal/templates", label: "Šablony smluv", Icon: FilePenLine },
   { href: "/portal/design-system", label: "Design system", Icon: Palette },
   { href: "/portal/admin/telegram", label: "Telegram", Icon: Send },
+  { href: "/portal/admin/changes", label: "Změny portálu", Icon: GitPullRequest },
   { href: "/portal/users", label: "Uživatelé", Icon: Users },
 ];
 
