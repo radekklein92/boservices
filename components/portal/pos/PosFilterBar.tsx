@@ -102,6 +102,23 @@ export function PosFilterBar({
   const hasSelection = sel.concepts.length > 0 || sel.locations.length > 0;
   const currentFilter = serializePosFilter(filter).toString();
 
+  // Ikonová akční tlačítka (uložené pohledy + "Na mobil"). Na stránkách s obdobím
+  // sedí v řádku presetů zarovnaná doprava; na Živě (hidePeriod) presety odpadnou,
+  // tak je dáme rovnou do řádku 1 vedle "Ceny s DPH", ať nevisí samy na druhém řádku.
+  const iconButtons = (
+    <>
+      <PosViewsMenu views={views} me={me} currentFilter={currentFilter} />
+      <PosMobileLinkButton
+        concepts={concepts}
+        currencies={currencies}
+        initialSelection={sel}
+        initialScope={filter.scope}
+        initialCurrency={filter.currency}
+        initialVatInclusive={filter.vatInclusive}
+      />
+    </>
+  );
+
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-edge bg-paper p-3 sm:p-4">
       {/* Řádek 1: výběr prodejen + "Stejné prodejny" + měna + DPH + uložené pohledy */}
@@ -177,71 +194,63 @@ export function PosFilterBar({
             title="Přepnout zobrazení s DPH / bez DPH"
           />
         </div>
+
+        {/* Na Živě presety v řádku 2 odpadnou - ikony by zůstaly samy na druhém řádku,
+            tak je dáme rovnou sem vedle "Ceny s DPH" (jinde zůstávají v řádku 2). */}
+        {hidePeriod && <div className="flex items-center gap-1.5">{iconButtons}</div>}
       </div>
 
       {/* Řádek 2: období (datumové presety) + srovnání (label "vs ...") vlevo, ikonová
-          tlačítka (Pohledy, Na mobil) zarovnaná doprava. Řádek se vykresluje vždy - i na
-          Živě (hidePeriod), kde presety odpadnou, ať ikony nezůstanou viset v řádku 1. */}
-      <div className="flex flex-wrap items-center gap-1.5">
-        {!hidePeriod && (
-          <>
-            {PRESETS.map((p) => (
-              <FilterChip
-                key={p}
-                active={filter.preset === p}
-                onClick={() => update({ preset: p })}
-                label={DATE_PRESET_LABEL[p]}
-              />
-            ))}
+          tlačítka zarovnaná doprava. Na Živě (hidePeriod) presety odpadnou, tak celý
+          řádek vynecháme a ikony se přesunou do řádku 1 (viz výš), ať nevisí níž samy. */}
+      {!hidePeriod && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {PRESETS.map((p) => (
             <FilterChip
-              active={filter.preset === "vlastni"}
-              onClick={() => update({ preset: "vlastni", from: filter.from ?? isoDaysAgo(29), to: filter.to ?? isoToday() })}
-              label="Vlastní"
+              key={p}
+              active={filter.preset === p}
+              onClick={() => update({ preset: p })}
+              label={DATE_PRESET_LABEL[p]}
             />
-            {filter.preset === "vlastni" && (
-              <span className="inline-flex items-center gap-1.5">
-                <input
-                  type="date"
-                  value={draftFrom}
-                  max={draftTo || undefined}
-                  onChange={(e) => {
-                    setDraftFrom(e.target.value);
-                    commitDates(e.target.value, draftTo);
-                  }}
-                  className="h-9 rounded-full border border-edge bg-paper px-3 text-[12.5px] tabular-nums text-ink-base outline-none transition-colors focus-visible:border-ink-base focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2 focus-visible:ring-offset-paper"
-                />
-                <span className="text-ink-soft" aria-hidden="true">-</span>
-                <input
-                  type="date"
-                  value={draftTo}
-                  min={draftFrom || undefined}
-                  onChange={(e) => {
-                    setDraftTo(e.target.value);
-                    commitDates(draftFrom, e.target.value);
-                  }}
-                  className="h-9 rounded-full border border-edge bg-paper px-3 text-[12.5px] tabular-nums text-ink-base outline-none transition-colors focus-visible:border-ink-base focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2 focus-visible:ring-offset-paper"
-                />
-              </span>
-            )}
-            <span className="mx-1 hidden h-5 w-px bg-edge sm:block" aria-hidden="true" />
-            {/* Srovnání s předchozím obdobím je vždy zapnuté - jen ukážeme baseline. */}
-            <span className="hidden text-[11px] text-ink-soft sm:inline">
-              vs {comparisonLabel(filter).toLowerCase()}
-            </span>
-          </>
-        )}
-        <div className="ml-auto flex items-center gap-1.5">
-          <PosViewsMenu views={views} me={me} currentFilter={currentFilter} />
-          <PosMobileLinkButton
-            concepts={concepts}
-            currencies={currencies}
-            initialSelection={sel}
-            initialScope={filter.scope}
-            initialCurrency={filter.currency}
-            initialVatInclusive={filter.vatInclusive}
+          ))}
+          <FilterChip
+            active={filter.preset === "vlastni"}
+            onClick={() => update({ preset: "vlastni", from: filter.from ?? isoDaysAgo(29), to: filter.to ?? isoToday() })}
+            label="Vlastní"
           />
+          {filter.preset === "vlastni" && (
+            <span className="inline-flex items-center gap-1.5">
+              <input
+                type="date"
+                value={draftFrom}
+                max={draftTo || undefined}
+                onChange={(e) => {
+                  setDraftFrom(e.target.value);
+                  commitDates(e.target.value, draftTo);
+                }}
+                className="h-9 rounded-full border border-edge bg-paper px-3 text-[12.5px] tabular-nums text-ink-base outline-none transition-colors focus-visible:border-ink-base focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2 focus-visible:ring-offset-paper"
+              />
+              <span className="text-ink-soft" aria-hidden="true">-</span>
+              <input
+                type="date"
+                value={draftTo}
+                min={draftFrom || undefined}
+                onChange={(e) => {
+                  setDraftTo(e.target.value);
+                  commitDates(draftFrom, e.target.value);
+                }}
+                className="h-9 rounded-full border border-edge bg-paper px-3 text-[12.5px] tabular-nums text-ink-base outline-none transition-colors focus-visible:border-ink-base focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2 focus-visible:ring-offset-paper"
+              />
+            </span>
+          )}
+          <span className="mx-1 hidden h-5 w-px bg-edge sm:block" aria-hidden="true" />
+          {/* Srovnání s předchozím obdobím je vždy zapnuté - jen ukážeme baseline. */}
+          <span className="hidden text-[11px] text-ink-soft sm:inline">
+            vs {comparisonLabel(filter).toLowerCase()}
+          </span>
+          <div className="ml-auto flex items-center gap-1.5">{iconButtons}</div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
