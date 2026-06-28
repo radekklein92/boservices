@@ -63,6 +63,16 @@ export interface DailyRevenueRow {
   receipts: number;
 }
 
+// /v1/revenue/daily?split=shop - jeden řádek na pokladnu s denní řadou jako pole
+// (DW json_agg). Pro per-pokladnu denní matici za víc týdnů jedním dotazem
+// (report neotevřených prodejen - profil aktivity po dnech v týdnu).
+export interface ShopSeriesRow {
+  shop_id: string;
+  brand_id: string;
+  currency: string;
+  days: { date: string; gross: number; net: number; receipts: number }[];
+}
+
 export interface ProductSalesRow {
   product_id: string;
   name: string;
