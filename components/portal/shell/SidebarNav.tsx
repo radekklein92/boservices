@@ -94,7 +94,7 @@ export function SidebarNav({
   const pathname = usePathname() ?? "/portal";
 
   return (
-    <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 pt-2 pb-6">
+    <nav className="no-scrollbar flex flex-1 flex-col gap-1 overflow-y-auto px-3 pt-2 pb-6">
       <NavSection label="Hlavní">
         {main.map((item) => (
           <NavItem
