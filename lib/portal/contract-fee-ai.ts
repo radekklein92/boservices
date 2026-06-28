@@ -66,7 +66,7 @@ const FEE_PERIOD_SCHEMA = {
     amount: {
       type: "number",
       description:
-        "Pevná částka bez DPH (číslo bez měny a oddělovačů, „30 000 Kč" => 30000). 0 pokud je poplatek procentuální.",
+        "Pevná částka bez DPH (číslo bez měny a oddělovačů, např. 30 000 Kč jako 30000). 0 pokud je poplatek procentuální.",
     },
     amountPeriod: {
       type: "string",
