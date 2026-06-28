@@ -39,21 +39,35 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           trigger_phrase: "@claude"
 
-      # Zapne auto-merge na vzniklém PR. Primárně z outputu akce; fallback
-      # dohledá PR navázaný na issue přes cross-reference v timeline.
-      - name: Enable auto-merge on the resulting PR
+      # Akce sama PR neotevírá - jen pushne větev claude/issue-<n>-*. Tady tedy
+      # PR založíme (pokud už není) a zapneme auto-merge. PR číslo: nejdřív
+      # z outputu akce, pak cross-reference v timeline, nakonec dohledáme větev
+      # a otevřeme PR sami.
+      - name: Open PR and enable auto-merge
         if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ISSUE: ${{ github.event.issue.number }}
         run: |
           PR="${{ steps.claude.outputs.pull_request_number }}"
           if [ -z "$PR" ] || [ "$PR" = "null" ]; then
-            PR=$(gh api "repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/timeline" \
+            PR=$(gh api "repos/$REPO/issues/$ISSUE/timeline" \
               --jq '[.[] | select(.event=="cross-referenced") | .source.issue | select(.pull_request!=null) | .number] | last' 2>/dev/null || true)
+          fi
+          if [ -z "$PR" ] || [ "$PR" = "null" ]; then
+            BR=$(git ls-remote --heads origin "claude/issue-$ISSUE-*" | awk '{print $2}' | sed 's#refs/heads/##' | sort | tail -1)
+            if [ -n "$BR" ]; then
+              TITLE=$(gh issue view "$ISSUE" --repo "$REPO" --json title --jq .title)
+              echo "Opening PR for branch $BR"
+              gh pr create --repo "$REPO" --base main --head "$BR" \
+                --title "$TITLE" --body "Closes #$ISSUE" || true
+              PR=$(gh pr list --repo "$REPO" --head "$BR" --state open --json number --jq '.[0].number' 2>/dev/null || true)
+            fi
           fi
           if [ -n "$PR" ] && [ "$PR" != "null" ]; then
             echo "Enabling auto-merge for PR #$PR"
-            gh pr merge "$PR" --repo "${{ github.repository }}" --auto --squash --delete-branch || true
+            gh pr merge "$PR" --repo "$REPO" --auto --squash --delete-branch || true
           else
-            echo "No linked PR found; skipping auto-merge."
+            echo "No branch/PR found; nothing to merge."
           fi
