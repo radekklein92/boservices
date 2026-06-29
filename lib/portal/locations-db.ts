@@ -3,6 +3,7 @@ import type { NewCoMapping } from "./newco-fields";
 import {
   appendLeaseChanges,
   diffLeaseChanges,
+  diffLocalFlagChanges,
   recordLeaseChanges,
   type LeaseLogEntry,
 } from "./re-lease-log-db";
@@ -475,6 +476,30 @@ export async function patchLocationLocal(
     updatedAt: new Date().toISOString(),
   };
   await r.set(localKey(id), next);
+
+  // Log změn příznaků Real Estate (solveDespiteRed / manualRed) — hýbou počty
+  // Řešit/Červeně stejně jako nájem. Jen když se příznak opravdu změnil; name/code
+  // z mirroru (extra GET jen při skutečné změně). Best-effort, neshodí patch.
+  if (
+    Boolean(existing?.solveDespiteRed) !== Boolean(next.solveDespiteRed) ||
+    Boolean(existing?.manualRed) !== Boolean(next.manualRed)
+  ) {
+    try {
+      const loc = await r.get<MirroredLocation>(locKey(id));
+      await appendLeaseChanges(
+        diffLocalFlagChanges(existing, next, {
+          locationId: id,
+          name: loc?.name ?? id,
+          code: loc?.code ?? null,
+          at: next.updatedAt,
+          by: updatedBy,
+        }),
+      );
+    } catch {
+      /* log je best-effort, nikdy nesmí shodit patch */
+    }
+  }
+
   return next;
 }
 
