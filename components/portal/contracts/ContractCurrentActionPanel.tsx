@@ -38,6 +38,10 @@ const ApprovalNoteModal = dynamicImport(
   () => import("./ApprovalNoteModal").then((m) => m.ApprovalNoteModal),
   { ssr: false },
 );
+const ClientSignedModal = dynamicImport(
+  () => import("./ClientSignedModal").then((m) => m.ClientSignedModal),
+  { ssr: false },
+);
 const ApprovalChecklistModal = dynamicImport(
   () => import("./ApprovalChecklistModal").then((m) => m.ApprovalChecklistModal),
   { ssr: false },
@@ -98,10 +102,8 @@ export function ContractCurrentActionPanel({
 }) {
   const [pending, setPending] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
-  // Datum podpisu klienta (kotva pro výpočet poplatků); default dnes, lze změnit.
-  const [signDate, setSignDate] = useState(() =>
-    new Date().toISOString().slice(0, 10),
-  );
+  // Potvrzovací modal „Podepsáno klientem" (datum se v něm vždy předvyplní na dnešek).
+  const [signModalOpen, setSignModalOpen] = useState(false);
   const [noteModalOpen, setNoteModalOpen] = useState(false);
   const [checklistOpen, setChecklistOpen] = useState(false);
   const [dsConfirmed, setDsConfirmed] = useState(false);
@@ -225,13 +227,14 @@ export function ContractCurrentActionPanel({
     await callMilestone("DELETE", "signed", "Označení zrušeno.");
   }
 
-  async function markClientSigned() {
+  async function markClientSigned(signedAt: string) {
     await callMilestone(
       "POST",
       "client-signed",
       "Označeno jako Podepsáno klientem.",
-      { signedAt: signDate },
+      { signedAt },
     );
+    setSignModalOpen(false);
   }
 
   async function unmarkClientSigned() {
@@ -655,22 +658,11 @@ export function ContractCurrentActionPanel({
           headline={
             isWithdrawalLike ? "Připraveno k podpisu klientem" : "Čeká na podpis klienta"
           }
-          description="Předej finální PDF klientovi. Zadej datum, kdy klient podepsal - od něj se počítají poplatky."
+          description="Předej finální PDF klientovi. Po kliknutí potvrdíš datum podpisu - od něj se počítají poplatky."
           primary={
-            <div className="flex flex-wrap items-end gap-2">
-              <label className="flex flex-col gap-1">
-                <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-ink-soft">
-                  Datum podpisu klientem
-                </span>
-                <input
-                  type="date"
-                  value={signDate}
-                  onChange={(e) => setSignDate(e.target.value)}
-                  className="h-11 rounded-xl border border-edge bg-paper px-3 text-[13.5px] text-ink-base outline-none transition-colors focus:border-ink-base"
-                />
-              </label>
+            <div className="flex flex-wrap items-center gap-2">
               <PrimaryButton
-                onClick={markClientSigned}
+                onClick={() => setSignModalOpen(true)}
                 pending={pending === "POST:client-signed"}
                 Icon={PenLine}
               >
@@ -757,6 +749,15 @@ export function ContractCurrentActionPanel({
             await approve(note);
             setNoteModalOpen(false);
           }}
+        />
+      )}
+
+      {signModalOpen && (
+        <ClientSignedModal
+          defaultDate={new Date().toISOString().slice(0, 10)}
+          pending={pending === "POST:client-signed"}
+          onClose={() => setSignModalOpen(false)}
+          onConfirm={markClientSigned}
         />
       )}
 
