@@ -8,9 +8,11 @@ import type { LeaseLogEntry } from "@/lib/portal/re-lease-log-db";
 import { LEASE_HOLDER_LABEL } from "./real-estate-shared";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Log změn nájmu pod tabulkou Real Estate. Newest-first audit „Nájem aktuálně"
-// a „Nájem cílově": co se změnilo, z čeho na co, kdy a kdo. Data ze serveru
-// (lib/portal/re-lease-log-db), čistě zobrazení + klientské hledání/stránkování.
+// Log změn Real Estate pod tabulkou. Newest-first audit pohybů, které hýbou
+// počty Řešit/Vyřešeno/Červeně: „Nájem aktuálně"/„Nájem cílově" + příznaky
+// „Stejně řešit" (solveDespiteRed) a ruční „Červeně" (manualRed) — co se změnilo,
+// z čeho na co, kdy a kdo. Data ze serveru (lib/portal/re-lease-log-db), čistě
+// zobrazení + klientské hledání/stránkování.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const PAGE = 40;
@@ -27,7 +29,18 @@ const FIELD_META: Record<
     label: "Nájem cílově",
     tone: "border-sky-300 bg-sky-50 text-sky-700",
   },
+  solveDespiteRed: {
+    label: "Stejně řešit",
+    tone: "border-amber-300 bg-amber-50 text-amber-700",
+  },
+  manualRed: {
+    label: "Červeně (ručně)",
+    tone: "border-red-300 bg-red-50 text-red-700",
+  },
 };
+
+// Příznaky (on/off) vs nájem (LeaseStatus): pro zobrazení hodnoty.
+const FLAG_FIELDS = new Set<LeaseLogEntry["field"]>(["solveDespiteRed", "manualRed"]);
 
 const dateFmt = new Intl.DateTimeFormat("cs-CZ", {
   day: "numeric",
@@ -43,8 +56,11 @@ function formatAt(iso: string): string {
   return dateFmt.format(d);
 }
 
-function leaseLabel(s: LeaseStatus): string {
-  return LEASE_HOLDER_LABEL[s] ?? s;
+// Hodnota záznamu pro zobrazení: nájem → label držitele; příznak → Zapnuto/Vypnuto.
+function valueLabel(field: LeaseLogEntry["field"], value: string | null): string {
+  if (value == null) return "—";
+  if (FLAG_FIELDS.has(field)) return value === "on" ? "Zapnuto" : "Vypnuto";
+  return LEASE_HOLDER_LABEL[value as LeaseStatus] ?? value;
 }
 
 // Zkrátí strojové „kdo": boservices:e@mail → e@mail, telegram:Krampera →
@@ -80,7 +96,7 @@ export function ReLeaseChangeLog({ entries }: { entries: LeaseLogEntry[] }) {
         <div className="flex items-center gap-2.5">
           <History className="h-4 w-4 text-ink-soft" aria-hidden="true" />
           <h2 className="text-[13.5px] font-semibold tracking-[-0.01em] text-ink-base">
-            Log změn nájmu
+            Log změn Real Estate
           </h2>
           <span className="font-mono text-[11px] text-ink-soft">
             {filtered.length}
@@ -106,8 +122,9 @@ export function ReLeaseChangeLog({ entries }: { entries: LeaseLogEntry[] }) {
       {entries.length === 0 ? (
         <p className="px-5 py-8 text-center text-[13px] text-ink-soft">
           Zatím žádné zaznamenané změny. Log se plní od svého nasazení — každá
-          změna „Nájem aktuálně" nebo „Nájem cílově" (z tabulky, Telegramu i
-          hodinového synchronu z Transition) se sem propíše.
+          změna „Nájem aktuálně"/„Nájem cílově" (z tabulky, Telegramu i hodinového
+          synchronu z Transition) i přepnutí příznaků „Stejně řešit" a ruční
+          „Červeně" se sem propíše.
         </p>
       ) : filtered.length === 0 ? (
         <p className="px-5 py-8 text-center text-[13px] text-ink-soft">
@@ -140,13 +157,15 @@ export function ReLeaseChangeLog({ entries }: { entries: LeaseLogEntry[] }) {
                     {meta.label}
                   </Chip>
                   <span className="flex shrink-0 items-center gap-1.5 text-[12.5px]">
-                    <span className="text-ink-soft">{leaseLabel(e.from)}</span>
+                    <span className="text-ink-soft">
+                      {valueLabel(e.field, e.from)}
+                    </span>
                     <ArrowRight
                       className="h-3.5 w-3.5 text-ink-soft"
                       aria-hidden="true"
                     />
                     <span className="font-medium text-ink-deep">
-                      {leaseLabel(e.to)}
+                      {valueLabel(e.field, e.to)}
                     </span>
                   </span>
                   <span className="shrink-0 text-[12px] text-ink-mid sm:w-48 sm:text-right">

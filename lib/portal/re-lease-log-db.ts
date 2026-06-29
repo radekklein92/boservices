@@ -1,12 +1,15 @@
 import { getRedis } from "@/lib/redis";
-import type { LeaseStatus, MirroredLocation } from "./locations-db";
+import type { LocationLocal, MirroredLocation } from "./locations-db";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Log změn nájmu (lease_current_status / lease_target_status). Zrcadlo z Transition
-// drží jen AKTUÁLNÍ stav (jedno updated_at/updated_by) — historii nikdo neukládal.
-// Tenhle modul ji začne zaznamenávat: kdykoli se přepíše zrcadlo (write-through
-// editace v tabulce, klik „Vyřešeno" v Telegramu, hodinový full-replace sync nebo
-// import skript), porovná se starý a nový nájem a každá změna se zaloguje.
+// Log změn Real Estate: pohyby, které hýbou počty Řešit/Vyřešeno/Červeně —
+// nájem (lease_current_status / lease_target_status) A lokální příznaky nad
+// červenou (solveDespiteRed = „Stejně řešit", manualRed = ruční „Červeně").
+// Zrcadlo z Transition drží jen AKTUÁLNÍ stav nájmu (jedno updated_at/updated_by)
+// — historii nikdo neukládal. Tenhle modul ji začne zaznamenávat: kdykoli se
+// přepíše zrcadlo (write-through editace v tabulce, klik „Vyřešeno" v Telegramu,
+// hodinový full-replace sync nebo import skript), porovná se starý a nový nájem
+// a každá změna se zaloguje. Příznaky se diffují v patchLocationLocal.
 //
 // Záměrně jediný společný chokepoint = setMirroredLocation + replaceMirroredLocations
 // (lib/portal/locations-db.ts). Všechny zápisové cesty jím procházejí, takže log
@@ -23,21 +26,26 @@ const LOG_KEY = "portal:re-lease-log";
 // Strop záznamů. Při ~desítkách změn nájmu týdně to drží historii na hodně dlouho.
 const CAP = 4000;
 
-export type LeaseLogField = "current" | "target";
+// Typ události:
+// - current/target = Nájem aktuálně / Nájem cílově (hodnota = LeaseStatus kód)
+// - solveDespiteRed = „Stejně řešit navzdory červené" (hodnota = "on"/"off")
+// - manualRed = ruční „Červeně" (hodnota = "on"/"off")
+export type LeaseLogField = "current" | "target" | "solveDespiteRed" | "manualRed";
 
 export interface LeaseLogEntry {
-  // ISO čas změny (z MirroredLocation.updated_at; fallback na čas zápisu).
+  // ISO čas změny (nájem: z MirroredLocation.updated_at; příznak: čas patche).
   at: string;
-  // Kdo změnu provedl (z MirroredLocation.updated_by — e-mail, "telegram:Agent",
-  // "system:self-heal", "import:google-sheet"…).
+  // Kdo změnu provedl (e-mail, "telegram:Agent", "system:self-heal",
+  // "import:google-sheet", "boservices:…").
   by: string;
   locationId: string;
   name: string;
   code: string | null;
-  // Které pole se změnilo: "current" = Nájem aktuálně, "target" = Nájem cílově.
   field: LeaseLogField;
-  from: LeaseStatus;
-  to: LeaseStatus;
+  // Předchozí / nová hodnota. Nájem = LeaseStatus kód; příznak = "on"/"off".
+  // from = null u záznamu bez předchozího stavu.
+  from: string | null;
+  to: string;
 }
 
 // Porovná starý a nový záznam a vrátí položky logu za změněná pole nájmu. Nová
@@ -70,6 +78,29 @@ export function diffLeaseChanges(
       from: old.lease_target_status,
       to: next.lease_target_status,
     });
+  }
+  return out;
+}
+
+// Porovná staré a nové lokální příznaky (solveDespiteRed / manualRed) a vrátí
+// položky logu za změněné příznaky. Volá patchLocationLocal po zápisu; name/code
+// a kdo/kdy dodá volající (z mirroru a z patche). manualRed je {by,at}|null →
+// pro log nás zajímá jen jeho přítomnost (on/off).
+export function diffLocalFlagChanges(
+  old: Pick<LocationLocal, "solveDespiteRed" | "manualRed"> | null | undefined,
+  next: Pick<LocationLocal, "solveDespiteRed" | "manualRed">,
+  meta: { locationId: string; name: string; code: string | null; at: string; by: string },
+): LeaseLogEntry[] {
+  const out: LeaseLogEntry[] = [];
+  const oldSolve = Boolean(old?.solveDespiteRed);
+  const nextSolve = Boolean(next.solveDespiteRed);
+  if (oldSolve !== nextSolve) {
+    out.push({ ...meta, field: "solveDespiteRed", from: oldSolve ? "on" : "off", to: nextSolve ? "on" : "off" });
+  }
+  const oldManual = Boolean(old?.manualRed);
+  const nextManual = Boolean(next.manualRed);
+  if (oldManual !== nextManual) {
+    out.push({ ...meta, field: "manualRed", from: oldManual ? "on" : "off", to: nextManual ? "on" : "off" });
   }
   return out;
 }
