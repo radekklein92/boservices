@@ -389,16 +389,24 @@ export function estimateLocationNet(
   if (!locSeries || locSeries.size === 0) return null;
   const cur = monthKeyOf(today);
   const anyCurrency = locSeries.values().next().value?.currency ?? "";
+
+  // Základ = průměr NEJNOVĚJŠÍCH dostupných (uzavřených) měsíců historie, max 3.
+  // Robustní: stačí jakákoli historie (i starší / řídká / jen pár měsíců), ne nutně
+  // přesně poslední 3 kalendářní měsíce. Bez jediného měsíce -> null (nelze odhadnout).
+  const presentMonths = [...locSeries.keys()].sort();
+  const recentMonths = presentMonths.slice(-3);
+  if (recentMonths.length === 0) return null;
+  const recentAvg = avg(recentMonths.map((k) => locSeries.get(k)!.net));
+
+  // Sezónní korekce jen když máme PŘESNĚ poslední 3 měsíce i jejich loňské
+  // ekvivalenty + loňský cíl; jinak prostý průměr nejnovějších.
   const last3 = [addMonthKey(cur, -1), addMonthKey(cur, -2), addMonthKey(cur, -3)];
-  const recent = last3.map((k) => locSeries.get(k)?.net).filter((n): n is number => n != null);
-  if (recent.length === 0) return null;
-  const recentAvg = avg(recent);
-  const equivLY = last3.map((k) => locSeries.get(addMonthKey(k, -12))?.net);
+  const recentStrict = last3.map((k) => locSeries.get(k)?.net).filter((n): n is number => n != null);
+  const equivLY = last3.map((k) => locSeries.get(addMonthKey(k, -12))?.net).filter((n): n is number => n != null);
   const netLYtarget = locSeries.get(addMonthKey(target, -12))?.net;
-  const allEquiv = equivLY.filter((n): n is number => n != null);
-  if (allEquiv.length === 3 && netLYtarget != null) {
-    const avgEquivLY = avg(allEquiv);
-    const projected = avgEquivLY > 0 ? recentAvg * (netLYtarget / avgEquivLY) : recentAvg;
+  if (recentStrict.length === 3 && equivLY.length === 3 && netLYtarget != null) {
+    const avgEquivLY = avg(equivLY);
+    const projected = avgEquivLY > 0 ? avg(recentStrict) * (netLYtarget / avgEquivLY) : recentAvg;
     return { net: projected, status: "estimate", currency: anyCurrency };
   }
   return { net: recentAvg, status: "estimate", currency: anyCurrency };
