@@ -37,6 +37,39 @@ export function rollupSummary(rows: ShopRevenueRow[], shopIds: Set<string>, curr
   };
 }
 
+// Ořez srovnávacího okna na "ekvivalentní část dne". Když aktuální okno končí
+// rozpracovaným dneškem (Tento týden/měsíc/rok, Posledních 30 dní, Vlastní do dneška),
+// jeho poslední den má jen část tržeb - srovnávat ho s CELÝM stejným dnem před týdnem
+// je nefér (uměle propadlá změna). Z plného srovnání (prevFull) proto odečte
+// (1 - dayFraction) podíl POSLEDNÍHO srovnávacího dne (prevLastDay) - per pokladna.
+// Ostatní (uplynulé celé) dny zůstávají beze změny. Vstup i výstup už v cílové měně.
+// dayFraction >= 1 (den prakticky uplynul) -> beze změny. Jen KPI delta; graf je celodenní.
+export function scaleLastComparisonDay(
+  prevFull: ShopRevenueRow[],
+  prevLastDay: ShopRevenueRow[],
+  dayFraction: number,
+): ShopRevenueRow[] {
+  if (dayFraction >= 1) return prevFull;
+  const cut = 1 - dayFraction;
+  const lastById = new Map<string, ShopRevenueRow>();
+  for (const r of prevLastDay) lastById.set(r.shop_id, r);
+  return prevFull.map((r) => {
+    const last = lastById.get(r.shop_id);
+    if (!last) return r;
+    return {
+      ...r,
+      gross: r.gross - last.gross * cut,
+      net: r.net - last.net * cut,
+      vat: r.vat - last.vat * cut,
+      receipts: Math.round(r.receipts - last.receipts * cut),
+      refunds:
+        typeof r.refunds === "number" && typeof last.refunds === "number"
+          ? r.refunds - last.refunds * cut
+          : r.refunds,
+    };
+  });
+}
+
 // Like-for-like pár pro deltu KPI: rollup jen za prodejny s daty v OBOU obdobích.
 // "Aktivní v období" = prodejna se v daném období objeví (≥1 řádek) - shodné se
 // semantikou leaderboardu (prevGross != null). Průnik je na úrovni PRODEJNY: pokud má

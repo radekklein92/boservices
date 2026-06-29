@@ -39,7 +39,7 @@ import {
   type PosFilter,
 } from "./filters";
 import { buildPairingIndex, type PairingIndex } from "./pairing-db";
-import { rollupSummary, computeLfl } from "./aggregate";
+import { rollupSummary, computeLfl, scaleLastComparisonDay } from "./aggregate";
 import { resolveSelection, conceptOfShop, type ResolvedSelection } from "./selection";
 import {
   cachedListLocations,
@@ -293,6 +293,23 @@ export async function getKpiSummary(filter: PosFilter): Promise<KpiSummary> {
   const to = filter.currency;
   const rates = await getFxRates();
 
+  // Rozpracovaný den: když okno končí dneškem, jeho poslední den (dnešek) má jen
+  // ČÁST tržeb. Srovnávací poslední den proto ořízneme na ekvivalentní část dne
+  // (× frakce dne f) - jinak částečný dnešek vs CELÝ den před týdnem dá uměle
+  // propadlou změnu. Týká se jen KPI delty (like-for-like); graf zůstává celodenní.
+  // Preset "dnes" má vlastní hodinovou cestu (KpiSectionDaily) -> sem nepatří.
+  const partialToday = filter.preset !== "dnes" && range.to === todayPrague();
+  // Per-pokladna řádky srovnání s ořezem posledního dne na frakci dne (jen partialToday).
+  const fairPrev = async (prev: ShopRevenueRow[]): Promise<ShopRevenueRow[]> => {
+    if (!partialToday) return convertRows(prev, to, rates, SHOP_MONEY);
+    const [prevLastRaw, f] = await Promise.all([_shopRev(cmp.to, cmp.to), getDayFraction(filter)]);
+    return scaleLastComparisonDay(
+      convertRows(prev, to, rates, SHOP_MONEY),
+      convertRows(prevLastRaw, to, rates, SHOP_MONEY),
+      f,
+    );
+  };
+
   if (isWholeNetwork(filter)) {
     // All-store číslo (zobrazení) z přesného /summary; like-for-like základ delty z
     // per-pokladna /by-shop (na Přehledu i v cronu cache HIT - leaderboard ho tahá taky).
@@ -304,7 +321,7 @@ export async function getKpiSummary(filter: PosFilter): Promise<KpiSummary> {
       _shopRev(cmp.from, cmp.to),
     ]);
     const curC = convertRows(curRev, to, rates, SHOP_MONEY);
-    const prevC = convertRows(prevRev, to, rates, SHOP_MONEY);
+    const prevC = await fairPrev(prevRev);
     const lfl = computeLfl(curC, prevC, resolved.shopIds, (id) => locationKeyOf(id, index), to);
     return {
       current: sumSummaryRows(cur.data, to, rates),
@@ -319,7 +336,7 @@ export async function getKpiSummary(filter: PosFilter): Promise<KpiSummary> {
     return { current: [], comparison: [], lflCurrent: null, lflComparison: null };
   const [cur, prev] = await Promise.all([_shopRev(range.from, range.to), _shopRev(cmp.from, cmp.to)]);
   const curC = convertRows(cur, to, rates, SHOP_MONEY);
-  const prevC = convertRows(prev, to, rates, SHOP_MONEY);
+  const prevC = await fairPrev(prev);
   const lfl = computeLfl(curC, prevC, resolved.shopIds, (id) => locationKeyOf(id, index), to);
   return {
     current: [rollupSummary(curC, resolved.shopIds, to)],
