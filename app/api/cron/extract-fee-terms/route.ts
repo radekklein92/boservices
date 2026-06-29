@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getRedis } from "@/lib/redis";
 import { listContracts, type Contract } from "@/lib/portal/contracts-db";
 import { shouldExtractFeeTerms } from "@/lib/portal/contract-fee-terms";
 import { ensureContractFeeTerms } from "@/lib/portal/contract-fee-ai";
@@ -18,6 +19,11 @@ export const dynamic = "force-dynamic";
 
 const TIME_BUDGET_MS = 50_000;
 const MAX_BATCH = 10;
+
+// Jednorázový backfill: BRYSTAN PRO/POLSKA mají v textu odloženou fakturaci poplatku
+// („za obrat vzniklý po …"), kterou starší extrakce mohla minout. Gated Redis flagem
+// -> proběhne jednou. Po doběhnutí lze tento blok i flag odstranit.
+const BRYSTAN_REEXTRACT_FLAG = "portal:fees:brystan-reextract-v1";
 
 // Smlouva, které cron (re)generuje poplatky. Kromě backfillu (bez feeTerms) i
 // migrace AI záznamů ve starém formátu (bez termEndsAt) a franšíz bez konce.
@@ -43,6 +49,32 @@ export async function GET(req: Request) {
 
   const startedAt = Date.now();
   const all = await listContracts();
+
+  // Jednorázová re-extrakce franšíz BRYSTAN, kde odklad fakturace není zachycen
+  // (invoicingStartsFrom prázdné). Jen source "ai" (ruční úpravy se nepřepisují).
+  let brystanReextracted = 0;
+  const redis = getRedis();
+  if (redis && !(await redis.get(BRYSTAN_REEXTRACT_FLAG))) {
+    const brystan = all.filter(
+      (c) =>
+        c.type === "franchise" &&
+        !c.cancelledAt &&
+        /brystan/i.test(c.clientName) &&
+        c.feeTerms?.source === "ai" &&
+        !c.feeTerms.invoicingStartsFrom,
+    );
+    let done = true;
+    for (const c of brystan) {
+      if (Date.now() - startedAt > TIME_BUDGET_MS) {
+        done = false;
+        break;
+      }
+      const r = await ensureContractFeeTerms(c, { force: true });
+      if (r.ok) brystanReextracted++;
+    }
+    if (done) await redis.set(BRYSTAN_REEXTRACT_FLAG, new Date().toISOString());
+  }
+
   const pending = all.filter(needsFeeTerms);
 
   let processed = 0;
@@ -59,6 +91,7 @@ export async function GET(req: Request) {
     pending: pending.length,
     processed,
     failed,
+    brystanReextracted,
     remaining: Math.max(0, pending.length - processed),
     durationMs: Date.now() - startedAt,
   });
