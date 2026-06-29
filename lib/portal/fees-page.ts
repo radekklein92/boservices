@@ -282,6 +282,10 @@ export function defaultMonth(months: string[], today: Date): string {
 function seasonalMonthsFor(targetMonth: string, today: Date): string[] {
   const cur = monthKeyOf(today);
   const set = new Set<string>();
+  // I PROBÍHAJÍCÍ měsíc (jeho dosavadní tržba ~ téměř celý měsíc) - aby čerstvě
+  // otevřená prodejna, která zatím má tržbu jen za aktuální měsíc, dostala odhad
+  // (starší měsíce ještě neexistovaly).
+  set.add(cur);
   for (let i = 1; i <= 15; i++) set.add(addMonthKey(cur, -i));
   set.add(addMonthKey(targetMonth, -12));
   // POZOR: žádný FEES_MIN_MONTH floor - historická tržba (i z roku 2025, kdy
@@ -390,13 +394,15 @@ export function estimateLocationNet(
   const cur = monthKeyOf(today);
   const anyCurrency = locSeries.values().next().value?.currency ?? "";
 
-  // Základ = průměr NEJNOVĚJŠÍCH dostupných (uzavřených) měsíců historie, max 3.
-  // Robustní: stačí jakákoli historie (i starší / řídká / jen pár měsíců), ne nutně
-  // přesně poslední 3 kalendářní měsíce. Bez jediného měsíce -> null (nelze odhadnout).
+  // Základ = průměr NEJNOVĚJŠÍCH dostupných měsíců historie, max 3. Robustní:
+  // stačí jakákoli historie (i starší / řídká). Prioritně UZAVŘENÉ měsíce (< cur),
+  // aby částečný probíhající měsíc nekazil odhad zavedeným prodejnám; aktuální měsíc
+  // se vezme jen jako fallback, když žádný uzavřený není (čerstvě otevřená prodejna).
   const presentMonths = [...locSeries.keys()].sort();
-  const recentMonths = presentMonths.slice(-3);
-  if (recentMonths.length === 0) return null;
-  const recentAvg = avg(recentMonths.map((k) => locSeries.get(k)!.net));
+  const closedMonths = presentMonths.filter((m) => m < cur);
+  const basisMonths = (closedMonths.length > 0 ? closedMonths : presentMonths).slice(-3);
+  if (basisMonths.length === 0) return null;
+  const recentAvg = avg(basisMonths.map((k) => locSeries.get(k)!.net));
 
   // Sezónní korekce jen když máme PŘESNĚ poslední 3 měsíce i jejich loňské
   // ekvivalenty + loňský cíl; jinak prostý průměr nejnovějších.
