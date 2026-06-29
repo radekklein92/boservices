@@ -1,5 +1,6 @@
 import { cachedListLocationFranchiseContracts, cachedListReFlags } from "@/lib/portal/cached-db";
 import { listLocations, listLocationLocalMap } from "@/lib/portal/locations-db";
+import { listLeaseLog } from "@/lib/portal/re-lease-log-db";
 import { getSession } from "@/lib/portal/get-session";
 import { isAdminRole } from "@/lib/portal/auth-guard";
 import { RealEstatePageClient } from "@/components/portal/locations/RealEstatePageClient";
@@ -15,7 +16,7 @@ export default async function RealEstatePage() {
   // force-dynamic a Redis je kolokovaný ve fra1 → dva pipeline scany jsou pár ms.
   // Franšízingové smlouvy a katalog flagů ale zůstávají cachované: mění se jen
   // přes UI (→ bustContracts/bustReFlags hned invaliduje), TTL tu nevadí.
-  const [locations, localMap, franchiseByLocation, flags, session] =
+  const [locations, localMap, franchiseByLocation, flags, leaseLog, session] =
     await Promise.all([
       listLocations(),
       listLocationLocalMap(),
@@ -23,6 +24,8 @@ export default async function RealEstatePage() {
       cachedListLocationFranchiseContracts(),
       // Sdílený katalog uživatelských flagů (definice label+barva).
       cachedListReFlags(),
+      // Log změn nájmu (newest-first) pro panel pod tabulkou.
+      listLeaseLog(500),
       getSession(),
     ]);
 
@@ -54,6 +57,7 @@ export default async function RealEstatePage() {
     <RealEstatePageClient
       rows={rows}
       flags={flags}
+      leaseLog={leaseLog}
       currentUserEmail={session?.user?.email ?? ""}
       isAdmin={isAdminRole(session?.user?.role)}
     />
