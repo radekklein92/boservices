@@ -19,12 +19,14 @@ export function RealEstatePageClient({
   rows: initialRows,
   flags: initialFlags,
   leaseLog,
+  userNames,
   currentUserEmail,
   isAdmin,
 }: {
   rows: RealEstateRow[];
   flags: ReFlag[];
   leaseLog: LeaseLogEntry[];
+  userNames: Record<string, string>;
   currentUserEmail: string;
   isAdmin: boolean;
 }) {
@@ -112,7 +114,7 @@ export function RealEstatePageClient({
         onCatalogChanged={applyCatalog}
         onFlagDeleted={applyFlagDeleted}
       />
-      <ReLeaseChangeLog entries={leaseLog} />
+      <ReLeaseChangeLog entries={leaseLog} userNames={userNames} />
     </div>
   );
 }

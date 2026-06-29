@@ -63,18 +63,28 @@ function valueLabel(field: LeaseLogEntry["field"], value: string | null): string
   return LEASE_HOLDER_LABEL[value as LeaseStatus] ?? value;
 }
 
-// Zkrátí strojové „kdo": boservices:e@mail → e@mail, telegram:Krampera →
-// Telegram · Krampera, system:self-heal → systém (self-heal), import:* → import.
-function formatBy(by: string): string {
+// Zkrátí strojové „kdo": boservices:e@mail → jméno uživatele (fallback e-mail),
+// telegram:Krampera → Telegram · Krampera, system:self-heal → systém (self-heal),
+// import:* → import.
+function formatBy(by: string, userNames: Record<string, string>): string {
   if (!by) return "neznámý";
-  if (by.startsWith("boservices:")) return by.slice("boservices:".length);
+  if (by.startsWith("boservices:")) {
+    const email = by.slice("boservices:".length);
+    return userNames[email.toLowerCase()] ?? email;
+  }
   if (by.startsWith("telegram:")) return `Telegram · ${by.slice("telegram:".length)}`;
   if (by.startsWith("system:")) return `systém (${by.slice("system:".length)})`;
   if (by.startsWith("import:")) return "import";
   return by;
 }
 
-export function ReLeaseChangeLog({ entries }: { entries: LeaseLogEntry[] }) {
+export function ReLeaseChangeLog({
+  entries,
+  userNames,
+}: {
+  entries: LeaseLogEntry[];
+  userNames: Record<string, string>;
+}) {
   const [query, setQuery] = useState("");
   const [shown, setShown] = useState(PAGE);
 
@@ -169,7 +179,7 @@ export function ReLeaseChangeLog({ entries }: { entries: LeaseLogEntry[] }) {
                     </span>
                   </span>
                   <span className="shrink-0 text-[12px] text-ink-mid sm:w-48 sm:text-right">
-                    {formatBy(e.by)}
+                    {formatBy(e.by, userNames)}
                   </span>
                 </li>
               );
