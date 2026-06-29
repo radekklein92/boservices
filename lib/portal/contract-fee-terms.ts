@@ -100,9 +100,17 @@ const AMOUNT_PERIOD_SUFFIX: Record<AmountPeriod, string> = {
 // spolupráce, provozování), podepsaná klientem, nezrušená. Sdílený predikát pro
 // triggery, cron i UI.
 export function shouldExtractFeeTerms(
-  c: Pick<Contract, "type" | "clientSignedAt" | "cancelledAt">,
+  c: Pick<Contract, "type" | "clientSignedAt" | "digisignClientSignedAt" | "cancelledAt">,
 ): boolean {
-  return isApprovalGated(c.type) && !!c.clientSignedAt && !c.cancelledAt;
+  // „Podepsáno klientem (efektivně)" = i DigiSign mezistav (digisignClientSignedAt).
+  // Shodně s tím, jak se poplatky zobrazují (clientSignedAtEffective v buildFeeRows/
+  // ClientFeeSummary), aby franšíza podepsaná jen přes DigiSign nezůstala viset v
+  // „zpracovává se" (cron ji jinak nikdy nevezme). Efektivní datum je i kotvou period.
+  return (
+    isApprovalGated(c.type) &&
+    !!(c.clientSignedAt ?? c.digisignClientSignedAt) &&
+    !c.cancelledAt
+  );
 }
 
 // Přičte n měsíců k ISO datu (YYYY-MM-DD), s clampem na konec cílového měsíce
