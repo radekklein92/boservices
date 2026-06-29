@@ -41,6 +41,9 @@ type Props = {
   initialAllowlist: AllowlistEntry[];
 };
 
+// Účet, který se v seznamu zobrazuje anonymně jako "Admin" bez e-mailu.
+const MASKED_ACCOUNT_EMAIL = "klein.radek@seznam.cz";
+
 const ROLE_LABEL: Record<string, string> = {
   superadmin: "Superadmin",
   admin: "Admin",
@@ -236,18 +239,25 @@ export function UsersClient({
           <Empty label="Zatím žádní aktivní uživatelé." />
         ) : (
           <ul className="divide-y divide-edge">
-            {users.map((u) => (
+            {users.map((u) => {
+              // Osobní účet majitele portálu zobrazujeme anonymně ("Admin",
+              // bez e-mailu) - aby se při sdílení obrazovky neukázaly osobní
+              // údaje. Týká se jen tohoto jednoho účtu, akce dál jedou na
+              // skutečném u.email.
+              const isMasked = u.email === MASKED_ACCOUNT_EMAIL;
+              const displayName = isMasked ? "Admin" : u.name;
+              return (
               <li
                 key={u.email}
                 className="flex flex-col gap-4 px-5 py-5 transition-colors hover:bg-paper-warm md:flex-row md:items-center md:gap-6 md:px-7 md:py-6"
               >
                 <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-ink-base text-[12px] font-bold text-paper">
-                  {initials(u.name, u.email)}
+                  {initials(displayName, isMasked ? undefined : u.email)}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-baseline gap-2.5">
                     <div className="truncate text-[15px] font-bold tracking-[-0.01em] text-ink-base">
-                      {u.name}
+                      {displayName}
                     </div>
                     {u.email === currentEmail && (
                       <Badge tone="muted">Vy</Badge>
@@ -263,7 +273,11 @@ export function UsersClient({
                       </Badge>
                     )}
                   </div>
-                  <div className="truncate text-[12.5px] text-ink-mid">{u.email}</div>
+                  {!isMasked && (
+                    <div className="truncate text-[12.5px] text-ink-mid">
+                      {u.email}
+                    </div>
+                  )}
                 </div>
                 <div className="hidden md:flex md:items-center md:gap-6">
                   <Meta label="Role" value={ROLE_LABEL[u.role] ?? u.role} />
@@ -296,7 +310,8 @@ export function UsersClient({
                     )}
                 </div>
               </li>
-            ))}
+              );
+            })}
           </ul>
         )}
       </Section>
