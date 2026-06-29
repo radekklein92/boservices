@@ -1,5 +1,11 @@
 import { getRedis } from "@/lib/redis";
 import type { NewCoMapping } from "./newco-fields";
+import {
+  appendLeaseChanges,
+  diffLeaseChanges,
+  recordLeaseChanges,
+  type LeaseLogEntry,
+} from "./re-lease-log-db";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Lokality = read-only zrcadlo z projektu Transition (zdroj pravdy). Synchronizuje
@@ -249,6 +255,17 @@ export async function replaceMirroredLocations(
   const oldIds = new Set((await r.smembers(ALL_KEY)) as string[]);
   const newIds = new Set(locations.map((l) => l.id));
 
+  // Starý stav existujících lokalit pro diff nájmu (log změn). Čteme jen ty,
+  // které už ve zrcadle jsou; nové lokality nemají s čím porovnat.
+  const existing = locations.filter((l) => oldIds.has(l.id));
+  let oldById = new Map<string, MirroredLocation | null>();
+  if (existing.length) {
+    const readPipe = r.pipeline();
+    existing.forEach((l) => readPipe.get<MirroredLocation>(locKey(l.id)));
+    const prev = (await readPipe.exec()) as (MirroredLocation | null)[];
+    oldById = new Map(existing.map((l, i) => [l.id, prev[i] ?? null]));
+  }
+
   const writePipe = r.pipeline();
   for (const loc of locations) {
     writePipe.set(locKey(loc.id), loc);
@@ -265,6 +282,15 @@ export async function replaceMirroredLocations(
   // sadd/srem ve stejné dávce nevadí — pracují s různými id.
   if (locations.length || removed) await writePipe.exec();
 
+  // Log změn nájmu (best-effort, neshodí sync). Diff proti načtenému starému stavu,
+  // všechny změny v jedné dávce (newest-first dle pořadí lokalit).
+  const changes: LeaseLogEntry[] = [];
+  for (const loc of locations) {
+    const old = oldById.get(loc.id);
+    if (old) changes.push(...diffLeaseChanges(old, loc));
+  }
+  await appendLeaseChanges(changes);
+
   return { synced: locations.length, removed };
 }
 
@@ -275,10 +301,14 @@ export async function replaceMirroredLocations(
 export async function setMirroredLocation(loc: MirroredLocation): Promise<void> {
   const r = getRedis();
   if (!r) throw new Error("Redis not configured");
+  // Starý stav pro diff nájmu (log změn) — čteme před přepisem.
+  const old = await r.get<MirroredLocation>(locKey(loc.id));
   const pipe = r.pipeline();
   pipe.set(locKey(loc.id), loc);
   pipe.sadd(ALL_KEY, loc.id);
   await pipe.exec();
+  // Log změn nájmu (best-effort, neshodí write-through).
+  await recordLeaseChanges(old, loc);
 }
 
 // ── Lokální data ──────────────────────────────────────────────────────────────

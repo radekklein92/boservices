@@ -4,9 +4,11 @@ import { useState } from "react";
 import { PageHeader } from "@/components/portal/shell/PageHeader";
 import type { LeaseStatus, ReAgent } from "@/lib/portal/locations-db";
 import type { ReFlag } from "@/lib/portal/re-flags-shared";
+import type { LeaseLogEntry } from "@/lib/portal/re-lease-log-db";
 import type { RealEstateRow } from "./real-estate-shared";
 import type { TransitionField } from "./TransitionSelectCell";
 import { RealEstateTable } from "./RealEstateTable";
+import { ReLeaseChangeLog } from "./ReLeaseChangeLog";
 
 // Drží rows lokálně, aby se editace promítly hned (optimistic) bez
 // router.refresh — sort i filtry se přepočítají z aktuálního stavu. RE agent a
@@ -16,11 +18,13 @@ import { RealEstateTable } from "./RealEstateTable";
 export function RealEstatePageClient({
   rows: initialRows,
   flags: initialFlags,
+  leaseLog,
   currentUserEmail,
   isAdmin,
 }: {
   rows: RealEstateRow[];
   flags: ReFlag[];
+  leaseLog: LeaseLogEntry[];
   currentUserEmail: string;
   isAdmin: boolean;
 }) {
@@ -108,6 +112,7 @@ export function RealEstatePageClient({
         onCatalogChanged={applyCatalog}
         onFlagDeleted={applyFlagDeleted}
       />
+      <ReLeaseChangeLog entries={leaseLog} />
     </div>
   );
 }
