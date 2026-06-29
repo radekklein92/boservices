@@ -9,7 +9,9 @@ import { PosSubNav } from "@/components/portal/pos/PosSubNav";
 import {
   comparisonLabel,
   parsePosFilter,
+  resolveDateRange,
   serializePosFilter,
+  todayPrague,
   type PosFilter,
 } from "@/lib/portal/pos/filters";
 import {
@@ -236,7 +238,11 @@ async function KpiSection({ filter, useNet, qs }: { filter: PosFilter; useNet: b
       {lflC && (
         <p className="text-[11px] leading-relaxed text-ink-soft">
           Změna a rozdíl jsou like-for-like - počítané jen z prodejen aktivních v obou
-          srovnávaných obdobích. Zobrazená tržba je za všechny prodejny.
+          srovnávaných obdobích.
+          {resolveDateRange(filter).to === todayPrague()
+            ? " Rozpracovaný dnešek se srovnává jen s ekvivalentní částí předchozího dne (podle dosavadního průběhu), ne s celým dnem."
+            : ""}{" "}
+          Zobrazená tržba je za všechny prodejny.
         </p>
       )}
     </div>

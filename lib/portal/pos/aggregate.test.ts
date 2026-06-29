@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { computeLfl, rollupSummary } from "./aggregate";
+import { computeLfl, rollupSummary, scaleLastComparisonDay } from "./aggregate";
 import type { ShopRevenueRow } from "./types";
 
 function row(shop_id: string, gross: number, extra: Partial<ShopRevenueRow> = {}): ShopRevenueRow {
@@ -65,4 +65,29 @@ test("computeLfl - pokladny mimo scope se ignorují", () => {
   const prev = [row("A", 80), row("X", 999)];
   const { lflCurrent } = computeLfl(cur, prev, new Set(["A"]), idKey, "CZK");
   assert.equal(lflCurrent?.gross, 100); // X mimo scope
+});
+
+test("scaleLastComparisonDay - odečte (1-f) podíl posledního dne, ostatní beze změny", () => {
+  // Okno = 7 dní; poslední den (= rozpracovaný dnešek) má v srovnání A:100, B:50.
+  // Celé srovnání A:700 (z toho 100 poslední den), B:350 (z toho 50). f = 0,25 ->
+  // odečte 75 % posledního dne: A:700-75=625, B:350-37,5=312,5.
+  const prevFull = [row("A", 700, { net: 700, vat: 0, receipts: 70, refunds: -7 }), row("B", 350, { receipts: 35 })];
+  const prevLast = [row("A", 100, { net: 100, vat: 0, receipts: 10, refunds: -2 }), row("B", 50, { receipts: 5 })];
+  const out = scaleLastComparisonDay(prevFull, prevLast, 0.25);
+  const a = out.find((r) => r.shop_id === "A")!;
+  const b = out.find((r) => r.shop_id === "B")!;
+  assert.equal(a.gross, 625);
+  assert.equal(a.net, 625);
+  assert.equal(a.receipts, Math.round(70 - 10 * 0.75)); // 63 (62,5 zaokr.)
+  assert.equal(a.refunds, -7 - -2 * 0.75); // -5,5
+  assert.equal(b.gross, 312.5);
+});
+
+test("scaleLastComparisonDay - f>=1 (den uplynul) -> beze změny; pokladna bez posledního dne beze změny", () => {
+  const prevFull = [row("A", 700), row("C", 200)];
+  const prevLast = [row("A", 100)];
+  assert.equal(scaleLastComparisonDay(prevFull, prevLast, 1), prevFull); // referenčně beze změny
+  const out = scaleLastComparisonDay(prevFull, prevLast, 0.5);
+  assert.equal(out.find((r) => r.shop_id === "A")!.gross, 650); // 700 - 50
+  assert.equal(out.find((r) => r.shop_id === "C")!.gross, 200); // C nemá poslední den -> beze změny
 });
