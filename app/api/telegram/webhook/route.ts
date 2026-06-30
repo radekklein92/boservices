@@ -156,10 +156,20 @@ async function handleCallback(cb: TgCallbackQuery): Promise<void> {
     cb.message?.chat?.id != null ? String(cb.message.chat.id) : "";
   // Agent z mapování skupiny (dedikovaná) má přednost; token je fallback.
   const agent = (chatId ? await agentByChatId(chatId) : null) ?? payload.agent;
+  // Lokalita měla v digestu poznámku → tlačítka/otázka jely v režimu „souhlasí?".
+  const hasNote = Boolean(payload.hasNote);
 
   // ── Krok 2: výběr cílového držitele nájmu po „Vyřešeno" ──
   if (kind === "cl") {
-    await handleLeaseChoice(cb, token, arg, payload.locationId, agent, chatId);
+    await handleLeaseChoice(
+      cb,
+      token,
+      arg,
+      payload.locationId,
+      agent,
+      chatId,
+      hasNote,
+    );
     return;
   }
 
@@ -199,10 +209,15 @@ async function handleCallback(cb: TgCallbackQuery): Promise<void> {
 
   if (chatId && cb.message?.message_id != null) {
     const base = cb.message.text ?? "";
+    // U „Řeším" s poznámkou potvrzujeme i její platnost (stav v DB zůstává Řeším).
+    const reportedLabel =
+      status === "in_progress" && hasNote
+        ? "Řeším, poznámka souhlasí"
+        : STATUS_LABEL[status];
     await tgEditMessageText(
       chatId,
       cb.message.message_id,
-      `${base}\n\nNahlášeno: ${STATUS_LABEL[status]} - ${stamp(at)}`,
+      `${base}\n\nNahlášeno: ${reportedLabel} - ${stamp(at)}`,
     );
   }
 
@@ -234,6 +249,7 @@ async function handleLeaseChoice(
   locationId: string,
   agent: ReAgent,
   chatId: string,
+  hasNote: boolean,
 ): Promise<void> {
   if (arg === "back") {
     await tgAnswerCallbackQuery(cb.id);
@@ -243,7 +259,7 @@ async function handleLeaseChoice(
         chatId,
         cb.message.message_id,
         base,
-        statusButtons(token),
+        statusButtons(token, hasNote),
       );
     }
     return;
