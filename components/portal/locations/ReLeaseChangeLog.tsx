@@ -63,18 +63,19 @@ function valueLabel(field: LeaseLogEntry["field"], value: string | null): string
   return LEASE_HOLDER_LABEL[value as LeaseStatus] ?? value;
 }
 
-// Zkrátí strojové „kdo": boservices:e@mail → jméno uživatele (fallback e-mail),
-// telegram:Krampera → Telegram · Krampera, system:self-heal → systém (self-heal),
-// import:* → import.
+// Zkrátí strojové „kdo": holý e-mail i boservices:e@mail → jméno uživatele
+// (fallback e-mail), telegram:Krampera → Telegram · Krampera,
+// system:self-heal → systém (self-heal), import:* → import.
 function formatBy(by: string, userNames: Record<string, string>): string {
   if (!by) return "neznámý";
-  if (by.startsWith("boservices:")) {
-    const email = by.slice("boservices:".length);
-    return userNames[email.toLowerCase()] ?? email;
-  }
   if (by.startsWith("telegram:")) return `Telegram · ${by.slice("telegram:".length)}`;
   if (by.startsWith("system:")) return `systém (${by.slice("system:".length)})`;
   if (by.startsWith("import:")) return "import";
+  // Write-through editace nájmu i lokální příznaky ukládají do „kdo" holý e-mail
+  // (actor = e-mail session), starší zápisy mohou mít prefix boservices:. Obojí
+  // přemapujeme na jméno uživatele, fallback samotný e-mail.
+  const email = by.startsWith("boservices:") ? by.slice("boservices:".length) : by;
+  if (email.includes("@")) return userNames[email.toLowerCase()] ?? email;
   return by;
 }
 
