@@ -25,6 +25,7 @@ import { Section } from "@/components/portal/ui/Section";
 import { Chip } from "@/components/portal/ui/Chip";
 import { Toggle } from "@/components/portal/ui/Toggle";
 import { BTN_PRIMARY, BTN_ROW } from "@/components/portal/ui/buttons";
+import { maskWho } from "@/lib/portal/masked-account";
 
 type ChangeStatus =
   | "working"
@@ -479,7 +480,7 @@ export function ChangesConsole({
                   </p>
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-ink-soft">
                     <span>
-                      {r.requestedByName} · {fmt(r.createdAt)}
+                      {maskWho(r.requestedByName)} · {fmt(r.createdAt)}
                     </span>
                     <a
                       href={r.issueUrl}
@@ -652,7 +653,7 @@ function FeedbackItem({
           {draft.page.routeLabel || draft.page.title || draft.page.path}
         </span>
         <span>
-          {draft.authorName} · {fmt(draft.createdAt)}
+          {maskWho(draft.authorName)} · {fmt(draft.createdAt)}
         </span>
         {draft.page.picked?.text && (
           <span className="inline-flex items-center gap-1" title={draft.page.picked.selector}>

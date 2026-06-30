@@ -1,4 +1,5 @@
 import { getRedis } from "@/lib/redis";
+import { isMaskedAccount, MASKED_ACCOUNT_LABEL } from "@/lib/portal/masked-account";
 
 // manager: vidí celý POS / pokladní dashboard (všechny značky a pobočky), ale
 // NENÍ admin (nemá přístup do Administrace, párování pokladen ani uživatelů).
@@ -134,6 +135,13 @@ export async function listUsers(): Promise<User[]> {
   const results = (await pipe.exec()) as (User | null)[];
   return results
     .filter((u): u is User => u !== null)
+    // Účet majitele zobrazujeme všude anonymně jako "Admin". listUsers se používá
+    // jen pro ZOBRAZENÍ seznamů (ne pro round-trip zápis zpět - ten jde přes
+    // getUser+upsertUser, který necháváme nedotčený), takže je bezpečné jméno
+    // přepsat tady - pokryje to všechna místa, kde se vykreslují jména uživatelů.
+    .map((u) =>
+      isMaskedAccount(u.email) ? { ...u, name: MASKED_ACCOUNT_LABEL } : u,
+    )
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 }
 

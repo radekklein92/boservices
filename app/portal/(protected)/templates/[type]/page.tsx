@@ -11,6 +11,7 @@ import {
   type ContractVariant,
 } from "@/lib/portal/contract-types";
 import { cachedGetOrSeedContractTemplate } from "@/lib/portal/cached-db";
+import { maskWho } from "@/lib/portal/masked-account";
 import { TemplateEditorClient } from "@/components/portal/contracts/TemplateEditorClient";
 
 export const dynamic = "force-dynamic";
@@ -58,7 +59,7 @@ export default async function TemplatePage({
       initialHtml={template.html}
       initialLetterhead={template.letterhead ?? true}
       updatedAt={template.updatedAt}
-      updatedBy={template.updatedBy === "system" ? "výchozí" : template.updatedBy}
+      updatedBy={template.updatedBy === "system" ? "výchozí" : maskWho(template.updatedBy)}
       isAdmin
     />
   );

@@ -5,6 +5,7 @@ import { Search, ArrowRight, History } from "lucide-react";
 import { Chip } from "@/components/portal/ui/Chip";
 import type { LeaseStatus } from "@/lib/portal/locations-db";
 import type { LeaseLogEntry } from "@/lib/portal/re-lease-log-db";
+import { isMaskedAccount, MASKED_ACCOUNT_LABEL } from "@/lib/portal/masked-account";
 import { LEASE_HOLDER_LABEL } from "./real-estate-shared";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -77,6 +78,9 @@ function formatBy(by: string, userNames: Record<string, string>): string {
   if (rest.startsWith("telegram:")) return `Telegram · ${rest.slice("telegram:".length)}`;
   if (rest.startsWith("system:")) return `systém (${rest.slice("system:".length)})`;
   if (rest.startsWith("import:")) return "import";
+  // Maskovaný účet majitele vždy "Admin" (i kdyby chyběl v userNames mapě) -
+  // shodně se zbytkem portálu, ať se skutečné jméno nikde neukáže.
+  if (isMaskedAccount(rest)) return MASKED_ACCOUNT_LABEL;
   // Holý e-mail (write-through editace nájmu i přímá editace v Transition ukládají
   // do „kdo" e-mail) → jméno uživatele, fallback samotný e-mail.
   if (rest.includes("@")) return userNames[rest.toLowerCase()] ?? rest;

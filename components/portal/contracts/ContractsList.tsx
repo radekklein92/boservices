@@ -37,6 +37,7 @@ import { LockUsersModal } from "./LockUsersModal";
 import type { Client } from "@/lib/portal/clients-db";
 import dynamicImport from "next/dynamic";
 import { CONTRACT_TYPE_META, isBundleType } from "@/lib/portal/contract-types";
+import { maskWho } from "@/lib/portal/masked-account";
 import { htmlDiff } from "@/lib/portal/contract-diff";
 import { bakeSnapshotForDiff } from "@/lib/portal/contract-render";
 import { FilterChip } from "@/components/portal/ui/FilterChip";
@@ -133,7 +134,7 @@ const ContractRow = memo(function ContractRow({
     currentUserEmail,
     isSuperadmin,
   );
-  const lockByLabel = c.editLock?.byName ?? c.editLock?.by ?? "";
+  const lockByLabel = maskWho(c.editLock?.byName ?? c.editLock?.by ?? "");
   const lockTitle = !c.editLock
     ? "Uzamknout úpravy"
     : lockedForMe
