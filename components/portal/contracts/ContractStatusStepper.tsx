@@ -8,6 +8,7 @@ import {
   type Contract,
   type ContractStatus,
 } from "@/lib/portal/contracts-db";
+import { maskWho } from "@/lib/portal/masked-account";
 
 // Mapuje status → timestamp pole, ze kterého čteme datum dokončení kroku.
 // Pro `koncept` čteme z createdAt - to je moment vzniku.
@@ -67,7 +68,7 @@ export function ContractStatusStepper({
           <div className="text-[13px] leading-relaxed text-ink-deep">
             Smlouva byla zrušená
             {contract.cancelledAt ? ` ${formatStepDate(contract.cancelledAt)}` : ""}
-            {contract.cancelledByName ? ` (${contract.cancelledByName})` : ""}.
+            {contract.cancelledByName ? ` (${maskWho(contract.cancelledByName)})` : ""}.
             Nezapočítává se do provizí ani do čísel na dashboardu.
             {contract.cancelReason ? ` Důvod: ${contract.cancelReason}` : ""}
           </div>

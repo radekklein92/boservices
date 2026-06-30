@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import type { Session } from "next-auth";
 import { signOut } from "@/auth";
 import { ASSUME_ROLE_COOKIE } from "@/lib/portal/role-override";
+import { isMaskedAccount, maskedDisplayName } from "@/lib/portal/masked-account";
 import { RoleSwitcherButton } from "./RoleSwitcherButton";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -26,9 +27,12 @@ export function UserMenu({ session }: { session: Session }) {
   const user = session.user;
   if (!user) return null;
 
-  const initials = initialsFor(user.name, user.email);
+  // Maskovaný účet majitele zobrazujeme i ve vlastním menu jako "Admin" (bez
+  // odvození iniciál z e-mailu), aby se při sdílení obrazovky neukázalo jméno.
+  const masked = isMaskedAccount(user.email);
+  const displayName = maskedDisplayName(user.email, user.name) || "Uživatel";
+  const initials = initialsFor(displayName, masked ? undefined : user.email);
   const roleLabel = user.role ? ROLE_LABELS[user.role] ?? user.role : "—";
-  const displayName = user.name ?? user.email ?? "Uživatel";
 
   return (
     <div className="flex items-center gap-3 rounded-xl px-2 py-2">

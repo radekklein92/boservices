@@ -27,7 +27,7 @@ export const PLACEHOLDER_GROUPS: PlaceholderGroup[] = [
       { token: "{{clientStatutoryName}}", label: "Statutární zástupce (PO)", example: "Jana Novotná" },
       { token: "{{clientStatutoryRole}}", label: "Funkce zástupce (PO)", example: "jednatelka" },
       { token: "{{clientRepresentationClause}}", label: "Klauzule o zastoupení (auto)", example: ", zastoupená Jana Novotná, jednatelka" },
-      { token: "{{clientSignerName}}", label: "Jméno podepisujícího (auto)", example: "Jana Novotná / Radek Klein" },
+      { token: "{{clientSignerName}}", label: "Jméno podepisujícího (auto)", example: "Jana Novotná / Petr Svoboda" },
       { token: "{{clientSignerRole}}", label: "Funkce podepisujícího (auto)", example: "jednatelka / —" },
       { token: "{{clientEmail}}", label: "E-mail", example: "jana@brand.cz" },
       { token: "{{clientPhone}}", label: "Telefon", example: "+420 ..." },

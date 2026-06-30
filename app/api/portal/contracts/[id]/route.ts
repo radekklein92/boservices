@@ -12,6 +12,7 @@ import {
   type BundleSection,
 } from "@/lib/portal/contracts-db";
 import { isClaimBundleSection } from "@/lib/portal/contract-types";
+import { maskWho } from "@/lib/portal/masked-account";
 import { bustContracts } from "@/lib/portal/revalidate";
 
 const bundleSectionSchema = z.object({
@@ -98,7 +99,7 @@ export async function PUT(
     return NextResponse.json(
       {
         ok: false,
-        error: `Koncept je uzamčen k úpravám uživatelem ${existing.editLock?.byName ?? existing.editLock?.by ?? ""}. Můžete ho jen prohlížet.`,
+        error: `Koncept je uzamčen k úpravám uživatelem ${maskWho(existing.editLock?.byName ?? existing.editLock?.by ?? "")}. Můžete ho jen prohlížet.`,
       },
       { status: 403 },
     );

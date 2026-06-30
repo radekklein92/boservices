@@ -19,6 +19,7 @@ import {
   type User,
   type UserRole,
 } from "@/lib/portal/users-db";
+import { isMaskedAccount, maskedDisplayName } from "@/lib/portal/masked-account";
 import dynamicImport from "next/dynamic";
 import { PageHeader } from "@/components/portal/shell/PageHeader";
 import { CHIP_CLASS } from "@/components/portal/ui/Chip";
@@ -40,9 +41,6 @@ type Props = {
   initialUsers: User[];
   initialAllowlist: AllowlistEntry[];
 };
-
-// Účet, který se v seznamu zobrazuje anonymně jako "Admin" bez e-mailu.
-const MASKED_ACCOUNT_EMAIL = "klein.radek@seznam.cz";
 
 const ROLE_LABEL: Record<string, string> = {
   superadmin: "Superadmin",
@@ -244,8 +242,8 @@ export function UsersClient({
               // bez e-mailu) - aby se při sdílení obrazovky neukázaly osobní
               // údaje. Týká se jen tohoto jednoho účtu, akce dál jedou na
               // skutečném u.email.
-              const isMasked = u.email === MASKED_ACCOUNT_EMAIL;
-              const displayName = isMasked ? "Admin" : u.name;
+              const isMasked = isMaskedAccount(u.email);
+              const displayName = maskedDisplayName(u.email, u.name);
               return (
               <li
                 key={u.email}

@@ -56,6 +56,7 @@ import {
 } from "@/lib/portal/claims";
 import { checkInsolvencyAny, earlierSafeContractDate } from "@/lib/portal/insolvency-rules";
 import { signerFunctionLabel } from "@/lib/portal/users-db";
+import { maskWho } from "@/lib/portal/masked-account";
 import { PlaceholderPalette } from "./PlaceholderPalette";
 import { ClaimsBuilder } from "./ClaimsBuilder";
 
@@ -221,7 +222,7 @@ export function ContractDetailClient({
   const statusLocked = !isContractEditable(contract.status);
   const editLockedForMe = !!contract.editLock && !canEditLock;
   const locked = statusLocked || editLockedForMe;
-  const lockByLabel = contract.editLock?.byName ?? contract.editLock?.by ?? "";
+  const lockByLabel = maskWho(contract.editLock?.byName ?? contract.editLock?.by ?? "");
   const lockTitle = !contract.editLock
     ? "Uzamknout úpravy"
     : editLockedForMe

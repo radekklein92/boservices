@@ -2,6 +2,7 @@ import NextAuth, { type DefaultSession } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { getUser, recordLogin, type UserRole } from "@/lib/portal/users-db";
 import { verifyPassword } from "@/lib/portal/passwords";
+import { isMaskedAccount, MASKED_ACCOUNT_LABEL } from "@/lib/portal/masked-account";
 
 declare module "next-auth" {
   interface Session {
@@ -76,6 +77,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // realRole = skutečná role z JWT. Náhled rolí ji navrství až později
         // (applyRoleOverride), tady je vždy = skutečná role.
         session.user.realRole = role;
+        // Účet majitele zobrazujeme všude anonymně jako "Admin". Maskujeme i tady
+        // (nejen v listUsers), ať session.user.name nikdy nenese skutečné jméno -
+        // tím se "Admin" propíše do vlastního menu i do všech zápisů, které autora
+        // berou z session (zámek/zrušení smlouvy, požadavky na změny, feedback).
+        // Platí i pro už vydané JWT (maskuje se při čtení, token se nepřepisuje).
+        if (isMaskedAccount(session.user.email)) {
+          session.user.name = MASKED_ACCOUNT_LABEL;
+        }
       }
       return session;
     },

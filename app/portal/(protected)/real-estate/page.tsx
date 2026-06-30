@@ -2,6 +2,7 @@ import { cachedListLocationFranchiseContracts, cachedListReFlags } from "@/lib/p
 import { listLocations, listLocationLocalMap } from "@/lib/portal/locations-db";
 import { listLeaseLog } from "@/lib/portal/re-lease-log-db";
 import { listUsers } from "@/lib/portal/users-db";
+import { maskedDisplayName } from "@/lib/portal/masked-account";
 import { getSession } from "@/lib/portal/get-session";
 import { isAdminRole } from "@/lib/portal/auth-guard";
 import { RealEstatePageClient } from "@/components/portal/locations/RealEstatePageClient";
@@ -32,10 +33,13 @@ export default async function RealEstatePage() {
       getSession(),
     ]);
 
-  // E-mail (lowercase) → jméno, ať log ukazuje jméno autora místo e-mailu.
+  // E-mail (lowercase) → zobrazované jméno, ať log ukazuje jméno autora místo
+  // e-mailu. maskedDisplayName navíc maskovaný účet majitele vždy vrátí jako
+  // "Admin" (ne skutečné jméno) - shodně se zbytkem portálu.
   const userNames: Record<string, string> = {};
   for (const u of users) {
-    if (u.name?.trim()) userNames[u.email.toLowerCase()] = u.name.trim();
+    const display = maskedDisplayName(u.email, u.name);
+    if (display) userNames[u.email.toLowerCase()] = display;
   }
 
   // Sloučení do plain řádků — Map se neserializuje přes RSC boundary do klienta.

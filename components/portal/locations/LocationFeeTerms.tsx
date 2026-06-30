@@ -25,6 +25,7 @@ import {
   formatFeePeriod,
   type ContractFeeTerms,
 } from "@/lib/portal/contract-fee-terms";
+import { maskWho } from "@/lib/portal/masked-account";
 import { formatDate, formatDateTime } from "./locations-shared";
 import type { LocationContractRow } from "./LocationDetail";
 
@@ -272,7 +273,7 @@ function FeeManageRow({ contract }: { contract: LocationContractRow }) {
           {terms?.updatedAt && terms.source !== "ai" && (
             <span>
               Upraveno {formatDateTime(terms.updatedAt)}
-              {terms.updatedBy ? ` · ${terms.updatedBy}` : ""}
+              {terms.updatedBy ? ` · ${maskWho(terms.updatedBy)}` : ""}
             </span>
           )}
         </div>
