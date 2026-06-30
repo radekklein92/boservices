@@ -63,20 +63,24 @@ function valueLabel(field: LeaseLogEntry["field"], value: string | null): string
   return LEASE_HOLDER_LABEL[value as LeaseStatus] ?? value;
 }
 
-// Zkrátí strojové „kdo": holý e-mail i boservices:e@mail → jméno uživatele
-// (fallback e-mail), telegram:Krampera → Telegram · Krampera,
-// system:self-heal → systém (self-heal), import:* → import.
+// Zkrátí strojové „kdo" na čitelný popisek:
+//   klein@x.cz / boservices:klein@x.cz → jméno uživatele (fallback e-mail)
+//   telegram:Kholova / boservices:telegram:Kholova → Telegram · Kholova
+//   system:self-heal → systém (self-heal), import:* → import
+// Transition obaluje aktéry zapsané z BOServices prefixem „boservices:"
+// (boservices:e@mail při editaci nájmu v tabulce, boservices:telegram:Agent
+// z Telegramu). Změny dělané přímo v Transition (chycené hodinovým syncem) mají
+// holý e-mail bez prefixu. Prefix proto nejdřív sloupneme a pak zpracujeme zbytek.
 function formatBy(by: string, userNames: Record<string, string>): string {
   if (!by) return "neznámý";
-  if (by.startsWith("telegram:")) return `Telegram · ${by.slice("telegram:".length)}`;
-  if (by.startsWith("system:")) return `systém (${by.slice("system:".length)})`;
-  if (by.startsWith("import:")) return "import";
-  // Write-through editace nájmu i lokální příznaky ukládají do „kdo" holý e-mail
-  // (actor = e-mail session), starší zápisy mohou mít prefix boservices:. Obojí
-  // přemapujeme na jméno uživatele, fallback samotný e-mail.
-  const email = by.startsWith("boservices:") ? by.slice("boservices:".length) : by;
-  if (email.includes("@")) return userNames[email.toLowerCase()] ?? email;
-  return by;
+  const rest = by.startsWith("boservices:") ? by.slice("boservices:".length) : by;
+  if (rest.startsWith("telegram:")) return `Telegram · ${rest.slice("telegram:".length)}`;
+  if (rest.startsWith("system:")) return `systém (${rest.slice("system:".length)})`;
+  if (rest.startsWith("import:")) return "import";
+  // Holý e-mail (write-through editace nájmu i přímá editace v Transition ukládají
+  // do „kdo" e-mail) → jméno uživatele, fallback samotný e-mail.
+  if (rest.includes("@")) return userNames[rest.toLowerCase()] ?? rest;
+  return rest;
 }
 
 export function ReLeaseChangeLog({
