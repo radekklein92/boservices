@@ -31,6 +31,9 @@ const CB_TTL_SECONDS = 60 * 60 * 24 * 10; // 10 dní (přežije út+čt cyklus)
 export interface CallbackPayload {
   locationId: string;
   agent: ReAgent;
+  // Lokalita měla v digestu poznámku → tlačítko/otázka jely v režimu „souhlasí?".
+  // Drží se v tokenu, ať „Zpět" (z výběru držitele nájmu) obnoví správné tlačítko.
+  hasNote?: boolean;
 }
 
 export async function storeCallbackToken(
@@ -59,16 +62,20 @@ const CHECKIN_LABEL: Record<ReCheckInStatus, string> = {
 };
 
 // Exportováno i pro webhook: po kliknutí „Zpět" (z výběru držitele nájmu) se
-// těmito třemi tlačítky obnoví původní volba.
-export function statusButtons(token: string): TgInlineKeyboard {
+// těmito tlačítky obnoví původní volba. Když má lokalita poznámku, ptáme se i na
+// její platnost → „Řeším" zní „Řeším, poznámka souhlasí" a tlačítka se kvůli
+// délce skládají pod sebe (jinak zůstávají původní tři v řadě).
+export function statusButtons(token: string, hasNote = false): TgInlineKeyboard {
+  const resolved = { text: "Vyřešeno", callback_data: `ci|${token}|resolved` };
+  const inProgress = {
+    text: hasNote ? "Řeším, poznámka souhlasí" : "Řeším",
+    callback_data: `ci|${token}|in_progress`,
+  };
+  const problem = { text: "Problém", callback_data: `ci|${token}|problem` };
   return {
-    inline_keyboard: [
-      [
-        { text: "Vyřešeno", callback_data: `ci|${token}|resolved` },
-        { text: "Řeším", callback_data: `ci|${token}|in_progress` },
-        { text: "Problém", callback_data: `ci|${token}|problem` },
-      ],
-    ],
+    inline_keyboard: hasNote
+      ? [[resolved], [inProgress], [problem]]
+      : [[resolved, inProgress, problem]],
   };
 }
 
@@ -81,6 +88,13 @@ function shortDate(iso: string): string {
   } catch {
     return iso.slice(0, 10);
   }
+}
+
+// Poznámka k lokalitě se do zprávy vejde jen jako jednořádkový náhled (zdroj může
+// mít víc řádků a být dlouhý) — sjednotíme bílé znaky a delší ořežeme.
+function noteSnippet(note: string): string {
+  const flat = note.replace(/\s+/g, " ").trim();
+  return flat.length > 280 ? `${flat.slice(0, 279)}…` : flat;
 }
 
 // ── Runner ────────────────────────────────────────────────────────────────────
@@ -169,19 +183,28 @@ export async function runTelegramLocationDigest(
     if (dryRun) digest.preview = [];
 
     for (const loc of attention) {
-      const last = localMap.get(loc.id)?.reCheckIn;
+      const local = localMap.get(loc.id);
+      const last = local?.reCheckIn;
+      const note = noteSnippet(local?.note ?? "");
+      const hasNote = note.length > 0;
       const lines = [
         "Stav převodu nájemní smlouvy",
         `Lokalita: ${loc.name}${loc.code ? ` (${loc.code})` : ""}`,
         `Nájem: aktuálně ${LEASE_HOLDER_LABEL[loc.lease_current_status]}, cíl ${LEASE_HOLDER_LABEL[loc.lease_target_status]}`,
         `Klient: ${loc.current_client_name || "-"}`,
       ];
+      if (hasNote) lines.push(`Poznámka: ${note}`);
       if (last) {
         lines.push(
           `Naposledy nahlášeno: ${CHECKIN_LABEL[last.status]} (${shortDate(last.at)})`,
         );
       }
-      lines.push("", "V jakém stavu je převod nájemní smlouvy?");
+      lines.push(
+        "",
+        hasNote
+          ? "V jakém stavu je převod a sedí poznámka výše?"
+          : "V jakém stavu je převod nájemní smlouvy?",
+      );
       const text = lines.join("\n");
 
       if (dryRun) {
@@ -189,8 +212,16 @@ export async function runTelegramLocationDigest(
         continue;
       }
 
-      const token = await storeCallbackToken({ locationId: loc.id, agent });
-      const res = await tgSendMessage(chatId, text, statusButtons(token));
+      const token = await storeCallbackToken({
+        locationId: loc.id,
+        agent,
+        hasNote,
+      });
+      const res = await tgSendMessage(
+        chatId,
+        text,
+        statusButtons(token, hasNote),
+      );
       if (res.ok) {
         digest.sent++;
         totalSent++;
