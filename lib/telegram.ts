@@ -77,6 +77,25 @@ export async function tgSendMessage(
   });
 }
 
+// Zpráva s vynucenou odpovědí (force_reply) — klient agenta rovnou otevře pole
+// pro odpověď na tuto zprávu. Vrací message_id, ať jde odpověď spárovat s akcí
+// (mapování message_id → lokalita). Reply na zprávu bota dorazí i v privacy mode.
+export async function tgSendForceReply(
+  chatId: string,
+  text: string,
+  placeholder?: string,
+): Promise<TgResult<{ message_id: number }>> {
+  return call<{ message_id: number }>("sendMessage", {
+    chat_id: chatId,
+    text,
+    disable_web_page_preview: true,
+    reply_markup: {
+      force_reply: true,
+      ...(placeholder ? { input_field_placeholder: placeholder } : {}),
+    },
+  });
+}
+
 // Editace odeslané zprávy. Bez replyMarkup se inline klávesnice odstraní —
 // využíváme po kliku, aby šlo tlačítka „spotřebovat" a potvrdit volbu.
 export async function tgEditMessageText(

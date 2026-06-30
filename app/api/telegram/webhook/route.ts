@@ -6,11 +6,18 @@ import {
   type ReAgent,
   type ReCheckInStatus,
 } from "@/lib/portal/locations-db";
-import { readCallbackToken, statusButtons } from "@/lib/portal/telegram-digest";
+import {
+  readCallbackToken,
+  readNoteReplyPrompt,
+  statusButtons,
+  storeNoteReplyPrompt,
+} from "@/lib/portal/telegram-digest";
 import { agentByChatId, recordSeenChat } from "@/lib/portal/telegram-groups-db";
 import {
   tgAnswerCallbackQuery,
   tgEditMessageText,
+  tgSendForceReply,
+  tgSendMessage,
   type TgInlineKeyboard,
 } from "@/lib/telegram";
 import { bustLocations } from "@/lib/portal/revalidate";
@@ -18,14 +25,18 @@ import { writeTransitionField } from "@/lib/portal/transition";
 import { notifyLocationProblem } from "@/lib/email";
 import { LEASE_HOLDER_LABEL } from "@/components/portal/locations/real-estate-shared";
 
-// Příjem Telegram updatů. Dvě věci:
-// 1) callback_query (klik na Vyřešeno/Řeším/Problém):
+// Příjem Telegram updatů. Tři věci:
+// 1) callback_query (klik na Vyřešeno/Řeším/Poznámka nesedí/Problém):
 //      - Řeším → uložit hlášení agenta (reCheckIn) lokálně, nájem se nemění.
 //      - Problém → uložit hlášení + upozornit admina e-mailem.
 //      - Vyřešeno → dvoukrokově: nejdřív se zeptat „na koho je nájem napsaný",
 //        po výběru držitele srovnat aktuální i cílový nájem write-through do
 //        Transition (→ reconcile = vyřešeno) a uložit hlášení reCheckIn=resolved.
-// 2) evidence „viděných" chatů (přidání bota / zpráva ve skupině) pro admin výběr
+//      - Poznámka nesedí (jen když lokalita měla poznámku) → reCheckIn=Řeším +
+//        výzva force_reply; odpověď na ni přepíše poznámku lokality (viz bod 3).
+// 2) message s reply_to_message → odpověď na výzvu „napiš správnou poznámku":
+//    text přepíše LocationLocal.note (mapování message_id → lokalita v Redisu).
+// 3) evidence „viděných" chatů (přidání bota / zpráva ve skupině) pro admin výběr
 //    chat_id při nastavení mapování.
 // Ověření přes hlavičku X-Telegram-Bot-Api-Secret-Token (setWebhook secret_token).
 
@@ -87,6 +98,7 @@ interface TgMessage {
   message_id: number;
   text?: string;
   chat: TgChat;
+  reply_to_message?: { message_id: number };
 }
 interface TgCallbackQuery {
   id: string;
@@ -123,6 +135,15 @@ export async function POST(req: Request) {
       chat.title ?? chat.username ?? String(chat.id),
       new Date().toISOString(),
     );
+  }
+
+  // Odpověď agenta na výzvu „napiš správnou poznámku" → přepíše poznámku lokality.
+  if (
+    update.message?.reply_to_message?.message_id != null &&
+    update.message.text &&
+    chat?.id != null
+  ) {
+    await handleNoteReply(String(chat.id), update.message);
   }
 
   if (update.callback_query?.data) {
@@ -173,7 +194,12 @@ async function handleCallback(cb: TgCallbackQuery): Promise<void> {
     return;
   }
 
-  // ── kind === "ci": klik na Vyřešeno / Řeším / Problém ──
+  // ── kind === "ci": klik na Vyřešeno / Řeším / Poznámka nesedí / Problém ──
+  // „Poznámka nesedí" → agent ji opraví odpovědí; stav lokality zůstává Řeším.
+  if (arg === "note_wrong") {
+    await handleNoteWrong(cb, payload.locationId, agent, chatId);
+    return;
+  }
   if (!isStatus(arg)) {
     await tgAnswerCallbackQuery(cb.id, "Neznámá akce.");
     return;
@@ -236,6 +262,71 @@ async function handleCallback(cb: TgCallbackQuery): Promise<void> {
       });
     }
   }
+}
+
+// „Poznámka nesedí": agent na lokalitě pracuje (stav Řeším), ale poznámka je
+// špatně. Spotřebujeme tlačítka, zaznamenáme reCheckIn a pošleme výzvu k zaslání
+// správné poznámky (force_reply). Odpověď na ni zpracuje handleNoteReply.
+async function handleNoteWrong(
+  cb: TgCallbackQuery,
+  locationId: string,
+  agent: ReAgent,
+  chatId: string,
+): Promise<void> {
+  await tgAnswerCallbackQuery(cb.id, "Napiš správnou poznámku v odpovědi.");
+
+  const at = new Date().toISOString();
+  await patchLocationLocal(
+    locationId,
+    { reCheckIn: { status: "in_progress", by: agent, at } },
+    `telegram:${agent}`,
+  );
+  bustLocations();
+
+  // Spotřebovat tlačítka původní zprávy + poznamenat, že se poznámka opravuje.
+  if (chatId && cb.message?.message_id != null) {
+    const base = cb.message.text ?? "";
+    await tgEditMessageText(
+      chatId,
+      cb.message.message_id,
+      `${base}\n\nNahlášeno: Řeším, poznámka se opravuje - ${stamp(at)}`,
+    );
+  }
+
+  if (!chatId) return;
+  const loc = await getLocation(locationId);
+  const name = loc?.name ?? "lokalita";
+  const prompt = await tgSendForceReply(
+    chatId,
+    `Napiš správnou poznámku k „${name}" jako ODPOVĚĎ na tuto zprávu - přepíše poznámku u lokality.`,
+    "Správná poznámka…",
+  );
+  if (prompt.ok) {
+    await storeNoteReplyPrompt(chatId, prompt.result.message_id, {
+      locationId,
+      agent,
+    });
+  }
+}
+
+// Agent odpověděl na výzvu z handleNoteWrong → text odpovědi přepíše poznámku
+// lokality. Mapování drží (chat, message_id výzvy) → lokalita; cizí odpovědi
+// (reply na jinou zprávu bota) prostě nemají záznam a ignorujeme je.
+async function handleNoteReply(chatId: string, msg: TgMessage): Promise<void> {
+  const promptId = msg.reply_to_message?.message_id;
+  if (promptId == null) return;
+  const target = await readNoteReplyPrompt(chatId, promptId);
+  if (!target) return;
+
+  const note = (msg.text ?? "").trim();
+  const agent = (await agentByChatId(chatId)) ?? target.agent;
+  if (!note) {
+    await tgSendMessage(chatId, "Prázdná poznámka - nic jsem neuložil.");
+    return;
+  }
+  await patchLocationLocal(target.locationId, { note }, `telegram:${agent}`);
+  bustLocations();
+  await tgSendMessage(chatId, "Poznámka u lokality přepsána. Díky!");
 }
 
 // Druhý krok „Vyřešeno": agent vybral, na koho je nájem napsaný. Srovnáme aktuální
