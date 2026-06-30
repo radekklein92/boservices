@@ -53,6 +53,40 @@ export async function readCallbackToken(
   return r.get<CallbackPayload>(cbKey(token));
 }
 
+// ── Mapování „odpověz správnou poznámkou" ──────────────────────────────────────
+// Po kliknutí „Poznámka nesedí" pošle bot výzvu (force_reply) a její message_id se
+// tu namapuje na lokalitu; agentova odpověď na tu zprávu pak přepíše poznámku.
+// Klíč je (chat, message_id) — message_id je unikátní jen v rámci jednoho chatu.
+const noteReplyKey = (chatId: string, messageId: number) =>
+  `portal:telegram:notereply:${chatId}:${messageId}`;
+
+export interface NoteReplyTarget {
+  locationId: string;
+  agent: ReAgent;
+}
+
+export async function storeNoteReplyPrompt(
+  chatId: string,
+  messageId: number,
+  target: NoteReplyTarget,
+): Promise<void> {
+  const r = getRedis();
+  if (r) {
+    await r.set(noteReplyKey(chatId, messageId), target, {
+      ex: CB_TTL_SECONDS,
+    });
+  }
+}
+
+export async function readNoteReplyPrompt(
+  chatId: string,
+  messageId: number,
+): Promise<NoteReplyTarget | null> {
+  const r = getRedis();
+  if (!r) return null;
+  return r.get<NoteReplyTarget>(noteReplyKey(chatId, messageId));
+}
+
 // ── Sestavení zprávy ──────────────────────────────────────────────────────────
 
 const CHECKIN_LABEL: Record<ReCheckInStatus, string> = {
@@ -63,8 +97,9 @@ const CHECKIN_LABEL: Record<ReCheckInStatus, string> = {
 
 // Exportováno i pro webhook: po kliknutí „Zpět" (z výběru držitele nájmu) se
 // těmito tlačítky obnoví původní volba. Když má lokalita poznámku, ptáme se i na
-// její platnost → „Řeším" zní „Řeším, poznámka souhlasí" a tlačítka se kvůli
-// délce skládají pod sebe (jinak zůstávají původní tři v řadě).
+// její platnost → „Řeším" zní „Řeším, poznámka souhlasí", přibude „Poznámka
+// nesedí" (agent ji opraví odpovědí) a tlačítka se kvůli délce skládají pod sebe.
+// Bez poznámky zůstávají původní tři v řadě.
 export function statusButtons(token: string, hasNote = false): TgInlineKeyboard {
   const resolved = { text: "Vyřešeno", callback_data: `ci|${token}|resolved` };
   const inProgress = {
@@ -72,11 +107,14 @@ export function statusButtons(token: string, hasNote = false): TgInlineKeyboard 
     callback_data: `ci|${token}|in_progress`,
   };
   const problem = { text: "Problém", callback_data: `ci|${token}|problem` };
-  return {
-    inline_keyboard: hasNote
-      ? [[resolved], [inProgress], [problem]]
-      : [[resolved, inProgress, problem]],
+  if (!hasNote) {
+    return { inline_keyboard: [[resolved, inProgress, problem]] };
+  }
+  const noteWrong = {
+    text: "Poznámka nesedí",
+    callback_data: `ci|${token}|note_wrong`,
   };
+  return { inline_keyboard: [[resolved], [inProgress], [noteWrong], [problem]] };
 }
 
 function shortDate(iso: string): string {
