@@ -31,12 +31,14 @@ function monthLabel(key: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+// Kompaktní číselné datum (11. 6. 2026) - report má 6 sloupců v úzkém modalu,
+// plné datum ("11. června 2036") by přetlačilo sloupec Důvod mimo obraz.
 function fmtDate(iso: string): string {
   if (!iso) return "—";
   try {
     return new Date(iso).toLocaleDateString("cs-CZ", {
       day: "numeric",
-      month: "long",
+      month: "numeric",
       year: "numeric",
       timeZone: "UTC",
     });
@@ -99,7 +101,7 @@ export function SkippedContractsModal({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="relative w-full max-w-[920px] rounded-2xl border border-edge bg-paper p-6 shadow-[0_18px_42px_-18px_rgba(14,14,14,0.35)] md:p-7">
+      <div className="relative w-full max-w-[960px] rounded-2xl border border-edge bg-paper p-6 shadow-[0_18px_42px_-18px_rgba(14,14,14,0.35)] md:p-7">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div className="min-w-0">
             <div className="text-[10px] font-medium uppercase tracking-[0.22em] text-ink-mid">
