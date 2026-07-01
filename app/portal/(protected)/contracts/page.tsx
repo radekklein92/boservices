@@ -1,4 +1,3 @@
-import { PageHeader } from "@/components/portal/shell/PageHeader";
 import { ContractsList } from "@/components/portal/contracts/ContractsList";
 import {
   cachedListClients,
@@ -46,23 +45,18 @@ export default async function ContractsPage({
     .map((s) => s.trim())
     .filter((s) => validStatuses.has(s)) as ContractStatus[];
 
+  // PageHeader (vč. XLS exportu zobrazených smluv) renderuje ContractsList -
+  // export potřebuje přístup k client-side odfiltrovanému seznamu.
   return (
-    <div className="flex flex-col gap-10">
-      <PageHeader
-        eyebrow="Franšízing"
-        title="Smlouvy"
-        lede="Vygenerujte smlouvu pro klienta, stáhněte PDF a po podpisu nahrajte naskenovanou kopii."
-      />
-      <ContractsList
-        contracts={contracts}
-        clients={clients}
-        isApprover={isApprover}
-        currentUserEmail={currentUserEmail}
-        isSuperadmin={isSuperadmin}
-        userOptions={userOptions}
-        initialType={initialType}
-        initialStatuses={initialStatuses}
-      />
-    </div>
+    <ContractsList
+      contracts={contracts}
+      clients={clients}
+      isApprover={isApprover}
+      currentUserEmail={currentUserEmail}
+      isSuperadmin={isSuperadmin}
+      userOptions={userOptions}
+      initialType={initialType}
+      initialStatuses={initialStatuses}
+    />
   );
 }

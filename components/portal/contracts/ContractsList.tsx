@@ -44,6 +44,14 @@ import { FilterChip } from "@/components/portal/ui/FilterChip";
 import { Chip } from "@/components/portal/ui/Chip";
 import { CONTRACT_STATUS_ICON } from "./contract-status-meta";
 import { BTN_ROW, BTN_ICON } from "@/components/portal/ui/buttons";
+import { PageHeader } from "@/components/portal/shell/PageHeader";
+import { XlsxDownloadButton } from "@/components/portal/shared/XlsxDownloadButton";
+import { buildContractsXlsx } from "@/lib/portal/contracts-export";
+
+// Hlavička stránky Smlouvy (dřív v page.tsx). Renderuje se tady, aby XLS export
+// v akcích měl přístup k client-side odfiltrovanému seznamu (`filtered`).
+const CONTRACTS_LEDE =
+  "Vygenerujte smlouvu pro klienta, stáhněte PDF a po podpisu nahrajte naskenovanou kopii.";
 
 // Stejná (robustní) logika jako v ContractDetailClient.hasTemplateChanges -
 // zda se smlouva odchýlila od šablony. NESMÍ to být naivní templateSnapshot
@@ -550,7 +558,8 @@ export function ContractsList({
 
   if (items.length === 0) {
     return (
-      <>
+      <div className="flex flex-col gap-10">
+        <PageHeader eyebrow="Franšízing" title="Smlouvy" lede={CONTRACTS_LEDE} />
         <div className="rounded-3xl border border-dashed border-edge bg-paper p-12 text-center">
           <h3 className="text-[1.05rem] font-bold tracking-[-0.02em] text-ink-base">
             Zatím žádné smlouvy.
@@ -591,12 +600,25 @@ export function ContractsList({
             }}
           />
         )}
-      </>
+      </div>
     );
   }
 
   return (
-    <>
+    <div className="flex flex-col gap-10">
+      <PageHeader
+        eyebrow="Franšízing"
+        title="Smlouvy"
+        lede={CONTRACTS_LEDE}
+        actions={
+          <XlsxDownloadButton
+            build={() => buildContractsXlsx(filtered)}
+            filename={`smlouvy-${new Date().toISOString().slice(0, 10)}.xlsx`}
+            disabled={filtered.length === 0}
+            title="Stáhne zobrazené smlouvy (vč. dat podpisů, klientů a stavů) do Excelu (.xlsx)"
+          />
+        }
+      />
       <div className="flex flex-col gap-5">
         {/* Search + create */}
         <div className="flex flex-wrap items-center gap-3">
@@ -822,7 +844,7 @@ export function ContractsList({
             />
           );
         })()}
-    </>
+    </div>
   );
 }
 
