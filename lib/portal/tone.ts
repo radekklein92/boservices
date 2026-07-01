@@ -18,9 +18,11 @@ export const TONE_WARN = "border-warn-edge bg-warn-tint text-warn";
 export const TONE_GOOD = "border-good-edge bg-good-tint text-good";
 export const TONE_DANGER = "border-danger-edge bg-danger-tint text-danger";
 
-// Plné barvy teček (FilterChip dot, indikátory u legend).
+// Plné barvy teček (FilterChip dot, indikátory u legend) - ŽIVÁ -500 (token
+// -dot), stejná sytost jako ostatní puntíky portálu (bg-emerald-500 apod.).
+// Base (-700) je textový odstín a jako puntík působí tmavě/vybledle.
 export const DOT_NEUTRAL = "bg-ink-soft";
-export const DOT_INFO = "bg-info";
-export const DOT_WARN = "bg-warn";
-export const DOT_GOOD = "bg-good";
-export const DOT_DANGER = "bg-danger";
+export const DOT_INFO = "bg-info-dot";
+export const DOT_WARN = "bg-warn-dot";
+export const DOT_GOOD = "bg-good-dot";
+export const DOT_DANGER = "bg-danger-dot";
