@@ -2,9 +2,11 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowUpRight, Search, MapPin, FileCheck, FileX, Store, Building2 } from "lucide-react";
+import { ArrowUpRight, MapPin, FileCheck, FileX, Store, Building2 } from "lucide-react";
 import type { LocationCategory, MirroredLocation } from "@/lib/portal/locations-db";
 import { FilterChip } from "@/components/portal/ui/FilterChip";
+import { SearchInput } from "@/components/portal/ui/SearchInput";
+import { ResultCount } from "@/components/portal/ui/ResultCount";
 import { BTN_ROW } from "@/components/portal/ui/buttons";
 import {
   CATEGORY_DOT,
@@ -143,22 +145,12 @@ export function LocationsTable({
   return (
     <>
       <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="relative max-w-[400px] flex-1">
-          <Search
-            className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mid"
-            strokeWidth={1.5}
-          />
-          <input
-            type="search"
-            placeholder="Hledat podle názvu, kódu, klienta…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="h-11 w-full rounded-full border border-edge bg-paper pl-11 pr-4 text-[14px] text-ink-base outline-none transition-colors placeholder:text-ink-soft focus:border-ink-base"
-          />
-        </div>
-        <span className="font-mono text-[12px] text-ink-soft">
-          {filtered.length.toString().padStart(2, "0")} / {locations.length}
-        </span>
+        <SearchInput
+          value={query}
+          onChange={setQuery}
+          placeholder="Hledat podle názvu, kódu, klienta…"
+        />
+        <ResultCount shown={filtered.length} total={locations.length} />
       </div>
 
       <div className="mb-5 flex flex-wrap items-center gap-2">
