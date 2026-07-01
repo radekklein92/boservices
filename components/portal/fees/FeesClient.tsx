@@ -16,6 +16,8 @@ import { MonthPicker } from "@/components/portal/ui/MonthPicker";
 import { SearchInput } from "@/components/portal/ui/SearchInput";
 import { ResultCount } from "@/components/portal/ui/ResultCount";
 import { BTN_TOOL } from "@/components/portal/ui/buttons";
+import { XlsxDownloadButton } from "@/components/portal/shared/XlsxDownloadButton";
+import { buildFeesXlsx } from "@/lib/portal/fees-export";
 import { FeeEditModal } from "./FeeEditModal";
 import { SkippedContractsModal } from "./SkippedContractsModal";
 import type { ContractType } from "@/lib/portal/contract-types";
@@ -262,6 +264,15 @@ export function FeesClient({
             Vynechané smlouvy
             <span className="font-mono text-[11px] text-ink-soft">{skippedTotal}</span>
           </button>
+          <XlsxDownloadButton
+            className={BTN_TOOL}
+            label="Excel"
+            iconSize="h-3.5 w-3.5"
+            build={() => buildFeesXlsx(filtered, selectedMonth)}
+            filename={`poplatky-${selectedMonth}.xlsx`}
+            disabled={filtered.length === 0}
+            title="Stáhne zobrazené poplatky za tento měsíc do Excelu (.xlsx)"
+          />
         </div>
       </div>
 
