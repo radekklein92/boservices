@@ -386,13 +386,28 @@ function AmountCell({ row }: { row: FeeRowView }) {
     return <span className="font-medium text-ink-base">{row.rate}</span>;
   }
   const prefix = row.status === "estimate" ? "~" : "";
+  // Fixní paušál prorátovaný na neúplný měsíc (mid-month start/end): ukaž vedle i
+  // plnou měsíční sazbu, ať je poměrová částka čitelná (jinak "7 500 Kč" u smlouvy
+  // s "15 000 Kč/měs" mate). Full měsíc -> částka == sazbě -> sazbu neopakujeme.
+  const fullMonthly =
+    row.percent === 0 && row.amount > 0
+      ? row.amountPeriod === "yearly"
+        ? row.amount / 12
+        : row.amountPeriod === "monthly"
+          ? row.amount
+          : null
+      : null;
+  const proratedFixed =
+    fullMonthly != null && Math.round(row.computedAmount) !== Math.round(fullMonthly);
   return (
     <span className="inline-flex items-baseline gap-2">
       <span className="font-semibold text-ink-base">
         {prefix}
         {formatMoney(row.computedAmount, row.computedCurrency)}
       </span>
-      {row.percent > 0 && <span className="text-[11px] text-ink-soft">{row.rate}</span>}
+      {(row.percent > 0 || proratedFixed) && (
+        <span className="text-[11px] text-ink-soft">{row.rate}</span>
+      )}
     </span>
   );
 }
