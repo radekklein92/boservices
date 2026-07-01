@@ -845,7 +845,7 @@ export function ContractDetailClient({
             {!templateApproved && (
               <Link
                 href="/portal/templates"
-                className="inline-flex h-10 items-center gap-2 rounded-full border border-red-600 bg-red-600 px-5 text-[13px] font-semibold text-paper shadow-[0_1px_2px_rgba(220,38,38,0.18)] transition-transform active:translate-y-px"
+                className="inline-flex h-10 items-center gap-2 rounded-full border border-warn/40 bg-warn/10 px-5 text-[13px] font-semibold text-warn transition-all hover:border-warn/60 hover:bg-warn/15 active:translate-y-px"
                 title="Šablona použitá na této smlouvě čeká na schválení"
               >
                 <AlertTriangle

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { X, ArrowUpRight } from "lucide-react";
 import { FilterChip } from "@/components/portal/ui/FilterChip";
+import { TONE_NEUTRAL, TONE_INFO, TONE_WARN, DOT_NEUTRAL, DOT_INFO, DOT_WARN } from "@/lib/portal/tone";
 import { Chip } from "@/components/portal/ui/Chip";
 import type { SkippedFeeRow, SkippedFeesReport } from "@/lib/portal/fees-page";
 
@@ -14,9 +15,9 @@ type SkipFilter = "all" | SkipCategory;
 // Tón „Důvodu" (chip) + barevná tečka filtru: bez tržby = neutrální (jako „Bez statusu"
 // v hlavní tabulce), neúčinná = modrá (teprve nastane), expirovaná = rudá (skončila).
 const CATEGORY_META: Record<SkipCategory, { label: string; tone: string; dot: string }> = {
-  "no-revenue": { label: "Bez tržby", tone: "border-edge bg-paper-warm text-ink-mid", dot: "bg-ink-soft" },
-  "not-yet-effective": { label: "Ještě neúčinná", tone: "border-sky-300 bg-sky-50 text-sky-700", dot: "bg-sky-500" },
-  expired: { label: "Expirovaná", tone: "border-rose-300 bg-rose-50 text-rose-700", dot: "bg-rose-500" },
+  "no-revenue": { label: "Bez tržby", tone: TONE_NEUTRAL, dot: DOT_NEUTRAL },
+  "not-yet-effective": { label: "Ještě neúčinná", tone: TONE_INFO, dot: DOT_INFO },
+  expired: { label: "Expirovaná", tone: TONE_WARN, dot: DOT_WARN },
 };
 
 type SkipRow = SkippedFeeRow & { cat: SkipCategory };
@@ -164,7 +165,7 @@ export function SkippedContractsModal({
 
             {/* Tabulka */}
             <div className="overflow-x-auto rounded-2xl border border-edge">
-              <table className="w-full min-w-[720px] border-collapse text-[13px]">
+              <table className="w-full min-w-[720px] border-collapse text-[13px] tabular-nums">
                 <thead>
                   <tr>
                     {["Lokalita", "Smlouva", "Sazba", "Od", "Do", "Důvod"].map((h) => (

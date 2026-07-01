@@ -203,7 +203,7 @@ function ClientFeeSummary({ contracts }: { contracts: Contract[] }) {
       hint="Souhrn ze všech lokalit klienta. Vytaženo ze smluv, upravit lze na detailu lokality."
     >
       <div className="overflow-x-auto rounded-2xl border border-edge">
-        <table className="w-full border-collapse text-[13px]">
+        <table className="w-full border-collapse text-[13px] tabular-nums">
           <thead>
             <tr>
               {["Lokalita", "Smlouva", "Poplatek", "Sazba", "Od", "Do"].map((h) => (

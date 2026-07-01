@@ -16,7 +16,7 @@ export function SalespersonCard({ data }: { data: SalespersonCommission }) {
         strokeWidth={1}
         aria-hidden="true"
       />
-      <div className="relative">
+      <div className="relative tabular-nums">
         <div className="flex items-center gap-2 text-[10.5px] font-medium uppercase tracking-[0.22em] text-ink-mid">
           <HandCoins className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} aria-hidden="true" />
           {data.name}

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Search, ArrowRight, History } from "lucide-react";
 import { Chip } from "@/components/portal/ui/Chip";
+import { TONE_NEUTRAL, TONE_INFO, TONE_WARN, TONE_DANGER } from "@/lib/portal/tone";
 import type { LeaseStatus } from "@/lib/portal/locations-db";
 import type { LeaseLogEntry } from "@/lib/portal/re-lease-log-db";
 import { isMaskedAccount, MASKED_ACCOUNT_LABEL } from "@/lib/portal/masked-account";
@@ -24,19 +25,19 @@ const FIELD_META: Record<
 > = {
   current: {
     label: "Nájem aktuálně",
-    tone: "border-edge bg-edge-warm text-ink-mid",
+    tone: TONE_NEUTRAL,
   },
   target: {
     label: "Nájem cílově",
-    tone: "border-sky-300 bg-sky-50 text-sky-700",
+    tone: TONE_INFO,
   },
   solveDespiteRed: {
     label: "Stejně řešit",
-    tone: "border-amber-300 bg-amber-50 text-amber-700",
+    tone: TONE_WARN,
   },
   manualRed: {
     label: "Červeně (ručně)",
-    tone: "border-red-300 bg-red-50 text-red-700",
+    tone: TONE_DANGER,
   },
 };
 

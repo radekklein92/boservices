@@ -1,6 +1,8 @@
 // Sdílené jádro Task Manageru - typy + pure helpery bez Redisu a Reactu, aby
 // šlo importovat ze serveru (DB, e-mail, cron) i z klienta (panel, parser).
 
+import { TONE_NEUTRAL, TONE_WARN, TONE_GOOD } from "./tone";
+
 // ───────────────────────────── Typy ─────────────────────────────
 
 export type TaskStatus = "todo" | "in_progress" | "done";
@@ -140,17 +142,17 @@ export const STATUS_META: Record<
   todo: {
     label: "Nezahájeno",
     dot: "#BFC3C7",
-    chip: "border-edge bg-edge-warm text-ink-mid",
+    chip: TONE_NEUTRAL,
   },
   in_progress: {
     label: "Probíhá",
-    dot: "#F59E0B",
-    chip: "border-amber-300 bg-amber-50 text-amber-700",
+    dot: "#B45309",
+    chip: TONE_WARN,
   },
   done: {
     label: "Hotovo",
-    dot: "#059669",
-    chip: "border-emerald-300 bg-emerald-50 text-emerald-700",
+    dot: "#047857",
+    chip: TONE_GOOD,
   },
 };
 

@@ -26,6 +26,13 @@ export const BTN_OUTLINE =
 export const BTN_PRIMARY_MODAL =
   `inline-flex h-10 items-center gap-2 rounded-full bg-ink-base px-5 text-[13px] font-semibold text-paper transition-transform active:translate-y-px disabled:opacity-60 ${FV}`;
 
+// Destruktivní akce (smazat / zrušit smlouvu). Jediné místo, kde je akční barva
+// červená - přebíjí pravidlo „primární = černá", protože jde o nevratný krok.
+// Používej JEN pro skutečně destruktivní potvrzení, ne pro běžné akce (h-10, do
+// modalů/potvrzení). Barva ze sémantického tokenu --color-danger.
+export const BTN_DANGER =
+  `inline-flex h-10 items-center gap-2 rounded-full bg-danger px-5 text-[13px] font-semibold text-paper transition-transform active:translate-y-px disabled:opacity-60 ${FV}`;
+
 // Decentní textové tlačítko (undo / zrušit).
 export const BTN_SUBTLE =
   `inline-flex h-10 items-center gap-1.5 rounded-full px-3 text-[12px] font-medium text-ink-mid transition-colors hover:text-ink-base disabled:opacity-50 ${FV}`;

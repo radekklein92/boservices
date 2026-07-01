@@ -6,6 +6,7 @@
 // připočte si 21 % na faktuře (řeší podklad PDF + AI kontrola).
 
 import { getRedis } from "@/lib/redis";
+import { TONE_INFO, TONE_WARN, TONE_GOOD } from "./tone";
 import type { SalespersonId } from "./commissions";
 
 export type PayoutStatus =
@@ -21,12 +22,13 @@ export const PAYOUT_STATUS_LABEL: Record<PayoutStatus, string> = {
   uhrazeno: "Uhrazeno",
 };
 
-// Tóny stavů (border+bg+text) - stejný recept jako stavy smluv.
+// Tóny stavů (sémantika stejná jako stavy smluv): podklad=warn (čeká),
+// fakturovano/zadano-k-uhrade=info (v procesu), uhrazeno=good (hotovo).
 export const PAYOUT_STATUS_STYLE: Record<PayoutStatus, string> = {
-  podklad: "border-amber-300 bg-amber-50 text-amber-700",
-  fakturovano: "border-sky-300 bg-sky-50 text-sky-700",
-  "zadano-k-uhrade": "border-violet-300 bg-violet-50 text-violet-700",
-  uhrazeno: "border-emerald-300 bg-emerald-50 text-emerald-700",
+  podklad: TONE_WARN,
+  fakturovano: TONE_INFO,
+  "zadano-k-uhrade": TONE_INFO,
+  uhrazeno: TONE_GOOD,
 };
 
 // Dodavatel (obchodník / jeho firma) - snapshot na payoutu.

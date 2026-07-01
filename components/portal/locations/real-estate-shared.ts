@@ -3,6 +3,15 @@ import {
   CheckCircle2,
   type LucideIcon,
 } from "lucide-react";
+import {
+  TONE_NEUTRAL,
+  TONE_INFO,
+  TONE_WARN,
+  TONE_GOOD,
+  TONE_DANGER,
+  DOT_WARN,
+  DOT_GOOD,
+} from "@/lib/portal/tone";
 import type {
   LeaseStatus,
   LocationCategory,
@@ -175,15 +184,15 @@ export const RECON_META: Record<
 > = {
   needs: {
     label: "Řešit",
-    tone: "border-amber-300 bg-amber-50 text-amber-700",
-    dot: "bg-amber-500",
+    tone: TONE_WARN,
+    dot: DOT_WARN,
     Icon: AlertTriangle,
-    hint: "Aktuální nájem se liší od cílového, nebo cíl ještě není určený — je co řešit.",
+    hint: "Aktuální nájem se liší od cílového, nebo cíl ještě není určený - je co řešit.",
   },
   resolved: {
     label: "Vyřešeno",
-    tone: "border-emerald-300 bg-emerald-50 text-emerald-700",
-    dot: "bg-emerald-500",
+    tone: TONE_GOOD,
+    dot: DOT_GOOD,
     Icon: CheckCircle2,
     hint: "Aktuální nájem už odpovídá cílovému.",
   },
@@ -206,15 +215,15 @@ export const RE_CHECKIN_META: Record<
 > = {
   resolved: {
     label: "Vyřešeno",
-    tone: "border-emerald-300 bg-emerald-50 text-emerald-700",
+    tone: TONE_GOOD,
   },
   in_progress: {
     label: "Řeším",
-    tone: "border-sky-300 bg-sky-50 text-sky-700",
+    tone: TONE_INFO,
   },
   problem: {
     label: "Problém",
-    tone: "border-red-300 bg-red-50 text-red-700",
+    tone: TONE_DANGER,
   },
 };
 
@@ -293,19 +302,19 @@ export const STORE_STATUS_META: Record<
 > = {
   open: {
     label: "Otevřená",
-    tone: "border-emerald-300 bg-emerald-50 text-emerald-700",
+    tone: TONE_GOOD,
   },
   closing: {
     label: "Zavírá se",
-    tone: "border-amber-300 bg-amber-50 text-amber-700",
+    tone: TONE_WARN,
   },
   construction: {
     label: "Ve výstavbě",
-    tone: "border-sky-300 bg-sky-50 text-sky-700",
+    tone: TONE_INFO,
   },
   closed: {
     label: "Zavřená",
-    tone: "border-edge bg-edge-warm text-ink-soft",
+    tone: TONE_NEUTRAL,
   },
 };
 

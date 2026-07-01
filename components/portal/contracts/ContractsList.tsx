@@ -42,6 +42,7 @@ import { bakeSnapshotForDiff } from "@/lib/portal/contract-render";
 import { FilterChip } from "@/components/portal/ui/FilterChip";
 import { FilterBar } from "@/components/portal/ui/FilterBar";
 import { Chip } from "@/components/portal/ui/Chip";
+import { EmptyState } from "@/components/portal/ui/EmptyState";
 import { CONTRACT_STATUS_ICON } from "./contract-status-meta";
 import { BTN_ROW, BTN_ICON, BTN_PRIMARY, BTN_TOOL } from "@/components/portal/ui/buttons";
 import { SearchInput } from "@/components/portal/ui/SearchInput";
@@ -184,7 +185,7 @@ const ContractRow = memo(function ContractRow({
           </span>
           {isChanged && (
             <span
-              className="inline-flex h-6 shrink-0 items-center gap-1 rounded-full border border-rose-300 bg-rose-50 px-2 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-rose-700"
+              className="inline-flex h-6 shrink-0 items-center gap-1 rounded-full border border-warn/30 bg-warn/10 px-2 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-warn"
               title="Smlouva má změny proti šabloně"
               aria-label="Smlouva má změny proti šabloně"
             >
@@ -563,35 +564,33 @@ export function ContractsList({
     return (
       <div className="flex flex-col gap-10">
         <PageHeader eyebrow="Franšízing" title="Smlouvy" lede={CONTRACTS_LEDE} />
-        <div className="rounded-3xl border border-dashed border-edge bg-paper p-12 text-center">
-          <h3 className="text-[1.05rem] font-bold tracking-[-0.02em] text-ink-base">
-            Zatím žádné smlouvy.
-          </h3>
-          <p className="mt-2 text-[13.5px] text-ink-mid">
-            Vytvořte první smlouvu — vyberte klienta a typ.
-          </p>
-          <button
-            type="button"
-            onClick={() => setModalOpen(true)}
-            disabled={clients.length === 0}
-            className="mt-6 inline-flex h-11 items-center gap-2 rounded-full bg-ink-base px-5 text-[13px] font-semibold text-paper transition-transform active:translate-y-px disabled:opacity-50"
-          >
-            <Plus className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
-            Nová smlouva
-          </button>
-          {clients.length === 0 && (
-            <p className="mt-3 text-[12px] text-ink-mid">
-              Nejdřív{" "}
-              <Link
-                href="/portal/clients"
-                className="underline underline-offset-2"
-              >
-                přidejte klienta
-              </Link>
-              .
-            </p>
-          )}
-        </div>
+        <EmptyState
+          title="Zatím žádné smlouvy."
+          description={
+            clients.length === 0 ? (
+              <>
+                Nejdřív{" "}
+                <Link href="/portal/clients" className="underline underline-offset-2">
+                  přidejte klienta
+                </Link>
+                , pak vytvořte smlouvu.
+              </>
+            ) : (
+              "Vytvořte první smlouvu - vyberte klienta a typ."
+            )
+          }
+          action={
+            <button
+              type="button"
+              onClick={() => setModalOpen(true)}
+              disabled={clients.length === 0}
+              className={BTN_PRIMARY}
+            >
+              <Plus className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+              Nová smlouva
+            </button>
+          }
+        />
         {modalOpen && (
           <ContractCreateModal
             clients={clients}

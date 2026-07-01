@@ -38,7 +38,7 @@ export function FeeHistorySection({
       hint="Skutečně vyčíslené poplatky za uzavřené měsíce z reálné tržby bez DPH. Podklad pro fakturaci."
     >
       <div className="overflow-x-auto rounded-2xl border border-edge">
-        <table className="w-full border-collapse text-[13px]">
+        <table className="w-full border-collapse text-[13px] tabular-nums">
           <thead>
             <tr>
               {cols.map((h) => (
