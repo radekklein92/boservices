@@ -7,6 +7,7 @@ import {
   type ContractType,
 } from "@/lib/portal/contract-types";
 import { BTN_ROW } from "@/components/portal/ui/buttons";
+import { sanitizeContractHtml } from "@/lib/portal/sanitize-html";
 
 // Diff modal mezi aktuálním zněním smlouvy a původní šablonou (Word-style
 // track changes - <ins> = aktuální text, <del> = původní). Pro bundle
@@ -183,7 +184,7 @@ export function DiffModal({
                   <div
                     className="diff-view"
                     dangerouslySetInnerHTML={{
-                      __html: state.sections[activeTab]!.diffHtml,
+                      __html: sanitizeContractHtml(state.sections[activeTab]!.diffHtml),
                     }}
                   />
                 ) : (
@@ -194,7 +195,7 @@ export function DiffModal({
               ) : (
                 <div
                   className="diff-view"
-                  dangerouslySetInnerHTML={{ __html: state.diffHtml }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeContractHtml(state.diffHtml) }}
                 />
               )}
             </>

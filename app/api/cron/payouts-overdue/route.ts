@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { verifyCronAuth } from "@/lib/portal/cron-auth";
 import { listPayouts, upsertPayout } from "@/lib/portal/payouts-db";
 import { notifyPayoutOverdue } from "@/lib/email";
 
@@ -18,13 +19,8 @@ import { notifyPayoutOverdue } from "@/lib/email";
 const OVERDUE_MS = 48 * 60 * 60 * 1000;
 
 export async function GET(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const auth = req.headers.get("authorization");
-    if (auth !== `Bearer ${secret}`) {
-      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
-    }
-  }
+  const unauthorized = verifyCronAuth(req);
+  if (unauthorized) return unauthorized;
 
   const now = Date.now();
   const nowIso = new Date(now).toISOString();

@@ -52,6 +52,8 @@ export async function runLocationsSync(source: string): Promise<SyncOutcome> {
     const res = await fetch(baseUrl, {
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
+      // Timeout - ať se hodinový sync nezasekne, když Transition neodpovídá.
+      signal: AbortSignal.timeout(10000),
     });
 
     if (!res.ok) {

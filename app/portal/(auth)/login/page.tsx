@@ -10,7 +10,14 @@ import { TextField, PasswordField, SubmitButton } from "@/components/portal/auth
 function LoginInner() {
   const router = useRouter();
   const params = useSearchParams();
-  const callbackUrl = params.get("callbackUrl") || "/portal";
+  // Jen interní cesta - obrana proti open redirectu (?callbackUrl=//evil.example
+  // nebo https://... by po loginu odeslal uživatele na cizí doménu). Musí začínat
+  // jedním lomítkem a ne dvěma (//host je protokolově-relativní odkaz ven).
+  const rawCallback = params.get("callbackUrl") || "/portal";
+  const callbackUrl =
+    rawCallback.startsWith("/") && !rawCallback.startsWith("//")
+      ? rawCallback
+      : "/portal";
   const justSet = params.get("ok") === "password-set";
 
   const [email, setEmail] = useState("");

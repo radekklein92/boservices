@@ -59,11 +59,24 @@ function isRecipientSignedEvent(event: string | undefined): boolean {
 function verifySecret(req: NextRequest): boolean {
   const expected = process.env.DIGISIGN_WEBHOOK_SECRET;
   if (!expected) {
-    console.warn("[digisign/webhook] DIGISIGN_WEBHOOK_SECRET nenastaven, přijímám bez ověření");
+    // Fail-closed v produkci: bez secretu webhook nelze ověřit, tak ho nepřijímáme
+    // (jinak by kdokoli mohl podvrhnout „smlouva podepsána"). Mimo produkci
+    // (dev/preview) přijímáme, ať jde flow testovat bez nastaveného secretu.
+    if (process.env.NODE_ENV === "production") {
+      console.error(
+        "[digisign/webhook] DIGISIGN_WEBHOOK_SECRET nenastaven v produkci - odmítám request",
+      );
+      return false;
+    }
+    console.warn(
+      "[digisign/webhook] DIGISIGN_WEBHOOK_SECRET nenastaven, přijímám bez ověření (ne-produkce)",
+    );
     return true;
   }
+  // Preferovaně z hlavičky; ?secret= v URL je fallback kvůli zpětné kompatibilitě
+  // (uniká do access/proxy logů - migrovat registraci webhooku na hlavičku).
   const provided =
-    req.nextUrl.searchParams.get("secret") || req.headers.get("x-digisign-secret");
+    req.headers.get("x-digisign-secret") || req.nextUrl.searchParams.get("secret");
   if (!provided) return false;
   try {
     const a = Buffer.from(expected);

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { verifyCronAuth } from "@/lib/portal/cron-auth";
 import { sendReminderResponse } from "@/app/api/portal/templates/remind/route";
 
 // Vercel Cron Job. vercel.json: "0 18 * * *" (denně 18:00 UTC).
@@ -10,16 +11,8 @@ import { sendReminderResponse } from "@/app/api/portal/templates/remind/route";
 // running na local devu - skip auth (pro vývoj).
 
 export async function GET(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const auth = req.headers.get("authorization");
-    if (auth !== `Bearer ${secret}`) {
-      return NextResponse.json(
-        { ok: false, error: "Unauthorized" },
-        { status: 401 },
-      );
-    }
-  }
+  const unauthorized = verifyCronAuth(req);
+  if (unauthorized) return unauthorized;
   // sendReminderResponse je shared helper z portal/templates/remind/route.ts.
   // Vrací stejný JSON jako manuální endpoint (sent: true/false + counts).
   return sendReminderResponse();

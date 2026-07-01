@@ -114,6 +114,7 @@ export function RedFlagCell({
         day: "numeric",
         month: "numeric",
         year: "numeric",
+        timeZone: "Europe/Prague",
       })
     : "";
   const chipTitle = manualOnly

@@ -42,6 +42,7 @@ async function getAccessToken(): Promise<string> {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ accessKey, secretKey }),
+    signal: AbortSignal.timeout(20000),
   });
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
@@ -64,7 +65,12 @@ async function ds<T>(
     headers.set("Content-Type", "application/json");
     body = JSON.stringify(init.json);
   }
-  const res = await fetch(`${BASE_URL}${path}`, { ...init, headers, body });
+  const res = await fetch(`${BASE_URL}${path}`, {
+    ...init,
+    headers,
+    body,
+    signal: init.signal ?? AbortSignal.timeout(20000),
+  });
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
     throw new Error(`DigiSign ${init.method ?? "GET"} ${path} → ${res.status}: ${txt}`);
@@ -91,6 +97,7 @@ async function uploadFile(buffer: Buffer, fileName: string): Promise<UploadedFil
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
     body: form,
+    signal: AbortSignal.timeout(20000),
   });
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
@@ -285,7 +292,10 @@ export async function getEnvelope(envelopeId: string): Promise<EnvelopeStatus> {
 export async function downloadSignedPdf(envelopeId: string): Promise<Buffer> {
   const token = await getAccessToken();
   const url = `${BASE_URL}/api/envelopes/${envelopeId}/download?output=combined&include_log=true`;
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+    signal: AbortSignal.timeout(20000),
+  });
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
     throw new Error(`DigiSign download selhal (${res.status}): ${txt}`);

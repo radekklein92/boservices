@@ -58,6 +58,8 @@ export async function runClamoraClaimsSync(
     const res = await fetch(baseUrl, {
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
+      // Timeout - ať se sync nezasekne, když ClamoraPortal neodpovídá.
+      signal: AbortSignal.timeout(10000),
     });
 
     if (!res.ok) {

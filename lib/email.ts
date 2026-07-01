@@ -16,6 +16,21 @@ const FROM =
   process.env.FROM_EMAIL ?? "BOServices <onboarding@resend.dev>";
 const NOTIFY = process.env.NOTIFY_EMAIL ?? "klein@wearetwist.com";
 
+// Odešle e-mail a NIKDY nevyhodí - selhání jen zaloguje. Notifikace o leadu
+// nesmí shodit odeslání kontaktního formuláře (návštěvník by dostal 500,
+// přestože se lead uložil).
+async function safeSend(
+  resend: Resend,
+  payload: Parameters<Resend["emails"]["send"]>[0],
+): Promise<void> {
+  try {
+    const { error } = await resend.emails.send(payload);
+    if (error) console.error("[email] Resend vrátil chybu:", error);
+  } catch (err) {
+    console.error("[email] odeslání e-mailu selhalo:", err);
+  }
+}
+
 export async function notifyLead(lead: Lead): Promise<void> {
   const resend = getResend();
   if (!resend) return;
@@ -40,7 +55,7 @@ export async function notifyLead(lead: Lead): Promise<void> {
     </div>
   `;
 
-  await resend.emails.send({
+  await safeSend(resend,{
     from: FROM,
     to: [NOTIFY],
     subject,
@@ -93,7 +108,7 @@ export async function notifyPayoutInvoice(opts: {
       ]
     : undefined;
 
-  await resend.emails.send({ from: FROM, to: [NOTIFY], subject, html, attachments });
+  await safeSend(resend,{ from: FROM, to: [NOTIFY], subject, html, attachments });
 }
 
 // Notifikace obchodníkovi (vlastníkovi výběru), že se změnil stav jeho výběru
@@ -128,7 +143,7 @@ export async function notifyPayoutStatus(opts: {
     </div>
   `;
 
-  await resend.emails.send({ from: FROM, to: [opts.to], subject, html });
+  await safeSend(resend,{ from: FROM, to: [opts.to], subject, html });
 }
 
 // Notifikace adminovi: výběry provize, které "visí" ve stavu Zadáno k úhradě
@@ -170,7 +185,7 @@ export async function notifyPayoutOverdue(
     </div>
   `;
 
-  await resend.emails.send({ from: FROM, to: [NOTIFY], subject, html });
+  await safeSend(resend,{ from: FROM, to: [NOTIFY], subject, html });
 }
 
 // Notifikace adminovi: RE agent klikl v Telegramu na „Problém" u lokality —
@@ -213,7 +228,7 @@ export async function notifyLocationProblem(opts: {
     </div>
   `;
 
-  await resend.emails.send({ from: FROM, to: [NOTIFY], subject, html });
+  await safeSend(resend,{ from: FROM, to: [NOTIFY], subject, html });
 }
 
 // Notifikace adminovi: pokladny (DW shops) bez napárované prodejny. Posílá se na
@@ -255,7 +270,7 @@ export async function notifyUnpairedShops(
     </div>
   `;
 
-  await resend.emails.send({ from: FROM, to: [NOTIFY], subject, html });
+  await safeSend(resend,{ from: FROM, to: [NOTIFY], subject, html });
 }
 
 function escapeHtml(s: string): string {

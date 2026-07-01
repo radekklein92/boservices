@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { verifyCronAuth } from "@/lib/portal/cron-auth";
 import { list, get, put } from "@vercel/blob";
 
 // Inkrementální záloha SKENŮ z primárního Vercel Blob storu do záložního storu.
@@ -19,13 +20,8 @@ export const dynamic = "force-dynamic";
 const TIME_BUDGET_MS = 50_000;
 
 export async function GET(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const auth = req.headers.get("authorization");
-    if (auth !== `Bearer ${secret}`) {
-      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
-    }
-  }
+  const unauthorized = verifyCronAuth(req);
+  if (unauthorized) return unauthorized;
 
   const primaryToken = process.env.BLOB_READ_WRITE_TOKEN;
   const backupToken = process.env.BLOB_BACKUP_READ_WRITE_TOKEN;

@@ -19,6 +19,21 @@ function getResend(): Resend | null {
 const FROM = process.env.FROM_EMAIL ?? "BOServices <noreply@boservices.cz>";
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.boservices.cz";
 
+// Odešle e-mail a NIKDY nevyhodí - selhání jen zaloguje. Odeslání e-mailu
+// (pozvánka, reset hesla, notifikace) nesmí shodit akci, která ho spustila:
+// invite/reset by jinak vrátily 500, přestože se uživatel/token už vytvořil.
+async function safeSend(
+  resend: Resend,
+  payload: Parameters<Resend["emails"]["send"]>[0],
+): Promise<void> {
+  try {
+    const { error } = await resend.emails.send(payload);
+    if (error) console.error("[portal email] Resend vrátil chybu:", error);
+  } catch (err) {
+    console.error("[portal email] odeslání e-mailu selhalo:", err);
+  }
+}
+
 function shell(title: string, eyebrow: string, body: string): string {
   return `<!doctype html><html><body style="margin:0;background:#FAFAF9;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0E0E0E"><div style="max-width:560px;margin:0 auto;padding:32px 24px"><div style="font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:#6F7672">${eyebrow}</div><h1 style="font-size:28px;font-weight:800;letter-spacing:-.02em;margin:8px 0 24px;line-height:1.1">${title}</h1>${body}<hr style="border:none;border-top:1px solid #E8ECE9;margin:32px 0"/><div style="font-size:11px;color:#6F7672;letter-spacing:.04em">BOServices &middot; Provoz &middot; Lidé &middot; Standard &middot; Růst</div></div></body></html>`;
 }
@@ -45,7 +60,7 @@ export async function sendInviteEmail(opts: {
   const url = `${SITE_URL}/portal/set-password?token=${opts.token}`;
   const greeting = opts.name ? `${opts.name},` : "dobrý den,";
   const body = `<p style="font-size:15px;line-height:1.6">${greeting}</p><p style="font-size:15px;line-height:1.6">${opts.invitedBy === "system" ? "Byli jste pozváni" : `${opts.invitedBy} vás pozval`} do portálu BOServices. Pro dokončení registrace si nastavte heslo.</p>${button(url, "Nastavit heslo")}<p style="font-size:13px;color:#6F7672">Odkaz vyprší za 7 dní.</p>${fallbackLink(url)}`;
-  await resend.emails.send({
+  await safeSend(resend, {
     from: FROM,
     to: [opts.to],
     subject: "Pozvánka do portálu BOServices",
@@ -71,7 +86,7 @@ export async function sendResetEmail(opts: {
       ? "admin resetoval vaše heslo k portálu. Pro nastavení nového hesla klikněte níže."
       : "vyžádali jste si obnovu hesla. Pro nastavení nového hesla klikněte níže.";
   const body = `<p style="font-size:15px;line-height:1.6">${greeting}</p><p style="font-size:15px;line-height:1.6">${intro}</p>${button(url, "Nastavit nové heslo")}<p style="font-size:13px;color:#6F7672">Odkaz vyprší za 1 hodinu. Pokud jste si reset nevyžádali, ignorujte tento e-mail.</p>${fallbackLink(url)}`;
-  await resend.emails.send({
+  await safeSend(resend, {
     from: FROM,
     to: [opts.to],
     subject: opts.kind === "admin-reset" ? "Reset hesla — portál BOServices" : "Obnova hesla — portál BOServices",
@@ -108,7 +123,7 @@ export async function sendTemplateApprovalReminder(opts: {
   const count = opts.pendingTemplates.length;
   const word = count === 1 ? "šablona" : count < 5 ? "šablony" : "šablon";
   const body = `<p style="font-size:15px;line-height:1.6">${greeting}</p><p style="font-size:15px;line-height:1.6">${count} ${word} čeká na vaše schválení. Bez schválení se na všech smlouvách, kde jsou tyto šablony použity, zobrazuje upozornění.</p><ul style="font-size:14px;line-height:1.6;padding-left:20px;margin:16px 0">${list}</ul>${button(url, "Otevřít šablony")}${fallbackLink(url)}`;
-  await resend.emails.send({
+  await safeSend(resend, {
     from: FROM,
     to: [opts.to],
     subject: `Schválení šablon - ${count} ${word} čekají`,
@@ -137,7 +152,7 @@ export async function sendContractApprovalReminder(opts: {
   }
   const greeting = opts.approverName ? `${opts.approverName},` : "dobrý den,";
   const body = `<p style="font-size:15px;line-height:1.6">${greeting}</p><p style="font-size:15px;line-height:1.6">Smlouva <strong>${opts.contractLabel}</strong> čeká na vaše schválení.</p><p style="font-size:14px;line-height:1.6;color:#6F7672">${opts.reason}</p>${button(opts.deepLink, "Otevřít smlouvu")}${fallbackLink(opts.deepLink)}`;
-  await resend.emails.send({
+  await safeSend(resend, {
     from: FROM,
     to: [opts.to],
     subject: `Smlouva čeká na schválení - ${opts.contractLabel}`,
@@ -170,7 +185,7 @@ export async function sendContractsApprovalDigest(opts: {
   const word = count === 1 ? "smlouva" : count < 5 ? "smlouvy" : "smluv";
   const verb = count === 1 ? "čeká" : "čekají";
   const body = `<p style="font-size:15px;line-height:1.6">${greeting}</p><p style="font-size:15px;line-height:1.6">${count} ${word} ${verb} na vaše schválení. Bez schválení se nedostanou dál do podpisu.</p><ul style="font-size:14px;line-height:1.6;padding-left:20px;margin:16px 0">${list}</ul>${button(url, "Otevřít smlouvy")}${fallbackLink(url)}`;
-  await resend.emails.send({
+  await safeSend(resend, {
     from: FROM,
     to: [opts.to],
     subject: `Smlouvy ke schválení - ${count} ${word} ${verb}`,
@@ -234,7 +249,7 @@ export async function sendTaskNotificationEmail(opts: {
 
   const text = `${opts.badgeText}\n\n${t.title}\nŘešitel: ${t.assignee || "—"}\nTermín: ${dl.text}\nStav: ${STATUS_META[t.status].label}\n\nOtevřít: ${url}`;
 
-  await resend.emails.send({
+  await safeSend(resend, {
     from: FROM,
     to: [opts.to],
     subject: `${opts.badgeText}: ${t.title}`,
@@ -280,7 +295,7 @@ export async function sendDeployNotificationEmail(opts: {
     : "";
   const body = `<p style="font-size:15px;line-height:1.6">Do produkce byla právě nasazena nová verze portálu:</p><h2 style="font-size:19px;font-weight:800;letter-spacing:-.01em;margin:14px 0 4px;line-height:1.25">${headline}</h2>${table}${button(live, "Otevřít portál")}${fallbackLink(live)}`;
 
-  await resend.emails.send({
+  await safeSend(resend, {
     from: FROM,
     to: opts.to,
     subject: `Nasazeno do produkce: ${headline}`,
@@ -324,7 +339,7 @@ export async function sendFeedbackNotificationEmail(opts: {
   const specBox = `<div style="white-space:pre-wrap;font-size:13.5px;line-height:1.55;color:#2A2A2A;background:#F2F3F1;border-radius:12px;padding:14px 16px;margin:8px 0">${escapeHtml(specPreview)}</div>`;
   const body = `<p style="font-size:15px;line-height:1.6">Z portálu přišel nový návrh změny:</p><h2 style="font-size:19px;font-weight:800;letter-spacing:-.01em;margin:14px 0 4px;line-height:1.25">${escapeHtml(d.title)}</h2>${meta}${specBox}${button(opts.deepLink, "Otevřít Konzoli změn")}${fallbackLink(opts.deepLink)}`;
 
-  await resend.emails.send({
+  await safeSend(resend, {
     from: FROM,
     to: opts.to,
     subject: `Nový návrh změny: ${d.title}`,

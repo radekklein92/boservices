@@ -87,6 +87,8 @@ export async function lookupAres(rawIco: string): Promise<AresLookupResult | nul
       {
         headers: { Accept: "application/json" },
         cache: "no-store",
+        // Timeout - ať uživatelský lookup nezůstane viset, když ARES neodpovídá.
+        signal: AbortSignal.timeout(8000),
       },
     );
     if (!res.ok) return null;

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { verifyCronAuth } from "@/lib/portal/cron-auth";
 import { listContracts } from "@/lib/portal/contracts-db";
 import { getTemplateApprovers } from "@/lib/portal/users-db";
 import { CONTRACT_TYPE_META } from "@/lib/portal/contract-types";
@@ -18,13 +19,8 @@ const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.boservices.cz";
 
 export async function GET(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const auth = req.headers.get("authorization");
-    if (auth !== `Bearer ${secret}`) {
-      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
-    }
-  }
+  const unauthorized = verifyCronAuth(req);
+  if (unauthorized) return unauthorized;
 
   const pending = (await listContracts()).filter(
     (c) => c.status === "ke-schvaleni",
