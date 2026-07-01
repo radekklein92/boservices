@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   DEFAULT_POS_FILTER,
   inclusiveDays,
+  isSingleDay,
   parsePosFilter,
   resolveComparisonRange,
   resolveDateRange,
@@ -31,6 +32,24 @@ test("resolveDateRange - presety", () => {
 test("inclusiveDays", () => {
   assert.equal(inclusiveDays({ from: "2026-06-22", to: "2026-06-27" }), 6);
   assert.equal(inclusiveDays({ from: "2026-06-01", to: "2026-06-27" }), 27);
+});
+
+test("isSingleDay - hodinový graf jen pro jeden den", () => {
+  // dnes i včera = jeden den -> hodinový graf
+  assert.equal(isSingleDay(withPreset("dnes"), TODAY), true);
+  assert.equal(isSingleDay(withPreset("vcera"), TODAY), true);
+  // vlastní se stejným from/to = jeden den
+  assert.equal(
+    isSingleDay({ ...DEFAULT_POS_FILTER, preset: "vlastni", from: "2026-06-10", to: "2026-06-10" }, TODAY),
+    true,
+  );
+  // víc dní -> denní graf (ne hodinový)
+  assert.equal(isSingleDay(withPreset("tento-tyden"), TODAY), false);
+  assert.equal(isSingleDay(withPreset("minuly-mesic"), TODAY), false);
+  assert.equal(
+    isSingleDay({ ...DEFAULT_POS_FILTER, preset: "vlastni", from: "2026-06-10", to: "2026-06-12" }, TODAY),
+    false,
+  );
 });
 
 // Srovnání = přirozené předchozí KALENDÁŘNÍ období dle presetu (toggle zapnutý).

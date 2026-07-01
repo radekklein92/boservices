@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/portal/shell/PageHeader";
 import { PosSubNav } from "@/components/portal/pos/PosSubNav";
 import {
   comparisonLabel,
+  isSingleDay,
   parsePosFilter,
   resolveDateRange,
   serializePosFilter,
@@ -130,7 +131,15 @@ export default async function PosOverviewPage({
           <div className="grid gap-5 lg:grid-cols-3">
             <section className="flex flex-col gap-3 lg:col-span-2">
               <h2 className="text-[12px] font-semibold uppercase tracking-[0.14em] text-ink-mid">
-                Vývoj tržeb {filter.preset === "dnes" ? "dnes po hodinách " : ""}({useNet ? "bez DPH" : "s DPH"})
+                Vývoj tržeb{" "}
+                {isSingleDay(filter)
+                  ? filter.preset === "dnes"
+                    ? "dnes po hodinách "
+                    : filter.preset === "vcera"
+                      ? "včera po hodinách "
+                      : "po hodinách "
+                  : ""}
+                ({useNet ? "bez DPH" : "s DPH"})
               </h2>
               <Suspense fallback={<ChartSkeleton />}>
                 <TrendSection filter={filter} useNet={useNet} />
@@ -325,7 +334,7 @@ async function KpiSectionDaily({ filter, useNet, qs }: { filter: PosFilter; useN
 }
 
 async function TrendSection({ filter, useNet }: { filter: PosFilter; useNet: boolean }) {
-  if (filter.preset === "dnes") return <TrendSectionDaily filter={filter} useNet={useNet} />;
+  if (isSingleDay(filter)) return <TrendSectionDaily filter={filter} useNet={useNet} />;
 
   let trend: Awaited<ReturnType<typeof getDailyTrend>>;
   let cur: string;
@@ -359,7 +368,8 @@ async function TrendSection({ filter, useNet }: { filter: PosFilter; useNet: boo
   );
 }
 
-// Hodinový graf pro denní zobrazení: dnešní hodiny + srovnávací den (stejné hodiny).
+// Hodinový graf pro zobrazení jednoho dne (dnes/včera/vlastní 1 den): hodiny dne +
+// srovnávací den (stejné hodiny).
 async function TrendSectionDaily({ filter, useNet }: { filter: PosFilter; useNet: boolean }) {
   let hourly: Awaited<ReturnType<typeof getHourlyTrend>>;
   let cur: string;
@@ -371,7 +381,7 @@ async function TrendSectionDaily({ filter, useNet }: { filter: PosFilter; useNet
   if (hourly.current.length === 0) {
     return (
       <div className="grid h-[200px] place-items-center rounded-2xl border border-edge bg-paper text-[13px] text-ink-mid">
-        Dnes zatím nejsou data.
+        {filter.preset === "dnes" ? "Dnes zatím nejsou data." : "Pro zvolený den nejsou data."}
       </div>
     );
   }
