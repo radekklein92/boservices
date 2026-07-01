@@ -29,6 +29,7 @@ import {
 import * as posApi from "./pos/api";
 import { posQuery } from "./pos/cache";
 import { buildPairingIndex } from "./pos/pairing-db";
+import { shopDailySeries } from "./pos/queries";
 import type { ShopRevenueRow } from "./pos/types";
 
 export type MonthFeeStatus = "final" | "estimate" | "none";
@@ -71,6 +72,13 @@ export interface FeeMonthResult {
   // Proč řádek nedostal žádný poplatek (u status "none"): "no-revenue" = lokalita
   // neměla za zvolený měsíc žádnou tržbu. Podklad pro report vynechaných smluv.
   reason?: "no-revenue";
+  // Započtené dny (sloupec „Dnů"): za kolik dní měsíce je částka spočtena. Fixní
+  // paušál = průnik okna smlouvy s obdobím provozu prodejny; procentní = aktivní
+  // okno periody, za které se bere tržba. Chybí u one-time částek a čistých
+  // odhadů z historie (bez konkrétního okna).
+  billedDays?: number;
+  billedFrom?: string; // ISO začátek započteného období
+  billedTo?: string; // ISO konec započteného období
 }
 
 // Jeden řádek reportu vynechaných smluv (mimo hlavní tabulku daného měsíce).
@@ -398,6 +406,93 @@ async function buildWholeMonthSeries(
   return series;
 }
 
+// ── Období provozu prodejny (pro prorátování fixních paušálů) ───────────────────
+
+// Období, kdy byla prodejna v daném měsíci reálně V PROVOZU, odvozené z denních
+// tržeb DW (split=shop). Otevře-li prodejna až v průběhu měsíce, je „v provozu"
+// až od prvního dne s tržbou; skončí-li v průběhu, jen do posledního dne s tržbou.
+// Zavírací dny UVNITŘ provozu (neděle, svátky) se NEkrátí - krátí se jen souvislý
+// náběh/dojezd: tržba v lookaroundu PŘED měsícem = prodejna už jela -> od 1. dne;
+// tržba PO měsíci (resp. probíhající měsíc) = jede dál -> do konce měsíce.
+interface OpenWindow {
+  openStart: string; // ISO
+  openEnd: string; // ISO
+}
+
+// Jak daleko před/za měsíc se dívat, jestli prodejna běžela už dřív / běžela dál.
+// Pokrývá běžné zavírací pauzy na hranicích měsíce (víkend, svátky, krátká
+// dovolená) - delší mezera už se bere jako reálné otevření/zavření.
+const OPEN_LOOKAROUND_DAYS = 14;
+
+function addDaysISO(iso: string, n: number): string {
+  return todayISO(new Date(isoToUTC(iso) + n * 86_400_000));
+}
+
+// Okno provozu per lokalita pro daný měsíc. V mapě chybí lokality bez jediné
+// tržby v měsíci (ty řeší revenue gate); null = denní data DW nedostupná
+// (degradace: nekrátit, počítat jen oknem smlouvy).
+async function buildOpenWindows(
+  index: Awaited<ReturnType<typeof buildPairingIndex>>,
+  locationIds: ReadonlySet<string>,
+  month: string,
+  today: Date,
+): Promise<Map<string, OpenWindow> | null> {
+  const shopToLoc = new Map<string, string>();
+  for (const loc of locationIds) {
+    for (const sid of index.shopsByLocation.get(loc) ?? []) shopToLoc.set(sid, loc);
+  }
+  if (shopToLoc.size === 0) return new Map();
+
+  const { from: monthStart, to: monthEnd } = monthBounds(month);
+  const todayStr = todayISO(today);
+  const fetchFrom = addDaysISO(monthStart, -OPEN_LOOKAROUND_DAYS);
+  const fetchToRaw = addDaysISO(monthEnd, OPEN_LOOKAROUND_DAYS);
+  const fetchTo = fetchToRaw < todayStr ? fetchToRaw : todayStr;
+
+  let series: Awaited<ReturnType<typeof shopDailySeries>>;
+  try {
+    // Stabilní pořadí shop_ids -> stabilní cache klíč (posQuery klíčuje argumenty).
+    series = await shopDailySeries(fetchFrom, fetchTo, [...shopToLoc.keys()].sort().join(","));
+  } catch {
+    return null;
+  }
+
+  // Per lokalita: tržba před měsícem / po měsíci + první a poslední den s tržbou
+  // uvnitř měsíce. „Den s tržbou" = aspoň jeden doklad nebo kladná tržba (den, kdy
+  // jsou jen záporné refundace, je pořád den v provozu).
+  const agg = new Map<string, { before: boolean; after: boolean; first: string; last: string }>();
+  for (const sr of series) {
+    const loc = shopToLoc.get(sr.shop_id);
+    if (!loc) continue;
+    let a = agg.get(loc);
+    if (!a) {
+      a = { before: false, after: false, first: "", last: "" };
+      agg.set(loc, a);
+    }
+    for (const d of sr.days) {
+      if (d.receipts <= 0 && d.gross <= 0) continue;
+      if (d.date < monthStart) a.before = true;
+      else if (d.date > monthEnd) a.after = true;
+      else {
+        if (!a.first || d.date < a.first) a.first = d.date;
+        if (!a.last || d.date > a.last) a.last = d.date;
+      }
+    }
+  }
+
+  const isClosedMonth = month < monthKeyOf(today);
+  const out = new Map<string, OpenWindow>();
+  for (const [loc, a] of agg) {
+    if (!a.first) continue; // v měsíci žádná tržba -> žádné okno provozu
+    out.set(loc, {
+      openStart: a.before ? monthStart : a.first,
+      // Probíhající měsíc: provoz se predikuje do konce měsíce (prodejna jede).
+      openEnd: !isClosedMonth || a.after ? monthEnd : a.last,
+    });
+  }
+  return out;
+}
+
 // ── Sezónní odhad celoměsíční tržby (budoucí měsíc) ─────────────────────────────
 
 function avg(nums: number[]): number {
@@ -442,27 +537,36 @@ export function estimateLocationNet(
 }
 
 // Měsíční odměna z fixní částky dle periody. Paušál (monthly, resp. yearly -> /12)
-// se PRORÁTUJE na počet dní, kdy byla perioda v daném měsíci reálně aktivní: když
-// smlouva o provozování / o spolupráci a podpoře začne (nebo skončí) v průběhu
-// měsíce, účtuje se jen POMĚROVÁ část z měsíční částky, ne celá (celý měsíc -> faktor 1).
-// one-time = jednorázová částka jen ve výchozím měsíci (bez prorátování).
+// se PRORÁTUJE na počet dní, kdy byla perioda v daném měsíci reálně aktivní A
+// prodejna V PROVOZU: průnik okna smlouvy (mid-month start/end) s obdobím provozu
+// prodejny (`open`, viz buildOpenWindows). Když smlouva o provozování / o spolupráci
+// a podpoře začne 3. a prodejna otevře až 6., účtuje se poměrová část až od 6.
+// Bez `open` (DW nedostupné / budoucí měsíc) se krátí jen oknem smlouvy.
+// one-time = jednorázová částka jen ve výchozím měsíci (bez prorátování a dnů).
 function fixedMonthlyAmount(
   row: FeeRow,
   target: string,
   monthStart: string,
   monthEnd: string,
-): number | null {
+  open?: OpenWindow | null,
+): { amount: number; billed?: { days: number; from: string; to: string } } | null {
   if (row.amountPeriod === "one-time") {
     const fromM = row.from ? row.from.slice(0, 7) : "";
-    return fromM && fromM === target ? row.amount : null;
+    return fromM && fromM === target ? { amount: row.amount } : null;
   }
   const base = row.amountPeriod === "yearly" ? row.amount / 12 : row.amount; // monthly (default)
   const w = periodWindowInMonth(row, monthStart, monthEnd);
   if (!w) return null;
-  const activeDays = dayCountInclusive(w.winStart, w.winEnd);
+  const effStart = open && open.openStart > w.winStart ? open.openStart : w.winStart;
+  const effEnd = open && open.openEnd < w.winEnd ? open.openEnd : w.winEnd;
+  if (effStart > effEnd) return null; // provoz zcela mimo okno smlouvy
+  const activeDays = dayCountInclusive(effStart, effEnd);
   const inMonth = dayCountInclusive(monthStart, monthEnd);
   const factor = inMonth > 0 ? activeDays / inMonth : 1;
-  return base * factor;
+  return {
+    amount: base * factor,
+    billed: { days: activeDays, from: effStart, to: effEnd },
+  };
 }
 
 // Okno periody uvnitř měsíce (clip [from, to] na hranice měsíce). "" = neaktivní.
@@ -490,8 +594,11 @@ function periodWindowInMonth(
 //   - budoucí měsíc = sezónní odhad × podíl aktivních dní.
 // Fixní (paušální) poplatky jsou „final", ale JEN když prodejna měla za měsíc reálnou
 // tržbu - platí pro VŠECHNY typy smluv vč. FRANŠÍZY (franšíza už není výjimka): bez
-// tržby negenerují žádný poplatek (status "none", reason "no-revenue"). Budoucí měsíc
-// reálnou tržbu nezná -> fixní poplatek se ukáže jako „final" (známá částka).
+// tržby negenerují žádný poplatek (status "none", reason "no-revenue"). Částka se
+// navíc prorátuje na dny, kdy smlouva platila A prodejna byla v provozu (průnik,
+// viz buildOpenWindows) - prodejna otevřená až od poloviny měsíce platí jen poměr.
+// Budoucí měsíc reálnou tržbu nezná -> fixní poplatek se ukáže jako „final" (známá
+// částka, krácená jen platností smlouvy).
 export async function computeMonthResults(
   rows: FeeRow[],
   selectedMonth: string,
@@ -528,6 +635,10 @@ export async function computeMonthResults(
   // rozsahy k načtení z DW.
   const windows = new Map<string, { winStart: string; winEnd: string; elapsedEnd: string }>();
   const rangeKeys = new Set<string>();
+  // Lokality s fixním MĚSÍČNÍM paušálem (monthly/yearly) - pro ně se navíc táhne
+  // okno provozu prodejny (buildOpenWindows), aby se paušál krátil i podle dnů,
+  // kdy byla prodejna reálně otevřená (ne jen podle platnosti smlouvy).
+  const fixedLocationIds = new Set<string>();
   for (const row of rows) {
     if (row.pending || !isRowActiveInMonth(row, selectedMonth)) continue;
     // Okno tržby potřebuje KAŽDÝ účtovatelný řádek: procentní pro výpočet částky,
@@ -540,6 +651,9 @@ export async function computeMonthResults(
     windows.set(row.key, { ...w, elapsedEnd });
     if (isClosed) rangeKeys.add(`${w.winStart}|${w.winEnd}`);
     else if (isCurrent && elapsedEnd >= w.winStart) rangeKeys.add(`${w.winStart}|${elapsedEnd}`);
+    if (!isFuture && row.amount > 0 && row.percent === 0 && row.amountPeriod !== "one-time") {
+      fixedLocationIds.add(row.locationId);
+    }
   }
 
   // Načti distinct okna i HISTORICKOU měsíční sérii paralelně (cachováno).
@@ -549,7 +663,7 @@ export async function computeMonthResults(
   // netáhneme - počítá se výhradně reálná tržba (žádný odhad).
   const rangeNets = new Map<string, Map<string, MonthNet>>();
   let wholeSeries = new Map<string, Map<string, MonthNet>>();
-  await Promise.all([
+  const [, , openWindows] = await Promise.all([
     Promise.all(
       [...rangeKeys].map(async (key) => {
         const [from, to] = key.split("|");
@@ -567,6 +681,11 @@ export async function computeMonthResults(
           .catch(() => {
             /* degradace */
           }),
+    // Okna provozu pro fixní paušály (budoucí měsíc tržby nezná -> bez krácení;
+    // null = degradace -> krátí se jen oknem smlouvy).
+    isFuture
+      ? Promise.resolve(null)
+      : buildOpenWindows(index, fixedLocationIds, selectedMonth, today).catch(() => null),
   ]);
 
   // Sezónní odhad z historie prorátovaný `factor`em na relevantní část měsíce
@@ -620,10 +739,25 @@ export async function computeMonthResults(
     }
 
     // Fixní (paušální) částka: známe ji -> "final" (revenue gate výše už proběhl).
-    // Prorátuje se na aktivní část měsíce (mid-month start/end -> jen poměrová část).
+    // Prorátuje se na PRŮNIK aktivní části měsíce (mid-month start/end smlouvy)
+    // s obdobím provozu prodejny - když prodejna otevřela až po účinnosti smlouvy
+    // (nebo zavřela dřív), počítá se jen poměrová část za dny reálného provozu.
     if (hasFixed) {
-      const amt = fixedMonthlyAmount(row, selectedMonth, monthStart, monthEnd);
-      out.set(row.key, amt == null ? none(row) : { status: "final", amount: amt, currency: row.currency });
+      const open = openWindows?.get(row.locationId) ?? null;
+      const r = fixedMonthlyAmount(row, selectedMonth, monthStart, monthEnd, open);
+      out.set(
+        row.key,
+        r == null
+          ? none(row)
+          : {
+              status: "final",
+              amount: r.amount,
+              currency: row.currency,
+              billedDays: r.billed?.days,
+              billedFrom: r.billed?.from,
+              billedTo: r.billed?.to,
+            },
+      );
       continue;
     }
 
@@ -649,7 +783,14 @@ export async function computeMonthResults(
       out.set(
         row.key,
         v && v.net > 0
-          ? { status: "final", amount: (v.net * row.percent) / 100, currency: v.currency || row.currency }
+          ? {
+              status: "final",
+              amount: (v.net * row.percent) / 100,
+              currency: v.currency || row.currency,
+              billedDays: totalDays,
+              billedFrom: w.winStart,
+              billedTo: w.winEnd,
+            }
           : none(row, "no-revenue"),
       );
       continue;
@@ -667,6 +808,9 @@ export async function computeMonthResults(
         status: "estimate",
         amount: (projected * row.percent) / 100,
         currency: v.currency || row.currency,
+        billedDays: totalDays,
+        billedFrom: w.winStart,
+        billedTo: w.winEnd,
       });
       continue;
     }
@@ -750,8 +894,10 @@ export interface FeeHistoryEntry {
 // Historie REÁLNÝCH (finálních) poplatků za uzavřené měsíce pro dané smlouvy
 // (detail lokality = smlouvy lokality, detail klienta = všechny jeho smlouvy).
 // Procentní poplatek = % × reálná tržba bez DPH za aktivní část měsíce; fixní =
-// měsíční částka. Měsíce bez reálných dat (žádná tržba/párování) se vynechají -
-// historie ukazuje jen to, co je skutečně vyčíslené. Nejnovější měsíc první.
+// měsíční částka krácená na dny platnosti smlouvy a PROVOZU prodejny (měsíc bez
+// tržby paušál negeneruje - shodně se stránkou Poplatky). Měsíce bez reálných dat
+// (žádná tržba/párování) se vynechají - historie ukazuje jen to, co je skutečně
+// vyčíslené. Nejnovější měsíc první.
 export async function buildFeeHistory(
   contracts: Contract[],
   today: Date,
@@ -774,13 +920,23 @@ export async function buildFeeHistory(
     return [];
   }
 
-  // Distinct okna (procentní řádky × měsíc) k načtení.
+  // Distinct okna (procentní řádky × měsíc) k načtení + lokality s fixním
+  // paušálem per měsíc (pro okna provozu prodejny - krácení jako na Poplatcích).
   const rangeKeys = new Set<string>();
   const cellWindow = new Map<string, { winStart: string; winEnd: string }>();
+  const fixedLocsByMonth = new Map<string, Set<string>>();
   for (const month of closed) {
     const { from: ms, to: me } = monthBounds(month);
     for (const row of rows) {
       if (row.pending || !isRowActiveInMonth(row, month)) continue;
+      if (row.amount > 0 && row.percent === 0 && row.amountPeriod !== "one-time") {
+        let s = fixedLocsByMonth.get(month);
+        if (!s) {
+          s = new Set();
+          fixedLocsByMonth.set(month, s);
+        }
+        s.add(row.locationId);
+      }
       if (!(row.percent > 0 && row.amount === 0)) continue;
       const w = periodWindowInMonth(row, ms, me);
       if (!w) continue;
@@ -790,13 +946,17 @@ export async function buildFeeHistory(
   }
 
   const rangeNets = new Map<string, Map<string, MonthNet>>();
+  const openByMonth = new Map<string, Map<string, OpenWindow> | null>();
   try {
-    await Promise.all(
-      [...rangeKeys].map(async (key) => {
+    await Promise.all([
+      ...[...rangeKeys].map(async (key) => {
         const [from, to] = key.split("|");
         rangeNets.set(key, await aggregateRangeByLocation(index, from!, to!));
       }),
-    );
+      ...[...fixedLocsByMonth].map(async ([month, locs]) => {
+        openByMonth.set(month, await buildOpenWindows(index, locs, month, today));
+      }),
+    ]);
   } catch {
     /* degradace - chybějící okna se vynechají */
   }
@@ -810,7 +970,16 @@ export async function buildFeeHistory(
       let amount: number | null = null;
       let currency = row.currency;
       if (row.amount > 0 && row.percent === 0) {
-        amount = fixedMonthlyAmount(row, month, ms, me);
+        // Shodně se stránkou Poplatky: měsíc bez jediné tržby fixní paušál
+        // negeneruje (pokud denní data máme); jinak krácení na dny provozu.
+        const open = openByMonth.get(month) ?? null;
+        const skipNoRevenue =
+          open != null && row.amountPeriod !== "one-time" && !open.has(row.locationId);
+        if (!skipNoRevenue) {
+          amount =
+            fixedMonthlyAmount(row, month, ms, me, open?.get(row.locationId) ?? null)?.amount ??
+            null;
+        }
       } else if (row.percent > 0) {
         const w = cellWindow.get(`${month}:${row.key}`);
         const v = w ? rangeNets.get(`${w.winStart}|${w.winEnd}`)?.get(row.locationId) : undefined;

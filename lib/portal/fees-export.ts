@@ -14,6 +14,9 @@ type FeeRowView = FeeRow & {
   status: MonthFeeStatus;
   computedAmount: number | null;
   computedCurrency: string;
+  billedDays?: number;
+  billedFrom?: string;
+  billedTo?: string;
 };
 
 const STATUS_LABEL: Record<MonthFeeStatus, string> = {
@@ -33,6 +36,7 @@ const COLUMNS: XlsxColumn[] = [
   { header: "Status", width: 12 },
   { header: "Od", width: 14 },
   { header: "Do", width: 22 },
+  { header: "Započteno dnů", width: 14 },
 ];
 
 function feeRow(r: FeeRowView): CellValue[] {
@@ -54,6 +58,7 @@ function feeRow(r: FeeRowView): CellValue[] {
     STATUS_LABEL[r.status],
     fmtDate(r.from),
     toLabel,
+    !r.pending && r.status !== "none" ? (r.billedDays ?? null) : null,
   ];
 }
 

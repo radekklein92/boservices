@@ -817,7 +817,8 @@ const CLOSED_WINDOW = 28; // 4 týdny zpět vč. dneška - dost na profil dne v 
 const CLOSED_NOON = 12; // dnešek se počítá jako výpadek až po této hodině
 
 // Per-pokladnu denní řada (split=shop) za okno - cachované, sdílené s warm cronem.
-const _shopSeries = posQuery(
+// Export i pro stránku Poplatky (okno provozu prodejny při prorátování paušálů).
+export const shopDailySeries = posQuery(
   (from: string, to: string, shopIds: string) =>
     collectPaged((page) => api.getShopDailySeries({ date_from: from, date_to: to, shop_ids: shopIds, page, limit: PAGE_SIZE })),
   "shop-series",
@@ -839,7 +840,7 @@ export async function getClosedStores(filter: PosFilter): Promise<ClosedStoresRe
   const rates = await getFxRates();
   const dayList = Array.from({ length: CLOSED_WINDOW }, (_, i) => addDays(today, -i)); // [dnes, D-1, ...]
   const idxByDate = new Map(dayList.map((d, i) => [d, i] as const));
-  const series: ShopSeriesRow[] = await _shopSeries(
+  const series: ShopSeriesRow[] = await shopDailySeries(
     addDays(today, -(CLOSED_WINDOW - 1)),
     today,
     [...resolved.shopIds].join(","),
@@ -920,7 +921,7 @@ export async function getClosedStores(filter: PosFilter): Promise<ClosedStoresRe
 
 // Dlouhodobě neotevřené BOS prodejny - doplněk reportu výpadků. VŽDY okruh BOS
 // (predikát isBosStore), nezávisle na filtru/výběru na stránce: "všechny prodejny
-// označené jako BOS, které nemají tržbu déle než týden". Reuse 28denního _shopSeries
+// označené jako BOS, které nemají tržbu déle než týden". Reuse 28denního shopDailySeries
 // (cachované, warm cronem). Na rozdíl od getClosedStores enumeruje BOS LOKALITY (ne
 // řady série), takže zachytí i ty úplně bez tržby v okně (nikde v sérii). Počítá se
 // v KALENDÁŘNÍCH dnech (ne provozních/DOW) - u dlouhodobého výpadku je profil dne
@@ -952,7 +953,7 @@ export async function getLongClosedBosStores(currency: string): Promise<LongClos
 
   const dayList = Array.from({ length: CLOSED_WINDOW }, (_, i) => addDays(today, -i)); // [dnes, D-1, ...]
   const idxByDate = new Map(dayList.map((d, i) => [d, i] as const));
-  const series: ShopSeriesRow[] = await _shopSeries(
+  const series: ShopSeriesRow[] = await shopDailySeries(
     addDays(today, -(CLOSED_WINDOW - 1)),
     today,
     [...bosShopIds].join(","),

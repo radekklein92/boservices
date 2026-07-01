@@ -28,6 +28,10 @@ export type FeeRowView = FeeRow & {
   status: MonthFeeStatus;
   computedAmount: number | null;
   computedCurrency: string;
+  // Započtené dny (viz FeeMonthResult): za kolik dní měsíce je částka spočtena.
+  billedDays?: number;
+  billedFrom?: string;
+  billedTo?: string;
 };
 
 export type EditableContract = {
@@ -60,7 +64,13 @@ function fmtDate(iso: string): string {
   }
 }
 
-type SortKey = "location" | "contract" | "fee" | "amount" | "from" | "to" | "status";
+// Počet dní zvoleného měsíce ("YYYY-MM") - jmenovatel sloupce „Dnů".
+function daysInMonthOf(key: string): number {
+  const [y, m] = key.split("-").map((s) => parseInt(s, 10));
+  return y && m ? new Date(Date.UTC(y, m, 0)).getUTCDate() : 30;
+}
+
+type SortKey = "location" | "contract" | "fee" | "amount" | "from" | "to" | "days" | "status";
 type Sort = { key: SortKey; dir: "asc" | "desc" } | null;
 const STATUS_ORDER: Record<MonthFeeStatus, number> = { final: 0, estimate: 1, none: 2 };
 
@@ -78,18 +88,26 @@ function sortValue(r: FeeRowView, key: SortKey): string | number {
       return r.from || "9999";
     case "to":
       return r.to || "9999";
+    case "days":
+      return r.billedDays ?? -1;
     case "status":
       return STATUS_ORDER[r.status];
   }
 }
 
-const COLUMNS: { key: SortKey; label: string }[] = [
+const COLUMNS: { key: SortKey; label: string; title?: string }[] = [
   { key: "location", label: "Lokalita" },
   { key: "contract", label: "Smlouva" },
   { key: "fee", label: "Poplatek" },
   { key: "amount", label: "Sazba / částka" },
   { key: "from", label: "Od" },
   { key: "to", label: "Do" },
+  {
+    key: "days",
+    label: "Dnů",
+    title:
+      "Počet započtených dní / dní měsíce. Fixní paušály se krátí na dny, kdy smlouva platila a prodejna byla v provozu; u procentních jde o období, za které se bere tržba.",
+  },
   { key: "status", label: "Status" },
 ];
 
@@ -118,6 +136,7 @@ export function FeesClient({
 
   const skippedTotal =
     report.noRevenue.length + report.notYetEffective.length + report.expired.length;
+  const monthDays = daysInMonthOf(selectedMonth);
 
   function goMonth(target: string | null) {
     if (!target) return;
@@ -286,6 +305,7 @@ export function FeesClient({
                 return (
                   <th
                     key={c.key}
+                    title={c.title}
                     className="whitespace-nowrap bg-paper-warm px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-mid"
                   >
                     <button
@@ -345,6 +365,9 @@ export function FeesClient({
                 </td>
                 <td className="whitespace-nowrap px-3 py-2 align-middle text-ink-deep">
                   {r.pending ? "—" : r.to ? fmtDate(r.to) : "dle franšízové smlouvy"}
+                </td>
+                <td className="whitespace-nowrap px-3 py-2 align-middle">
+                  <DaysCell row={r} monthDays={monthDays} />
                 </td>
                 <td className="whitespace-nowrap px-3 py-2 align-middle">
                   {r.status !== "none" && (
@@ -419,6 +442,29 @@ function AmountCell({ row }: { row: FeeRowView }) {
       {(row.percent > 0 || proratedFixed) && (
         <span className="text-[11px] text-ink-soft">{row.rate}</span>
       )}
+    </span>
+  );
+}
+
+// Buňka „Dnů": za kolik dní měsíce je částka započtena (viz FeeMonthResult).
+// Neúplný měsíc (krácení paušálu na provoz prodejny / mid-month smlouva) se
+// zvýrazní; celý měsíc je tlumeně (nic zajímavého). Tooltip nese konkrétní období.
+function DaysCell({ row, monthDays }: { row: FeeRowView; monthDays: number }) {
+  if (row.pending || row.status === "none" || row.billedDays == null) {
+    return <span className="text-ink-soft">—</span>;
+  }
+  const partial = row.billedDays < monthDays;
+  const title =
+    row.billedFrom && row.billedTo
+      ? `Započteno ${fmtDate(row.billedFrom)} - ${fmtDate(row.billedTo)}`
+      : undefined;
+  return (
+    <span
+      title={title}
+      className={`font-mono text-[12px] ${partial ? "font-semibold text-ink-base" : "text-ink-soft"}`}
+    >
+      {row.billedDays}
+      <span className="font-normal text-ink-soft">/{monthDays}</span>
     </span>
   );
 }
