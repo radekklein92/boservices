@@ -73,13 +73,6 @@ export interface FeeMonthResult {
   reason?: "no-revenue";
 }
 
-// Smlouvy, jejichž poplatek je vázaný na reálnou tržbu prodejny za daný měsíc:
-// o spolupráci a o provozování se bez tržby NEfakturují (na rozdíl od franšízy,
-// jejíž fixní paušál platí vždy). Bez tržby → žádný poplatek (none, "no-revenue").
-export function isRevenueGatedType(type: ContractType): boolean {
-  return type === "cooperation" || type === "operation";
-}
-
 // Jeden řádek reportu vynechaných smluv (mimo hlavní tabulku daného měsíce).
 export interface SkippedFeeRow {
   key: string;
@@ -482,9 +475,10 @@ function periodWindowInMonth(
 //   - probíhající měsíc = run-rate z uplynulých dní; dokud v měsíci není žádná tržba,
 //     historický odhad ZTENČENÝ o už uplynulé dny bez tržby (postupně klesá k nule),
 //   - budoucí měsíc = sezónní odhad × podíl aktivních dní.
-// Fixní (paušální) poplatky jsou „final" (známe je) - VÝJIMKA: smlouvy o spolupráci
-// a o provozování se fakturují jen když prodejna měla za měsíc reálnou tržbu; bez
-// tržby negenerují žádný poplatek (status "none", reason "no-revenue").
+// Fixní (paušální) poplatky jsou „final", ale JEN když prodejna měla za měsíc reálnou
+// tržbu - platí pro VŠECHNY typy smluv vč. FRANŠÍZY (franšíza už není výjimka): bez
+// tržby negenerují žádný poplatek (status "none", reason "no-revenue"). Budoucí měsíc
+// reálnou tržbu nezná -> fixní poplatek se ukáže jako „final" (známá částka).
 export async function computeMonthResults(
   rows: FeeRow[],
   selectedMonth: string,
@@ -523,8 +517,9 @@ export async function computeMonthResults(
   const rangeKeys = new Set<string>();
   for (const row of rows) {
     if (row.pending || !isRowActiveInMonth(row, selectedMonth)) continue;
-    const needsRevenue =
-      (row.percent > 0 && row.amount === 0) || isRevenueGatedType(row.contractType);
+    // Okno tržby potřebuje KAŽDÝ účtovatelný řádek: procentní pro výpočet částky,
+    // fixní pro revenue gate (bez tržby = žádný poplatek ani u fixní/paušální sazby).
+    const needsRevenue = row.percent > 0 || row.amount > 0;
     if (!needsRevenue) continue;
     const w = periodWindowInMonth(row, monthStart, monthEnd);
     if (!w) continue;
@@ -599,10 +594,11 @@ export async function computeMonthResults(
 
     const w = windows.get(row.key);
 
-    // Smlouvy o spolupráci / provozování se fakturují JEN při reálné tržbě za měsíc
-    // (uzavřený + probíhající). Bez tržby negenerujeme žádný poplatek - franšíza je
-    // výjimka (její paušál platí vždy, gate se na ni nevztahuje).
-    if (isRevenueGatedType(row.contractType) && !isFuture && w) {
+    // Bez reálné tržby za měsíc se FIXNÍ (paušální) poplatek NEFAKTURUJE - u žádného
+    // typu smlouvy (spolupráce, provozování i FRANŠÍZA). Franšíza už NENÍ výjimka:
+    // když prodejna za měsíc nic neprodala, negeneruje ani franšízový paušál. Procentní
+    // poplatek si tržbu řeší vlastní větví níž (vč. průběžného odhadu), sem nepatří.
+    if (hasFixed && !isFuture && w) {
       const net = windowRevenueNet(row, w);
       if (net == null || net <= 0) {
         out.set(row.key, none(row, "no-revenue"));

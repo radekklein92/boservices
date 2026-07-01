@@ -39,9 +39,13 @@ export default async function FeesPage({
   // Report vynechaných smluv za zvolený měsíc (neúčinné / expirované / bez tržby) - pro kontrolu.
   const report = buildSkippedFeesReport(rows, results, selectedMonth);
 
-  // Jen poplatky účinné ve zvoleném měsíci (prázdné/neúčinné se nezobrazují).
+  // Jen poplatky účinné ve zvoleném měsíci (prázdné/neúčinné se nezobrazují) a jen ty,
+  // které za měsíc reálně generují poplatek. Smlouvy bez tržby (reason "no-revenue")
+  // do hlavní tabulky nepatří - negenerují poplatek a jsou jen v reportu „Vynechané
+  // smlouvy" (spolu s neúčinnými a expirovanými).
   const views: FeeRowView[] = rows
     .filter((r) => isRowActiveInMonth(r, selectedMonth))
+    .filter((r) => results.get(r.key)?.reason !== "no-revenue")
     .map((r) => {
       const res = results.get(r.key) ?? { status: "none" as const, amount: null, currency: r.currency };
       return { ...r, status: res.status, computedAmount: res.amount, computedCurrency: res.currency };
