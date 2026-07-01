@@ -66,6 +66,8 @@ import type {
   LiveMoverRow,
   LiveMovers,
   LocationRevenueRowWithPrev,
+  LongClosedStoreRow,
+  LongClosedStoresReport,
   Paged,
   PaymentMixRow,
   ProductDetail,
@@ -914,6 +916,104 @@ export async function getClosedStores(filter: PosFilter): Promise<ClosedStoresRe
   // Nejdéle zavřené nahoru; při shodě ty, kde uniká nejvíc tržeb.
   rows.sort((a, b) => b.gapDays - a.gapDays || b.avgDailyGross - a.avgDailyGross);
   return { rows, count: rows.length, currency: to, afternoon };
+}
+
+// Dlouhodobě neotevřené BOS prodejny - doplněk reportu výpadků. VŽDY okruh BOS
+// (predikát isBosStore), nezávisle na filtru/výběru na stránce: "všechny prodejny
+// označené jako BOS, které nemají tržbu déle než týden". Reuse 28denního _shopSeries
+// (cachované, warm cronem). Na rozdíl od getClosedStores enumeruje BOS LOKALITY (ne
+// řady série), takže zachytí i ty úplně bez tržby v okně (nikde v sérii). Počítá se
+// v KALENDÁŘNÍCH dnech (ne provozních/DOW) - u dlouhodobého výpadku je profil dne
+// v týdnu irelevantní; sem padají právě prodejny, které krátkodobý report vynechává
+// jako "trvale zavřené".
+export async function getLongClosedBosStores(currency: string): Promise<LongClosedStoresReport> {
+  const to = currency;
+  const today = todayPrague();
+  const empty: LongClosedStoresReport = { rows: [], count: 0, currency: to, windowDays: CLOSED_WINDOW };
+  const [bosLoc, index, locations, shops, rates] = await Promise.all([
+    bosLocationIdSet(),
+    _pairingIndex(),
+    _locations(),
+    getAllShops(),
+    getFxRates(),
+  ]);
+  if (bosLoc.size === 0) return empty;
+
+  // Jen měřitelné pokladny: getAllShops je bez AED (nemá ČNB kurz), jinak by
+  // AED-only prodejna vždy falešně padala jako "bez tržby".
+  const eligible = new Set(shops.map((s) => s.id));
+  const bosShopIds = new Set<string>();
+  for (const locId of bosLoc) {
+    for (const sid of index.shopsByLocation.get(locId) ?? []) {
+      if (eligible.has(sid)) bosShopIds.add(sid);
+    }
+  }
+  if (bosShopIds.size === 0) return empty;
+
+  const dayList = Array.from({ length: CLOSED_WINDOW }, (_, i) => addDays(today, -i)); // [dnes, D-1, ...]
+  const idxByDate = new Map(dayList.map((d, i) => [d, i] as const));
+  const series: ShopSeriesRow[] = await _shopSeries(
+    addDays(today, -(CLOSED_WINDOW - 1)),
+    today,
+    [...bosShopIds].join(","),
+  );
+
+  // gross per BOS lokalita a den (index 0 = dnes); FX přepočet, měny bez kurzu vynechány.
+  const byLoc = new Map<string, number[]>();
+  for (const sr of series) {
+    if (!bosShopIds.has(sr.shop_id)) continue;
+    if (!hasRate(sr.currency, rates)) continue;
+    const locId = index.locationByShop.get(sr.shop_id);
+    if (!locId || !bosLoc.has(locId)) continue;
+    const f = fxFactor(sr.currency, to, rates);
+    let arr = byLoc.get(locId);
+    if (!arr) {
+      arr = new Array(CLOSED_WINDOW).fill(0);
+      byLoc.set(locId, arr);
+    }
+    for (const d of sr.days) {
+      const di = idxByDate.get(d.date);
+      if (di !== undefined) arr[di] += d.gross * f;
+    }
+  }
+
+  const locName = new Map(locations.map((l) => [l.id, l.name]));
+  const rows: LongClosedStoreRow[] = [];
+  for (const locId of bosLoc) {
+    const hasEligibleShop = (index.shopsByLocation.get(locId) ?? []).some((sid) => bosShopIds.has(sid));
+    if (!hasEligibleShop) continue; // bez měřitelné pokladny nelze posoudit
+
+    const arr = byLoc.get(locId);
+    // Nejnovější den s tržbou v okně (0 = dnes). -1 = žádná tržba v okně.
+    let lastSaleIdx = -1;
+    if (arr) {
+      for (let i = 0; i < CLOSED_WINDOW; i++) {
+        if (arr[i] > 0) {
+          lastSaleIdx = i;
+          break;
+        }
+      }
+    }
+    // Prodává / krátkodobý výpadek (poslední tržba <= týden) -> patří do getClosedStores, ne sem.
+    if (lastSaleIdx >= 0 && lastSaleIdx <= CLOSED_MAX_GAP) continue;
+
+    const daysClosed = lastSaleIdx === -1 ? null : lastSaleIdx;
+    const complete = arr ? arr.filter((g) => g > 0) : [];
+    const avgDailyGross = complete.length ? complete.reduce((a, b) => a + b, 0) / complete.length : 0;
+    rows.push({
+      locationId: locId,
+      name: locName.get(locId) ?? locId,
+      concept: index.conceptByLocation.get(locId) ?? "other",
+      currency: to,
+      daysClosed,
+      lastSaleDate: lastSaleIdx === -1 ? null : dayList[lastSaleIdx],
+      avgDailyGross,
+    });
+  }
+  // Nejdéle zavřené nahoru: bez tržby v okně (null) první, pak dle dní DESC, pak tržba.
+  const rank = (d: number | null) => (d === null ? Number.POSITIVE_INFINITY : d);
+  rows.sort((a, b) => rank(b.daysClosed) - rank(a.daysClosed) || b.avgDailyGross - a.avgDailyGross);
+  return { rows, count: rows.length, currency: to, windowDays: CLOSED_WINDOW };
 }
 
 // --- Žebříček KONCEPTŮ (rollup pokladen -> lokalita -> koncept) ---

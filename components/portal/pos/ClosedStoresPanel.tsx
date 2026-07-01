@@ -1,21 +1,37 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowUpRight, X } from "lucide-react";
-import type { ClosedStoreRow, ClosedStoresReport } from "@/lib/portal/pos/types";
+import { ArrowLeft, ArrowUpRight, ChevronRight, X } from "lucide-react";
+import type {
+  ClosedStoreRow,
+  ClosedStoresReport,
+  LongClosedStoreRow,
+  LongClosedStoresReport,
+} from "@/lib/portal/pos/types";
 import { CONCEPT_LABEL } from "@/components/portal/locations/locations-shared";
 import { formatPosMoney, formatPosMoneyCompact } from "@/components/portal/pos/pos-shared";
+import { BTN_ROW, BTN_SUBTLE } from "@/components/portal/ui/buttons";
 
 // Report "Neotevřené prodejny" - prodejny, které nedávno prodávaly, ale teď N dní
 // po sobě nemají tržbu (výpadek). Sdílený modal se dvěma spouštěči: klikací KPI
 // karta (Živě) a tlačítko (Prodejny). Data se počítají na serveru (getClosedStores)
 // a sem přitečou hotová - tady jen UI a stav modalu.
+//
+// Modal má dva pohledy: krátkodobé výpadky (default) a "Dlouhodobě neotevřené
+// prodejny" (BOS prodejny bez tržby déle než týden, getLongClosedBosStores) - druhý
+// se otevírá tlačítkem dole a je VŽDY okruh BOS, nezávisle na filtru stránky.
 
 // "1 den" / "2 dny" / "5 dní" (gap je 1..7).
 function gapText(n: number): string {
   if (n === 1) return "1 den";
   if (n >= 2 && n <= 4) return `${n} dny`;
   return `${n} dní`;
+}
+
+// Počet dní pro dlouhodobý výpadek (vždy >= 8, nebo null = žádná tržba v okně -> "N+ dní").
+function longDaysText(days: number | null, windowDays: number): string {
+  if (days === null) return `${windowDays}+ dní`;
+  return `${days} dní`;
 }
 
 // "2026-06-25" -> "25.6."
@@ -26,7 +42,13 @@ function dayLabel(date: string): string {
 
 // Klikací KPI karta na Živě (4. dlaždice vedle Tržby/Účtenky/Ø ticket). Vizuálně
 // kopíruje PosKpiCard, ale je to <button> otevírající modal.
-export function ClosedStoresKpiCard({ report }: { report: ClosedStoresReport }) {
+export function ClosedStoresKpiCard({
+  report,
+  longReport,
+}: {
+  report: ClosedStoresReport;
+  longReport?: LongClosedStoresReport | null;
+}) {
   const [open, setOpen] = useState(false);
   const has = report.count > 0;
   const worst = report.rows[0]?.gapDays ?? 0;
@@ -68,14 +90,20 @@ export function ClosedStoresKpiCard({ report }: { report: ClosedStoresReport }) 
           {has && <span className="tabular-nums text-ink-soft">· až {gapText(worst)} bez tržby</span>}
         </div>
       </button>
-      {open && <ClosedStoresModal report={report} onClose={() => setOpen(false)} />}
+      {open && <ClosedStoresModal report={report} longReport={longReport} onClose={() => setOpen(false)} />}
     </>
   );
 }
 
 // Odkaz se šipkou pro pravý horní roh hlavičky (stránka Prodejny) - stejný vzor
 // jako "Celý žebříček" jinde v Portálu. Tečka = jemný signál, že něco je k řešení.
-export function ClosedStoresLink({ report }: { report: ClosedStoresReport }) {
+export function ClosedStoresLink({
+  report,
+  longReport,
+}: {
+  report: ClosedStoresReport;
+  longReport?: LongClosedStoresReport | null;
+}) {
   const [open, setOpen] = useState(false);
   const has = report.count > 0;
 
@@ -91,13 +119,23 @@ export function ClosedStoresLink({ report }: { report: ClosedStoresReport }) {
         Neotevřené prodejny ({report.count})
         <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
       </button>
-      {open && <ClosedStoresModal report={report} onClose={() => setOpen(false)} />}
+      {open && <ClosedStoresModal report={report} longReport={longReport} onClose={() => setOpen(false)} />}
     </>
   );
 }
 
-// Modal s celým reportem. Konvence modalů portálu (Escape, scroll-lock, klik na pozadí).
-function ClosedStoresModal({ report, onClose }: { report: ClosedStoresReport; onClose: () => void }) {
+// Modal se dvěma pohledy. Konvence modalů portálu (Escape, scroll-lock, klik na pozadí).
+function ClosedStoresModal({
+  report,
+  longReport,
+  onClose,
+}: {
+  report: ClosedStoresReport;
+  longReport?: LongClosedStoresReport | null;
+  onClose: () => void;
+}) {
+  const [view, setView] = useState<"current" | "long">("current");
+
   useEffect(() => {
     const original = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -111,6 +149,15 @@ function ClosedStoresModal({ report, onClose }: { report: ClosedStoresReport; on
     };
   }, [onClose]);
 
+  // Dlouhodobé bez těch, co už jsou v krátkodobém seznamu (aby se prodejna
+  // neobjevila dvakrát - kalendářní vs. provozní práh se u okraje můžou překrýt).
+  const shortIds = new Set(report.rows.map((r) => r.locationId));
+  const longRows = (longReport?.rows ?? []).filter((r) => !shortIds.has(r.locationId));
+  const hasLong = longReport != null;
+  const windowDays = longReport?.windowDays ?? 28;
+
+  const isLong = view === "long";
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-ink-base/40 px-4 py-8 backdrop-blur-sm md:py-12"
@@ -119,21 +166,37 @@ function ClosedStoresModal({ report, onClose }: { report: ClosedStoresReport; on
       }}
       role="dialog"
       aria-modal="true"
-      aria-label="Neotevřené prodejny"
+      aria-label={isLong ? "Dlouhodobě neotevřené prodejny" : "Neotevřené prodejny"}
     >
       <div className="relative w-full max-w-[640px] rounded-2xl border border-edge bg-paper p-6 shadow-[0_18px_42px_-18px_rgba(14,14,14,0.35)] md:p-7">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <div className="text-[10px] font-medium uppercase tracking-[0.22em] text-ink-mid">Provoz</div>
+            {isLong ? (
+              <button type="button" onClick={() => setView("current")} className={`${BTN_SUBTLE} -ml-3 mb-0.5`}>
+                <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+                Neotevřené prodejny
+              </button>
+            ) : (
+              <div className="text-[10px] font-medium uppercase tracking-[0.22em] text-ink-mid">Provoz</div>
+            )}
             <h2 className="mt-1 truncate text-[1.15rem] font-bold leading-[1.2] tracking-[-0.02em] text-ink-base">
-              Neotevřené prodejny
+              {isLong ? "Dlouhodobě neotevřené prodejny" : "Neotevřené prodejny"}
             </h2>
             <p className="mt-1 max-w-[52ch] text-[12.5px] leading-relaxed text-ink-mid">
-              Prodejny, které nedávno prodávaly, ale teď mají výpadek (1-7 dní bez tržby). Trvale
-              zavřené (bez tržby přes týden) tu nejsou.{" "}
-              {report.afternoon
-                ? "Dnešek se počítá (po 12:00 zatím bez tržby)."
-                : "Dnešek se do výpadku započítá až po 12:00."}
+              {isLong ? (
+                <>
+                  Prodejny označené jako BOS, které nemají tržbu déle než týden (nebo vůbec za poslední{" "}
+                  {windowDays} dní). Nejdéle zavřené nahoře.
+                </>
+              ) : (
+                <>
+                  Prodejny, které nedávno prodávaly, ale teď mají výpadek (1-7 dní bez tržby). Trvale
+                  zavřené (bez tržby přes týden) tu nejsou.{" "}
+                  {report.afternoon
+                    ? "Dnešek se počítá (po 12:00 zatím bez tržby)."
+                    : "Dnešek se do výpadku započítá až po 12:00."}
+                </>
+              )}
             </p>
           </div>
           <button
@@ -146,20 +209,62 @@ function ClosedStoresModal({ report, onClose }: { report: ClosedStoresReport; on
           </button>
         </div>
 
-        {report.rows.length === 0 ? (
-          <div className="rounded-xl border border-edge bg-edge-warm/30 px-4 py-8 text-center">
-            <div className="inline-flex items-center gap-1.5 text-[13px] font-medium text-emerald-600">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" aria-hidden="true" />
-              Vše v provozu
+        {isLong ? (
+          longRows.length === 0 ? (
+            <div className="rounded-xl border border-edge bg-edge-warm/30 px-4 py-8 text-center">
+              <div className="inline-flex items-center gap-1.5 text-[13px] font-medium text-emerald-600">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" aria-hidden="true" />
+                Vše v provozu
+              </div>
+              <p className="mt-1 text-[12.5px] text-ink-mid">Žádná BOS prodejna není dlouhodobě bez tržby.</p>
             </div>
-            <p className="mt-1 text-[12.5px] text-ink-mid">Žádná prodejna teď nehlásí výpadek.</p>
-          </div>
+          ) : (
+            <ol className="flex flex-col">
+              {longRows.map((r, i) => (
+                <LongClosedRow
+                  key={r.locationId}
+                  rank={i + 1}
+                  row={r}
+                  currency={longReport?.currency ?? report.currency}
+                  windowDays={windowDays}
+                />
+              ))}
+            </ol>
+          )
         ) : (
-          <ol className="flex flex-col">
-            {report.rows.map((r, i) => (
-              <ClosedRow key={r.locationId} rank={i + 1} row={r} currency={report.currency} />
-            ))}
-          </ol>
+          <>
+            {report.rows.length === 0 ? (
+              <div className="rounded-xl border border-edge bg-edge-warm/30 px-4 py-8 text-center">
+                <div className="inline-flex items-center gap-1.5 text-[13px] font-medium text-emerald-600">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500" aria-hidden="true" />
+                  Vše v provozu
+                </div>
+                <p className="mt-1 text-[12.5px] text-ink-mid">Žádná prodejna teď nehlásí výpadek.</p>
+              </div>
+            ) : (
+              <ol className="flex flex-col">
+                {report.rows.map((r, i) => (
+                  <ClosedRow key={r.locationId} rank={i + 1} row={r} currency={report.currency} />
+                ))}
+              </ol>
+            )}
+
+            {hasLong && (
+              <div className="mt-5 border-t border-edge pt-4">
+                <button
+                  type="button"
+                  onClick={() => setView("long")}
+                  className={`${BTN_ROW} w-full justify-between`}
+                >
+                  <span>Dlouhodobě neotevřené prodejny</span>
+                  <span className="inline-flex items-center gap-1.5 text-ink-mid">
+                    <span className="tabular-nums">{longRows.length}</span>
+                    <ChevronRight className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                  </span>
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
@@ -190,6 +295,46 @@ function ClosedRow({ rank, row, currency }: { rank: number; row: ClosedStoreRow;
       <span className="shrink-0">
         <span className="inline-flex items-center rounded-full bg-rose-500/10 px-2 py-0.5 text-[11.5px] font-semibold tabular-nums text-rose-600">
           {gapText(row.gapDays)}
+        </span>
+      </span>
+    </li>
+  );
+}
+
+function LongClosedRow({
+  rank,
+  row,
+  currency,
+  windowDays,
+}: {
+  rank: number;
+  row: LongClosedStoreRow;
+  currency: string;
+  windowDays: number;
+}) {
+  return (
+    <li className="flex items-center gap-3 border-b border-edge/60 py-2.5 last:border-0">
+      <span className="w-5 shrink-0 text-right text-[11.5px] tabular-nums text-ink-soft">{rank}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[13px] text-ink-deep" title={row.name}>
+          {row.name}
+        </span>
+        <span className="block truncate text-[11.5px] text-ink-soft">
+          {CONCEPT_LABEL[row.concept]}
+          {row.lastSaleDate ? ` · naposledy ${dayLabel(row.lastSaleDate)}` : ` · bez tržby přes ${windowDays} dní`}
+        </span>
+      </span>
+      {row.avgDailyGross > 0 && (
+        <span
+          className="hidden shrink-0 text-right text-[12px] tabular-nums text-ink-mid sm:block"
+          title={`Obvyklá denní tržba ${formatPosMoney(row.avgDailyGross, currency)}`}
+        >
+          ~{formatPosMoneyCompact(row.avgDailyGross, currency)}/den
+        </span>
+      )}
+      <span className="shrink-0">
+        <span className="inline-flex items-center rounded-full bg-rose-500/10 px-2 py-0.5 text-[11.5px] font-semibold tabular-nums text-rose-600">
+          {longDaysText(row.daysClosed, windowDays)}
         </span>
       </span>
     </li>

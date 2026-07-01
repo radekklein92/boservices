@@ -307,6 +307,28 @@ export interface ClosedStoresReport {
   afternoon: boolean; // je po 12:00 (dnešek se do výpadku počítá)
 }
 
+// --- Dlouhodobě neotevřené BOS prodejny ---
+// Doplněk k reportu výpadků: prodejny označené jako BOS (predikát isBosStore), které
+// NEMAJÍ tržbu déle než týden (poslední tržba > CLOSED_MAX_GAP dní, nebo žádná v okně).
+// Sem padají právě ty, které krátkodobý report jako "trvale zavřené" vynechává.
+// VŽDY okruh BOS - nezávisle na filtru/výběru na stránce.
+export interface LongClosedStoreRow {
+  locationId: string;
+  name: string;
+  concept: LocationConcept;
+  currency: string;
+  daysClosed: number | null; // kalendářních dní od poslední tržby; null = žádná tržba v okně (>= windowDays)
+  lastSaleDate: string | null; // YYYY-MM-DD posledního dne s tržbou; null když žádná tržba v okně
+  avgDailyGross: number; // obvyklá denní tržba z dní s tržbou v okně (0 = neznámá)
+}
+
+export interface LongClosedStoresReport {
+  rows: LongClosedStoreRow[]; // seřazené dle daysClosed DESC (null/nejdéle nahoře), pak avgDailyGross DESC
+  count: number;
+  currency: string;
+  windowDays: number; // délka okna dat (label "N+ dní" pro prodejny bez tržby v okně)
+}
+
 // Rollup na KONCEPT (skupina prodejen). Nahrazuje žebříček značek.
 export interface ConceptRevenueRow {
   concept: LocationConcept;

@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { canSeePOS } from "@/lib/portal/auth-guard";
 import { getSession } from "@/lib/portal/get-session";
 import { parsePosFilter, serializePosFilter, type PosFilter } from "@/lib/portal/pos/filters";
-import { getClosedStores, getHeatmap, getLiveMovers, getToday, resolveDisplayCurrency } from "@/lib/portal/pos/queries";
+import { getClosedStores, getHeatmap, getLiveMovers, getLongClosedBosStores, getToday, resolveDisplayCurrency } from "@/lib/portal/pos/queries";
 import { isPosApiConfigured } from "@/lib/portal/pos/api";
 import { PageHeader } from "@/components/portal/shell/PageHeader";
 import { PosSubNav } from "@/components/portal/pos/PosSubNav";
@@ -180,12 +180,17 @@ async function LiveContent({ filter }: { filter: PosFilter }) {
 // nezávisle. Při chybě tiše vypadne (zbytek Živě běží dál).
 async function ClosedStoresCell({ filter }: { filter: PosFilter }) {
   let report: Awaited<ReturnType<typeof getClosedStores>>;
+  // Dlouhodobě neotevřené (VŽDY okruh BOS) běží paralelně; pád jen schová tlačítko.
+  let longReport: Awaited<ReturnType<typeof getLongClosedBosStores>> | null;
   try {
-    report = await getClosedStores(filter);
+    [report, longReport] = await Promise.all([
+      getClosedStores(filter),
+      getLongClosedBosStores(filter.currency).catch(() => null),
+    ]);
   } catch {
     return null;
   }
-  return <ClosedStoresKpiCard report={report} />;
+  return <ClosedStoresKpiCard report={report} longReport={longReport} />;
 }
 
 function Notice({ title, body }: { title: string; body: string }) {
