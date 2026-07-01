@@ -68,6 +68,36 @@ export interface FeeMonthResult {
   status: MonthFeeStatus;
   amount: number | null; // částka v měně `currency` (null = jen sazba)
   currency: string;
+  // Proč řádek nedostal žádný poplatek (u status "none"): "no-revenue" = lokalita
+  // neměla za zvolený měsíc žádnou tržbu. Podklad pro report vynechaných smluv.
+  reason?: "no-revenue";
+}
+
+// Smlouvy, jejichž poplatek je vázaný na reálnou tržbu prodejny za daný měsíc:
+// o spolupráci a o provozování se bez tržby NEfakturují (na rozdíl od franšízy,
+// jejíž fixní paušál platí vždy). Bez tržby → žádný poplatek (none, "no-revenue").
+export function isRevenueGatedType(type: ContractType): boolean {
+  return type === "cooperation" || type === "operation";
+}
+
+// Jeden řádek reportu vynechaných smluv (mimo hlavní tabulku daného měsíce).
+export interface SkippedFeeRow {
+  key: string;
+  locationId: string;
+  locationName: string;
+  clientName: string;
+  contractLabel: string;
+  periodLabel: string;
+  rate: string;
+  from: string;
+  to: string;
+}
+
+// Report smluv vynechaných ve zvoleném měsíci (pro ruční kontrolu).
+export interface SkippedFeesReport {
+  notYetEffective: SkippedFeeRow[]; // perioda začíná až po zvoleném měsíci
+  expired: SkippedFeeRow[]; // perioda skončila před zvoleným měsícem
+  noRevenue: SkippedFeeRow[]; // účinná, ale bez poplatku kvůli chybějící tržbě
 }
 
 // Na stránce Poplatky stačí typ smlouvy bez varianty (A/B) - „Franšízingová".
@@ -452,7 +482,9 @@ function periodWindowInMonth(
 //   - probíhající měsíc = run-rate z uplynulých dní; dokud v měsíci není žádná tržba,
 //     historický odhad ZTENČENÝ o už uplynulé dny bez tržby (postupně klesá k nule),
 //   - budoucí měsíc = sezónní odhad × podíl aktivních dní.
-// Fixní (paušální) poplatky jsou vždy „final" (známe je bez ohledu na tržbu).
+// Fixní (paušální) poplatky jsou „final" (známe je) - VÝJIMKA: smlouvy o spolupráci
+// a o provozování se fakturují jen když prodejna měla za měsíc reálnou tržbu; bez
+// tržby negenerují žádný poplatek (status "none", reason "no-revenue").
 export async function computeMonthResults(
   rows: FeeRow[],
   selectedMonth: string,
@@ -464,7 +496,12 @@ export async function computeMonthResults(
   const isFuture = selectedMonth > cur;
 
   const out = new Map<string, FeeMonthResult>();
-  const none = (row: FeeRow): FeeMonthResult => ({ status: "none", amount: null, currency: row.currency });
+  const none = (row: FeeRow, reason?: "no-revenue"): FeeMonthResult => ({
+    status: "none",
+    amount: null,
+    currency: row.currency,
+    reason,
+  });
 
   // Bez párovacího indexu / DW (degradace) -> jen sazby.
   let index: Awaited<ReturnType<typeof buildPairingIndex>>;
@@ -479,12 +516,16 @@ export async function computeMonthResults(
   const todayStr = todayISO(today);
   const daysInMonth = dayCountInclusive(monthStart, monthEnd);
 
-  // Procentní řádky aktivní v měsíci + jejich okna; sběr distinct oken k načtení.
+  // Řádky, které potřebují znát tržbu za okno v měsíci: procentní poplatky + smlouvy
+  // o spolupráci/provozování (revenue-gated). Spočti jim okno a nasbírej distinct
+  // rozsahy k načtení z DW.
   const windows = new Map<string, { winStart: string; winEnd: string; elapsedEnd: string }>();
   const rangeKeys = new Set<string>();
   for (const row of rows) {
     if (row.pending || !isRowActiveInMonth(row, selectedMonth)) continue;
-    if (!(row.percent > 0 && row.amount === 0)) continue;
+    const needsRevenue =
+      (row.percent > 0 && row.amount === 0) || isRevenueGatedType(row.contractType);
+    if (!needsRevenue) continue;
     const w = periodWindowInMonth(row, monthStart, monthEnd);
     if (!w) continue;
     const elapsedEnd = todayStr < w.winEnd ? todayStr : w.winEnd;
@@ -531,22 +572,52 @@ export async function computeMonthResults(
       : none(row);
   };
 
+  // Reálná net tržba lokality za relevantní okno (uzavřený měsíc = celé okno,
+  // probíhající = uplynulá část); null pro budoucí měsíc (tam se tržba negatuje).
+  const windowRevenueNet = (
+    row: FeeRow,
+    w: { winStart: string; winEnd: string; elapsedEnd: string },
+  ): number | null => {
+    if (isClosed) return rangeNets.get(`${w.winStart}|${w.winEnd}`)?.get(row.locationId)?.net ?? null;
+    if (isCurrent && w.elapsedEnd >= w.winStart)
+      return rangeNets.get(`${w.winStart}|${w.elapsedEnd}`)?.get(row.locationId)?.net ?? null;
+    return null;
+  };
+
   for (const row of rows) {
     if (row.pending || !isRowActiveInMonth(row, selectedMonth)) {
       out.set(row.key, none(row));
       continue;
     }
-    // Fixní (paušální) částka: známe ji -> vždy "final".
-    if (row.amount > 0 && row.percent === 0) {
+
+    const hasFixed = row.amount > 0 && row.percent === 0;
+    const hasPercent = row.percent > 0;
+    if (!hasFixed && !hasPercent) {
+      out.set(row.key, none(row)); // bez sazby (nelze nic spočítat) - ne kvůli tržbě
+      continue;
+    }
+
+    const w = windows.get(row.key);
+
+    // Smlouvy o spolupráci / provozování se fakturují JEN při reálné tržbě za měsíc
+    // (uzavřený + probíhající). Bez tržby negenerujeme žádný poplatek - franšíza je
+    // výjimka (její paušál platí vždy, gate se na ni nevztahuje).
+    if (isRevenueGatedType(row.contractType) && !isFuture && w) {
+      const net = windowRevenueNet(row, w);
+      if (net == null || net <= 0) {
+        out.set(row.key, none(row, "no-revenue"));
+        continue;
+      }
+    }
+
+    // Fixní (paušální) částka: známe ji -> "final" (revenue gate výše už proběhl).
+    if (hasFixed) {
       const amt = fixedMonthlyAmount(row, selectedMonth);
       out.set(row.key, amt == null ? none(row) : { status: "final", amount: amt, currency: row.currency });
       continue;
     }
-    if (row.percent <= 0) {
-      out.set(row.key, none(row));
-      continue;
-    }
-    const w = windows.get(row.key);
+
+    // Procentní poplatek.
     if (!w) {
       out.set(row.key, none(row));
       continue;
@@ -569,7 +640,7 @@ export async function computeMonthResults(
         row.key,
         v && v.net > 0
           ? { status: "final", amount: (v.net * row.percent) / 100, currency: v.currency || row.currency }
-          : none(row),
+          : none(row, "no-revenue"),
       );
       continue;
     }
@@ -592,11 +663,56 @@ export async function computeMonthResults(
     // Zatím žádná tržba v probíhajícím měsíci -> odhad z historie, ale ZTENČENÝ o už
     // uplynulé dny bez tržby (počítá se jen na ZBÝVAJÍCÍ aktivní dny). Jak měsíc běží
     // dál bez tržby, odhad postupně klesá; poslední den (nic nezbývá) -> žádný odhad.
+    // Když ani historie není (nelze odhadnout), řádek je vynechán kvůli chybějící tržbě.
     const remainingDays = totalDays - elapsedDays;
-    out.set(row.key, historicalEstimate(row, daysInMonth > 0 ? remainingDays / daysInMonth : 0));
+    const est = historicalEstimate(row, daysInMonth > 0 ? remainingDays / daysInMonth : 0);
+    out.set(row.key, est.status === "none" ? none(row, "no-revenue") : est);
   }
 
   return out;
+}
+
+// Sestaví report smluv VYNECHANÝCH ve zvoleném měsíci (pro ruční kontrolu): které
+// ještě nebyly účinné, které už expirovaly a které jsou účinné, ale nevygenerovaly
+// poplatek kvůli chybějící tržbě (reason "no-revenue" z computeMonthResults). Pending
+// (nezpracované) řádky se nezahrnují.
+export function buildSkippedFeesReport(
+  rows: FeeRow[],
+  results: Map<string, FeeMonthResult>,
+  month: string,
+): SkippedFeesReport {
+  const notYetEffective: SkippedFeeRow[] = [];
+  const expired: SkippedFeeRow[] = [];
+  const noRevenue: SkippedFeeRow[] = [];
+  const map = (row: FeeRow): SkippedFeeRow => ({
+    key: row.key,
+    locationId: row.locationId,
+    locationName: row.locationName,
+    clientName: row.clientName,
+    contractLabel: row.contractLabel,
+    periodLabel: row.periodLabel,
+    rate: row.rate,
+    from: row.from,
+    to: row.to,
+  });
+  for (const row of rows) {
+    if (row.pending) continue;
+    const fromM = row.from ? row.from.slice(0, 7) : "";
+    const toM = row.to ? row.to.slice(0, 7) : "";
+    if (fromM && month < fromM) {
+      notYetEffective.push(map(row));
+    } else if (toM && month > toM) {
+      expired.push(map(row));
+    } else if (results.get(row.key)?.reason === "no-revenue") {
+      noRevenue.push(map(row));
+    }
+  }
+  const byLoc = (a: SkippedFeeRow, b: SkippedFeeRow) =>
+    a.locationName.localeCompare(b.locationName, "cs");
+  notYetEffective.sort(byLoc);
+  expired.sort(byLoc);
+  noRevenue.sort(byLoc);
+  return { notYetEffective, expired, noRevenue };
 }
 
 // ── Historie finálních poplatků za uzavřené měsíce ──────────────────────────────

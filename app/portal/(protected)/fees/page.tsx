@@ -2,6 +2,7 @@ import { PageHeader } from "@/components/portal/shell/PageHeader";
 import { cachedListContracts } from "@/lib/portal/cached-db";
 import {
   buildFeeRows,
+  buildSkippedFeesReport,
   computeMonthResults,
   defaultMonth,
   isRowActiveInMonth,
@@ -35,6 +36,9 @@ export default async function FeesPage({
 
   const results = await computeMonthResults(rows, selectedMonth, today);
 
+  // Report vynechaných smluv za zvolený měsíc (neúčinné / expirované / bez tržby) - pro kontrolu.
+  const report = buildSkippedFeesReport(rows, results, selectedMonth);
+
   // Jen poplatky účinné ve zvoleném měsíci (prázdné/neúčinné se nezobrazují).
   const views: FeeRowView[] = rows
     .filter((r) => isRowActiveInMonth(r, selectedMonth))
@@ -57,7 +61,13 @@ export default async function FeesPage({
         title="Poplatky"
         lede="Souhrn poplatků ze všech smluv. Za uzavřené měsíce vyčíslené z reálné tržby bez DPH (finální), v průběhu a do budoucna kvalifikovaný odhad. Kliknutím na poplatek upravíte podmínky smlouvy."
       />
-      <FeesClient rows={views} contracts={editable} selectedMonth={selectedMonth} months={months} />
+      <FeesClient
+        rows={views}
+        contracts={editable}
+        selectedMonth={selectedMonth}
+        months={months}
+        report={report}
+      />
     </div>
   );
 }
