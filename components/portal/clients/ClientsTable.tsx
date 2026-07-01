@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import {
   ArrowUpRight,
@@ -75,38 +75,44 @@ function formatDate(iso: string): string {
   }
 }
 
+// Fulltext filtr seznamu klientů (jméno, IČO, DIČ, město, e-mail, statutár).
+// Sdílené s rodičem (ClientsPageClient), aby XLS export mohl vyexportovat přesně
+// to, co je po hledání na stránce vidět.
+export function matchClientQuery(c: Client, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  const haystack = [
+    c.companyName,
+    c.ico,
+    c.dic,
+    c.address.city,
+    c.contact?.email,
+    c.statutory?.name,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return haystack.includes(q);
+}
+
 export function ClientsTable({
   clients,
+  filtered,
+  query,
+  onQueryChange,
   badgesByClient,
   onAddClick,
   onDeleted,
 }: {
   clients: Client[];
+  filtered: Client[];
+  query: string;
+  onQueryChange: (q: string) => void;
   badgesByClient?: Record<string, ClientContractBadge[]>;
   onAddClick?: () => void;
   onDeleted?: () => void;
 }) {
-  const [query, setQuery] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return clients;
-    return clients.filter((c) => {
-      const haystack = [
-        c.companyName,
-        c.ico,
-        c.dic,
-        c.address.city,
-        c.contact?.email,
-        c.statutory?.name,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      return haystack.includes(q);
-    });
-  }, [clients, query]);
 
   async function remove(id: string, name: string) {
     if (!window.confirm(`Smazat klienta ${name}? Tato akce je nevratná.`)) return;
@@ -158,7 +164,7 @@ export function ClientsTable({
             type="search"
             placeholder="Hledat podle jména, IČO, města…"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => onQueryChange(e.target.value)}
             className="h-11 w-full rounded-full border border-edge bg-paper pl-11 pr-4 text-[14px] text-ink-base outline-none transition-colors placeholder:text-ink-soft focus:border-ink-base"
           />
         </div>
