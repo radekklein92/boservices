@@ -165,11 +165,22 @@ async function KpiSection({ filter, useNet, qs }: { filter: PosFilter; useNet: b
   // Denní zobrazení: férové srovnání "do teď" z hodinových dat (ne celý den vs část dne).
   if (filter.preset === "dnes") return <KpiSectionDaily filter={filter} useNet={useNet} qs={qs} />;
 
+  // Sparkline v KPI kartách: víc dní -> denní trend. Jeden den (Včera, nebo když
+  // "Tento měsíc"/"Tento rok" == dnešek na začátku období) -> hodinový trend, aby
+  // křivka měla >1 bod - denní trend má pro jeden den jen jediný bod, takže by se
+  // sparkline vůbec nevykreslila (PosKpiCard vyžaduje spark.length > 1).
+  const singleDay = isSingleDay(filter);
   let kpi: Awaited<ReturnType<typeof getKpiSummary>>;
-  let trend: Awaited<ReturnType<typeof getDailyTrend>>;
+  let sparkPts: Array<{ gross: number; net: number; receipts: number }>;
   let cur: string;
   try {
-    [kpi, trend, cur] = await Promise.all([getKpiSummary(filter), getDailyTrend(filter), resolveDisplayCurrency(filter)]);
+    [kpi, sparkPts, cur] = await Promise.all([
+      getKpiSummary(filter),
+      singleDay
+        ? getHourlyTrend(filter).then((h) => h.current as Array<{ gross: number; net: number; receipts: number }>)
+        : getDailyTrend(filter).then((t) => t.current as Array<{ gross: number; net: number; receipts: number }>),
+      resolveDisplayCurrency(filter),
+    ]);
   } catch {
     return <WidgetError />;
   }
@@ -182,10 +193,9 @@ async function KpiSection({ filter, useNet, qs }: { filter: PosFilter; useNet: b
       />
     );
   }
-  const days = trend.current;
-  const sparkRevenue = days.map((d) => (useNet ? d.net : d.gross));
-  const sparkReceipts = days.map((d) => d.receipts);
-  const sparkAtv = days.map((d) => (d.receipts > 0 ? d.gross / d.receipts : 0));
+  const sparkRevenue = sparkPts.map((p) => (useNet ? p.net : p.gross));
+  const sparkReceipts = sparkPts.map((p) => p.receipts);
+  const sparkAtv = sparkPts.map((p) => (p.receipts > 0 ? p.gross / p.receipts : 0));
   // Zobrazené číslo (value) = ALL-STORE (všechny prodejny). Delta (% i rozdíl) =
   // LIKE-FOR-LIKE: jen prodejny aktivní v OBOU obdobích (lflC/lflP). Headline a delta si
   // proto nemusí číselně "sednout" (rozdíl != headline - headline) - vysvětluje popisek pod
