@@ -22,6 +22,7 @@ import {
 import { isMaskedAccount, maskedDisplayName } from "@/lib/portal/masked-account";
 import dynamicImport from "next/dynamic";
 import { PageHeader } from "@/components/portal/shell/PageHeader";
+import { BTN_PRIMARY } from "@/components/portal/ui/buttons";
 import { CHIP_CLASS } from "@/components/portal/ui/Chip";
 
 // Modaly se renderují conditional ({open && <Modal />}). next/dynamic je
@@ -220,7 +221,7 @@ export function UsersClient({
           <button
             type="button"
             onClick={() => setInviteOpen(true)}
-            className="inline-flex h-11 items-center gap-2 rounded-full bg-ink-base px-5 text-[13px] font-semibold text-paper transition-transform active:translate-y-px"
+            className={BTN_PRIMARY}
           >
             <Plus className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
             Pozvat uživatele

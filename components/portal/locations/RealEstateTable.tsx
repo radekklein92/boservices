@@ -12,7 +12,6 @@ import {
   GripVertical,
   MapPin,
   RotateCcw,
-  Search,
   Store,
 } from "lucide-react";
 import {
@@ -76,6 +75,8 @@ import { FlagsCell } from "./FlagsCell";
 import { RedFlagCell } from "./RedFlagCell";
 import { ReTrendButton } from "./ReTrendButton";
 import { ReExcelExportButton } from "./ReExcelExportButton";
+import { SearchInput } from "@/components/portal/ui/SearchInput";
+import { ResultCount } from "@/components/portal/ui/ResultCount";
 import { flagTone } from "./re-flags-shared";
 import type { ReFlag } from "@/lib/portal/re-flags-shared";
 
@@ -503,19 +504,11 @@ export function RealEstateTable({
       )}
 
       {/* Toolbar */}
-      <div className="relative max-w-[400px]">
-        <Search
-          className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mid"
-          strokeWidth={1.5}
-        />
-        <input
-          type="search"
-          placeholder="Hledat podle lokality, agenta, entity, nájmu…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="h-11 w-full rounded-full border border-edge bg-paper pl-11 pr-4 text-[14px] text-ink-base outline-none transition-colors placeholder:text-ink-soft focus:border-ink-base"
-        />
-      </div>
+      <SearchInput
+        value={query}
+        onChange={setQuery}
+        placeholder="Hledat podle lokality, agenta, entity, nájmu…"
+      />
 
       {/* Filtry */}
       <div className="flex flex-wrap items-center gap-2">
@@ -567,9 +560,7 @@ export function RealEstateTable({
         )}
 
         <div className="ml-auto flex shrink-0 items-center gap-3">
-          <span className="font-mono text-[12px] text-ink-soft">
-            {sorted.length.toString().padStart(2, "0")} / {base.length}
-          </span>
+          <ResultCount shown={sorted.length} total={base.length} />
           <ReTrendButton />
           <ReExcelExportButton
             className="inline-flex h-9 items-center gap-2 rounded-full border border-edge bg-paper px-3.5 text-[12.5px] font-medium text-ink-deep transition-colors hover:border-ink-soft disabled:cursor-not-allowed disabled:opacity-50"
