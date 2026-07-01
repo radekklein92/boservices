@@ -1,3 +1,10 @@
+import {
+  TONE_NEUTRAL,
+  TONE_INFO,
+  TONE_WARN,
+  TONE_GOOD,
+  TONE_DANGER,
+} from "@/lib/portal/tone";
 import type {
   ClientStatus,
   LandlordAgreement,
@@ -92,10 +99,10 @@ export const TRANSITION_STATUS_LABEL: Record<TransitionStatus, string> = {
 };
 
 export const TRANSITION_STATUS_STYLE: Record<TransitionStatus, string> = {
-  in_progress: "border-amber-300 bg-amber-50 text-amber-700",
-  hotovo: "border-emerald-300 bg-emerald-50 text-emerald-700",
-  blocked: "border-red-300 bg-red-50 text-red-700",
-  not_started: "border-edge bg-edge-warm text-ink-mid",
+  in_progress: TONE_INFO,
+  hotovo: TONE_GOOD,
+  blocked: TONE_DANGER,
+  not_started: TONE_NEUTRAL,
 };
 
 export const RE_AGENT_LABEL: Record<ReAgent, string> = {
@@ -122,10 +129,10 @@ export const LOCATION_STATUS_LABEL: Record<LocationStatus, string> = {
 };
 
 export const LOCATION_STATUS_STYLE: Record<LocationStatus, string> = {
-  construction: "border-sky-300 bg-sky-50 text-sky-700",
-  open: "border-emerald-300 bg-emerald-50 text-emerald-700",
-  closing: "border-amber-300 bg-amber-50 text-amber-700",
-  closed: "border-red-300 bg-red-50 text-red-700",
+  construction: TONE_INFO,
+  open: TONE_GOOD,
+  closing: TONE_WARN,
+  closed: TONE_DANGER,
 };
 
 export const CLIENT_STATUS_LABEL: Record<ClientStatus, string> = {

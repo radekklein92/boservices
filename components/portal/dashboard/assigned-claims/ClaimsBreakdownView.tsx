@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { formatCzkRounded } from "@/lib/portal/claims";
+import { TONE_INFO } from "@/lib/portal/tone";
 import type { AssignedClaimsView } from "@/lib/portal/assigned-claims";
 
 const claimsWord = (n: number) =>
@@ -121,7 +122,7 @@ export function ClaimsBreakdownView({ view }: { view: AssignedClaimsView }) {
                             </Badge>
                           )}
                           {r.source === "clamora" && (
-                            <Badge tone="border-sky-300 bg-sky-50 text-sky-700">
+                            <Badge tone={TONE_INFO}>
                               Clamora
                             </Badge>
                           )}

@@ -11,6 +11,7 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 import { Section } from "@/components/portal/ui/Section";
+import { TONE_NEUTRAL, TONE_INFO, TONE_WARN, TONE_GOOD } from "@/lib/portal/tone";
 import { Chip } from "@/components/portal/ui/Chip";
 import { BTN_ROW } from "@/components/portal/ui/buttons";
 import { FeeTermsEditor } from "@/components/portal/contracts/FeeTermsEditor";
@@ -36,10 +37,10 @@ const SOURCE_LABEL: Record<ContractFeeTerms["source"], string> = {
 };
 
 const CONFIDENCE_TONE: Record<ContractFeeTerms["aiConfidence"], string> = {
-  high: "border-emerald-300 bg-emerald-50 text-emerald-700",
-  medium: "border-sky-300 bg-sky-50 text-sky-700",
-  low: "border-amber-300 bg-amber-50 text-amber-700",
-  none: "border-edge bg-edge-warm text-ink-mid",
+  high: TONE_GOOD,
+  medium: TONE_INFO,
+  low: TONE_WARN,
+  none: TONE_NEUTRAL,
 };
 
 const CONFIDENCE_LABEL: Record<ContractFeeTerms["aiConfidence"], string> = {

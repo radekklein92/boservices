@@ -21,6 +21,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { PageHeader } from "@/components/portal/shell/PageHeader";
+import { TONE_NEUTRAL, TONE_INFO, TONE_GOOD, TONE_DANGER } from "@/lib/portal/tone";
 import { Section } from "@/components/portal/ui/Section";
 import { Chip } from "@/components/portal/ui/Chip";
 import { Toggle } from "@/components/portal/ui/Toggle";
@@ -81,13 +82,13 @@ type Mgmt = {
 };
 
 const STATUS_META: Record<ChangeStatus, { label: string; tone: string }> = {
-  working: { label: "Claude pracuje", tone: "border-amber-200 bg-amber-50 text-amber-700" },
-  checks_running: { label: "Checky běží", tone: "border-amber-200 bg-amber-50 text-amber-700" },
-  pr_open: { label: "PR připraven", tone: "border-sky-200 bg-sky-50 text-sky-700" },
-  checks_failed: { label: "Checky selhaly", tone: "border-red-200 bg-red-50 text-red-700" },
-  deployed: { label: "Nasazeno", tone: "border-emerald-200 bg-emerald-50 text-emerald-700" },
-  closed: { label: "Zavřeno bez nasazení", tone: "border-edge bg-edge-warm text-ink-mid" },
-  unknown: { label: "Zjišťuji stav", tone: "border-edge bg-edge-warm text-ink-mid" },
+  working: { label: "Claude pracuje", tone: TONE_INFO },
+  checks_running: { label: "Checky běží", tone: TONE_INFO },
+  pr_open: { label: "PR připraven", tone: TONE_INFO },
+  checks_failed: { label: "Checky selhaly", tone: TONE_DANGER },
+  deployed: { label: "Nasazeno", tone: TONE_GOOD },
+  closed: { label: "Zavřeno bez nasazení", tone: TONE_NEUTRAL },
+  unknown: { label: "Zjišťuji stav", tone: TONE_NEUTRAL },
 };
 
 const TERMINAL: ChangeStatus[] = ["deployed", "closed"];
@@ -642,7 +643,7 @@ function FeedbackItem({
     <div className="flex flex-col gap-2 py-3.5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-[14px] font-semibold text-ink-base">{draft.title}</span>
-        <Chip tone="border-violet-200 bg-violet-50 text-violet-700">
+        <Chip tone={TONE_INFO}>
           <MessageSquarePlus className="h-3 w-3" strokeWidth={2} aria-hidden="true" />
           Návrh
         </Chip>

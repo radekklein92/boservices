@@ -16,6 +16,7 @@ import { MonthPicker } from "@/components/portal/ui/MonthPicker";
 import { SearchInput } from "@/components/portal/ui/SearchInput";
 import { ResultCount } from "@/components/portal/ui/ResultCount";
 import { BTN_TOOL } from "@/components/portal/ui/buttons";
+import { TONE_WARN, TONE_GOOD, DOT_NEUTRAL, DOT_WARN, DOT_GOOD } from "@/lib/portal/tone";
 import { XlsxDownloadButton } from "@/components/portal/shared/XlsxDownloadButton";
 import { buildFeesXlsx } from "@/lib/portal/fees-export";
 import { FeeEditModal } from "./FeeEditModal";
@@ -40,8 +41,8 @@ export type EditableContract = {
 };
 
 const STATUS_META: Record<MonthFeeStatus, { label: string; tone: string }> = {
-  final: { label: "Finální", tone: "border-emerald-300 bg-emerald-50 text-emerald-700" },
-  estimate: { label: "Odhad", tone: "border-amber-300 bg-amber-50 text-amber-700" },
+  final: { label: "Finální", tone: TONE_GOOD },
+  estimate: { label: "Odhad", tone: TONE_WARN },
   none: { label: "", tone: "" },
 };
 
@@ -234,21 +235,21 @@ export function FeesClient({
           onClick={() => setStatusFilter("final")}
           label="Finální"
           count={statusCounts.final}
-          dotClass="bg-emerald-500"
+          dotClass={DOT_GOOD}
         />
         <FilterChip
           active={statusFilter === "estimate"}
           onClick={() => setStatusFilter("estimate")}
           label="Odhad"
           count={statusCounts.estimate}
-          dotClass="bg-amber-500"
+          dotClass={DOT_WARN}
         />
         <FilterChip
           active={statusFilter === "none"}
           onClick={() => setStatusFilter("none")}
           label="Bez statusu"
           count={statusCounts.none}
-          dotClass="bg-ink-soft"
+          dotClass={DOT_NEUTRAL}
         />
         {presentTypes.length > 1 && (
           <>
@@ -297,7 +298,7 @@ export function FeesClient({
 
       {/* Tabulka */}
       <div className="overflow-x-auto rounded-3xl border border-edge bg-paper">
-        <table className="w-full min-w-[980px] border-collapse text-[13px]">
+        <table className="w-full min-w-[980px] border-collapse text-[13px] tabular-nums">
           <thead>
             <tr>
               {COLUMNS.map((c) => {

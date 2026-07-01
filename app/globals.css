@@ -10,6 +10,16 @@
   --color-paper: #FFFFFF;
   --color-paper-warm: #FAFAF9;
 
+  /* Sémantické role stavů - JEDINÝ zdroj barev pro stavy/odznaky/akce.
+     Barva nese VÝZNAM (ne fázi): good=hotovo/pozitivní, info=probíhá,
+     warn=čeká na akci, danger=problém/zrušeno. Konkrétní fázi rozlišuje ikona
+     v chipu, ne další barva (konec „duhy"). Chipy je berou přes opacity
+     (bg-good/10, border-good/25, text-good) - viz components/portal/ui/tone.ts. */
+  --color-good: #047857;
+  --color-info: #2E5AAC;
+  --color-warn: #B45309;
+  --color-danger: #DC2626;
+
   --font-sans: var(--font-manrope), ui-sans-serif, system-ui, -apple-system,
     Segoe UI, Roboto, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, monospace;

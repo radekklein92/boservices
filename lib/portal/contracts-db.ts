@@ -1,4 +1,5 @@
 import { getRedis } from "@/lib/redis";
+import { TONE_NEUTRAL, TONE_INFO, TONE_WARN, TONE_GOOD, TONE_DANGER } from "./tone";
 import {
   isApprovalGated,
   type ClaimBundleSectionType,
@@ -118,15 +119,21 @@ export const CONTRACT_STATUS_LABEL: Record<ContractStatus, string> = {
 // Chip tóny stavu smlouvy (border+bg+text). Barvy jsou rozprostřené po celém
 // barevném kruhu (žlutá → modrá → fialová → magenta → růžová → zelená), ať jsou
 // stavy jednoznačně odlišitelné. Stejný recept jako stavové chipy lokalit.
+// Sémantika (barva = význam, fázi rozlišuje ikona v chipu):
+//   koncept = neutral, ke-schvaleni = warn (čeká na akci),
+//   schvaleno/k-podpisu/podepsano-bos = info (v procesu),
+//   podepsano-klientem/archivovano = good (pozitivní milník/hotovo),
+//   zrusena = danger. Dřív to byla „duha" (sky/violet/fuchsia/rose) a
+//   „podepsáno klientem" bylo červené = vypadalo jako chyba.
 export const CONTRACT_STATUS_STYLE: Record<ContractStatus, string> = {
-  koncept: "border-edge bg-edge-warm text-ink-mid",
-  "ke-schvaleni": "border-amber-300 bg-amber-50 text-amber-700",
-  schvaleno: "border-sky-300 bg-sky-50 text-sky-700",
-  "k-podpisu": "border-violet-300 bg-violet-50 text-violet-700",
-  "podepsano-bos": "border-fuchsia-300 bg-fuchsia-50 text-fuchsia-700",
-  "podepsano-klientem": "border-rose-300 bg-rose-50 text-rose-700",
-  archivovano: "border-emerald-300 bg-emerald-50 text-emerald-700",
-  zrusena: "border-red-200 bg-red-50 text-red-600",
+  koncept: TONE_NEUTRAL,
+  "ke-schvaleni": TONE_WARN,
+  schvaleno: TONE_INFO,
+  "k-podpisu": TONE_INFO,
+  "podepsano-bos": TONE_INFO,
+  "podepsano-klientem": TONE_GOOD,
+  archivovano: TONE_GOOD,
+  zrusena: TONE_DANGER,
 };
 
 export function statusOrder(status: ContractStatus): number {

@@ -75,6 +75,7 @@ function relativeTime(iso: string | undefined): string {
     const hr = Math.round(min / 60);
     if (hr < 24) return `před ${hr} h`;
     const day = Math.round(hr / 24);
+    if (day === 1) return "před 1 dnem";
     if (day < 7) return `před ${day} dny`;
     return formatDate(iso);
   } catch {

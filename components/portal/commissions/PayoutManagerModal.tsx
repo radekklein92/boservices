@@ -14,14 +14,15 @@ import {
   X,
 } from "lucide-react";
 import { formatCzk, formatCzkRounded } from "@/lib/portal/claims";
+import { TONE_INFO, TONE_WARN, TONE_GOOD } from "@/lib/portal/tone";
 import type { Payout, PayoutStatus } from "@/lib/portal/payouts-db";
 import type { PayoutSalespersonRow } from "./CommissionsPayoutsClient";
 
 const STATUS_META: Record<PayoutStatus, { label: string; cls: string }> = {
-  podklad: { label: "Čeká na fakturu", cls: "border-amber-300 bg-amber-50 text-amber-700" },
-  fakturovano: { label: "Faktura ověřena", cls: "border-sky-300 bg-sky-50 text-sky-700" },
-  "zadano-k-uhrade": { label: "Zadáno k úhradě", cls: "border-violet-300 bg-violet-50 text-violet-700" },
-  uhrazeno: { label: "Uhrazeno", cls: "border-emerald-300 bg-emerald-50 text-emerald-700" },
+  podklad: { label: "Čeká na fakturu", cls: TONE_WARN },
+  fakturovano: { label: "Faktura ověřena", cls: TONE_INFO },
+  "zadano-k-uhrade": { label: "Zadáno k úhradě", cls: TONE_INFO },
+  uhrazeno: { label: "Uhrazeno", cls: TONE_GOOD },
 };
 
 const ICON_BTN =

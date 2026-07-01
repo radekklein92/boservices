@@ -23,7 +23,7 @@ export function TemplateMatchBadge({
   if (!hasChanges) {
     return (
       <span
-        className="inline-flex h-10 items-center gap-2 rounded-full border border-emerald-300 bg-emerald-50 px-5 text-[13px] font-semibold text-emerald-700"
+        className="inline-flex h-10 items-center gap-2 rounded-full border border-good/30 bg-good/10 px-5 text-[13px] font-semibold text-good"
         aria-label="Smlouva souhlasí se šablonou"
       >
         <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
@@ -35,14 +35,14 @@ export function TemplateMatchBadge({
     <button
       type="button"
       onClick={onOpenDiff}
-      className="group inline-flex h-10 items-center gap-2 rounded-full border border-rose-400 bg-rose-50 px-5 text-[13px] font-semibold text-rose-700 transition-all hover:border-rose-500 hover:bg-rose-100 active:translate-y-px"
+      className="group inline-flex h-10 items-center gap-2 rounded-full border border-warn/40 bg-warn/10 px-5 text-[13px] font-semibold text-warn transition-all hover:border-warn/60 hover:bg-warn/15 active:translate-y-px"
       aria-label="Zobrazit změny proti šabloně"
     >
       <AlertTriangle className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
       Pozor, změny
       <span
         aria-hidden="true"
-        className="ml-1 text-rose-700 transition-transform group-hover:translate-x-0.5"
+        className="ml-1 text-warn transition-transform group-hover:translate-x-0.5"
       >
         →
       </span>

@@ -635,7 +635,7 @@ function NotificationList({
               onClick={() => sendNow(n)}
               className="shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-ink-mid transition-colors hover:text-ink-base"
             >
-              {sentId === n.id ? "Odesláno ✓" : "Odeslat teď"}
+              {sentId === n.id ? "Odesláno" : "Odeslat teď"}
             </button>
           )}
           <button

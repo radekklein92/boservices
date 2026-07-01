@@ -14,6 +14,7 @@ import {
   FileText,
   type LucideIcon,
 } from "lucide-react";
+import { TONE_WARN, TONE_GOOD } from "@/lib/portal/tone";
 import type { Client } from "@/lib/portal/clients-db";
 import {
   CONTRACT_TYPE_META,
@@ -45,8 +46,8 @@ const TYPE_ICON: Partial<Record<ContractType, LucideIcon>> = {
 // Barva ikonky podle stavu.
 const STATE_STYLE: Record<ContractTypeState, string> = {
   planned: "border-edge bg-paper text-ink-soft",
-  "in-progress": "border-amber-300 bg-amber-50 text-amber-700",
-  signed: "border-emerald-300 bg-emerald-50 text-emerald-700",
+  "in-progress": TONE_WARN,
+  signed: TONE_GOOD,
   archived: "border-ink-base bg-ink-base text-paper",
 };
 
