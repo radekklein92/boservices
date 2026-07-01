@@ -2,10 +2,19 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowUpRight, Coins, FileText, LayoutList } from "lucide-react";
+import {
+  ArrowUpRight,
+  Coins,
+  FileSpreadsheet,
+  FileText,
+  LayoutList,
+  Loader2,
+} from "lucide-react";
 import type { CommissionRow } from "@/lib/portal/commissions";
 import { formatCzkRounded } from "@/lib/portal/claims";
 import { FilterChip } from "@/components/portal/ui/FilterChip";
+import { ResultCount } from "@/components/portal/ui/ResultCount";
+import { BTN_TOOL } from "@/components/portal/ui/buttons";
 
 type Filter = "all" | "contract" | "claim";
 
@@ -31,6 +40,32 @@ export function CommissionsBreakdownClient({
   rows: CommissionRow[];
 }) {
   const [filter, setFilter] = useState<Filter>("all");
+  const [exporting, setExporting] = useState(false);
+
+  async function exportXlsx() {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const res = await fetch("/api/portal/commissions/breakdown-export", {
+        cache: "no-store",
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD (ASCII)
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `provize-rozpis-${today}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("[commissions] XLSX rozpis export selhal", err);
+    } finally {
+      setExporting(false);
+    }
+  }
 
   const contractCount = useMemo(
     () => rows.filter((r) => r.kind === "contract").length,
@@ -54,19 +89,12 @@ export function CommissionsBreakdownClient({
 
   return (
     <section>
-      <div className="mb-4 flex flex-wrap items-baseline gap-3">
-        <h2 className="text-[1.05rem] font-bold tracking-[-0.02em] text-ink-base">
-          Rozpis provizí
-        </h2>
-        <span className="font-mono text-[12px] text-ink-soft">
-          {filtered.length.toString().padStart(2, "0")}
-        </span>
-        <span className="hidden text-[12px] text-ink-mid md:inline">
-          · celkem {formatCzkRounded(filteredTotal)} (děleno 50:50)
-        </span>
-      </div>
+      <h2 className="mb-4 text-[1.05rem] font-bold tracking-[-0.02em] text-ink-base">
+        Rozpis provizí
+      </h2>
 
-      {/* Filtr: vše / ostatní smlouvy / postoupení pohledávek */}
+      {/* Filtr vlevo (vše / ostatní smlouvy / postoupení pohledávek) +
+          částka, počet a Excel vpravo - jednotný toolbar (vzor Real Estate). */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <FilterChip
           active={filter === "all"}
@@ -89,6 +117,39 @@ export function CommissionsBreakdownClient({
           count={claimCount}
           Icon={Coins}
         />
+
+        <div className="ml-auto flex flex-wrap items-center gap-3">
+          <span className="text-[12px] text-ink-mid">
+            <span className="text-ink-soft">celkem</span>{" "}
+            <span className="font-semibold text-ink-base">
+              {formatCzkRounded(filteredTotal)}
+            </span>{" "}
+            <span className="text-ink-soft">· děleno 50:50</span>
+          </span>
+          <ResultCount shown={filtered.length} total={rows.length} />
+          <button
+            type="button"
+            onClick={exportXlsx}
+            disabled={exporting}
+            title="Stáhne rozpis jednotlivých provizí (celé částky před 50:50) do Excelu (.xlsx)"
+            className={BTN_TOOL}
+          >
+            {exporting ? (
+              <Loader2
+                className="h-3.5 w-3.5 animate-spin"
+                strokeWidth={1.5}
+                aria-hidden="true"
+              />
+            ) : (
+              <FileSpreadsheet
+                className="h-3.5 w-3.5"
+                strokeWidth={1.5}
+                aria-hidden="true"
+              />
+            )}
+            Excel
+          </button>
+        </div>
       </div>
 
       <div className="overflow-hidden rounded-3xl border border-edge bg-paper">
