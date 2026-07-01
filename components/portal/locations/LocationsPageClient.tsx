@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import dynamicImport from "next/dynamic";
 import { RefreshCw, CheckCircle2, AlertTriangle, CircleDashed, FileSpreadsheet } from "lucide-react";
 import { PageHeader } from "@/components/portal/shell/PageHeader";
+import { BTN_OUTLINE } from "@/components/portal/ui/buttons";
 import type { LocationsSyncMeta, MirroredLocation } from "@/lib/portal/locations-db";
 import { LocationsTable } from "./LocationsTable";
 import { ReExcelExportButton } from "./ReExcelExportButton";
@@ -64,17 +65,17 @@ export function LocationsPageClient({
         title="Lokality"
         lede="Read-only zrcadlo lokalit z projektu Transition. Spravují se výhradně v Transition; tady je vidíte i s kategorií a můžete k nim přidávat poznámky a přílohy."
         actions={
-          <div className="flex flex-wrap items-center gap-2">
+          <>
             <button
               type="button"
               onClick={() => setImportOpen(true)}
-              className="inline-flex h-11 items-center gap-2 rounded-full border border-edge bg-paper px-5 text-[13.5px] font-semibold text-ink-base transition-colors hover:border-ink-base"
+              className={BTN_OUTLINE}
             >
               <FileSpreadsheet className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
               Import NewCo
             </button>
             <ReExcelExportButton
-              className="inline-flex h-11 items-center gap-2 rounded-full border border-edge bg-paper px-5 text-[13.5px] font-semibold text-ink-base transition-colors hover:border-ink-base disabled:opacity-50"
+              className={BTN_OUTLINE}
               label="Export Excel"
               iconSize="h-4 w-4"
             />
@@ -82,7 +83,7 @@ export function LocationsPageClient({
               type="button"
               onClick={syncNow}
               disabled={busy}
-              className="inline-flex h-11 items-center gap-2 rounded-full border border-edge bg-paper px-5 text-[13.5px] font-semibold text-ink-base transition-colors hover:border-ink-base disabled:opacity-50"
+              className={BTN_OUTLINE}
             >
               <RefreshCw
                 className={`h-4 w-4 ${busy ? "animate-spin" : ""}`}
@@ -91,7 +92,7 @@ export function LocationsPageClient({
               />
               {busy ? "Synchronizuji…" : "Synchronizovat teď"}
             </button>
-          </div>
+          </>
         }
       />
 
