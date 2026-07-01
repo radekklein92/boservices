@@ -40,3 +40,32 @@ Po **jakékoli změně UI** (layout, komponenta, styl, nový prvek) automaticky 
 Důvod: bez tohoto kroku vzniká churn (uživatel pak ručně reportuje „zmenši zpátky", „to není
 konzistentní se zbytkem Portálu") a tiché regrese se chytají až se zpožděním. Ověření na místě je
 levnější než cyklus přes uživatele.
+
+## Horní část stránky - sdílený standard (hlavička + toolbar + filtry)
+
+Horní část KAŽDÉ seznamové stránky se skládá z těchto sdílených komponent v tomto pořadí. Nepiš
+vlastní `<input type="search">`, ručně stylované pilulky ani vlastní počítadlo výsledků. Referenční
+implementace = stránka **Klienti** (`components/portal/clients/ClientsPageClient.tsx`).
+
+1. **`PageHeader`** (`components/portal/shell/PageHeader.tsx`) - eyebrow + titulek + lede. Akce jdou do
+   `actions`: **primární** (create) jako `BTN_PRIMARY` (černá pilulka) **vpravo, nejvíc vpravo, max
+   jedna**; sekundární/datové akce (Export/Import/Sync) jako `BTN_OUTLINE` **vlevo od primární**.
+   Read-only / report stránky (Lokality, Poplatky, Real Estate) create akci nemají → **žádnou primární
+   pilulku nefinguj**, všechny akce jsou outline. Akce dávej přímo do `actions` (fragment), ne do
+   vlastního wrapperu - `PageHeader` je sám zalamuje (`flex-wrap`).
+2. **Toolbar** - řádek `flex flex-wrap items-center gap-3`: `<SearchInput>` (vlevo) + `<ResultCount>`
+   (počet). Pohledové ovladače (řazení, Sloupce, Vývoj v čase, měsíční navigace, přepínače) patří do
+   tohoto řádku vpravo (h-9, `BTN_ROW`), **ne k titulku**.
+3. **Filtry** - řádek `flex flex-wrap items-center gap-2` s `<FilterChip>` (stavy/kategorie);
+   oddělovače `<span className="mx-1 h-5 w-px shrink-0 bg-edge" aria-hidden />`, reset chipem „Vše".
+
+Pravidla:
+
+- **Tlačítka VŽDY přes konstanty z `components/portal/ui/buttons.ts`** - `BTN_PRIMARY` / `BTN_OUTLINE`
+  (h-11, stránkové akce), `BTN_ROW` / `BTN_ICON` (h-9, řádky seznamů + toolbar), `BTN_PRIMARY_MODAL`
+  (h-10, modaly). Nikdy inline `bg-ink-base … text-[13px]` ani odchylky jako `text-[13.5px]`.
+- **Sdílené primitivy**: `SearchInput`, `ResultCount`, `FilterChip`, `Chip` (vše `components/portal/ui/`).
+- **Primární barva = černá pilulka** (`ink-base`). Zelená zůstává sémantická (stavy, kladné hodnoty,
+  toggle) - NIKDY z ní nedělej primární akční barvu.
+- **Detailové stránky**: BackLink + titulek + lede + akce; akce v h-10 tieru. Nedělej vlastní `<h1>`
+  s ad-hoc velikostí.
