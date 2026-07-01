@@ -250,3 +250,17 @@ body {
   opacity: 0.03;
   background-image: url("data:image/svg+xml;utf8,<svg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
 }
+
+/* POS filtr: při probíhající RSC navigaci (změna filtru) se stará data pod
+   filtrem ztlumí (stale-while-revalidate), dokud nedorazí nová - jasný signál
+   "přepočítává se" bez ztráty kontextu a bez skoku layoutu. Cílí SOUROZENCE
+   za filter barem (obsah); hlavička/subnav/filtr jsou před ním, zůstanou plné.
+   Přechod je trvalý (i návrat je plynulý); pointer-events blokují klik do
+   zastaralých dat. Filtr sám je interaktivní dál (optimistická pilulka). */
+[data-pos-filterbar] ~ * {
+  transition: opacity 0.18s ease;
+}
+html[data-pos-nav="1"] [data-pos-filterbar] ~ * {
+  opacity: 0.5;
+  pointer-events: none;
+}
