@@ -97,7 +97,7 @@ function Column({
     >
       <div className="flex items-center justify-between px-1.5 pt-1">
         <span className="inline-flex items-center gap-2 text-[12.5px] font-semibold text-ink-deep">
-          <span className="h-2.5 w-2.5 rounded-full" style={{ background: meta.dot }} />
+          <span className={`h-2.5 w-2.5 rounded-full ${meta.dot}`} />
           {meta.label}
         </span>
         <span className="grid h-5 min-w-[20px] place-items-center rounded-full bg-paper px-1.5 text-[11px] font-bold text-ink-mid ring-1 ring-edge">

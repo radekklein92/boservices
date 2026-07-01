@@ -426,7 +426,7 @@ function StatCard({
       }`}
     >
       <span className="inline-flex items-center gap-1.5 text-[10.5px] font-medium uppercase tracking-[0.16em]">
-        {dot && <span className="h-2 w-2 rounded-full" style={{ background: dot }} />}
+        {dot && <span className={`h-2 w-2 rounded-full ${dot}`} />}
         <span className={active ? "text-paper/80" : "text-ink-mid"}>{label}</span>
       </span>
       <span className="text-[22px] font-extrabold tracking-[-0.02em]">{value}</span>
