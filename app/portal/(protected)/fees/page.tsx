@@ -7,6 +7,7 @@ import {
   defaultMonth,
   isRowActiveInMonth,
   navigableMonths,
+  type FeeMonthResult,
 } from "@/lib/portal/fees-page";
 import {
   FeesClient,
@@ -47,8 +48,17 @@ export default async function FeesPage({
     .filter((r) => isRowActiveInMonth(r, selectedMonth))
     .filter((r) => results.get(r.key)?.reason !== "no-revenue")
     .map((r) => {
-      const res = results.get(r.key) ?? { status: "none" as const, amount: null, currency: r.currency };
-      return { ...r, status: res.status, computedAmount: res.amount, computedCurrency: res.currency };
+      const res: FeeMonthResult =
+        results.get(r.key) ?? { status: "none", amount: null, currency: r.currency };
+      return {
+        ...r,
+        status: res.status,
+        computedAmount: res.amount,
+        computedCurrency: res.currency,
+        billedDays: res.billedDays,
+        billedFrom: res.billedFrom,
+        billedTo: res.billedTo,
+      };
     });
 
   // Editovatelné smlouvy přítomné v zobrazených řádcích (pro modal s editorem period).
@@ -63,7 +73,7 @@ export default async function FeesPage({
       <PageHeader
         eyebrow="Franšízing"
         title="Poplatky"
-        lede="Souhrn poplatků ze všech smluv. Za uzavřené měsíce vyčíslené z reálné tržby bez DPH (finální), v průběhu a do budoucna kvalifikovaný odhad. Kliknutím na poplatek upravíte podmínky smlouvy."
+        lede="Souhrn poplatků ze všech smluv. Za uzavřené měsíce vyčíslené z reálné tržby bez DPH (finální), v průběhu a do budoucna kvalifikovaný odhad. Fixní paušály se krátí poměrem na dny, kdy smlouva platila a prodejna byla v provozu (sloupec Dnů). Kliknutím na poplatek upravíte podmínky smlouvy."
       />
       <FeesClient
         rows={views}
