@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { PageHeader } from "@/components/portal/shell/PageHeader";
-import { BTN_PRIMARY } from "@/components/portal/ui/buttons";
+import { BTN_PRIMARY, BTN_TOOL } from "@/components/portal/ui/buttons";
 import { XlsxDownloadButton } from "@/components/portal/shared/XlsxDownloadButton";
 import { buildClientsXlsx } from "@/lib/portal/clients-export";
 import type { Client } from "@/lib/portal/clients-db";
@@ -47,22 +47,14 @@ export function ClientsPageClient({
         title="Klienti"
         lede="Značky, pro které provozujeme prodejny. Z klienta pak generujete smlouvu."
         actions={
-          <>
-            <XlsxDownloadButton
-              build={() => buildClientsXlsx(filtered)}
-              filename={`klienti-${new Date().toISOString().slice(0, 10)}.xlsx`}
-              disabled={filtered.length === 0}
-              title="Stáhne zobrazené klienty (vč. e-mailů, IČO, DIČ, telefonů) do Excelu (.xlsx)"
-            />
-            <button
-              type="button"
-              onClick={() => setOpen(true)}
-              className={BTN_PRIMARY}
-            >
-              <Plus className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
-              Nový klient
-            </button>
-          </>
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className={BTN_PRIMARY}
+          >
+            <Plus className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+            Nový klient
+          </button>
         }
       />
 
@@ -74,6 +66,17 @@ export function ClientsPageClient({
         badgesByClient={badgesByClient}
         onAddClick={() => setOpen(true)}
         onDeleted={handleDeleted}
+        tableTools={
+          <XlsxDownloadButton
+            className={BTN_TOOL}
+            label="Excel"
+            iconSize="h-3.5 w-3.5"
+            build={() => buildClientsXlsx(filtered)}
+            filename={`klienti-${new Date().toISOString().slice(0, 10)}.xlsx`}
+            disabled={filtered.length === 0}
+            title="Stáhne zobrazené klienty (vč. e-mailů, IČO, DIČ, telefonů) do Excelu (.xlsx)"
+          />
+        }
       />
 
       {open && (

@@ -43,7 +43,7 @@ import { FilterChip } from "@/components/portal/ui/FilterChip";
 import { FilterBar } from "@/components/portal/ui/FilterBar";
 import { Chip } from "@/components/portal/ui/Chip";
 import { CONTRACT_STATUS_ICON } from "./contract-status-meta";
-import { BTN_ROW, BTN_ICON, BTN_PRIMARY } from "@/components/portal/ui/buttons";
+import { BTN_ROW, BTN_ICON, BTN_PRIMARY, BTN_TOOL } from "@/components/portal/ui/buttons";
 import { SearchInput } from "@/components/portal/ui/SearchInput";
 import { ResultCount } from "@/components/portal/ui/ResultCount";
 import { PageHeader } from "@/components/portal/shell/PageHeader";
@@ -613,23 +613,15 @@ export function ContractsList({
         title="Smlouvy"
         lede={CONTRACTS_LEDE}
         actions={
-          <>
-            <XlsxDownloadButton
-              build={() => buildContractsXlsx(filtered)}
-              filename={`smlouvy-${new Date().toISOString().slice(0, 10)}.xlsx`}
-              disabled={filtered.length === 0}
-              title="Stáhne zobrazené smlouvy (vč. dat podpisů, klientů a stavů) do Excelu (.xlsx)"
-            />
-            <button
-              type="button"
-              onClick={() => setModalOpen(true)}
-              disabled={clients.length === 0}
-              className={BTN_PRIMARY}
-            >
-              <Plus className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
-              Nová smlouva
-            </button>
-          </>
+          <button
+            type="button"
+            onClick={() => setModalOpen(true)}
+            disabled={clients.length === 0}
+            className={BTN_PRIMARY}
+          >
+            <Plus className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+            Nová smlouva
+          </button>
         }
       />
       <div className="flex flex-col gap-5">
@@ -655,7 +647,20 @@ export function ContractsList({
 
         {/* Status filter chips + počet vpravo */}
         <FilterBar
-          trailing={<ResultCount shown={filtered.length} total={typeScoped.length} />}
+          trailing={
+            <>
+              <ResultCount shown={filtered.length} total={typeScoped.length} />
+              <XlsxDownloadButton
+                className={BTN_TOOL}
+                label="Excel"
+                iconSize="h-3.5 w-3.5"
+                build={() => buildContractsXlsx(filtered)}
+                filename={`smlouvy-${new Date().toISOString().slice(0, 10)}.xlsx`}
+                disabled={filtered.length === 0}
+                title="Stáhne zobrazené smlouvy (vč. dat podpisů, klientů a stavů) do Excelu (.xlsx)"
+              />
+            </>
+          }
         >
           <FilterChip
             active={statusFilters.size === 0}

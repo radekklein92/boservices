@@ -8,7 +8,8 @@ import { FilterChip } from "@/components/portal/ui/FilterChip";
 import { FilterBar } from "@/components/portal/ui/FilterBar";
 import { SearchInput } from "@/components/portal/ui/SearchInput";
 import { ResultCount } from "@/components/portal/ui/ResultCount";
-import { BTN_ROW } from "@/components/portal/ui/buttons";
+import { BTN_ROW, BTN_TOOL } from "@/components/portal/ui/buttons";
+import { ReExcelExportButton } from "./ReExcelExportButton";
 import {
   CATEGORY_DOT,
   CATEGORY_LABEL,
@@ -167,7 +168,16 @@ export function LocationsTable({
           franchiseFilter !== "all" ||
           bosFilter !== "all"
         }
-        trailing={<ResultCount shown={filtered.length} total={locations.length} />}
+        trailing={
+          <>
+            <ResultCount shown={filtered.length} total={locations.length} />
+            <ReExcelExportButton
+              className={BTN_TOOL}
+              label="Excel"
+              iconSize="h-3.5 w-3.5"
+            />
+          </>
+        }
       >
         {CATEGORY_ORDER.map((cat) => {
           const n = counts.get(cat) ?? 0;

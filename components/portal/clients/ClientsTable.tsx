@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   ArrowUpRight,
@@ -104,6 +104,7 @@ export function ClientsTable({
   badgesByClient,
   onAddClick,
   onDeleted,
+  tableTools,
 }: {
   clients: Client[];
   filtered: Client[];
@@ -112,6 +113,7 @@ export function ClientsTable({
   badgesByClient?: Record<string, ClientContractBadge[]>;
   onAddClick?: () => void;
   onDeleted?: () => void;
+  tableTools?: ReactNode;
 }) {
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -181,7 +183,10 @@ export function ClientsTable({
             ))}
           </>
         )}
-        <ResultCount className="ml-auto" shown={filtered.length} total={clients.length} />
+        <div className="ml-auto flex items-center gap-3">
+          <ResultCount shown={filtered.length} total={clients.length} />
+          {tableTools}
+        </div>
       </div>
 
       <div className="overflow-hidden rounded-3xl border border-edge bg-paper">
