@@ -10,15 +10,18 @@ import {
   ChevronUp,
   ChevronDown,
   ChevronsUpDown,
+  ClipboardList,
 } from "lucide-react";
 import { FilterChip } from "@/components/portal/ui/FilterChip";
 import { Chip } from "@/components/portal/ui/Chip";
 import { SearchInput } from "@/components/portal/ui/SearchInput";
 import { ResultCount } from "@/components/portal/ui/ResultCount";
+import { BTN_ROW } from "@/components/portal/ui/buttons";
 import { FeeEditModal } from "./FeeEditModal";
+import { SkippedContractsModal } from "./SkippedContractsModal";
 import type { ContractType } from "@/lib/portal/contract-types";
 import type { ContractFeeTerms } from "@/lib/portal/contract-fee-terms";
-import type { FeeRow, MonthFeeStatus } from "@/lib/portal/fees-page";
+import type { FeeRow, MonthFeeStatus, SkippedFeesReport } from "@/lib/portal/fees-page";
 
 export type FeeRowView = FeeRow & {
   status: MonthFeeStatus;
@@ -104,11 +107,13 @@ export function FeesClient({
   contracts,
   selectedMonth,
   months,
+  report,
 }: {
   rows: FeeRowView[];
   contracts: Record<string, EditableContract>;
   selectedMonth: string;
   months: string[];
+  report: SkippedFeesReport;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -118,6 +123,10 @@ export function FeesClient({
   const [typeFilter, setTypeFilter] = useState<ContractType | "all">("all");
   const [sort, setSort] = useState<Sort>(null);
   const [openContractId, setOpenContractId] = useState<string | null>(null);
+  const [showSkipped, setShowSkipped] = useState(false);
+
+  const skippedTotal =
+    report.noRevenue.length + report.notYetEffective.length + report.expired.length;
 
   const idx = months.indexOf(selectedMonth);
   const prevMonth = idx > 0 ? months[idx - 1] : null;
@@ -194,31 +203,43 @@ export function FeesClient({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Měsíční stepper + hledání */}
+      {/* Měsíční stepper + report vynechaných smluv + hledání */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="inline-flex items-center gap-1 rounded-full border border-edge bg-paper p-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex items-center gap-1 rounded-full border border-edge bg-paper p-1">
+            <button
+              type="button"
+              onClick={() => goMonth(prevMonth)}
+              disabled={!prevMonth}
+              aria-label="Předchozí měsíc"
+              className="grid h-8 w-8 place-items-center rounded-full text-ink-mid transition-colors hover:bg-edge-warm hover:text-ink-base disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+            >
+              <ChevronLeft className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+            </button>
+            <span
+              className={`min-w-[150px] text-center text-[13.5px] font-semibold tracking-[-0.01em] text-ink-base transition-opacity ${isPending ? "opacity-40" : ""}`}
+            >
+              {monthLabel(selectedMonth)}
+            </span>
+            <button
+              type="button"
+              onClick={() => goMonth(nextMonth)}
+              disabled={!nextMonth}
+              aria-label="Další měsíc"
+              className="grid h-8 w-8 place-items-center rounded-full text-ink-mid transition-colors hover:bg-edge-warm hover:text-ink-base disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+            >
+              <ChevronRight className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+            </button>
+          </div>
           <button
             type="button"
-            onClick={() => goMonth(prevMonth)}
-            disabled={!prevMonth}
-            aria-label="Předchozí měsíc"
-            className="grid h-8 w-8 place-items-center rounded-full text-ink-mid transition-colors hover:bg-edge-warm hover:text-ink-base disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+            onClick={() => setShowSkipped(true)}
+            className={BTN_ROW}
+            title="Smlouvy vynechané za tento měsíc (bez tržby, neúčinné, expirované)"
           >
-            <ChevronLeft className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-          </button>
-          <span
-            className={`min-w-[150px] text-center text-[13.5px] font-semibold tracking-[-0.01em] text-ink-base transition-opacity ${isPending ? "opacity-40" : ""}`}
-          >
-            {monthLabel(selectedMonth)}
-          </span>
-          <button
-            type="button"
-            onClick={() => goMonth(nextMonth)}
-            disabled={!nextMonth}
-            aria-label="Další měsíc"
-            className="grid h-8 w-8 place-items-center rounded-full text-ink-mid transition-colors hover:bg-edge-warm hover:text-ink-base disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
-          >
-            <ChevronRight className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+            <ClipboardList className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+            Vynechané smlouvy
+            <span className="font-mono text-[11px] text-ink-soft">{skippedTotal}</span>
           </button>
         </div>
 
@@ -379,6 +400,14 @@ export function FeesClient({
             setOpenContractId(null);
             startTransition(() => router.refresh());
           }}
+        />
+      )}
+
+      {showSkipped && (
+        <SkippedContractsModal
+          report={report}
+          month={selectedMonth}
+          onClose={() => setShowSkipped(false)}
         />
       )}
     </div>
