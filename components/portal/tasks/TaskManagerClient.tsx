@@ -33,7 +33,6 @@ import {
   MapPin,
   Plus,
   Rows3,
-  Search,
   Zap,
 } from "lucide-react";
 import {
@@ -46,6 +45,9 @@ import {
   type TaskStatus,
 } from "@/lib/portal/tasks-shared";
 import { BTN_PRIMARY } from "@/components/portal/ui/buttons";
+import { PageHeader } from "@/components/portal/shell/PageHeader";
+import { SearchInput } from "@/components/portal/ui/SearchInput";
+import { ResultCount } from "@/components/portal/ui/ResultCount";
 import { StatusDropdown } from "./task-ui";
 import { TaskSidePanel } from "./TaskSidePanel";
 import { CommandPalette } from "./CommandPalette";
@@ -234,6 +236,18 @@ export function TaskManagerClient({
 
   return (
     <div className="flex flex-col gap-6">
+      <PageHeader
+        eyebrow="Tým"
+        title="Úkoly"
+        lede="Interní úkoly týmu - termíny, podúkoly, e-mailové připomínky a vazby na klienty, lokality a smlouvy."
+        actions={
+          <button type="button" onClick={() => setPanel(null)} className={BTN_PRIMARY}>
+            <Plus className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+            Nový úkol
+          </button>
+        }
+      />
+
       {/* Stat karty */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard
@@ -256,29 +270,10 @@ export function TaskManagerClient({
 
       {/* Toolbar */}
       <div className="flex flex-col gap-3">
-        {/* Řádek 1: hledání + nový úkol (kanonický vzor portálu) */}
+        {/* Řádek 1: hledání + počet */}
         <div className="flex flex-wrap items-center gap-3">
-          <div className="relative w-full sm:max-w-[400px] sm:flex-1">
-            <Search
-              className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mid"
-              strokeWidth={1.5}
-            />
-            <input
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Hledat úkol…"
-              className="h-11 w-full rounded-full border border-edge bg-paper pl-11 pr-4 text-[14px] text-ink-base outline-none transition-colors placeholder:text-ink-soft focus:border-ink-base"
-            />
-          </div>
-          <span className="font-mono text-[12px] text-ink-soft">
-            {filtered.length.toString().padStart(2, "0")} / {tasks.length.toString().padStart(2, "0")}
-          </span>
-          <div className="hidden flex-1 sm:block" />
-          <button type="button" onClick={() => setPanel(null)} className={BTN_PRIMARY}>
-            <Plus className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
-            Nový úkol
-          </button>
+          <SearchInput value={search} onChange={setSearch} placeholder="Hledat úkol…" />
+          <ResultCount shown={filtered.length} total={tasks.length} />
         </div>
 
         {/* Řádek 2: pohled + sekundární filtry */}
