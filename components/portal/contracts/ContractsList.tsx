@@ -11,7 +11,6 @@ import {
   LockOpen,
   MapPin,
   Plus,
-  Search,
   Trash2,
   CheckCircle2,
   PenLine,
@@ -43,7 +42,9 @@ import { bakeSnapshotForDiff } from "@/lib/portal/contract-render";
 import { FilterChip } from "@/components/portal/ui/FilterChip";
 import { Chip } from "@/components/portal/ui/Chip";
 import { CONTRACT_STATUS_ICON } from "./contract-status-meta";
-import { BTN_ROW, BTN_ICON } from "@/components/portal/ui/buttons";
+import { BTN_ROW, BTN_ICON, BTN_PRIMARY } from "@/components/portal/ui/buttons";
+import { SearchInput } from "@/components/portal/ui/SearchInput";
+import { ResultCount } from "@/components/portal/ui/ResultCount";
 import { PageHeader } from "@/components/portal/shell/PageHeader";
 import { XlsxDownloadButton } from "@/components/portal/shared/XlsxDownloadButton";
 import { buildContractsXlsx } from "@/lib/portal/contracts-export";
@@ -611,43 +612,34 @@ export function ContractsList({
         title="Smlouvy"
         lede={CONTRACTS_LEDE}
         actions={
-          <XlsxDownloadButton
-            build={() => buildContractsXlsx(filtered)}
-            filename={`smlouvy-${new Date().toISOString().slice(0, 10)}.xlsx`}
-            disabled={filtered.length === 0}
-            title="Stáhne zobrazené smlouvy (vč. dat podpisů, klientů a stavů) do Excelu (.xlsx)"
-          />
+          <>
+            <XlsxDownloadButton
+              build={() => buildContractsXlsx(filtered)}
+              filename={`smlouvy-${new Date().toISOString().slice(0, 10)}.xlsx`}
+              disabled={filtered.length === 0}
+              title="Stáhne zobrazené smlouvy (vč. dat podpisů, klientů a stavů) do Excelu (.xlsx)"
+            />
+            <button
+              type="button"
+              onClick={() => setModalOpen(true)}
+              disabled={clients.length === 0}
+              className={BTN_PRIMARY}
+            >
+              <Plus className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+              Nová smlouva
+            </button>
+          </>
         }
       />
       <div className="flex flex-col gap-5">
-        {/* Search + create */}
+        {/* Hledání + počet */}
         <div className="flex flex-wrap items-center gap-3">
-          <div className="relative w-full sm:max-w-[400px] sm:flex-1">
-            <Search
-              className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mid"
-              strokeWidth={1.5}
-            />
-            <input
-              type="search"
-              placeholder="Hledat podle klienta, čísla, typu, prodejny…"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="h-11 w-full rounded-full border border-edge bg-paper pl-11 pr-4 text-[14px] text-ink-base outline-none transition-colors placeholder:text-ink-soft focus:border-ink-base"
-            />
-          </div>
-          <span className="font-mono text-[12px] text-ink-soft">
-            {filtered.length.toString().padStart(2, "0")} / {typeScoped.length}
-          </span>
-          <div className="hidden flex-1 sm:block" />
-          <button
-            type="button"
-            onClick={() => setModalOpen(true)}
-            disabled={clients.length === 0}
-            className="inline-flex h-11 items-center gap-2 rounded-full bg-ink-base px-5 text-[13px] font-semibold text-paper transition-transform active:translate-y-px disabled:opacity-50"
-          >
-            <Plus className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
-            Nová smlouva
-          </button>
+          <SearchInput
+            value={query}
+            onChange={setQuery}
+            placeholder="Hledat podle klienta, čísla, typu, prodejny…"
+          />
+          <ResultCount shown={filtered.length} total={typeScoped.length} />
         </div>
 
         {/* Zúžení na typ (proklik z dashboardu) - klik zruší a vrátí všechny typy. */}
