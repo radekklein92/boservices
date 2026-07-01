@@ -9,6 +9,10 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { PayoutAiCheck } from "./payouts-db";
 
+// Fixní poplatek (bez DPH), který si obchodníci občas fakturují k provizi navíc.
+// AI kontrola proto akceptuje i fakturu vyšší přesně o tuto částku.
+const INVOICE_FIX_AMOUNT = 60_000;
+
 // Structured output schema - jen 2 pole, additionalProperties:false (požadavek
 // structured outputs). Když hodnota chybí, model vrátí 0 / prázdný string.
 const EXTRACT_SCHEMA = {
@@ -96,12 +100,20 @@ export async function verifyInvoice(
     const got = Math.round(parsed.totalAmount ?? 0);
     const base = Math.round(expected.amount);
     const withVat = Math.round(expected.amount * 1.21);
-    const amountOk =
-      Math.abs(got - base) <= 1 ||
-      (expected.isVatPayer && Math.abs(got - withVat) <= 1);
+
+    // K provizi se občas fakturuje fixní poplatek 60 000 Kč (bez DPH) navíc.
+    // Akceptujeme proto i fakturu vyšší přesně o tento fix - jako druhý povolený
+    // základ (base + fix). Fix vstupuje do základu daně, takže u plátce DPH platí
+    // stejné pravidlo ×1,21 jako pro samotnou provizi. Není to rozpětí: bere se jen
+    // přesná shoda na provizi NEBO na provizi + fix (±1 Kč na zaokrouhlení).
+    const acceptedBases = [base, base + INVOICE_FIX_AMOUNT];
+    const candidates = acceptedBases.flatMap((b) =>
+      expected.isVatPayer ? [b, Math.round(b * 1.21)] : [b],
+    );
+    const amountOk = candidates.some((c) => Math.abs(got - c) <= 1);
     if (!amountOk) {
       reasons.push(
-        `Částka nesedí - na faktuře ${got} Kč, očekáváno ${base} Kč${expected.isVatPayer ? ` (nebo ${withVat} Kč vč. DPH)` : ""}.`,
+        `Částka nesedí - na faktuře ${got} Kč, očekáváno ${base} Kč${expected.isVatPayer ? ` (nebo ${withVat} Kč vč. DPH)` : ""} - případně o fix ${INVOICE_FIX_AMOUNT} Kč (bez DPH) více.`,
       );
     }
 
