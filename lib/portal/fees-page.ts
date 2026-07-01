@@ -589,8 +589,9 @@ function periodWindowInMonth(
 // berou tržbu jen za AKTIVNÍ část měsíce (od data účinnosti periody):
 //   - uzavřený měsíc = JEN reálná tržba; když žádná tržba nebyla, žádný odhad (jen
 //     sazba) - měsíc je uzavřený, počítá se výhradně to, co se reálně prodalo,
-//   - probíhající měsíc = run-rate z uplynulých dní; dokud v měsíci není žádná tržba,
-//     historický odhad ZTENČENÝ o už uplynulé dny bez tržby (postupně klesá k nule),
+//   - probíhající měsíc = run-rate z UZAVŘENÝCH dní (do včerejška) - rozehraný dnešek
+//     by denní průměr uměle podstřeloval; dokud v měsíci není žádná uzavřená tržba,
+//     historický odhad ZTENČENÝ o už uzavřené dny bez tržby (postupně klesá k nule),
 //   - budoucí měsíc = sezónní odhad × podíl aktivních dní.
 // Fixní (paušální) poplatky jsou „final", ale JEN když prodejna měla za měsíc reálnou
 // tržbu - platí pro VŠECHNY typy smluv vč. FRANŠÍZY (franšíza už není výjimka): bez
@@ -628,6 +629,9 @@ export async function computeMonthResults(
 
   const { from: monthStart, to: monthEnd } = monthBounds(selectedMonth);
   const todayStr = todayISO(today);
+  // Poslední UZAVŘENÝ den (včerejšek) - run-rate procentních poplatků extrapoluje
+  // jen z celých dnů; dnešek je rozehraný a v průměru by uměle podstřeloval.
+  const closedEndStr = addDaysISO(todayStr, -1);
   const daysInMonth = dayCountInclusive(monthStart, monthEnd);
 
   // Řádky, které potřebují znát tržbu za okno v měsíci: procentní poplatky + smlouvy
@@ -647,7 +651,10 @@ export async function computeMonthResults(
     if (!needsRevenue) continue;
     const w = periodWindowInMonth(row, monthStart, monthEnd);
     if (!w) continue;
-    const elapsedEnd = todayStr < w.winEnd ? todayStr : w.winEnd;
+    // Procentní řádky: jen uzavřené dny (run-rate). Fixní řádky: včetně dneška -
+    // revenue gate má paušál ukázat hned, jak prodejna v měsíci poprvé namarkuje.
+    const endStr = row.percent > 0 ? closedEndStr : todayStr;
+    const elapsedEnd = endStr < w.winEnd ? endStr : w.winEnd;
     windows.set(row.key, { ...w, elapsedEnd });
     if (isClosed) rangeKeys.add(`${w.winStart}|${w.winEnd}`);
     else if (isCurrent && elapsedEnd >= w.winStart) rangeKeys.add(`${w.winStart}|${elapsedEnd}`);
@@ -801,8 +808,8 @@ export async function computeMonthResults(
     const v =
       elapsedDays > 0 ? rangeNets.get(`${w.winStart}|${w.elapsedEnd}`)?.get(row.locationId) : undefined;
     if (v && v.net > 0) {
-      // Run-rate z uplynulé části okna. Dělení VŠEMI uplynulými dny (i těmi bez tržby)
-      // samo snižuje odhad úměrně počtu dnů, kdy se nic neprodalo.
+      // Run-rate z UZAVŘENÉ části okna (do včerejška). Dělení VŠEMI uzavřenými dny
+      // (i těmi bez tržby) samo snižuje odhad úměrně počtu dnů, kdy se nic neprodalo.
       const projected = (v.net / elapsedDays) * totalDays;
       out.set(row.key, {
         status: "estimate",
@@ -814,9 +821,9 @@ export async function computeMonthResults(
       });
       continue;
     }
-    // Zatím žádná tržba v probíhajícím měsíci -> odhad z historie, ale ZTENČENÝ o už
-    // uplynulé dny bez tržby (počítá se jen na ZBÝVAJÍCÍ aktivní dny). Jak měsíc běží
-    // dál bez tržby, odhad postupně klesá; poslední den (nic nezbývá) -> žádný odhad.
+    // Zatím žádná tržba v uzavřených dnech měsíce -> odhad z historie, ale ZTENČENÝ
+    // o už uzavřené dny bez tržby (počítá se na zbývající dny vč. dneška). Jak měsíc
+    // běží dál bez tržby, odhad postupně klesá; po posledním dni -> žádný odhad.
     // Když ani historie není (nelze odhadnout), řádek je vynechán kvůli chybějící tržbě.
     const remainingDays = totalDays - elapsedDays;
     const est = historicalEstimate(row, daysInMonth > 0 ? remainingDays / daysInMonth : 0);
