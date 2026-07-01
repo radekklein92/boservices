@@ -121,17 +121,14 @@ export function LocationsTable({
   }
 
   return (
-    <>
-      <div className="mb-4">
-        <SearchInput
-          value={query}
-          onChange={setQuery}
-          placeholder="Hledat podle názvu, kódu, klienta…"
-        />
-      </div>
+    <div className="flex flex-col gap-4">
+      <SearchInput
+        value={query}
+        onChange={setQuery}
+        placeholder="Hledat podle názvu, kódu, klienta…"
+      />
 
       <FilterBar
-        className="mb-5"
         onReset={() => {
           setLeaseFilter("all");
           setFranchiseFilter("all");
@@ -302,6 +299,6 @@ export function LocationsTable({
           ))}
         </ul>
       </div>
-    </>
+    </div>
   );
 }

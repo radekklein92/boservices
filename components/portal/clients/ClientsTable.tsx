@@ -158,16 +158,14 @@ export function ClientsTable({
   }
 
   return (
-    <>
-      <div className="mb-4">
-        <SearchInput
-          value={query}
-          onChange={onQueryChange}
-          placeholder="Hledat podle jména, IČO, města…"
-        />
-      </div>
+    <div className="flex flex-col gap-4">
+      <SearchInput
+        value={query}
+        onChange={onQueryChange}
+        placeholder="Hledat podle jména, IČO, města…"
+      />
 
-      <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] text-ink-mid">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] text-ink-mid">
         {clients.some((c) => (badgesByClient?.[c.id]?.length ?? 0) > 0) && (
           <>
             <span className="font-semibold uppercase tracking-[0.14em] text-ink-soft">
@@ -277,6 +275,6 @@ export function ClientsTable({
           ))}
         </ul>
       </div>
-    </>
+    </div>
   );
 }

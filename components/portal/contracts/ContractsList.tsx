@@ -607,7 +607,7 @@ export function ContractsList({
   }
 
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-6">
       <PageHeader
         eyebrow="Franšízing"
         title="Smlouvy"
@@ -624,7 +624,7 @@ export function ContractsList({
           </button>
         }
       />
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-4">
         {/* Hledání */}
         <SearchInput
           value={query}
