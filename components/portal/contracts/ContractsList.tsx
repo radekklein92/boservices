@@ -185,7 +185,7 @@ const ContractRow = memo(function ContractRow({
           </span>
           {isChanged && (
             <span
-              className="inline-flex h-6 shrink-0 items-center gap-1 rounded-full border border-warn/30 bg-warn/10 px-2 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-warn"
+              className="inline-flex h-6 shrink-0 items-center gap-1 rounded-full border border-warn-edge bg-warn-tint px-2 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-warn"
               title="Smlouva má změny proti šabloně"
               aria-label="Smlouva má změny proti šabloně"
             >
