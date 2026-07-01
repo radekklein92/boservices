@@ -271,7 +271,7 @@ export function TaskManagerClient({
       </div>
 
       {/* Toolbar */}
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-4">
         {/* Řádek 1: hledání */}
         <SearchInput value={search} onChange={setSearch} placeholder="Hledat úkol…" />
 
@@ -327,10 +327,9 @@ export function TaskManagerClient({
             ]}
           />
         </FilterBar>
-      </div>
 
-      {/* Obsah */}
-      {filtered.length === 0 ? (
+        {/* Obsah */}
+        {filtered.length === 0 ? (
         <EmptyState onNew={() => setPanel(null)} hasTasks={tasks.length > 0} />
       ) : view === "kanban" ? (
         <KanbanBoard
@@ -363,6 +362,7 @@ export function TaskManagerClient({
           </SortableContext>
         </DndContext>
       )}
+      </div>
 
       <AnimatePresence>
         {palette && (
