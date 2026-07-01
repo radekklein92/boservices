@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowUpRight, MapPin, FileCheck, FileX, Store, Building2 } from "lucide-react";
-import type { LocationCategory, MirroredLocation } from "@/lib/portal/locations-db";
+import type { MirroredLocation } from "@/lib/portal/locations-db";
 import { FilterChip } from "@/components/portal/ui/FilterChip";
 import { FilterBar } from "@/components/portal/ui/FilterBar";
 import { SearchInput } from "@/components/portal/ui/SearchInput";
@@ -11,9 +11,7 @@ import { ResultCount } from "@/components/portal/ui/ResultCount";
 import { BTN_ROW, BTN_TOOL } from "@/components/portal/ui/buttons";
 import { ReExcelExportButton } from "./ReExcelExportButton";
 import {
-  CATEGORY_DOT,
   CATEGORY_LABEL,
-  CATEGORY_ORDER,
   CATEGORY_STYLE,
   CHIP_BASE,
   CLIENT_STATUS_LABEL,
@@ -39,7 +37,6 @@ export function LocationsTable({
   bosLocationIds?: string[];
 }) {
   const [query, setQuery] = useState("");
-  const [activeCats, setActiveCats] = useState<Set<LocationCategory>>(new Set());
   const [leaseFilter, setLeaseFilter] = useState<LeaseFilter>("all");
   const [franchiseFilter, setFranchiseFilter] = useState<LeaseFilter>("all");
   const [bosFilter, setBosFilter] = useState<LeaseFilter>("all");
@@ -49,14 +46,6 @@ export function LocationsTable({
     [withContractIds],
   );
   const bosSet = useMemo(() => new Set(bosLocationIds), [bosLocationIds]);
-
-  const counts = useMemo(() => {
-    const map = new Map<LocationCategory, number>();
-    for (const l of locations) {
-      if (l.category) map.set(l.category, (map.get(l.category) ?? 0) + 1);
-    }
-    return map;
-  }, [locations]);
 
   const leaseCounts = useMemo(() => {
     let has = 0;
@@ -79,9 +68,6 @@ export function LocationsTable({
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return locations.filter((l) => {
-      if (activeCats.size > 0 && (!l.category || !activeCats.has(l.category))) {
-        return false;
-      }
       if (leaseFilter === "has" && !withContract.has(l.id)) return false;
       if (leaseFilter === "missing" && withContract.has(l.id)) return false;
       const hasFranchise = Boolean(franchiseByLocation[l.id]);
@@ -109,7 +95,6 @@ export function LocationsTable({
   }, [
     locations,
     query,
-    activeCats,
     leaseFilter,
     withContract,
     franchiseFilter,
@@ -117,15 +102,6 @@ export function LocationsTable({
     bosFilter,
     bosSet,
   ]);
-
-  function toggleCat(cat: LocationCategory) {
-    setActiveCats((prev) => {
-      const next = new Set(prev);
-      if (next.has(cat)) next.delete(cat);
-      else next.add(cat);
-      return next;
-    });
-  }
 
   if (locations.length === 0) {
     return (
@@ -157,13 +133,11 @@ export function LocationsTable({
       <FilterBar
         className="mb-5"
         onReset={() => {
-          setActiveCats(new Set());
           setLeaseFilter("all");
           setFranchiseFilter("all");
           setBosFilter("all");
         }}
         resetActive={
-          activeCats.size > 0 ||
           leaseFilter !== "all" ||
           franchiseFilter !== "all" ||
           bosFilter !== "all"
@@ -179,23 +153,6 @@ export function LocationsTable({
           </>
         }
       >
-        {CATEGORY_ORDER.map((cat) => {
-          const n = counts.get(cat) ?? 0;
-          if (n === 0) return null;
-          return (
-            <FilterChip
-              key={cat}
-              active={activeCats.has(cat)}
-              onClick={() => toggleCat(cat)}
-              dotClass={CATEGORY_DOT[cat]}
-              label={CATEGORY_LABEL[cat]}
-              count={n}
-            />
-          );
-        })}
-
-        <span className="mx-1 h-5 w-px shrink-0 bg-edge" aria-hidden="true" />
-
         <FilterChip
           active={leaseFilter === "has"}
           onClick={() => setLeaseFilter((f) => (f === "has" ? "all" : "has"))}
