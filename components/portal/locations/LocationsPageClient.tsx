@@ -8,7 +8,6 @@ import { PageHeader } from "@/components/portal/shell/PageHeader";
 import { BTN_OUTLINE } from "@/components/portal/ui/buttons";
 import type { LocationsSyncMeta, MirroredLocation } from "@/lib/portal/locations-db";
 import { LocationsTable } from "./LocationsTable";
-import { ReExcelExportButton } from "./ReExcelExportButton";
 import { formatDateTime } from "./locations-shared";
 
 const NewCoImportModal = dynamicImport(
@@ -74,11 +73,6 @@ export function LocationsPageClient({
               <FileSpreadsheet className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
               Import NewCo
             </button>
-            <ReExcelExportButton
-              className={BTN_OUTLINE}
-              label="Export Excel"
-              iconSize="h-4 w-4"
-            />
             <button
               type="button"
               onClick={syncNow}
