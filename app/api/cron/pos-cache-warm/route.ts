@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { verifyCronAuth } from "@/lib/portal/cron-auth";
 import { isPosApiConfigured } from "@/lib/portal/pos/api";
 import { DEFAULT_POS_FILTER, type PosFilter } from "@/lib/portal/pos/filters";
 import {
@@ -44,13 +45,8 @@ export const maxDuration = 60;
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const auth = req.headers.get("authorization");
-    if (auth !== `Bearer ${secret}`) {
-      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
-    }
-  }
+  const unauthorized = verifyCronAuth(req);
+  if (unauthorized) return unauthorized;
 
   if (!isPosApiConfigured()) {
     return NextResponse.json({ ok: true, skipped: "POS API not configured" });

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { verifyCronAuth } from "@/lib/portal/cron-auth";
 import { getRedis } from "@/lib/redis";
 import { getSession } from "@/lib/portal/get-session";
 import { isAdminRole } from "@/lib/portal/auth-guard";
@@ -27,10 +28,9 @@ export const maxDuration = 60;
 const SIG_KEY = "portal:pos:unpaired-alert:last"; // poslední ohlášená množina (dedup)
 
 export async function GET(req: Request) {
-  // Auth: nejdřív CRON_SECRET; když nesedí, zkus přihlášeného admina (on-demand).
-  const secret = process.env.CRON_SECRET;
-  const auth = req.headers.get("authorization");
-  const isCron = !secret || auth === `Bearer ${secret}`;
+  // Auth: nejdřív CRON_SECRET (Bearer, fail-closed v produkci); když nesedí, zkus
+  // přihlášeného admina (on-demand). verifyCronAuth vrací null když je cron OK.
+  const isCron = verifyCronAuth(req) === null;
   let force = false;
   if (!isCron) {
     const session = await getSession();

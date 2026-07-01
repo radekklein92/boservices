@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { verifyCronAuth } from "@/lib/portal/cron-auth";
 import {
   findPrForCommit,
   getCommitMessage,
@@ -14,12 +15,8 @@ export const dynamic = "force-dynamic";
 // e-mail jen u nasazení pocházejících z Portálu (PR odkazuje na zalogovaný
 // požadavek); DEPLOY_NOTIFY_ALL=1 = e-mail u všech produkčních nasazení.
 export async function POST(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (secret) {
-    if (req.headers.get("authorization") !== `Bearer ${secret}`) {
-      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
-    }
-  }
+  const unauthorized = verifyCronAuth(req);
+  if (unauthorized) return unauthorized;
 
   let body: { sha?: string; url?: string; environment?: string; state?: string } = {};
   try {

@@ -943,6 +943,7 @@ function renderCell(
       const when = new Date(r.reCheckIn.at).toLocaleDateString("cs-CZ", {
         day: "numeric",
         month: "numeric",
+        timeZone: "Europe/Prague",
       });
       return (
         <span className="inline-flex items-center gap-1.5 whitespace-nowrap">

@@ -4,6 +4,7 @@ import { getContract } from "@/lib/portal/contracts-db";
 import { getOrSeedContractTemplate } from "@/lib/portal/contract-templates-db";
 import { CONTRACT_TYPE_META, isBundleType } from "@/lib/portal/contract-types";
 import { htmlDiff } from "@/lib/portal/contract-diff";
+import { sanitizeContractHtml } from "@/lib/portal/sanitize-html";
 import {
   bakeSnapshotForDiff,
   renderTemplate,
@@ -74,7 +75,7 @@ export async function GET(
       }
       const renderedSections = sectionDiffs.map((s) => ({
         type: s.type,
-        html: renderTemplate(s.diff.diffHtml, contract.variables),
+        html: renderTemplate(sanitizeContractHtml(s.diff.diffHtml), contract.variables),
       }));
       pdf = await bundleHtmlToPdfBuffer(renderedSections, {
         type: contract.type,
@@ -107,7 +108,7 @@ export async function GET(
           { status: 400 },
         );
       }
-      const rendered = renderTemplate(result.diffHtml, contract.variables);
+      const rendered = renderTemplate(sanitizeContractHtml(result.diffHtml), contract.variables);
       pdf = await htmlToPdfBuffer(rendered, {
         type: contract.type,
         cover: { ...cover, subtitle: `${cover.subtitle} · zobrazeny změny oproti šabloně` },

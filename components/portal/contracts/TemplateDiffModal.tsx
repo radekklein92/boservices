@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { X, ShieldCheck } from "lucide-react";
 import type { ContractType, ContractVariant } from "@/lib/portal/contract-types";
+import { sanitizeContractHtml } from "@/lib/portal/sanitize-html";
 
 // Modal s přehledem změn šablony (track changes: <ins> přidáno, <del> smazáno)
 // proti naposledy schválené verzi. Volitelně umožní schvalovateli rovnou
@@ -138,7 +139,7 @@ export function TemplateDiffModal({
             ) : (
               <div
                 className="diff-view"
-                dangerouslySetInnerHTML={{ __html: state.diffHtml }}
+                dangerouslySetInnerHTML={{ __html: sanitizeContractHtml(state.diffHtml) }}
               />
             ))}
         </div>

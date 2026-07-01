@@ -57,6 +57,7 @@ function formatDate(iso: string | undefined): string {
       day: "numeric",
       month: "long",
       year: "numeric",
+      timeZone: "Europe/Prague",
     });
   } catch {
     return iso;

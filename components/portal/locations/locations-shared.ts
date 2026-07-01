@@ -150,6 +150,7 @@ export function formatDate(iso: string | null | undefined): string {
       day: "numeric",
       month: "long",
       year: "numeric",
+      timeZone: "Europe/Prague",
     });
   } catch {
     return iso;
@@ -165,6 +166,7 @@ export function formatDateTime(iso: string | null | undefined): string {
       year: "numeric",
       hour: "2-digit",
       minute: "2-digit",
+      timeZone: "Europe/Prague",
     });
   } catch {
     return iso;
