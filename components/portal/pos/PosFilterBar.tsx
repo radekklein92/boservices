@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Store, X } from "lucide-react";
 import {
@@ -14,6 +14,7 @@ import {
 } from "@/lib/portal/pos/filters";
 import { FilterChip } from "@/components/portal/ui/FilterChip";
 import { Toggle } from "@/components/portal/ui/Toggle";
+import { TopProgressBar } from "@/components/portal/ui/TopProgressBar";
 import type { FilterBarData } from "./pos-filter-shared";
 import { PosStorePicker } from "./PosStorePicker";
 import { PosViewsMenu } from "./PosViewsMenu";
@@ -64,9 +65,22 @@ export function PosFilterBar({
   const pathname = usePathname();
   const filter = parsePosFilter(new URLSearchParams(sp?.toString() ?? ""));
 
+  // Změna filtru je RSC navigace - URL i obsah se přepíšou až po serverové
+  // odpovědi (DW dotazy jsou pomalé). Bez zpětné vazby to vypadá, že se po
+  // kliknutí nic neděje, a uživatel klika dokola. Proto:
+  //  1) optimisticFilter - zvolená pilulka zčerná OKAMŽITĚ (nečeká na URL),
+  //  2) isPending -> horní progress lišta jede po celou dobu načítání.
+  // useOptimistic se po dokončení navigace sám vrátí na skutečný `filter`.
+  const [isPending, startTransition] = useTransition();
+  const [view, setOptimisticFilter] = useOptimistic(filter);
+
   const update = (patch: Partial<PosFilter>) => {
-    const qs = serializePosFilter({ ...filter, ...patch }).toString();
-    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    const next = { ...filter, ...patch };
+    const qs = serializePosFilter(next).toString();
+    startTransition(() => {
+      setOptimisticFilter(next);
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    });
   };
   const setSelection = (selection: PosSelection) => update({ selection });
 
@@ -120,14 +134,20 @@ export function PosFilterBar({
   );
 
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-edge bg-paper p-3 sm:p-4">
+    <>
+      {/* Horní lišta načítání - jede, dokud RSC navigace (změna filtru) neskončí. */}
+      <TopProgressBar active={isPending} />
+      <div
+        aria-busy={isPending}
+        className="flex flex-col gap-3 rounded-2xl border border-edge bg-paper p-3 sm:p-4"
+      >
       {/* Řádek 1: výběr prodejen + "Stejné prodejny" + měna + DPH + uložené pohledy */}
       <div className="flex flex-wrap items-center gap-2">
         <PosStorePicker concepts={concepts} selection={sel} onChange={setSelection} />
 
         {/* Okruh prodejen: BOS prodejny (default) vs celá síť - segmentovaný control
             jako měna. Omezuje obsah pickeru i agregaci (queries protnou s BOS). */}
-        <ScopeToggle scope={filter.scope} onChange={(scope) => update({ scope })} />
+        <ScopeToggle scope={view.scope} onChange={(scope) => update({ scope })} />
 
         {hasSelection ? (
           <div className="flex flex-1 items-center">
@@ -148,11 +168,11 @@ export function PosFilterBar({
         {!hidePeriod && (
           <button
             type="button"
-            onClick={() => update({ sameStore: !filter.sameStore })}
-            aria-pressed={filter.sameStore}
+            onClick={() => update({ sameStore: !view.sameStore })}
+            aria-pressed={view.sameStore}
             title="Skrýt v žebříčku prodejny bez tržby v obou obdobích (srovnatelná báze). Na deltu KPI nemá vliv."
             className={`${TOGGLE_BASE} ${
-              filter.sameStore
+              view.sameStore
                 ? "border-ink-base bg-ink-base text-paper"
                 : "border-edge bg-paper text-ink-deep hover:border-ink-soft"
             }`}
@@ -169,7 +189,7 @@ export function PosFilterBar({
             className="inline-flex h-9 shrink-0 items-center rounded-full border border-edge bg-paper p-0.5"
           >
             {currencies.map((c) => {
-              const active = filter.currency === c;
+              const active = view.currency === c;
               return (
                 <button
                   key={c}
@@ -188,7 +208,7 @@ export function PosFilterBar({
           </div>
           <span className="mx-1 hidden h-5 w-px bg-edge sm:block" aria-hidden="true" />
           <Toggle
-            checked={filter.vatInclusive}
+            checked={view.vatInclusive}
             onChange={(next) => update({ vatInclusive: next })}
             label="Ceny s DPH"
             title="Přepnout zobrazení s DPH / bez DPH"
@@ -208,17 +228,17 @@ export function PosFilterBar({
           {PRESETS.map((p) => (
             <FilterChip
               key={p}
-              active={filter.preset === p}
+              active={view.preset === p}
               onClick={() => update({ preset: p })}
               label={DATE_PRESET_LABEL[p]}
             />
           ))}
           <FilterChip
-            active={filter.preset === "vlastni"}
+            active={view.preset === "vlastni"}
             onClick={() => update({ preset: "vlastni", from: filter.from ?? isoDaysAgo(29), to: filter.to ?? isoToday() })}
             label="Vlastní"
           />
-          {filter.preset === "vlastni" && (
+          {view.preset === "vlastni" && (
             <span className="inline-flex items-center gap-1.5">
               <input
                 type="date"
@@ -251,7 +271,8 @@ export function PosFilterBar({
           <div className="ml-auto flex items-center gap-1.5">{iconButtons}</div>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }
 
