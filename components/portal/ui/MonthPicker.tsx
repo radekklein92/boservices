@@ -143,7 +143,7 @@ export function MonthPicker({
         <div
           role="dialog"
           aria-label="Výběr měsíce"
-          className="absolute left-1/2 top-full z-50 mt-2 max-h-[320px] w-64 -translate-x-1/2 overflow-y-auto rounded-2xl border border-edge bg-paper p-2 shadow-[0_12px_40px_-12px_rgba(14,14,14,0.35)]"
+          className="absolute left-0 top-full z-50 mt-2 max-h-[320px] w-64 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-2xl border border-edge bg-paper p-2 shadow-[0_12px_40px_-12px_rgba(14,14,14,0.35)]"
         >
           {years.map(({ year, cells }) => (
             <div key={year} className="px-1 pb-1.5">
