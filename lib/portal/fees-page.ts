@@ -446,9 +446,13 @@ function periodWindowInMonth(
 // ── Výpočet částek + statusů pro zvolený měsíc ──────────────────────────────────
 
 // Spočítá pro každý řádek status a částku ve zvoleném měsíci. Procentní poplatky
-// berou tržbu jen za AKTIVNÍ část měsíce (od data účinnosti periody); probíhající
-// měsíc = run-rate z uplynulých dní; uzavřený = reálná tržba; budoucí = sezónní
-// odhad × podíl aktivních dní. Fixní (paušální) poplatky jsou vždy „final" (známe je).
+// berou tržbu jen za AKTIVNÍ část měsíce (od data účinnosti periody):
+//   - uzavřený měsíc = JEN reálná tržba; když žádná tržba nebyla, žádný odhad (jen
+//     sazba) - měsíc je uzavřený, počítá se výhradně to, co se reálně prodalo,
+//   - probíhající měsíc = run-rate z uplynulých dní; dokud v měsíci není žádná tržba,
+//     historický odhad ZTENČENÝ o už uplynulé dny bez tržby (postupně klesá k nule),
+//   - budoucí měsíc = sezónní odhad × podíl aktivních dní.
+// Fixní (paušální) poplatky jsou vždy „final" (známe je bez ohledu na tržbu).
 export async function computeMonthResults(
   rows: FeeRow[],
   selectedMonth: string,
@@ -490,9 +494,10 @@ export async function computeMonthResults(
   }
 
   // Načti distinct okna i HISTORICKOU měsíční sérii paralelně (cachováno).
-  // Historie slouží (a) pro sezónní odhad budoucích měsíců a (b) jako FALLBACK,
-  // když pro zvolený měsíc ještě nejsou přímá data (run-rate/reálná tržba) - pak
-  // se poplatek dopočítá z minulých tržeb, místo aby zůstal jen u sazby.
+  // Historie slouží (a) pro sezónní odhad budoucích měsíců a (b) jako FALLBACK pro
+  // PROBÍHAJÍCÍ měsíc, dokud v něm ještě není žádná tržba (odhad se dopočítá z minulých
+  // tržeb, ztenčený o už uplynulé dny bez tržby). Pro UZAVŘENÝ měsíc historii vůbec
+  // netáhneme - počítá se výhradně reálná tržba (žádný odhad).
   const rangeNets = new Map<string, Map<string, MonthNet>>();
   let wholeSeries = new Map<string, Map<string, MonthNet>>();
   await Promise.all([
@@ -504,14 +509,27 @@ export async function computeMonthResults(
     ).catch(() => {
       /* degradace: chybějící okna -> historický fallback / "none" */
     }),
-    buildWholeMonthSeries(index, seasonalMonthsFor(selectedMonth, today))
-      .then((s) => {
-        wholeSeries = s;
-      })
-      .catch(() => {
-        /* degradace */
-      }),
+    isClosed
+      ? Promise.resolve()
+      : buildWholeMonthSeries(index, seasonalMonthsFor(selectedMonth, today))
+          .then((s) => {
+            wholeSeries = s;
+          })
+          .catch(() => {
+            /* degradace */
+          }),
   ]);
+
+  // Sezónní odhad z historie prorátovaný `factor`em na relevantní část měsíce
+  // (budoucí měsíc = celé aktivní okno; probíhající měsíc bez tržby = jen ZBÝVAJÍCÍ
+  // dny). factor <= 0 (nic nezbývá) nebo chybějící historie -> žádný odhad.
+  const historicalEstimate = (row: FeeRow, factor: number): FeeMonthResult => {
+    if (factor <= 0) return none(row);
+    const est = estimateLocationNet(wholeSeries.get(row.locationId), selectedMonth, today);
+    return est
+      ? { status: "estimate", amount: (est.net * factor * row.percent) / 100, currency: est.currency || row.currency }
+      : none(row);
+  };
 
   for (const row of rows) {
     if (row.pending || !isRowActiveInMonth(row, selectedMonth)) {
@@ -533,48 +551,49 @@ export async function computeMonthResults(
       out.set(row.key, none(row));
       continue;
     }
-    const factor = daysInMonth > 0 ? dayCountInclusive(w.winStart, w.winEnd) / daysInMonth : 1;
-    // Historický odhad (sezónní z minulých tržeb), prorátováno na aktivní část měsíce.
-    // Slouží budoucím měsícům i jako FALLBACK, když pro zvolený měsíc ještě nejsou
-    // přímá data (lokalita zatím bez tržby/párování v daném okně, ale má historii).
-    const historical = (): FeeMonthResult => {
-      const est = estimateLocationNet(wholeSeries.get(row.locationId), selectedMonth, today);
-      return est
-        ? { status: "estimate", amount: (est.net * factor * row.percent) / 100, currency: est.currency || row.currency }
-        : none(row);
-    };
+    const totalDays = dayCountInclusive(w.winStart, w.winEnd);
 
+    // Budoucí měsíc: kvalifikovaný sezónní odhad z historie, prorátovaný na aktivní
+    // okno periody v měsíci.
     if (isFuture) {
-      out.set(row.key, historical());
+      out.set(row.key, historicalEstimate(row, daysInMonth > 0 ? totalDays / daysInMonth : 1));
       continue;
     }
+
+    // Uzavřený měsíc: počítá se VÝHRADNĚ reálná tržba. Když za měsíc žádná tržba nebyla
+    // (lokalita chybí v DW nebo net <= 0), poplatek se NEODHADUJE - měsíc je uzavřený,
+    // finální je jen to, co se reálně prodalo (žádný „Odhad", jen sazba).
     if (isClosed) {
       const v = rangeNets.get(`${w.winStart}|${w.winEnd}`)?.get(row.locationId);
       out.set(
         row.key,
-        v
+        v && v.net > 0
           ? { status: "final", amount: (v.net * row.percent) / 100, currency: v.currency || row.currency }
-          : historical(),
+          : none(row),
       );
       continue;
     }
-    // Probíhající měsíc -> run-rate z uplynulé části aktivního okna; bez dat -> historie.
+
+    // Probíhající měsíc.
+    const elapsedDays = w.elapsedEnd >= w.winStart ? dayCountInclusive(w.winStart, w.elapsedEnd) : 0;
     const v =
-      w.elapsedEnd >= w.winStart
-        ? rangeNets.get(`${w.winStart}|${w.elapsedEnd}`)?.get(row.locationId)
-        : undefined;
-    if (!v) {
-      out.set(row.key, historical());
+      elapsedDays > 0 ? rangeNets.get(`${w.winStart}|${w.elapsedEnd}`)?.get(row.locationId) : undefined;
+    if (v && v.net > 0) {
+      // Run-rate z uplynulé části okna. Dělení VŠEMI uplynulými dny (i těmi bez tržby)
+      // samo snižuje odhad úměrně počtu dnů, kdy se nic neprodalo.
+      const projected = (v.net / elapsedDays) * totalDays;
+      out.set(row.key, {
+        status: "estimate",
+        amount: (projected * row.percent) / 100,
+        currency: v.currency || row.currency,
+      });
       continue;
     }
-    const elapsedDays = dayCountInclusive(w.winStart, w.elapsedEnd);
-    const totalDays = dayCountInclusive(w.winStart, w.winEnd);
-    const projected = elapsedDays > 0 ? (v.net / elapsedDays) * totalDays : v.net;
-    out.set(row.key, {
-      status: "estimate",
-      amount: (projected * row.percent) / 100,
-      currency: v.currency || row.currency,
-    });
+    // Zatím žádná tržba v probíhajícím měsíci -> odhad z historie, ale ZTENČENÝ o už
+    // uplynulé dny bez tržby (počítá se jen na ZBÝVAJÍCÍ aktivní dny). Jak měsíc běží
+    // dál bez tržby, odhad postupně klesá; poslední den (nic nezbývá) -> žádný odhad.
+    const remainingDays = totalDays - elapsedDays;
+    out.set(row.key, historicalEstimate(row, daysInMonth > 0 ? remainingDays / daysInMonth : 0));
   }
 
   return out;
@@ -663,7 +682,7 @@ export async function buildFeeHistory(
       } else if (row.percent > 0) {
         const w = cellWindow.get(`${month}:${row.key}`);
         const v = w ? rangeNets.get(`${w.winStart}|${w.winEnd}`)?.get(row.locationId) : undefined;
-        if (v) {
+        if (v && v.net > 0) {
           amount = (v.net * row.percent) / 100;
           currency = v.currency || row.currency;
         }
