@@ -30,13 +30,10 @@ Po **jakékoli změně UI** (layout, komponenta, styl, nový prvek) automaticky 
 čekání na výzvu uživatele - proveď tyto dva kroky:
 
 - **Vizuální ověření na desktopu i na mobilu (úzký viewport).** Ověř, že se dotčená stránka načte a
-  vypadá správně v obou šířkách. **Výchozí nástroj = claude-in-chrome** (uživatelův Chrome, jeho
-  přihlášená session - žádný login testovacím účtem; mobil přes `resize_window`; otevřené taby po
-  sobě zavřít). **Playwright použij jen jako fallback**: když uživatelův Chrome není
-  přihlášený/dostupný, nebo když testuješ samotný login flow - pak testovací účet
-  (`claude-pos-test@boservices.cz`), systémový Chrome (`channel: "chrome"`), úspěšný login potvrď
-  přes `waitForURL` pryč z `/login`. NIKDY se nepřihlašuj testovacím účtem v uživatelově Chromu
-  (přepsalo by mu to jeho session).
+  vypadá správně v obou šířkách. **Nástroj = claude-in-chrome** (uživatelův Chrome; mobil přes
+  `resize_window`; otevřené taby po sobě zavřít). Když je potřeba jiná session než uživatelova
+  (reálná data, chráněný preview, login flow), přihlas se v něm testovacím účtem
+  (`claude-pos-test@boservices.cz`) - login na `/portal/login`.
 - **Kontrola konzistence komponent.** Změna nesmí zavést bespoke variantu ani rozbít sdílené
   komponenty - drž se `PageHeader`, `FilterChip`, `Chip`, `KpiCard`, `buttons.ts` a sémantiky barev.
   Hlídej hlavně **regrese neviditelné na první pohled**: výška karet, velikost a váha písma nadpisů,
