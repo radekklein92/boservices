@@ -188,7 +188,7 @@ export function FeesClient({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Volič měsíce (vlevo) + hledání (vpravo) na jednom řádku */}
+      {/* Volič měsíce + hledání hned vedle něj (ne u pravého kraje) na jednom řádku */}
       <div className="flex flex-wrap items-center gap-3">
         <MonthPicker
           months={months}
@@ -196,7 +196,7 @@ export function FeesClient({
           onSelect={goMonth}
           pending={isPending}
         />
-        <div className="ml-auto w-full max-w-[400px]">
+        <div className="w-full max-w-[400px]">
           <SearchInput
             value={search}
             onChange={setSearch}
