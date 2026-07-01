@@ -44,10 +44,12 @@ import {
   type Task,
   type TaskStatus,
 } from "@/lib/portal/tasks-shared";
-import { BTN_PRIMARY } from "@/components/portal/ui/buttons";
+import { BTN_PRIMARY, BTN_TOOL, FV } from "@/components/portal/ui/buttons";
 import { PageHeader } from "@/components/portal/shell/PageHeader";
 import { SearchInput } from "@/components/portal/ui/SearchInput";
 import { ResultCount } from "@/components/portal/ui/ResultCount";
+import { FilterBar } from "@/components/portal/ui/FilterBar";
+import { SelectMenu } from "@/components/portal/ui/SelectMenu";
 import { StatusDropdown } from "./task-ui";
 import { TaskSidePanel } from "./TaskSidePanel";
 import { CommandPalette } from "./CommandPalette";
@@ -273,56 +275,58 @@ export function TaskManagerClient({
         {/* Řádek 1: hledání */}
         <SearchInput value={search} onChange={setSearch} placeholder="Hledat úkol…" />
 
-        {/* Řádek 2: počet + pohledové ovladače vpravo (vzor Real Estate) */}
-        <div className="flex flex-wrap items-center justify-end gap-3">
-          <ResultCount shown={filtered.length} total={tasks.length} />
-          <div className="inline-flex h-9 overflow-hidden rounded-full border border-edge">
-            <ViewBtn active={view === "list"} onClick={() => setView("list")} Icon={Rows3} />
-            <ViewBtn active={view === "kanban"} onClick={() => setView("kanban")} Icon={KanbanSquare} />
-          </div>
+        {/* Řádek 2 = sdílený FilterBar: filtr řešitele vlevo, počet + pohledové
+            ovladače u pravého kraje (trailing) - vzor Real Estate. */}
+        <FilterBar
+          trailing={
+            <>
+              <ResultCount shown={filtered.length} total={tasks.length} />
+              <div className="inline-flex h-9 overflow-hidden rounded-full border border-edge bg-paper">
+                <ViewBtn active={view === "list"} onClick={() => setView("list")} Icon={Rows3} />
+                <ViewBtn active={view === "kanban"} onClick={() => setView("kanban")} Icon={KanbanSquare} />
+              </div>
 
-          <select
+              <button
+                type="button"
+                onClick={() =>
+                  setSortDeadline((s) => (s === "asc" ? "desc" : s === "desc" ? null : "asc"))
+                }
+                className={`inline-flex h-9 items-center gap-2 rounded-full border bg-paper px-3.5 text-[12.5px] font-medium transition-colors ${
+                  sortDeadline
+                    ? "border-ink-base text-ink-base"
+                    : "border-edge text-ink-deep hover:border-ink-soft"
+                } ${FV}`}
+                title="Řadit podle termínu"
+              >
+                <ArrowDownUp className="h-3.5 w-3.5" strokeWidth={1.5} />
+                Termín {sortDeadline === "asc" ? "↑" : sortDeadline === "desc" ? "↓" : ""}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setPalette(true)}
+                className={BTN_TOOL}
+                title="Rychlé přidání (Cmd+K)"
+              >
+                <Zap className="h-3.5 w-3.5" strokeWidth={1.5} />
+                Rychle
+                <kbd className="ml-0.5 hidden rounded border border-edge bg-paper-warm px-1.5 py-0.5 font-mono text-[10px] font-semibold text-ink-mid sm:inline-block">
+                  ⌘K
+                </kbd>
+              </button>
+            </>
+          }
+        >
+          <SelectMenu
             value={filterAssignee}
-            onChange={(e) => setFilterAssignee(e.target.value)}
-            className="h-9 rounded-full border border-edge bg-paper px-3 text-[12.5px] text-ink-deep outline-none transition-colors hover:border-ink-base focus:border-ink-base"
-          >
-            <option value="">Všichni řešitelé</option>
-            {assigneeOptions.map((a) => (
-              <option key={a} value={a}>
-                {a}
-              </option>
-            ))}
-          </select>
-
-          <button
-            type="button"
-            onClick={() =>
-              setSortDeadline((s) => (s === "asc" ? "desc" : s === "desc" ? null : "asc"))
-            }
-            className={`inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-[12.5px] font-medium transition-colors ${
-              sortDeadline
-                ? "border-ink-base text-ink-base"
-                : "border-edge text-ink-mid hover:border-ink-base hover:text-ink-base"
-            }`}
-            title="Řadit podle termínu"
-          >
-            <ArrowDownUp className="h-3.5 w-3.5" strokeWidth={1.5} />
-            Termín {sortDeadline === "asc" ? "↑" : sortDeadline === "desc" ? "↓" : ""}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setPalette(true)}
-            className="inline-flex h-9 items-center gap-1.5 rounded-full border border-edge px-3 text-[12.5px] font-medium text-ink-mid transition-colors hover:border-ink-base hover:text-ink-base"
-            title="Rychlé přidání (Cmd+K)"
-          >
-            <Zap className="h-3.5 w-3.5" strokeWidth={1.5} />
-            Rychle
-            <kbd className="ml-0.5 hidden rounded border border-edge bg-paper-warm px-1.5 py-0.5 font-mono text-[10px] font-semibold text-ink-mid sm:inline-block">
-              ⌘K
-            </kbd>
-          </button>
-        </div>
+            onChange={setFilterAssignee}
+            ariaLabel="Filtr podle řešitele"
+            options={[
+              { value: "", label: "Všichni řešitelé" },
+              ...assigneeOptions.map((a) => ({ value: a, label: a })),
+            ]}
+          />
+        </FilterBar>
       </div>
 
       {/* Obsah */}
