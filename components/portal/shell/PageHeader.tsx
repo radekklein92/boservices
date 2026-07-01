@@ -12,7 +12,7 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <header className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between md:gap-10">
+    <header className="flex flex-col gap-6 border-b border-edge pb-7 md:flex-row md:items-end md:justify-between md:gap-10">
       <div className="flex flex-col gap-3">
         {eyebrow && (
           <div className="text-[11px] font-medium uppercase tracking-[0.22em] text-ink-mid">
@@ -23,11 +23,11 @@ export function PageHeader({
             {eyebrow}
           </div>
         )}
-        <h1 className="font-extrabold text-ink-base text-[clamp(1.85rem,3.4vw,2.6rem)] leading-[1.05] tracking-[-0.035em]">
+        <h1 className="text-balance font-extrabold text-ink-base text-[clamp(2rem,3.6vw,3rem)] leading-[1.03] tracking-[-0.04em]">
           {title}
         </h1>
         {lede && (
-          <p className="max-w-[60ch] text-[0.985rem] leading-relaxed text-ink-deep">
+          <p className="max-w-[62ch] text-[1.02rem] leading-relaxed text-ink-deep">
             {lede}
           </p>
         )}
