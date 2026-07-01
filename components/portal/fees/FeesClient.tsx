@@ -16,7 +16,7 @@ import { FilterChip } from "@/components/portal/ui/FilterChip";
 import { Chip } from "@/components/portal/ui/Chip";
 import { SearchInput } from "@/components/portal/ui/SearchInput";
 import { ResultCount } from "@/components/portal/ui/ResultCount";
-import { BTN_ROW } from "@/components/portal/ui/buttons";
+import { BTN_TOOL } from "@/components/portal/ui/buttons";
 import { FeeEditModal } from "./FeeEditModal";
 import { SkippedContractsModal } from "./SkippedContractsModal";
 import type { ContractType } from "@/lib/portal/contract-types";
@@ -203,7 +203,7 @@ export function FeesClient({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Měsíční navigace + report vynechaných smluv */}
+      {/* Měsíční navigace */}
       <div className="flex flex-wrap items-center gap-2">
           <div className="inline-flex items-center gap-1 rounded-full border border-edge bg-paper p-1">
             <button
@@ -230,16 +230,6 @@ export function FeesClient({
               <ChevronRight className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
             </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowSkipped(true)}
-            className={BTN_ROW}
-            title="Smlouvy vynechané za tento měsíc (bez tržby, neúčinné, expirované)"
-          >
-            <ClipboardList className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-            Vynechané smlouvy
-            <span className="font-mono text-[11px] text-ink-soft">{skippedTotal}</span>
-          </button>
       </div>
 
       {/* Hledání */}
@@ -288,7 +278,7 @@ export function FeesClient({
             ))}
           </>
         )}
-        <div className="ml-auto flex shrink-0 items-center gap-3">
+        <div className="ml-auto flex flex-wrap items-center gap-3">
           {totals.map(([cur, sum]) => (
             <span key={cur} className="text-[12px] text-ink-mid">
               <span className="text-ink-soft">objem</span>{" "}
@@ -296,6 +286,16 @@ export function FeesClient({
             </span>
           ))}
           <ResultCount shown={filtered.length} total={rows.length} />
+          <button
+            type="button"
+            onClick={() => setShowSkipped(true)}
+            className={BTN_TOOL}
+            title="Smlouvy vynechané za tento měsíc (bez tržby, neúčinné, expirované)"
+          >
+            <ClipboardList className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+            Vynechané smlouvy
+            <span className="font-mono text-[11px] text-ink-soft">{skippedTotal}</span>
+          </button>
         </div>
       </div>
 
