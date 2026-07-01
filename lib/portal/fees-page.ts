@@ -441,15 +441,28 @@ export function estimateLocationNet(
   return { net: recentAvg, status: "estimate", currency: anyCurrency };
 }
 
-// Měsíční odměna z fixní částky dle periody (yearly -> /12, one-time -> jen ve
-// výchozím měsíci).
-function fixedMonthlyAmount(row: FeeRow, target: string): number | null {
-  if (row.amountPeriod === "yearly") return row.amount / 12;
+// Měsíční odměna z fixní částky dle periody. Paušál (monthly, resp. yearly -> /12)
+// se PRORÁTUJE na počet dní, kdy byla perioda v daném měsíci reálně aktivní: když
+// smlouva o provozování / o spolupráci a podpoře začne (nebo skončí) v průběhu
+// měsíce, účtuje se jen POMĚROVÁ část z měsíční částky, ne celá (celý měsíc -> faktor 1).
+// one-time = jednorázová částka jen ve výchozím měsíci (bez prorátování).
+function fixedMonthlyAmount(
+  row: FeeRow,
+  target: string,
+  monthStart: string,
+  monthEnd: string,
+): number | null {
   if (row.amountPeriod === "one-time") {
     const fromM = row.from ? row.from.slice(0, 7) : "";
     return fromM && fromM === target ? row.amount : null;
   }
-  return row.amount; // monthly (default)
+  const base = row.amountPeriod === "yearly" ? row.amount / 12 : row.amount; // monthly (default)
+  const w = periodWindowInMonth(row, monthStart, monthEnd);
+  if (!w) return null;
+  const activeDays = dayCountInclusive(w.winStart, w.winEnd);
+  const inMonth = dayCountInclusive(monthStart, monthEnd);
+  const factor = inMonth > 0 ? activeDays / inMonth : 1;
+  return base * factor;
 }
 
 // Okno periody uvnitř měsíce (clip [from, to] na hranice měsíce). "" = neaktivní.
@@ -607,8 +620,9 @@ export async function computeMonthResults(
     }
 
     // Fixní (paušální) částka: známe ji -> "final" (revenue gate výše už proběhl).
+    // Prorátuje se na aktivní část měsíce (mid-month start/end -> jen poměrová část).
     if (hasFixed) {
-      const amt = fixedMonthlyAmount(row, selectedMonth);
+      const amt = fixedMonthlyAmount(row, selectedMonth, monthStart, monthEnd);
       out.set(row.key, amt == null ? none(row) : { status: "final", amount: amt, currency: row.currency });
       continue;
     }
@@ -789,13 +803,14 @@ export async function buildFeeHistory(
 
   const entries: FeeHistoryEntry[] = [];
   for (const month of closed) {
+    const { from: ms, to: me } = monthBounds(month);
     const outRows: FeeHistoryRow[] = [];
     for (const row of rows) {
       if (row.pending || !isRowActiveInMonth(row, month)) continue;
       let amount: number | null = null;
       let currency = row.currency;
       if (row.amount > 0 && row.percent === 0) {
-        amount = fixedMonthlyAmount(row, month);
+        amount = fixedMonthlyAmount(row, month, ms, me);
       } else if (row.percent > 0) {
         const w = cellWindow.get(`${month}:${row.key}`);
         const v = w ? rangeNets.get(`${w.winStart}|${w.winEnd}`)?.get(row.locationId) : undefined;
