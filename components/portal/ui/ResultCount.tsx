@@ -16,7 +16,8 @@ export function ResultCount({
     <span
       className={`font-mono text-[12px] tabular-nums text-ink-soft ${className ?? ""}`}
     >
-      {pad ? String(shown).padStart(2, "0") : shown} / {total}
+      {pad ? String(shown).padStart(2, "0") : shown} /{" "}
+      {pad ? String(total).padStart(2, "0") : total}
     </span>
   );
 }
