@@ -705,7 +705,12 @@ export function buildSkippedFeesReport(
   }
   const byLoc = (a: SkippedFeeRow, b: SkippedFeeRow) =>
     a.locationName.localeCompare(b.locationName, "cs");
-  notYetEffective.sort(byLoc);
+  // Ještě neúčinné řadíme podle data účinnosti (sloupec „Od") vzestupně - ať jsou
+  // nejdřív ty, které nabydou účinnosti nejdřív; shodné datum -> podle lokality.
+  // `from` je ISO YYYY-MM-DD, takže prosté řetězcové porovnání je chronologické.
+  notYetEffective.sort(
+    (a, b) => (a.from || "").localeCompare(b.from || "") || byLoc(a, b),
+  );
   expired.sort(byLoc);
   noRevenue.sort(byLoc);
   return { notYetEffective, expired, noRevenue };
