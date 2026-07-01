@@ -190,7 +190,7 @@ export function FeesClient({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Volič měsíce + hledání hned vedle něj + Vynechané smlouvy u pravého kraje - jeden řádek */}
+      {/* Volič měsíce + hledání hned vedle něj (ne u pravého kraje) na jednom řádku */}
       <div className="flex flex-wrap items-center gap-3">
         <MonthPicker
           months={months}
@@ -205,16 +205,6 @@ export function FeesClient({
             placeholder="Hledat lokalitu, klienta, poplatek…"
           />
         </div>
-        <button
-          type="button"
-          onClick={() => setShowSkipped(true)}
-          className={`${BTN_TOOL} ml-auto`}
-          title="Smlouvy vynechané za tento měsíc (bez tržby, neúčinné, expirované)"
-        >
-          <ClipboardList className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
-          Vynechané smlouvy
-          <span className="font-mono text-[11px] text-ink-soft">{skippedTotal}</span>
-        </button>
       </div>
 
       {/* Filtry */}
@@ -264,6 +254,16 @@ export function FeesClient({
             </span>
           ))}
           <ResultCount shown={filtered.length} total={rows.length} />
+          <button
+            type="button"
+            onClick={() => setShowSkipped(true)}
+            className={BTN_TOOL}
+            title="Smlouvy vynechané za tento měsíc (bez tržby, neúčinné, expirované)"
+          >
+            <ClipboardList className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+            Vynechané smlouvy
+            <span className="font-mono text-[11px] text-ink-soft">{skippedTotal}</span>
+          </button>
           <XlsxDownloadButton
             className={BTN_TOOL}
             label="Excel"
