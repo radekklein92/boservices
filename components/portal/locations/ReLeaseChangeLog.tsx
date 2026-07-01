@@ -49,6 +49,9 @@ const dateFmt = new Intl.DateTimeFormat("cs-CZ", {
   year: "numeric",
   hour: "2-digit",
   minute: "2-digit",
+  // Pevná zóna - jinak server (UTC) a klient (Praha) vyrenderují jiný čas
+  // a nastane hydratační mismatch (#418).
+  timeZone: "Europe/Prague",
 });
 
 function formatAt(iso: string): string {
