@@ -1,4 +1,3 @@
-import { PageHeader } from "@/components/portal/shell/PageHeader";
 import { TaskManagerClient } from "@/components/portal/tasks/TaskManagerClient";
 import type { EntityOption } from "@/components/portal/tasks/types";
 import { getSession } from "@/lib/portal/get-session";
@@ -52,24 +51,17 @@ export default async function TasksPage({
   }));
 
   return (
-    <div className="flex flex-col gap-8">
-      <PageHeader
-        eyebrow="Tým"
-        title="Úkoly"
-        lede="Interní úkoly týmu - termíny, podúkoly, e-mailové připomínky a vazby na klienty, lokality a smlouvy."
-      />
-      <TaskManagerClient
-        initialTasks={tasks}
-        members={members}
-        options={{
-          clients: clientOptions,
-          locations: locationOptions,
-          contracts: contractOptions,
-        }}
-        initialSeenMap={seenMap}
-        initialOpenTaskId={sp.task}
-        currentUserName={session!.user!.name ?? ""}
-      />
-    </div>
+    <TaskManagerClient
+      initialTasks={tasks}
+      members={members}
+      options={{
+        clients: clientOptions,
+        locations: locationOptions,
+        contracts: contractOptions,
+      }}
+      initialSeenMap={seenMap}
+      initialOpenTaskId={sp.task}
+      currentUserName={session!.user!.name ?? ""}
+    />
   );
 }
