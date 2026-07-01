@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { canSeePOS } from "@/lib/portal/auth-guard";
 import { getSession } from "@/lib/portal/get-session";
 import { parsePosFilter, serializePosFilter, type PosFilter } from "@/lib/portal/pos/filters";
-import { getClosedStores, getLocationLeaderboardFull } from "@/lib/portal/pos/queries";
+import { getClosedStores, getLocationLeaderboardFull, getLongClosedBosStores } from "@/lib/portal/pos/queries";
 import { isPosApiConfigured } from "@/lib/portal/pos/api";
 import { PageHeader } from "@/components/portal/shell/PageHeader";
 import { PosSubNav } from "@/components/portal/pos/PosSubNav";
@@ -64,10 +64,12 @@ async function LocationsLeaderboard({ filter }: { filter: PosFilter }) {
   // Report neotevřených prodejen běží paralelně se žebříčkem; jeho pád (catch ->
   // null) jen schová odkaz, žebříček zůstane.
   let closed: Awaited<ReturnType<typeof getClosedStores>> | null;
+  let longClosed: Awaited<ReturnType<typeof getLongClosedBosStores>> | null;
   try {
-    [rows, closed] = await Promise.all([
+    [rows, closed, longClosed] = await Promise.all([
       getLocationLeaderboardFull(filter),
       getClosedStores(filter).catch(() => null),
+      getLongClosedBosStores(filter.currency).catch(() => null),
     ]);
   } catch {
     return <Notice title="Data dočasně nedostupná" body="Nepodařilo se načíst žebříček z API Data Warehouse." />;
@@ -102,7 +104,7 @@ async function LocationsLeaderboard({ filter }: { filter: PosFilter }) {
         <h2 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-ink-mid">
           Prodejny ({leaderRows.length}) · {useNet ? "bez DPH" : "s DPH"} · {cur}
         </h2>
-        {closed && <ClosedStoresLink report={closed} />}
+        {closed && <ClosedStoresLink report={closed} longReport={longClosed} />}
       </div>
       <PosLeaderboard rows={leaderRows} currency={cur} valueLabel={useNet ? "Tržby bez DPH" : "Tržby s DPH"} />
     </section>

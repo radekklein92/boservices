@@ -11,6 +11,7 @@ import {
   getKpiSummary,
   getLiveMovers,
   getLocationLeaderboardFull,
+  getLongClosedBosStores,
   getPeriodTotals,
   getReceiptDetail,
   getReceiptsPage,
@@ -93,6 +94,9 @@ export async function GET(req: Request) {
     // se až po dotažení), takže BOS i celá síť jedou z týchž denních dotazů.
     closedStores: getClosedStores(f),
     closedStoresAll: getClosedStores(fAll),
+    // Dlouhodobě neotevřené BOS prodejny (tlačítko v modalu neotevřených). VŽDY okruh
+    // BOS -> jediná varianta (nezávislá na scope), stačí default měna.
+    longClosedBos: getLongClosedBosStores(f.currency),
   };
   const settled = await Promise.allSettled(Object.values(tasks));
   const keys = Object.keys(tasks);

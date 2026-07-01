@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import type { Metadata, Viewport } from "next";
 import { DEFAULT_POS_FILTER, isAllSelection, type PosFilter, type PosSelection } from "@/lib/portal/pos/filters";
 import { getMobileLink, isUnlocked, MLINK_COOKIE } from "@/lib/portal/pos/mobile-link-db";
-import { getClosedStores, getHeatmap, getLiveMovers, getToday, resolveDisplayCurrency } from "@/lib/portal/pos/queries";
+import { getClosedStores, getHeatmap, getLiveMovers, getLongClosedBosStores, getToday, resolveDisplayCurrency } from "@/lib/portal/pos/queries";
 import { isPosApiConfigured } from "@/lib/portal/pos/api";
 import { CONCEPT_LABEL } from "@/components/portal/locations/locations-shared";
 import { PosKpiCard } from "@/components/portal/pos/PosKpiCard";
@@ -201,12 +201,17 @@ async function MobileLiveContent({ filter, title }: { filter: PosFilter; title: 
 // při chybě tiše vypadne (zbytek dashboardu běží dál).
 async function MobileClosedCell({ filter }: { filter: PosFilter }) {
   let report: Awaited<ReturnType<typeof getClosedStores>>;
+  // Dlouhodobě neotevřené (VŽDY okruh BOS) běží paralelně; pád jen schová tlačítko.
+  let longReport: Awaited<ReturnType<typeof getLongClosedBosStores>> | null;
   try {
-    report = await getClosedStores(filter);
+    [report, longReport] = await Promise.all([
+      getClosedStores(filter),
+      getLongClosedBosStores(filter.currency).catch(() => null),
+    ]);
   } catch {
     return null;
   }
-  return <ClosedStoresKpiCard report={report} />;
+  return <ClosedStoresKpiCard report={report} longReport={longReport} />;
 }
 
 function Header({ title, asOf }: { title: string; asOf: string }) {
