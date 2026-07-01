@@ -1,7 +1,14 @@
 // Sdílené jádro Task Manageru - typy + pure helpery bez Redisu a Reactu, aby
 // šlo importovat ze serveru (DB, e-mail, cron) i z klienta (panel, parser).
 
-import { TONE_NEUTRAL, TONE_WARN, TONE_GOOD } from "./tone";
+import {
+  TONE_NEUTRAL,
+  TONE_WARN,
+  TONE_GOOD,
+  DOT_NEUTRAL,
+  DOT_WARN,
+  DOT_GOOD,
+} from "./tone";
 
 // ───────────────────────────── Typy ─────────────────────────────
 
@@ -132,6 +139,7 @@ export function normalizeTask(raw: Task): Task {
 
 // ───────────────────────── Status meta ──────────────────────────
 // Jen řetězce (žádné React ikony), ať je modul importovatelný i v e-mailu/cronu.
+// dot = Tailwind třída (DOT_* z tone.ts), renderuje se přes className.
 
 export const STATUS_ORDER: TaskStatus[] = ["todo", "in_progress", "done"];
 
@@ -141,17 +149,17 @@ export const STATUS_META: Record<
 > = {
   todo: {
     label: "Nezahájeno",
-    dot: "#BFC3C7",
+    dot: DOT_NEUTRAL,
     chip: TONE_NEUTRAL,
   },
   in_progress: {
     label: "Probíhá",
-    dot: "#B45309",
+    dot: DOT_WARN,
     chip: TONE_WARN,
   },
   done: {
     label: "Hotovo",
-    dot: "#047857",
+    dot: DOT_GOOD,
     chip: TONE_GOOD,
   },
 };

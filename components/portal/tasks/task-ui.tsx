@@ -77,7 +77,7 @@ export function StatusDropdown({
         className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11.5px] font-medium transition-colors ${meta.chip} ${compact ? "" : "min-w-[118px] justify-between"}`}
       >
         <span className="inline-flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full" style={{ background: meta.dot }} />
+          <span className={`h-2 w-2 rounded-full ${meta.dot}`} />
           {meta.label}
         </span>
         <ChevronDown className="h-3 w-3 opacity-60" strokeWidth={2} aria-hidden="true" />
@@ -105,7 +105,7 @@ export function StatusDropdown({
                   className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-[12.5px] text-ink-base transition-colors hover:bg-paper-warm"
                 >
                   <span className="inline-flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full" style={{ background: m.dot }} />
+                    <span className={`h-2 w-2 rounded-full ${m.dot}`} />
                     {m.label}
                   </span>
                   {s === value && <Check className="h-3.5 w-3.5 text-ink-base" strokeWidth={2} />}
