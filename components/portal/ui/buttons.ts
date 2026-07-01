@@ -8,7 +8,8 @@
 // kompaktnější na výšku. Auth/landing (h-12) jsou samostatný kontext.
 
 // Sdílený focus-visible prsten (klávesnicová navigace) - stejný napříč tlačítky.
-const FV =
+// Exportovaný, ať ho sdílí i ne-tlačítkové prvky standardu (SearchInput apod.).
+export const FV =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-base focus-visible:ring-offset-2 focus-visible:ring-offset-paper";
 
 // Tmavá primární pilulka (hlavní akce na stránce / v seznamu).
