@@ -14,7 +14,6 @@ import {
 } from "@/lib/portal/pos/filters";
 import { FilterChip } from "@/components/portal/ui/FilterChip";
 import { Toggle } from "@/components/portal/ui/Toggle";
-import { TopProgressBar } from "@/components/portal/ui/TopProgressBar";
 import type { FilterBarData } from "./pos-filter-shared";
 import { PosStorePicker } from "./PosStorePicker";
 import { PosViewsMenu } from "./PosViewsMenu";
@@ -69,10 +68,22 @@ export function PosFilterBar({
   // odpovědi (DW dotazy jsou pomalé). Bez zpětné vazby to vypadá, že se po
   // kliknutí nic neděje, a uživatel klika dokola. Proto:
   //  1) optimisticFilter - zvolená pilulka zčerná OKAMŽITĚ (nečeká na URL),
-  //  2) isPending -> horní progress lišta jede po celou dobu načítání.
+  //  2) isPending -> stará data pod filtrem se ztlumí (stale-while-revalidate),
+  //     dokud nedorazí nová (CSS na html[data-pos-nav], viz useEffect níž).
   // useOptimistic se po dokončení navigace sám vrátí na skutečný `filter`.
   const [isPending, startTransition] = useTransition();
   const [view, setOptimisticFilter] = useOptimistic(filter);
+
+  // Signál "načítá se" pro CSS: ztlumí obsah za filter barem. Atribut na <html>,
+  // ať pravidlo cílí sourozence filtru napříč všemi POS stránkami z jednoho místa.
+  useEffect(() => {
+    const el = document.documentElement;
+    if (isPending) el.dataset.posNav = "1";
+    else delete el.dataset.posNav;
+    return () => {
+      delete el.dataset.posNav;
+    };
+  }, [isPending]);
 
   const update = (patch: Partial<PosFilter>) => {
     const next = { ...filter, ...patch };
@@ -134,13 +145,11 @@ export function PosFilterBar({
   );
 
   return (
-    <>
-      {/* Horní lišta načítání - jede, dokud RSC navigace (změna filtru) neskončí. */}
-      <TopProgressBar active={isPending} />
-      <div
-        aria-busy={isPending}
-        className="flex flex-col gap-3 rounded-2xl border border-edge bg-paper p-3 sm:p-4"
-      >
+    <div
+      data-pos-filterbar
+      aria-busy={isPending}
+      className="flex flex-col gap-3 rounded-2xl border border-edge bg-paper p-3 sm:p-4"
+    >
       {/* Řádek 1: výběr prodejen + "Stejné prodejny" + měna + DPH + uložené pohledy */}
       <div className="flex flex-wrap items-center gap-2">
         <PosStorePicker concepts={concepts} selection={sel} onChange={setSelection} />
@@ -271,8 +280,7 @@ export function PosFilterBar({
           <div className="ml-auto flex items-center gap-1.5">{iconButtons}</div>
         </div>
       )}
-      </div>
-    </>
+    </div>
   );
 }
 
