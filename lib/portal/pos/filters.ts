@@ -206,6 +206,12 @@ export function resolveDateRange(filter: PosFilter, today: string = todayPrague(
   }
 }
 
+// True, když se filtr resolvuje na jediný kalendářní den (dnes/včera/vlastní 1 den).
+// Takové zobrazení má smysl kreslit hodinovým grafem (24 bodů), ne jedním denním bodem.
+export function isSingleDay(filter: PosFilter, today: string = todayPrague()): boolean {
+  return inclusiveDays(resolveDateRange(filter, today)) === 1;
+}
+
 // Srovnávací okno (baseline). Srovnání je vždy zapnuté: baseline se odvodí z presetu
 // jako PŘIROZENÉ PŘEDCHOZÍ KALENDÁŘNÍ období: den->předchozí den, týden->předchozí týden,
 // měsíc->předchozí kalendářní měsíc (MTD vs MTD), rok->předchozí rok (YTD vs YTD).
