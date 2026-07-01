@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowUpRight, MapPin, FileCheck, FileX, Store, Building2 } from "lucide-react";
 import type { LocationCategory, MirroredLocation } from "@/lib/portal/locations-db";
 import { FilterChip } from "@/components/portal/ui/FilterChip";
+import { FilterBar } from "@/components/portal/ui/FilterBar";
 import { SearchInput } from "@/components/portal/ui/SearchInput";
 import { ResultCount } from "@/components/portal/ui/ResultCount";
 import { BTN_ROW } from "@/components/portal/ui/buttons";
@@ -144,16 +145,30 @@ export function LocationsTable({
 
   return (
     <>
-      <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <div className="mb-4">
         <SearchInput
           value={query}
           onChange={setQuery}
           placeholder="Hledat podle názvu, kódu, klienta…"
         />
-        <ResultCount shown={filtered.length} total={locations.length} />
       </div>
 
-      <div className="mb-5 flex flex-wrap items-center gap-2">
+      <FilterBar
+        className="mb-5"
+        onReset={() => {
+          setActiveCats(new Set());
+          setLeaseFilter("all");
+          setFranchiseFilter("all");
+          setBosFilter("all");
+        }}
+        resetActive={
+          activeCats.size > 0 ||
+          leaseFilter !== "all" ||
+          franchiseFilter !== "all" ||
+          bosFilter !== "all"
+        }
+        trailing={<ResultCount shown={filtered.length} total={locations.length} />}
+      >
         {CATEGORY_ORDER.map((cat) => {
           const n = counts.get(cat) ?? 0;
           if (n === 0) return null;
@@ -228,24 +243,7 @@ export function LocationsTable({
           title="Lokality mimo BOS síť"
         />
 
-        {(activeCats.size > 0 ||
-          leaseFilter !== "all" ||
-          franchiseFilter !== "all" ||
-          bosFilter !== "all") && (
-          <button
-            type="button"
-            onClick={() => {
-              setActiveCats(new Set());
-              setLeaseFilter("all");
-              setFranchiseFilter("all");
-              setBosFilter("all");
-            }}
-            className="ml-1 text-[12px] font-medium text-ink-mid underline-offset-2 hover:text-ink-base hover:underline"
-          >
-            Zrušit filtr
-          </button>
-        )}
-      </div>
+      </FilterBar>
 
       <div className="overflow-hidden rounded-3xl border border-edge bg-paper">
         <ul className="divide-y divide-edge">

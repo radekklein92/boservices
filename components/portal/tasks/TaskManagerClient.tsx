@@ -270,14 +270,12 @@ export function TaskManagerClient({
 
       {/* Toolbar */}
       <div className="flex flex-col gap-3">
-        {/* Řádek 1: hledání + počet */}
-        <div className="flex flex-wrap items-center gap-3">
-          <SearchInput value={search} onChange={setSearch} placeholder="Hledat úkol…" />
-          <ResultCount shown={filtered.length} total={tasks.length} />
-        </div>
+        {/* Řádek 1: hledání */}
+        <SearchInput value={search} onChange={setSearch} placeholder="Hledat úkol…" />
 
-        {/* Řádek 2: pohled + sekundární filtry */}
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Řádek 2: počet + pohledové ovladače vpravo (vzor Real Estate) */}
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          <ResultCount shown={filtered.length} total={tasks.length} />
           <div className="inline-flex h-9 overflow-hidden rounded-full border border-edge">
             <ViewBtn active={view === "list"} onClick={() => setView("list")} Icon={Rows3} />
             <ViewBtn active={view === "kanban"} onClick={() => setView("kanban")} Icon={KanbanSquare} />
