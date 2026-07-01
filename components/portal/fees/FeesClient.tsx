@@ -7,13 +7,14 @@ import {
   ChevronLeft,
   ChevronRight,
   ArrowUpRight,
-  Search,
   ChevronUp,
   ChevronDown,
   ChevronsUpDown,
 } from "lucide-react";
 import { FilterChip } from "@/components/portal/ui/FilterChip";
 import { Chip } from "@/components/portal/ui/Chip";
+import { SearchInput } from "@/components/portal/ui/SearchInput";
+import { ResultCount } from "@/components/portal/ui/ResultCount";
 import { FeeEditModal } from "./FeeEditModal";
 import type { ContractType } from "@/lib/portal/contract-types";
 import type { ContractFeeTerms } from "@/lib/portal/contract-fee-terms";
@@ -221,20 +222,11 @@ export function FeesClient({
           </button>
         </div>
 
-        <div className="relative max-w-[360px] flex-1">
-          <Search
-            className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mid"
-            strokeWidth={1.5}
-            aria-hidden="true"
-          />
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Hledat lokalitu, klienta, poplatek…"
-            className="h-11 w-full rounded-full border border-edge bg-paper pl-11 pr-4 text-[14px] text-ink-base outline-none transition-colors placeholder:text-ink-soft focus:border-ink-base"
-          />
-        </div>
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Hledat lokalitu, klienta, poplatek…"
+        />
       </div>
 
       {/* Filtry */}
@@ -283,9 +275,7 @@ export function FeesClient({
               <span className="font-semibold text-ink-base">{formatMoney(sum, cur)}</span>
             </span>
           ))}
-          <span className="font-mono text-[12px] text-ink-soft">
-            {filtered.length.toString().padStart(2, "0")} / {rows.length}
-          </span>
+          <ResultCount shown={filtered.length} total={rows.length} />
         </div>
       </div>
 
