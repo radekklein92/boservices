@@ -40,6 +40,7 @@ import { maskWho } from "@/lib/portal/masked-account";
 import { htmlDiff } from "@/lib/portal/contract-diff";
 import { bakeSnapshotForDiff } from "@/lib/portal/contract-render";
 import { FilterChip } from "@/components/portal/ui/FilterChip";
+import { FilterBar } from "@/components/portal/ui/FilterBar";
 import { Chip } from "@/components/portal/ui/Chip";
 import { CONTRACT_STATUS_ICON } from "./contract-status-meta";
 import { BTN_ROW, BTN_ICON, BTN_PRIMARY } from "@/components/portal/ui/buttons";
@@ -632,15 +633,12 @@ export function ContractsList({
         }
       />
       <div className="flex flex-col gap-5">
-        {/* Hledání + počet */}
-        <div className="flex flex-wrap items-center gap-3">
-          <SearchInput
-            value={query}
-            onChange={setQuery}
-            placeholder="Hledat podle klienta, čísla, typu, prodejny…"
-          />
-          <ResultCount shown={filtered.length} total={typeScoped.length} />
-        </div>
+        {/* Hledání */}
+        <SearchInput
+          value={query}
+          onChange={setQuery}
+          placeholder="Hledat podle klienta, čísla, typu, prodejny…"
+        />
 
         {/* Zúžení na typ (proklik z dashboardu) - klik zruší a vrátí všechny typy. */}
         {typeFilter && (
@@ -655,8 +653,10 @@ export function ContractsList({
           </div>
         )}
 
-        {/* Status filter chips */}
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Status filter chips + počet vpravo */}
+        <FilterBar
+          trailing={<ResultCount shown={filtered.length} total={typeScoped.length} />}
+        >
           <FilterChip
             active={statusFilters.size === 0}
             onClick={() => setStatusFilters(new Set())}
@@ -673,7 +673,7 @@ export function ContractsList({
               count={counts[s]}
             />
           ))}
-        </div>
+        </FilterBar>
 
         {/* Bulk action bar */}
         {someSelected && (

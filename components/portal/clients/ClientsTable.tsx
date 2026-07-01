@@ -155,32 +155,34 @@ export function ClientsTable({
 
   return (
     <>
-      <div className="mb-4 flex items-center gap-3">
+      <div className="mb-4">
         <SearchInput
           value={query}
           onChange={onQueryChange}
           placeholder="Hledat podle jména, IČO, města…"
         />
-        <ResultCount shown={filtered.length} total={clients.length} />
       </div>
 
-      {clients.some((c) => (badgesByClient?.[c.id]?.length ?? 0) > 0) && (
-        <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-ink-mid">
-          <span className="font-semibold uppercase tracking-[0.14em] text-ink-soft">
-            Stav smluv
-          </span>
-          {STATE_ORDER.map((s) => (
-            <span key={s} className="inline-flex items-center gap-1.5">
-              <span
-                className={`grid h-4 w-4 place-items-center rounded-full border ${STATE_STYLE[s]}`}
-              >
-                <span className="h-1.5 w-1.5 rounded-full bg-current" />
-              </span>
-              {STATE_LABEL[s]}
+      <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] text-ink-mid">
+        {clients.some((c) => (badgesByClient?.[c.id]?.length ?? 0) > 0) && (
+          <>
+            <span className="font-semibold uppercase tracking-[0.14em] text-ink-soft">
+              Stav smluv
             </span>
-          ))}
-        </div>
-      )}
+            {STATE_ORDER.map((s) => (
+              <span key={s} className="inline-flex items-center gap-1.5">
+                <span
+                  className={`grid h-4 w-4 place-items-center rounded-full border ${STATE_STYLE[s]}`}
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                </span>
+                {STATE_LABEL[s]}
+              </span>
+            ))}
+          </>
+        )}
+        <ResultCount className="ml-auto" shown={filtered.length} total={clients.length} />
+      </div>
 
       <div className="overflow-hidden rounded-3xl border border-edge bg-paper">
         <ul className="divide-y divide-edge">

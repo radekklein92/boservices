@@ -203,9 +203,8 @@ export function FeesClient({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Měsíční stepper + report vynechaných smluv + hledání */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2">
+      {/* Měsíční navigace + report vynechaných smluv */}
+      <div className="flex flex-wrap items-center gap-2">
           <div className="inline-flex items-center gap-1 rounded-full border border-edge bg-paper p-1">
             <button
               type="button"
@@ -241,14 +240,14 @@ export function FeesClient({
             Vynechané smlouvy
             <span className="font-mono text-[11px] text-ink-soft">{skippedTotal}</span>
           </button>
-        </div>
-
-        <SearchInput
-          value={search}
-          onChange={setSearch}
-          placeholder="Hledat lokalitu, klienta, poplatek…"
-        />
       </div>
+
+      {/* Hledání */}
+      <SearchInput
+        value={search}
+        onChange={setSearch}
+        placeholder="Hledat lokalitu, klienta, poplatek…"
+      />
 
       {/* Filtry */}
       <div className="flex flex-wrap items-center gap-2">
