@@ -4,8 +4,6 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  ChevronLeft,
-  ChevronRight,
   ArrowUpRight,
   ChevronUp,
   ChevronDown,
@@ -14,6 +12,7 @@ import {
 } from "lucide-react";
 import { FilterChip } from "@/components/portal/ui/FilterChip";
 import { Chip } from "@/components/portal/ui/Chip";
+import { MonthPicker } from "@/components/portal/ui/MonthPicker";
 import { SearchInput } from "@/components/portal/ui/SearchInput";
 import { ResultCount } from "@/components/portal/ui/ResultCount";
 import { BTN_TOOL } from "@/components/portal/ui/buttons";
@@ -39,16 +38,6 @@ const STATUS_META: Record<MonthFeeStatus, { label: string; tone: string }> = {
   estimate: { label: "Odhad", tone: "border-amber-300 bg-amber-50 text-amber-700" },
   none: { label: "", tone: "" },
 };
-
-function monthLabel(key: string): string {
-  const [y, m] = key.split("-").map((s) => parseInt(s, 10));
-  const s = new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString("cs-CZ", {
-    month: "long",
-    year: "numeric",
-    timeZone: "UTC",
-  });
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
 
 function formatMoney(n: number, currency: string): string {
   const v = Math.round(n).toLocaleString("cs-CZ");
@@ -128,10 +117,6 @@ export function FeesClient({
   const skippedTotal =
     report.noRevenue.length + report.notYetEffective.length + report.expired.length;
 
-  const idx = months.indexOf(selectedMonth);
-  const prevMonth = idx > 0 ? months[idx - 1] : null;
-  const nextMonth = idx >= 0 && idx < months.length - 1 ? months[idx + 1] : null;
-
   function goMonth(target: string | null) {
     if (!target) return;
     startTransition(() => router.push(`/portal/fees?month=${target}`));
@@ -203,41 +188,22 @@ export function FeesClient({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Měsíční navigace */}
-      <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex items-center gap-1 rounded-full border border-edge bg-paper p-1">
-            <button
-              type="button"
-              onClick={() => goMonth(prevMonth)}
-              disabled={!prevMonth}
-              aria-label="Předchozí měsíc"
-              className="grid h-8 w-8 place-items-center rounded-full text-ink-mid transition-colors hover:bg-edge-warm hover:text-ink-base disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
-            >
-              <ChevronLeft className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-            </button>
-            <span
-              className={`min-w-[150px] text-center text-[13.5px] font-semibold tracking-[-0.01em] text-ink-base transition-opacity ${isPending ? "opacity-40" : ""}`}
-            >
-              {monthLabel(selectedMonth)}
-            </span>
-            <button
-              type="button"
-              onClick={() => goMonth(nextMonth)}
-              disabled={!nextMonth}
-              aria-label="Další měsíc"
-              className="grid h-8 w-8 place-items-center rounded-full text-ink-mid transition-colors hover:bg-edge-warm hover:text-ink-base disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
-            >
-              <ChevronRight className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-            </button>
-          </div>
+      {/* Volič měsíce (vlevo) + hledání (vpravo) na jednom řádku */}
+      <div className="flex flex-wrap items-center gap-3">
+        <MonthPicker
+          months={months}
+          selected={selectedMonth}
+          onSelect={goMonth}
+          pending={isPending}
+        />
+        <div className="ml-auto w-full max-w-[400px]">
+          <SearchInput
+            value={search}
+            onChange={setSearch}
+            placeholder="Hledat lokalitu, klienta, poplatek…"
+          />
+        </div>
       </div>
-
-      {/* Hledání */}
-      <SearchInput
-        value={search}
-        onChange={setSearch}
-        placeholder="Hledat lokalitu, klienta, poplatek…"
-      />
 
       {/* Filtry */}
       <div className="flex flex-wrap items-center gap-2">
