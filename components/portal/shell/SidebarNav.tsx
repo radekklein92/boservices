@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
   LayoutDashboard,
+  Banknote,
   BarChart3,
   Building2,
   ChevronDown,
@@ -70,6 +71,12 @@ const feesItem: Item = {
   Icon: Receipt,
 };
 
+// Finance: fakturace poplatků klientům (návrhy → schválení → PDF).
+// Viditelné pro všechny přihlášené (jako Poplatky); mutace hlídá API (admin).
+const finance: Item[] = [
+  { href: "/portal/invoicing", label: "Fakturace", Icon: Banknote },
+];
+
 const admin: Item[] = [
   { href: "/portal/admin/pos-pairing", label: "Párování pokladen", Icon: Store },
   // Dotykačka = správa cloudů i API klíčů; obojí žije v DW dashboardu
@@ -134,6 +141,12 @@ export function SidebarNav({
         {/* Tržby (POS) první v Provozu - jen pro manager+/admin (canSeePOS). */}
         {canSeePOS && <NavItem {...posItem} active={isActive(pathname, posItem.href)} />}
         {provoz.map((item) => (
+          <NavItem key={item.href} {...item} active={isActive(pathname, item.href)} />
+        ))}
+      </NavSection>
+
+      <NavSection label="Finance">
+        {finance.map((item) => (
           <NavItem key={item.href} {...item} active={isActive(pathname, item.href)} />
         ))}
       </NavSection>

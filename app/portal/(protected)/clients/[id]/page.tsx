@@ -4,6 +4,7 @@ import { Pencil } from "lucide-react";
 import {
   cachedGetClient,
   cachedListContractsByClient,
+  cachedListInvoices,
 } from "@/lib/portal/cached-db";
 import { PageHeader } from "@/components/portal/shell/PageHeader";
 import { ClientDetail } from "@/components/portal/clients/ClientDetail";
@@ -30,13 +31,15 @@ export default async function ClientDetailPage({
   const { id } = await params;
   // Parallel fetch - kontrakty si načítáme přímo z params.id, nemusíme čekat
   // na výsledek getClient.
-  const [client, contracts] = await Promise.all([
+  const [client, contracts, allInvoices] = await Promise.all([
     cachedGetClient(id),
     cachedListContractsByClient(id),
+    cachedListInvoices(),
   ]);
   if (!client) notFound();
 
   const feeHistory = await buildFeeHistory(contracts, new Date());
+  const invoices = allInvoices.filter((inv) => inv.clientId === id);
 
   return (
     <div className="flex flex-col gap-10">
@@ -62,7 +65,12 @@ export default async function ClientDetailPage({
         }
       />
 
-      <ClientDetail client={client} contracts={contracts} feeHistory={feeHistory} />
+      <ClientDetail
+        client={client}
+        contracts={contracts}
+        feeHistory={feeHistory}
+        invoices={invoices}
+      />
 
       <EntityTasks kind="client" id={id} />
     </div>

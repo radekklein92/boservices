@@ -54,6 +54,10 @@ export function bustPayouts(): void {
   revalidateTag(TAG.payouts, PROFILE);
 }
 
+export function bustInvoices(): void {
+  revalidateTag(TAG.invoices, PROFILE);
+}
+
 export function bustReFlags(): void {
   revalidateTag(TAG.reFlags, PROFILE);
 }

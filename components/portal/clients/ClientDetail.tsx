@@ -19,7 +19,9 @@ import { InfoRow as Row } from "@/components/portal/ui/InfoRow";
 import { Chip } from "@/components/portal/ui/Chip";
 import { CONTRACT_STATUS_ICON } from "@/components/portal/contracts/contract-status-meta";
 import { FeeHistorySection } from "@/components/portal/fees/FeeHistorySection";
+import { ClientInvoicesSection } from "@/components/portal/invoicing/ClientInvoicesSection";
 import type { FeeHistoryEntry } from "@/lib/portal/fees-page";
+import type { Invoice } from "@/lib/portal/invoices-db";
 
 const LEGAL_LABEL: Record<string, string> = {
   PO: "Právnická osoba",
@@ -43,10 +45,12 @@ export function ClientDetail({
   client,
   contracts,
   feeHistory,
+  invoices,
 }: {
   client: Client;
   contracts: Contract[];
   feeHistory: FeeHistoryEntry[];
+  invoices: Invoice[];
 }) {
   return (
     <div className="flex flex-col gap-6">
@@ -100,6 +104,7 @@ export function ClientDetail({
 
       <ClientFeeSummary contracts={contracts} />
       <FeeHistorySection entries={feeHistory} showLocation />
+      <ClientInvoicesSection invoices={invoices} />
 
       <ContractsSection clientId={client.id} contracts={contracts} />
     </div>
