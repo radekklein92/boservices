@@ -50,7 +50,7 @@ export default async function ProtectedLayout({
         canSeePOS={canSeePos}
         tasksBadge={tasksBadge}
         changesBadge={changesBadge}
-        userMenu={<UserMenu session={session} />}
+        userMenu={<UserMenu session={session} tasksBadge={tasksBadge} />}
       />
       <main className="px-5 py-6 md:ml-64 md:px-12 md:py-14 lg:px-16 lg:py-16">
         <div className="mx-auto w-full max-w-[1280px]">
