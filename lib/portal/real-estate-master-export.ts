@@ -46,7 +46,13 @@ import {
 // Lokální data tak, jak je vrací listLocationLocalMap (subset LocationLocal).
 type LocalSlice = Pick<
   LocationLocal,
-  "note" | "newco" | "flagIds" | "solveDespiteRed" | "manualRed" | "reCheckIn"
+  | "note"
+  | "newco"
+  | "flagIds"
+  | "solveDespiteRed"
+  | "manualRed"
+  | "reCheckIn"
+  | "accountingCenter"
 >;
 
 const ANO = "Ano";
@@ -150,6 +156,7 @@ const COLUMNS: XlsxColumn[] = [
   { header: "Další krok (Transition)", width: 40 },
   { header: "Poznámka (BOS)", width: 44 },
   { header: "Flagy", width: 28 },
+  { header: "Účetní středisko", width: 16 },
   // Klient / režim
   { header: "Aktuální klient", width: 26 },
   { header: "Aktuální režim", width: 16 },
@@ -231,6 +238,7 @@ function rowCells(
     loc.next_step ?? "",
     local?.note ?? "",
     flagLabels,
+    local?.accountingCenter ?? "",
     // Klient / režim
     loc.current_client_name ?? "",
     loc.current_mode ? MODE_LABEL[loc.current_mode] : "",

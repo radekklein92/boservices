@@ -11,6 +11,8 @@ import {
   statusOrder,
 } from "@/lib/portal/contracts-db";
 import { buildFeeHistory } from "@/lib/portal/fees-page";
+import { getSession } from "@/lib/portal/get-session";
+import { isAdminRole } from "@/lib/portal/auth-guard";
 import {
   isBosStore,
   bosStoreReason,
@@ -40,7 +42,7 @@ export default async function LocationDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [location, allContracts, flagCatalog, franchiseByLocation] =
+  const [location, allContracts, flagCatalog, franchiseByLocation, session] =
     await Promise.all([
       cachedGetLocation(id),
       cachedListContracts(),
@@ -48,6 +50,8 @@ export default async function LocationDetailPage({
       // locationId -> id podepsané franšízingové smlouvy (stejný zdroj jako badge
       // „franšíza" v seznamu) — vstup pro odvozenou „BOS prodejna".
       cachedListLocationFranchiseContracts(),
+      // Role pro admin-only editaci (účetní středisko v sekci NewCo).
+      getSession(),
     ]);
   if (!location) notFound();
 
@@ -127,6 +131,7 @@ export default async function LocationDetailPage({
         bosReason={bosReason}
         franchiseEndDate={franchiseEndDate}
         feeHistory={feeHistory}
+        isAdmin={isAdminRole(session?.user?.role)}
       />
       <EntityTasks kind="location" id={id} />
     </div>

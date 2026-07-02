@@ -118,12 +118,15 @@ export function FeesClient({
   selectedMonth,
   months,
   report,
+  accountingCenters,
 }: {
   rows: FeeRowView[];
   contracts: Record<string, EditableContract>;
   selectedMonth: string;
   months: string[];
   report: SkippedFeesReport;
+  // locationId -> účetní středisko (POHODA) — jen pro sloupec v Excel exportu.
+  accountingCenters: Record<string, string>;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -288,7 +291,7 @@ export function FeesClient({
             className={BTN_TOOL}
             label="Excel"
             iconSize="h-3.5 w-3.5"
-            build={() => buildFeesXlsx(filtered, selectedMonth)}
+            build={() => buildFeesXlsx(filtered, selectedMonth, accountingCenters)}
             filename={`poplatky-${selectedMonth}.xlsx`}
             disabled={filtered.length === 0}
             title="Stáhne zobrazené poplatky za tento měsíc do Excelu (.xlsx)"

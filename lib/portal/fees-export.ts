@@ -27,6 +27,7 @@ const STATUS_LABEL: Record<MonthFeeStatus, string> = {
 
 const COLUMNS: XlsxColumn[] = [
   { header: "Lokalita", width: 30 },
+  { header: "Účetní středisko", width: 16 },
   { header: "Klient", width: 28 },
   { header: "Smlouva", width: 22 },
   { header: "Poplatek", width: 34 },
@@ -39,7 +40,7 @@ const COLUMNS: XlsxColumn[] = [
   { header: "Započteno dnů", width: 14 },
 ];
 
-function feeRow(r: FeeRowView): CellValue[] {
+function feeRow(r: FeeRowView, accountingCenters: Record<string, string>): CellValue[] {
   const amount =
     !r.pending && r.status !== "none" && r.computedAmount != null
       ? Math.round(r.computedAmount)
@@ -49,6 +50,7 @@ function feeRow(r: FeeRowView): CellValue[] {
   const toLabel = r.pending ? "" : r.to ? fmtDate(r.to) : "dle franšízové smlouvy";
   return [
     r.locationName,
+    accountingCenters[r.locationId] ?? "",
     r.clientName,
     r.contractLabel,
     r.pending ? r.pending : r.periodLabel,
@@ -73,7 +75,12 @@ function monthLabel(key: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-export function buildFeesXlsx(rows: FeeRowView[], month: string): Promise<Uint8Array> {
-  const data = rows.map(feeRow);
+export function buildFeesXlsx(
+  rows: FeeRowView[],
+  month: string,
+  // locationId -> účetní středisko (POHODA zkratka) z listAccountingCentersByLocation.
+  accountingCenters: Record<string, string>,
+): Promise<Uint8Array> {
+  const data = rows.map((r) => feeRow(r, accountingCenters));
   return buildXlsx([{ name: `Poplatky ${monthLabel(month)}`, columns: COLUMNS, rows: data }]);
 }

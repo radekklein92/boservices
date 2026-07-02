@@ -170,6 +170,10 @@ export interface LocationLocal {
   // kdo/kdy, aby šlo v UI odlišit ruční označení od importu. Import
   // (setLocationNewCo) se ho NEDOTÝKÁ → ruční příznak přežije reimport.
   manualRed?: { by: string; at: string };
+  // Účetní středisko z POHODY (zkratka, např. "CZ001BRBB"). Lokální pole —
+  // v Transition neexistuje, edituje se jen v BOServices (pouze admin).
+  // Prázdný string = nevyplněno.
+  accountingCenter?: string;
   attachments: LocationAttachment[];
   newco?: LocationNewCo;
   // Poslední check-in od RE agenta přes Telegram (viz LocationReCheckIn).
@@ -377,7 +381,13 @@ export async function listLocationLocalMap(): Promise<
     string,
     Pick<
       LocationLocal,
-      "note" | "newco" | "flagIds" | "solveDespiteRed" | "manualRed" | "reCheckIn"
+      | "note"
+      | "newco"
+      | "flagIds"
+      | "solveDespiteRed"
+      | "manualRed"
+      | "reCheckIn"
+      | "accountingCenter"
     >
   >
 > {
@@ -385,7 +395,13 @@ export async function listLocationLocalMap(): Promise<
     string,
     Pick<
       LocationLocal,
-      "note" | "newco" | "flagIds" | "solveDespiteRed" | "manualRed" | "reCheckIn"
+      | "note"
+      | "newco"
+      | "flagIds"
+      | "solveDespiteRed"
+      | "manualRed"
+      | "reCheckIn"
+      | "accountingCenter"
     >
   >();
   const r = getRedis();
@@ -404,8 +420,30 @@ export async function listLocationLocalMap(): Promise<
         solveDespiteRed: local.solveDespiteRed,
         manualRed: local.manualRed,
         reCheckIn: local.reCheckIn,
+        accountingCenter: local.accountingCenter,
       });
     }
+  });
+  return out;
+}
+
+// Mapa locationId -> účetní středisko (jen vyplněná). Lehká projekce pro Excel
+// exporty mimo Real Estate (Smlouvy, Poplatky) — plain Record projde přes RSC
+// boundary do klientských export buildérů.
+export async function listAccountingCentersByLocation(): Promise<
+  Record<string, string>
+> {
+  const out: Record<string, string> = {};
+  const r = getRedis();
+  if (!r) return out;
+  const ids = (await r.smembers(ALL_KEY)) as string[];
+  if (!ids.length) return out;
+  const pipe = r.pipeline();
+  ids.forEach((id) => pipe.get<LocationLocal>(localKey(id)));
+  const results = (await pipe.exec()) as (LocationLocal | null)[];
+  results.forEach((local, i) => {
+    const v = local?.accountingCenter?.trim();
+    if (v) out[ids[i]!] = v;
   });
   return out;
 }

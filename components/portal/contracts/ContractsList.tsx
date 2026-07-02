@@ -287,6 +287,7 @@ export function ContractsList({
   userOptions = [],
   initialType,
   initialStatuses,
+  accountingCenters = {},
 }: {
   contracts: Contract[];
   clients: Client[];
@@ -301,6 +302,8 @@ export function ContractsList({
   // smlouvy a předvybrané stavy. Validuje server (page.tsx).
   initialType?: Contract["type"];
   initialStatuses?: Contract["status"][];
+  // locationId -> účetní středisko (POHODA) — jen pro sloupec v Excel exportu.
+  accountingCenters?: Record<string, string>;
 }) {
   const router = useRouter();
   const [items, setItems] = useState(contracts);
@@ -654,7 +657,7 @@ export function ContractsList({
                 className={BTN_TOOL}
                 label="Excel"
                 iconSize="h-3.5 w-3.5"
-                build={() => buildContractsXlsx(filtered)}
+                build={() => buildContractsXlsx(filtered, accountingCenters)}
                 filename={`smlouvy-${new Date().toISOString().slice(0, 10)}.xlsx`}
                 disabled={filtered.length === 0}
                 title="Stáhne zobrazené smlouvy (vč. dat podpisů, klientů a stavů) do Excelu (.xlsx)"
