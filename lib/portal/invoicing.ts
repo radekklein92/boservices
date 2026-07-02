@@ -11,7 +11,7 @@
 // (vystaveno = dnes, splatnost +14 dní) a best-effort vygeneruje PDF do Blobu
 // (selhání PDF schválení neshodí - download routa umí backfill ze snapshotu).
 
-import { put } from "@vercel/blob";
+import { del, put } from "@vercel/blob";
 import { listContracts } from "./contracts-db";
 import { listClients, type Client } from "./clients-db";
 import {
@@ -31,6 +31,7 @@ import {
   invoiceIdFor,
   listInvoicesByMonth,
   releaseApproveLock,
+  releaseInvoiceNumberIfLatest,
   upsertInvoice,
   INVOICE_SUPPLIER,
   INVOICE_VAT_RATE,
@@ -241,6 +242,13 @@ export async function generateInvoiceDrafts(
     const vat = round2(base * INVOICE_VAT_RATE);
     const total = round2(base + vat);
 
+    // Návrh po vráceném schválení drží rezervované číslo - regenerace ho nesmí
+    // zahodit (vznikla by díra v řadě), nový snapshot ho přebírá.
+    if (existing?.number) {
+      warnings.push(
+        `Návrh má rezervované číslo ${existing.number} z vráceného schválení.`,
+      );
+    }
     await upsertInvoice({
       id,
       month,
@@ -251,6 +259,8 @@ export async function generateInvoiceDrafts(
       items: g.items,
       totals: { base, vat, total, vatRate: INVOICE_VAT_RATE },
       status: "draft",
+      number: existing?.number,
+      variableSymbol: existing?.variableSymbol,
       dutyDate,
       warnings: warnings.length ? warnings : undefined,
       generatedAt: now,
@@ -264,10 +274,17 @@ export async function generateInvoiceDrafts(
   }
 
   // Úklid: návrhy měsíce, které už nemají podklad v Poplatcích (klient/perioda
-  // mezitím vypadly). Schválených se úklid nedotýká.
+  // mezitím vypadly). Schválených se úklid nedotýká; návrh s rezervovaným
+  // číslem (po vráceném schválení) se nemaže - smazání by udělalo díru v řadě.
   const monthInvoices = await listInvoicesByMonth(month);
   for (const inv of monthInvoices) {
     if (inv.status === "draft" && !groups.has(inv.id)) {
+      if (inv.number) {
+        result.warnings.push(
+          `${inv.customer.name}: návrh s rezervovaným číslem ${inv.number} už nemá podklad v Poplatcích - vyřešte ručně (schválit, nebo smazat s dírou v řadě).`,
+        );
+        continue;
+      }
       await deleteInvoice(inv.id);
       result.removedStale++;
     }
@@ -303,7 +320,9 @@ export async function approveInvoice(
     if (fresh.status === "approved") return { invoice: fresh, already: true };
 
     const now = new Date();
-    const number = await getNextInvoiceNumber(now);
+    // Rezervované číslo z vráceného schválení se použije znovu; jinak se
+    // mintuje další z řady.
+    const number = fresh.number ?? (await getNextInvoiceNumber(now));
     const issuedDate = isoDate(now);
     const approved: Invoice = {
       ...fresh,
@@ -326,6 +345,60 @@ export async function approveInvoice(
 
     await upsertInvoice(approved);
     return { invoice: approved };
+  } finally {
+    await releaseApproveLock(id);
+  }
+}
+
+// Vzít zpět schválení: faktura se vrátí mezi návrhy a uložené PDF se zahodí.
+// Číselná řada: poslední vystavené číslo roku se atomicky uvolní (čítač se
+// vrátí a příští schválení ho vydá znovu); starší číslo zůstává REZERVOVANÉ
+// na návrhu a nové schválení ho použije - řada tak nemá díry. Idempotentní.
+export async function unapproveInvoice(
+  id: string,
+  email: string,
+): Promise<{ invoice: Invoice; releasedNumber: boolean }> {
+  const inv = await getInvoice(id);
+  if (!inv) throw new InvoicingError("Faktura nenalezena.", 404);
+  if (inv.status === "draft") return { invoice: inv, releasedNumber: false };
+
+  if (!(await acquireApproveLock(id))) {
+    throw new InvoicingError(
+      "S fakturou se právě pracuje - zkuste to za chvíli.",
+      409,
+    );
+  }
+  try {
+    const fresh = await getInvoice(id);
+    if (!fresh) throw new InvoicingError("Faktura nenalezena.", 404);
+    if (fresh.status === "draft") return { invoice: fresh, releasedNumber: false };
+
+    // Uložené PDF nese číslo a datumy zrušeného schválení - zahodit.
+    if (fresh.pdfPath) {
+      await del(fresh.pdfPath).catch((err) => {
+        console.error("[invoices] smazání PDF při vrácení schválení selhalo", err);
+      });
+    }
+
+    const released = fresh.number
+      ? await releaseInvoiceNumberIfLatest(fresh.number)
+      : false;
+
+    const draft: Invoice = {
+      ...fresh,
+      status: "draft",
+      number: released ? undefined : fresh.number,
+      variableSymbol: released ? undefined : fresh.variableSymbol,
+      issuedDate: undefined,
+      dueDate: undefined,
+      pdfPath: undefined,
+      approvedAt: undefined,
+      approvedBy: undefined,
+      generatedAt: new Date().toISOString(),
+      generatedBy: email,
+    };
+    await upsertInvoice(draft);
+    return { invoice: draft, releasedNumber: released };
   } finally {
     await releaseApproveLock(id);
   }

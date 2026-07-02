@@ -237,7 +237,7 @@ export function buildInvoiceHtml(
   const metaRows = [
     ...(draft
       ? [
-          `<tr><td>Číslo faktury</td><td class="v">přidělí se schválením</td></tr>`,
+          `<tr><td>Číslo faktury</td><td class="v">${inv.number ? `${esc(inv.number)} (rezervováno)` : "přidělí se schválením"}</td></tr>`,
           `<tr><td>Variabilní symbol</td><td class="v">-</td></tr>`,
         ]
       : [
