@@ -17,7 +17,9 @@ const ROLE_LABELS: Record<string, string> = {
 function initialsFor(name: string | null | undefined, email: string | null | undefined): string {
   const source = (name ?? email ?? "?").trim();
   if (!source) return "?";
-  const parts = source.split(/[\s.@]+/).filter(Boolean);
+  // Části nezačínající písmenem/číslicí nedávají iniciálu ("POS Test (Claude)"
+  // → PT, ne "P(") - v docku je avatar bez okolního jména, iniciály musí nést vše.
+  const parts = source.split(/[\s.@]+/).filter((p) => /^[\p{L}\p{N}]/u.test(p));
   if (parts.length === 0) return source[0]!.toUpperCase();
   const first = parts[0]![0] ?? "";
   const second = parts.length > 1 ? parts[parts.length - 1]![0] : "";
