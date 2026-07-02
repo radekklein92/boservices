@@ -1,5 +1,6 @@
 import { PageHeader } from "@/components/portal/shell/PageHeader";
 import { cachedListContracts } from "@/lib/portal/cached-db";
+import { listAccountingCentersByLocation } from "@/lib/portal/locations-db";
 import {
   buildFeeRows,
   buildSkippedFeesReport,
@@ -24,7 +25,11 @@ export default async function FeesPage({
   searchParams: Promise<{ month?: string }>;
 }) {
   // Viditelnost = kdokoli, kdo vidí Smlouvy (celá sekce Franšízing pro přihlášené).
-  const contracts = await cachedListContracts();
+  // Účetní střediska jen pro sloupec v Excel exportu.
+  const [contracts, accountingCenters] = await Promise.all([
+    cachedListContracts(),
+    listAccountingCentersByLocation(),
+  ]);
 
   const today = new Date();
   const rows = buildFeeRows(contracts);
@@ -81,6 +86,7 @@ export default async function FeesPage({
         selectedMonth={selectedMonth}
         months={months}
         report={report}
+        accountingCenters={accountingCenters}
       />
     </div>
   );

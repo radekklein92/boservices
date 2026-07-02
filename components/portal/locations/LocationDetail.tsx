@@ -84,6 +84,7 @@ export function LocationDetail({
   bosReason,
   franchiseEndDate,
   feeHistory,
+  isAdmin,
 }: {
   location: LocationView;
   contracts: LocationContractRow[];
@@ -100,6 +101,8 @@ export function LocationDetail({
   // (page.tsx) ze stejných zdrojů jako jinde; tady jen zobrazujeme.
   isBos: boolean;
   bosReason: string;
+  // Admin může editovat účetní středisko (sekce NewCo); ostatní jen čtou.
+  isAdmin: boolean;
 }) {
   const l = location;
   const recon = RECON_META[reconcile(l.lease_current_status, l.lease_target_status)];
@@ -278,46 +281,51 @@ export function LocationDetail({
           <Row label="V novém TWIST" value={l.in_new_twist ? "Ano" : "Ne"} />
         </Section>
 
-        {l.local?.newco && (
-          <Section title="NewCo">
-            <Row label="Entita CEIP #1" value={l.local.newco.entitaCeip1} />
-            <Row label="Entita CEIP #2" value={l.local.newco.entitaCeip2} />
-            <Row label="103" value={l.local.newco.field103} />
-            <Row label="V business plánu (Y/N)" value={l.local.newco.includeInBusinessPlan} />
-            <Row label="Operational type" value={l.local.newco.operationalType} />
-            <Row label="Category" value={l.local.newco.category} />
-            <div className="flex items-baseline justify-between gap-4 border-b border-edge/60 py-2 last:border-0">
-              <span className="shrink-0 text-[12.5px] text-ink-mid">Označeno červeně</span>
-              <Chip
-                tone={
-                  l.local.newco.flaggedRed || l.local.manualRed
-                    ? "border-red-300 bg-red-50 text-red-700"
-                    : "border-edge bg-edge-warm text-ink-mid"
-                }
-              >
-                {l.local.newco.flaggedRed
-                  ? "Ano"
-                  : l.local.manualRed
-                    ? "Ano (ručně)"
-                    : "Ne"}
-              </Chip>
-            </div>
-            {l.local.manualRed && !l.local.newco.flaggedRed && (
-              <p className="text-[11.5px] text-ink-soft">
-                Ručně označeno {formatDate(l.local.manualRed.at)} · {l.local.manualRed.by}
+        {/* Sekce NewCo se ukazuje VŽDY — účetní středisko má mít každá lokalita,
+            NewCo řádky jen ta, která prošla importem NewCo. */}
+        <Section title="NewCo">
+          <AccountingCenterRow location={l} isAdmin={isAdmin} />
+          {l.local?.newco && (
+            <>
+              <Row label="Entita CEIP #1" value={l.local.newco.entitaCeip1} />
+              <Row label="Entita CEIP #2" value={l.local.newco.entitaCeip2} />
+              <Row label="103" value={l.local.newco.field103} />
+              <Row label="V business plánu (Y/N)" value={l.local.newco.includeInBusinessPlan} />
+              <Row label="Operational type" value={l.local.newco.operationalType} />
+              <Row label="Category" value={l.local.newco.category} />
+              <div className="flex items-baseline justify-between gap-4 border-b border-edge/60 py-2 last:border-0">
+                <span className="shrink-0 text-[12.5px] text-ink-mid">Označeno červeně</span>
+                <Chip
+                  tone={
+                    l.local.newco.flaggedRed || l.local.manualRed
+                      ? "border-red-300 bg-red-50 text-red-700"
+                      : "border-edge bg-edge-warm text-ink-mid"
+                  }
+                >
+                  {l.local.newco.flaggedRed
+                    ? "Ano"
+                    : l.local.manualRed
+                      ? "Ano (ručně)"
+                      : "Ne"}
+                </Chip>
+              </div>
+              {l.local.manualRed && !l.local.newco.flaggedRed && (
+                <p className="text-[11.5px] text-ink-soft">
+                  Ručně označeno {formatDate(l.local.manualRed.at)} · {l.local.manualRed.by}
+                </p>
+              )}
+              {(l.local.newco.flaggedRed || l.local.manualRed) && (
+                <Row
+                  label="Řešit i přes červenou"
+                  value={l.local.solveDespiteRed ? "Ano" : "Ne"}
+                />
+              )}
+              <p className="mt-3 text-[11.5px] text-ink-soft">
+                Importováno {formatDate(l.local.newco.importedAt)} · {l.local.newco.importedBy}
               </p>
-            )}
-            {(l.local.newco.flaggedRed || l.local.manualRed) && (
-              <Row
-                label="Řešit i přes červenou"
-                value={l.local.solveDespiteRed ? "Ano" : "Ne"}
-              />
-            )}
-            <p className="mt-3 text-[11.5px] text-ink-soft">
-              Importováno {formatDate(l.local.newco.importedAt)} · {l.local.newco.importedBy}
-            </p>
-          </Section>
-        )}
+            </>
+          )}
+        </Section>
       </div>
 
       <LocationContracts contracts={contracts} />
@@ -395,6 +403,91 @@ function LocationContracts({ contracts }: { contracts: LocationContractRow[] }) 
         </ul>
       )}
     </Section>
+  );
+}
+
+// ── Účetní středisko ──────────────────────────────────────────────────────────
+
+// Řádek „Účetní středisko" v sekci NewCo. Lokální pole (POHODA zkratka, např.
+// CZ001BRBB) — admin edituje inline (uložení na blur/Enter, Escape zahodí),
+// ostatní vidí jen hodnotu. Stejný endpoint používá buňka v Real Estate tabulce.
+function AccountingCenterRow({
+  location,
+  isAdmin,
+}: {
+  location: LocationView;
+  isAdmin: boolean;
+}) {
+  const original = location.local?.accountingCenter ?? "";
+  const [val, setVal] = useState(original);
+  const [saved, setSaved] = useState(original);
+  const [saving, setSaving] = useState(false);
+  const [savedOk, setSavedOk] = useState(false);
+  const [error, setError] = useState(false);
+
+  if (!isAdmin) {
+    return <Row label="Účetní středisko" value={original || null} mono />;
+  }
+
+  async function save(text: string) {
+    const next = text.trim();
+    setVal(next);
+    if (next === saved) return;
+    setSaving(true);
+    setError(false);
+    setSavedOk(false);
+    try {
+      const res = await fetch(
+        `/api/portal/locations/${location.id}/accounting-center`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ value: next }),
+        },
+      );
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || "save failed");
+      setSaved(next);
+      setSavedOk(true);
+      setTimeout(() => setSavedOk(false), 2000);
+    } catch {
+      setError(true);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-4 border-b border-edge/60 py-2 last:border-0">
+      <span className="shrink-0 text-[12.5px] text-ink-mid">Účetní středisko</span>
+      <span className="flex items-center gap-2">
+        {saving && <span className="text-[11px] text-ink-soft">Ukládám…</span>}
+        {savedOk && !saving && (
+          <span className="text-[11px] text-emerald-600">Uloženo</span>
+        )}
+        {error && (
+          <span className="text-[11px] text-red-600">Nepodařilo se uložit</span>
+        )}
+        <input
+          type="text"
+          value={val}
+          onChange={(e) => {
+            setVal(e.target.value);
+            setSavedOk(false);
+          }}
+          onBlur={(e) => save(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") e.currentTarget.blur();
+            if (e.key === "Escape") {
+              setVal(saved);
+              e.currentTarget.blur();
+            }
+          }}
+          placeholder="např. CZ001BRBB"
+          className="w-44 rounded-lg border border-edge bg-paper px-2.5 py-1 text-right font-mono text-[13px] text-ink-base outline-none transition-colors placeholder:font-sans placeholder:text-ink-soft focus:border-ink-base"
+        />
+      </span>
+    </div>
   );
 }
 

@@ -5,6 +5,7 @@ import {
 } from "@/lib/portal/cached-db";
 import { getSession } from "@/lib/portal/get-session";
 import { getTemplateApprovers, listUsers } from "@/lib/portal/users-db";
+import { listAccountingCentersByLocation } from "@/lib/portal/locations-db";
 import {
   ALL_CONTRACT_STATUSES,
   type ContractStatus,
@@ -20,14 +21,17 @@ export default async function ContractsPage({
   // Předfiltr z URL (proklik z dashboardu): ?type=franchise&status=podepsano-klientem,archivovano
   searchParams: Promise<{ type?: string; status?: string }>;
 }) {
-  const [contracts, clients, session, approvers, users, sp] = await Promise.all([
-    cachedListContracts(),
-    cachedListClients(),
-    getSession(),
-    getTemplateApprovers(),
-    listUsers(),
-    searchParams,
-  ]);
+  const [contracts, clients, session, approvers, users, accountingCenters, sp] =
+    await Promise.all([
+      cachedListContracts(),
+      cachedListClients(),
+      getSession(),
+      getTemplateApprovers(),
+      listUsers(),
+      // Účetní střediska jen pro sloupec v Excel exportu.
+      listAccountingCentersByLocation(),
+      searchParams,
+    ]);
 
   const isApprover =
     !!session?.user?.email &&
@@ -57,6 +61,7 @@ export default async function ContractsPage({
       userOptions={userOptions}
       initialType={initialType}
       initialStatuses={initialStatuses}
+      accountingCenters={accountingCenters}
     />
   );
 }

@@ -32,6 +32,7 @@ const COLUMNS: XlsxColumn[] = [
   { header: "Varianta", width: 10 },
   { header: "Klient", width: 30 },
   { header: "Lokalita", width: 24 },
+  { header: "Účetní středisko", width: 16 },
   { header: "Kategorie lokality", width: 18 },
   { header: "Stav", width: 20 },
   { header: "Vytvořeno", width: 14 },
@@ -55,13 +56,17 @@ const COLUMNS: XlsxColumn[] = [
   { header: "Sken (PDF)", width: 40 },
 ];
 
-function contractRow(c: Contract): CellValue[] {
+function contractRow(
+  c: Contract,
+  accountingCenters: Record<string, string>,
+): CellValue[] {
   return [
     c.number,
     CONTRACT_TYPE_META[c.type]?.fullName ?? c.type,
     c.variant,
     c.clientName,
     c.locationSnapshot?.name,
+    c.locationId ? accountingCenters[c.locationId] : undefined,
     c.locationSnapshot?.category ?? undefined,
     CONTRACT_STATUS_LABEL[contractDisplayStatus(c)],
     fmtDate(c.createdAt),
@@ -86,7 +91,11 @@ function contractRow(c: Contract): CellValue[] {
   ];
 }
 
-export function buildContractsXlsx(contracts: Contract[]): Promise<Uint8Array> {
-  const rows = contracts.map(contractRow);
+export function buildContractsXlsx(
+  contracts: Contract[],
+  // locationId -> účetní středisko (POHODA zkratka) z listAccountingCentersByLocation.
+  accountingCenters: Record<string, string>,
+): Promise<Uint8Array> {
+  const rows = contracts.map((c) => contractRow(c, accountingCenters));
   return buildXlsx([{ name: "Smlouvy", columns: COLUMNS, rows }]);
 }
