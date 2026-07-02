@@ -4,6 +4,7 @@
 // renderExportPdfBuffer (portrait, brand footer „Provoz · Lidé · Standard ·
 // Růst"). Návrh = watermark NÁVRH (dlaždicová mřížka jako u smluv) a bez čísla.
 
+import { toDataURL } from "qrcode";
 import { PDF_PAGE_STYLES, HEADER_LOGO_SVG, FOOTER_TEMPLATE } from "./pdf-styles";
 import { renderExportPdfBuffer } from "./pdf-generator";
 import { WORDMARK_PNG_BASE64, WORDMARK_ASPECT } from "./assets/wordmark";
@@ -97,6 +98,28 @@ function draftWatermarkHtml(): string {
 const WORDMARK_HEIGHT = 13;
 const WORDMARK_WIDTH = Math.round(WORDMARK_HEIGHT * WORDMARK_ASPECT);
 
+// QR Platba (SPAYD 1.0) - jen u schválené faktury (návrh nemá číslo ani VS
+// a není podkladem k úhradě). ASCII bez diakritiky, částka s tečkou.
+function buildSpayd(inv: Invoice): string {
+  const parts = [
+    "SPD*1.0",
+    `ACC:${inv.supplier.iban}+${inv.supplier.bic}`,
+    `AM:${inv.totals.total.toFixed(2)}`,
+    `CC:${inv.currency}`,
+  ];
+  if (inv.variableSymbol) parts.push(`X-VS:${inv.variableSymbol}`);
+  if (inv.number) parts.push(`MSG:FAKTURA ${inv.number}`);
+  return parts.join("*");
+}
+
+async function buildQrDataUrl(inv: Invoice): Promise<string> {
+  return toDataURL(buildSpayd(inv), {
+    margin: 0,
+    width: 480,
+    errorCorrectionLevel: "M",
+  });
+}
+
 const INVOICE_STYLES = `
 .brand-row {
   display: flex; align-items: center; gap: 5pt;
@@ -114,8 +137,8 @@ const INVOICE_STYLES = `
 .inv-head h1 { margin: 0 0 3pt 0; }
 .inv-head .inv-sub { font-size: 10pt; color: #6F7672; margin: 0; }
 .inv-meta { text-align: right; font-size: 9pt; color: #6F7672; flex-shrink: 0; }
-.inv-meta table { border-collapse: collapse; margin-left: auto; }
-.inv-meta td { padding: 1.5pt 0 1.5pt 14pt; }
+.inv-meta table { border-collapse: collapse; margin: 0 0 0 auto; width: auto; }
+.inv-meta td { border: none; padding: 1.5pt 0 1.5pt 14pt; }
 .inv-meta td.v {
   font-family: "JetBrains Mono", monospace; font-size: 9.5pt;
   color: #0E0E0E; font-weight: 500; font-variant-numeric: tabular-nums;
@@ -141,7 +164,7 @@ table.items th {
 }
 table.items th.num { text-align: right; }
 table.items td {
-  padding: 7pt 8pt; border-bottom: 0.5pt solid #E8ECE9;
+  padding: 7pt 8pt; border: none; border-bottom: 0.5pt solid #E8ECE9;
   vertical-align: top; font-size: 9.5pt;
 }
 table.items td .item-label { font-weight: 600; color: #0E0E0E; }
@@ -153,8 +176,8 @@ table.items td.num {
 }
 
 .totals-wrap { display: flex; justify-content: flex-end; margin-top: 14pt; page-break-inside: avoid; }
-table.totals { border-collapse: collapse; min-width: 230pt; }
-table.totals td { padding: 4pt 0; font-size: 9.5pt; color: #2A2A2A; }
+table.totals { border-collapse: collapse; min-width: 230pt; width: auto; margin: 0; }
+table.totals td { border: none; padding: 4pt 0; font-size: 9.5pt; color: #2A2A2A; }
 table.totals td.num {
   text-align: right; white-space: nowrap;
   font-family: "JetBrains Mono", monospace; font-variant-numeric: tabular-nums;
@@ -170,10 +193,20 @@ table.totals tr.grand td.num { font-size: 12pt; }
   margin-top: 26pt; padding: 12pt 14pt;
   background: #FAFAF9; border: 0.5pt solid #E8ECE9; border-radius: 6pt;
   page-break-inside: avoid;
+  display: flex; align-items: center; justify-content: space-between; gap: 18pt;
 }
 .pay-box .pay-title {
   font-size: 7pt; text-transform: uppercase; letter-spacing: 0.18em;
   color: #6F7672; font-weight: 600; margin-bottom: 7pt;
+}
+.pay-qr { flex-shrink: 0; text-align: center; }
+.pay-qr img {
+  display: block; width: 64pt; height: 64pt;
+  background: #FFFFFF; padding: 4pt; border: 0.5pt solid #E8ECE9; border-radius: 4pt;
+}
+.pay-qr .pay-qr-label {
+  margin-top: 3pt; font-size: 6.5pt; text-transform: uppercase;
+  letter-spacing: 0.14em; color: #6F7672; font-weight: 600;
 }
 .pay-grid { display: flex; flex-wrap: wrap; gap: 6pt 36pt; }
 .pay-grid .pay-item { font-size: 8pt; color: #6F7672; }
@@ -193,7 +226,7 @@ table.totals tr.grand td.num { font-size: 12pt; }
 
 export function buildInvoiceHtml(
   inv: Invoice,
-  opts?: { draft?: boolean },
+  opts?: { draft?: boolean; qrDataUrl?: string },
 ): string {
   const draft = opts?.draft ?? inv.status !== "approved";
   const period = monthLabel(inv.month);
@@ -276,13 +309,20 @@ export function buildInvoiceHtml(
     </div>
 
     <div class="pay-box">
-      <div class="pay-title">Platební údaje</div>
-      <div class="pay-grid">
-        <div class="pay-item">Bankovní účet<span class="pv">${esc(inv.supplier.bankAccount)}</span></div>
-        <div class="pay-item">IBAN<span class="pv">${esc(inv.supplier.iban)}</span></div>
-        <div class="pay-item">BIC / SWIFT<span class="pv">${esc(inv.supplier.bic)}</span></div>
-        <div class="pay-item">Variabilní symbol<span class="pv">${draft ? "-" : esc(inv.variableSymbol ?? "")}</span></div>
+      <div>
+        <div class="pay-title">Platební údaje</div>
+        <div class="pay-grid">
+          <div class="pay-item">Bankovní účet<span class="pv">${esc(inv.supplier.bankAccount)}</span></div>
+          <div class="pay-item">IBAN<span class="pv">${esc(inv.supplier.iban)}</span></div>
+          <div class="pay-item">BIC / SWIFT<span class="pv">${esc(inv.supplier.bic)}</span></div>
+          <div class="pay-item">Variabilní symbol<span class="pv">${draft ? "-" : esc(inv.variableSymbol ?? "")}</span></div>
+        </div>
       </div>
+      ${
+        opts?.qrDataUrl
+          ? `<div class="pay-qr"><img src="${opts.qrDataUrl}" alt="QR Platba" /><div class="pay-qr-label">QR Platba</div></div>`
+          : ""
+      }
     </div>
 
     ${
@@ -325,7 +365,13 @@ export async function renderInvoicePdf(
   inv: Invoice,
   opts?: { draft?: boolean },
 ): Promise<Buffer> {
-  return renderExportPdfBuffer(buildInvoiceHtml(inv, opts), {
+  const draft = opts?.draft ?? inv.status !== "approved";
+  // QR Platba jen na schválené faktuře; selhání QR nesmí shodit render.
+  const qrDataUrl =
+    !draft && inv.number
+      ? await buildQrDataUrl(inv).catch(() => undefined)
+      : undefined;
+  return renderExportPdfBuffer(buildInvoiceHtml(inv, { draft, qrDataUrl }), {
     landscape: false,
     footerTemplate: FOOTER_TEMPLATE,
   });
