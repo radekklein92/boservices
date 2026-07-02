@@ -12,6 +12,7 @@ export const TAG = {
   claimsOverlay: "claims-overlay",
   claimsMirror: "claims-mirror",
   payouts: "payouts",
+  invoices: "invoices",
   reFlags: "re-flags",
   // POS / pokladní dashboard: posData = krátká cache odpovědí z API DW (čte se,
   // ne mutuje - bustuje se hlavně přes TTL); posPairing = crosswalk pobočka<->lokalita
