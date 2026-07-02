@@ -191,6 +191,26 @@ export async function getNextInvoiceNumber(date = new Date()): Promise<string> {
   return `${year}${String(next).padStart(4, "0")}`;
 }
 
+// Vrácení schválení: pokud je číslo POSLEDNÍ vystavené v roční řadě, vrátí
+// čítač zpět (číslo se uvolní a další schválení ho vydá znovu) - atomicky přes
+// EVAL, aby souběžný INCR z approveInvoice nemohl vyrobit duplicitní číslo.
+// Když číslo poslední není, vrací false a číslo zůstává rezervované na návrhu.
+export async function releaseInvoiceNumberIfLatest(
+  number: string,
+): Promise<boolean> {
+  const r = getRedis();
+  if (!r) throw new Error("Redis not configured");
+  const year = number.slice(0, 4);
+  const seq = parseInt(number.slice(4), 10);
+  if (!Number.isFinite(seq) || seq <= 0) return false;
+  const res = await r.eval(
+    `if redis.call('GET', KEYS[1]) == ARGV[1] then redis.call('DECR', KEYS[1]) return 1 else return 0 end`,
+    [`portal:invoice-number:${year}`],
+    [String(seq)],
+  );
+  return res === 1;
+}
+
 // Krátký zámek proti dvojímu schválení (dvojklik / dvě záložky). Okno mezi
 // INCR čísla a uložením faktury by jinak umělo propálit číslo řady.
 export async function acquireApproveLock(id: string): Promise<boolean> {

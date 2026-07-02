@@ -9,6 +9,7 @@ import {
   CheckCheck,
   FileDown,
   RefreshCw,
+  Undo2,
 } from "lucide-react";
 import { FilterChip } from "@/components/portal/ui/FilterChip";
 import { Chip } from "@/components/portal/ui/Chip";
@@ -206,6 +207,20 @@ export function InvoicingClient({
     setOpenId(null);
     void run(`approve:${inv.id}`, async () => {
       await callApi(`/api/portal/invoices/${inv.id}/approve`);
+    });
+  }
+
+  function unapproveOne(inv: Invoice) {
+    if (
+      !window.confirm(
+        `Vzít zpět schválení faktury ${inv.number ?? ""} pro ${inv.customer.name}? Faktura se vrátí mezi návrhy a uložené PDF se zahodí. Poslední číslo řady se uvolní, starší zůstane rezervované pro nové schválení.`,
+      )
+    ) {
+      return;
+    }
+    setOpenId(null);
+    void run(`unapprove:${inv.id}`, async () => {
+      await callApi(`/api/portal/invoices/${inv.id}/unapprove`);
     });
   }
 
@@ -418,6 +433,21 @@ export function InvoicingClient({
                           Schválit
                         </button>
                       )}
+                      {isAdmin && inv.status === "approved" && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            unapproveOne(inv);
+                          }}
+                          disabled={busy !== null}
+                          className={BTN_ROW}
+                          title="Vrátí fakturu mezi návrhy; poslední číslo řady se uvolní, starší zůstane rezervované"
+                        >
+                          <Undo2 className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+                          Vzít zpět
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -441,6 +471,7 @@ export function InvoicingClient({
           busy={busy !== null}
           onClose={() => setOpenId(null)}
           onApprove={() => approveOne(open)}
+          onUnapprove={() => unapproveOne(open)}
           onPdf={() => openPdf(open)}
         />
       )}

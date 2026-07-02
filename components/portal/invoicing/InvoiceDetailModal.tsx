@@ -2,7 +2,7 @@
 
 import { createPortal } from "react-dom";
 import { useEffect } from "react";
-import { AlertCircle, Check, FileDown, X } from "lucide-react";
+import { AlertCircle, Check, FileDown, Undo2, X } from "lucide-react";
 import { Chip } from "@/components/portal/ui/Chip";
 import { BTN_PRIMARY_MODAL, FV } from "@/components/portal/ui/buttons";
 import {
@@ -22,6 +22,7 @@ export function InvoiceDetailModal({
   busy,
   onClose,
   onApprove,
+  onUnapprove,
   onPdf,
 }: {
   invoice: Invoice;
@@ -29,6 +30,7 @@ export function InvoiceDetailModal({
   busy: boolean;
   onClose: () => void;
   onApprove: () => void;
+  onUnapprove: () => void;
   onPdf: () => void;
 }) {
   useEffect(() => {
@@ -45,7 +47,11 @@ export function InvoiceDetailModal({
   const meta: { label: string; value: string; strong?: boolean }[] = [
     {
       label: "Číslo faktury",
-      value: invoice.number ?? "přidělí se schválením",
+      value: invoice.number
+        ? draft
+          ? `${invoice.number} (rezervováno)`
+          : invoice.number
+        : "přidělí se schválením",
       strong: !draft,
     },
     { label: "Datum vystavení", value: fmtInvoiceDate(invoice.issuedDate) },
@@ -182,6 +188,18 @@ export function InvoiceDetailModal({
           >
             Zavřít
           </button>
+          {isAdmin && !draft && (
+            <button
+              type="button"
+              onClick={onUnapprove}
+              disabled={busy}
+              className={`inline-flex h-10 items-center gap-2 rounded-full px-4 text-[13px] font-medium text-ink-mid transition-colors hover:text-ink-base disabled:opacity-50 ${FV}`}
+              title="Vrátí fakturu mezi návrhy; poslední číslo řady se uvolní, starší zůstane rezervované"
+            >
+              <Undo2 className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+              Vzít zpět schválení
+            </button>
+          )}
           <button
             type="button"
             onClick={onPdf}
