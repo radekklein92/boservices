@@ -35,12 +35,11 @@ export function Sidebar({
         isAdmin={isAdmin}
         canSeeCommissions={canSeeCommissions}
         canSeePOS={canSeePos}
-        tasksBadge={tasksBadge}
         changesBadge={changesBadge}
       />
 
       <div className="border-t border-edge p-3">
-        <UserMenu session={session} />
+        <UserMenu session={session} tasksBadge={tasksBadge} />
       </div>
     </aside>
   );

@@ -124,7 +124,6 @@ export function MobileTopBar({
               isAdmin={isAdmin}
               canSeeCommissions={canSeeCommissions}
               canSeePOS={canSeePOS}
-              tasksBadge={tasksBadge}
               changesBadge={changesBadge}
             />
             <div className="border-t border-edge p-3">{userMenu}</div>

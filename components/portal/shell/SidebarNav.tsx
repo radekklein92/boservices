@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
-  LayoutDashboard,
   Banknote,
   BarChart3,
   Building2,
@@ -15,7 +14,6 @@ import {
   GitPullRequest,
   HandCoins,
   KeyRound,
-  ListChecks,
   MapPin,
   Palette,
   Receipt,
@@ -36,10 +34,8 @@ type Item = {
   newTab?: boolean;
 };
 
-const main: Item[] = [
-  { href: "/portal", label: "Dashboard", Icon: LayoutDashboard },
-  { href: "/portal/tasks", label: "Úkoly", Icon: ListChecks },
-];
+// Dashboard a Úkoly nejsou v seznamu - žijí jako ikony ve spodním docku
+// (UserMenu/DockNav), aby se menu vešlo na výšku běžného notebooku.
 
 // Franšízing: klientská část (klienti, smlouvy, provize).
 const fransizing: Item[] = [
@@ -101,30 +97,46 @@ export function SidebarNav({
   isAdmin,
   canSeeCommissions = false,
   canSeePOS = false,
-  tasksBadge = 0,
   changesBadge = 0,
 }: {
   isAdmin: boolean;
   canSeeCommissions?: boolean;
   canSeePOS?: boolean;
-  tasksBadge?: number;
   changesBadge?: number;
 }) {
   const pathname = usePathname() ?? "/portal";
 
-  return (
-    <nav className="no-scrollbar flex flex-1 flex-col gap-1 overflow-y-auto px-3 pt-2 pb-6">
-      <NavSection label="Hlavní">
-        {main.map((item) => (
-          <NavItem
-            key={item.href}
-            {...item}
-            active={isActive(pathname, item.href)}
-            badge={item.href === "/portal/tasks" ? tasksBadge : 0}
-          />
-        ))}
-      </NavSection>
+  // Scrollbar menu je záměrně skrytý (no-scrollbar) - fade dole je jediný
+  // signál, že pod hranou ještě něco je. Přepočet na scroll, resize i po
+  // dojetí transition (rozbalení Administrace bublá transitionend na nav).
+  const scrollerRef = useRef<HTMLElement | null>(null);
+  const [overflowsBelow, setOverflowsBelow] = useState(false);
+  const updateOverflow = useCallback(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    setOverflowsBelow(el.scrollHeight - el.scrollTop - el.clientHeight > 4);
+  }, []);
 
+  useEffect(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    updateOverflow();
+    el.addEventListener("scroll", updateOverflow, { passive: true });
+    const observer = new ResizeObserver(updateOverflow);
+    observer.observe(el);
+    return () => {
+      el.removeEventListener("scroll", updateOverflow);
+      observer.disconnect();
+    };
+  }, [updateOverflow]);
+
+  return (
+    <div className="relative min-h-0 flex-1">
+      <nav
+        ref={scrollerRef}
+        onTransitionEnd={updateOverflow}
+        className="no-scrollbar flex h-full flex-col gap-1 overflow-y-auto px-3 pt-2 pb-6"
+      >
       <NavSection label="Franšízing">
         {fransizing.map((item) => (
           <NavItem key={item.href} {...item} active={isActive(pathname, item.href)} />
@@ -164,18 +176,25 @@ export function SidebarNav({
           ))}
         </CollapsibleNavSection>
       )}
-    </nav>
+      </nav>
+      <div
+        aria-hidden="true"
+        className={`pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-linear-to-t from-paper to-transparent transition-opacity duration-200 ${
+          overflowsBelow ? "opacity-100" : "opacity-0"
+        }`}
+      />
+    </div>
   );
 }
 
-function isActive(pathname: string, href: string): boolean {
+export function isActive(pathname: string, href: string): boolean {
   if (href === "/portal") return pathname === "/portal";
   return pathname === href || pathname.startsWith(href + "/");
 }
 
 function NavSection({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="mt-7 first:mt-1">
+    <div className="mt-5 first:mt-1">
       <div className="px-3 pb-2.5 text-[10px] font-medium uppercase tracking-[0.22em] text-ink-mid">
         {label}
       </div>
@@ -216,7 +235,7 @@ function CollapsibleNavSection({
   }
 
   return (
-    <div className="mt-7 first:mt-1">
+    <div className="mt-5 first:mt-1">
       <button
         type="button"
         onClick={toggle}
@@ -257,7 +276,7 @@ function NavItem({
   badgeLabel = "Nové úkoly",
 }: Item & { active: boolean; badge?: number; badgeLabel?: string }) {
   const base =
-    "group flex h-10 items-center gap-3 rounded-lg px-3 text-[13.5px] font-medium transition-all duration-200";
+    "group flex h-9 items-center gap-3 rounded-lg px-3 text-[13.5px] font-medium transition-all duration-200";
   const state = active
     ? "bg-ink-base text-paper shadow-[0_2px_8px_-2px_rgba(14,14,14,0.15)]"
     : disabled
